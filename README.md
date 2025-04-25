@@ -1,6 +1,12 @@
 # Protoutil
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A set of utilities for working with [protobufs](https://protobuf.dev/). These utilities assume you are using [`protobuf-es`](https://github.com/bufbuild/protobuf-es) to work with messages.
+
+## Libraries
+
+- [Core](packages/core/README.md) - utilities for working with well-known types
+
+<!-- <a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
 
 ✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
 
@@ -8,15 +14,17 @@
 
 ## Finish your CI setup
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/zXUF2sWUwm)
+[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/zXUF2sWUwm) -->
 
-## Generate a library
+## Contributing
+
+### Generate a library
 
 ```sh
 npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@protoutil/pkg1 --useProjectJson
 ```
 
-## Run tasks
+### Run tasks
 
 To build the library use:
 
@@ -40,7 +48,7 @@ These targets are either [inferred automatically](https://nx.dev/concepts/inferr
 
 [More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
-## Versioning and releasing
+### Versioning and releasing
 
 To version and release the library use
 
@@ -52,7 +60,7 @@ Pass `--dry-run` to see what would happen without actually releasing the library
 
 [Learn more about Nx release &raquo;](hhttps://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
-## Keep TypeScript project references up to date
+### Keep TypeScript project references up to date
 
 Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
 
@@ -62,7 +70,7 @@ To manually trigger the process to sync the project graph dependencies informati
 npx nx sync
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+<!-- You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
 
 ```sh
 npx nx sync:check
@@ -72,13 +80,13 @@ npx nx sync:check
 
 [Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
-## Install Nx Console
+### Install Nx Console
 
 Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
 
 [Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
-## Useful links
+### Useful links
 
 Learn more:
 
@@ -92,4 +100,4 @@ And join the Nx community:
 - [Discord](https://go.nx.dev/community)
 - [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
 - [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) -->

@@ -58,6 +58,19 @@ const oneWeekAfterEpoch = timestampFromNanos(
 timestampDateString(oneWeekAfterEpoch); // returns '1970-01-08T00:00:00.000Z'
 ```
 
+#### Temporal Functions
+
+`Temporal` is a Stage 3 TC39 proposal which has begun shipping in experimental releases of browsers. Since support is still experimental, we use the `temporal-polyfill`. Using `Temporal` instead of `Date` means native support for nanosecond resolution and simplified operations when working with calendar dates, time zones, date/time calculations, and more. [Read more about the `Temporal` API here.](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal)
+
+The `durationFromTemporal` and `durationTemporal` functions convert `Temporal.Duration` objects to and from `Duration` protobuf messages:
+
+```ts
+import { durationFromTemporal, durationTemporal } from '@protoutil/core';
+
+durationFromTemporal(instant); // returns a `Duration` object representing the `Temporal.Duration`
+durationTemporal(ts); // returns a `Temporal.Duration` object representing the `Duration`
+```
+
 ### Fields
 
 The `getField` function will get a field from a message given the field descriptor. The `setField` function will set a field on a message given the field descriptor and a value. Both `getField` and `setField` respect `oneof` values. Note that `setField` does not validate the type before setting the field (PRs are welcome):

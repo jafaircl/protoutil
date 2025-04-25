@@ -1,5 +1,6 @@
 import { create } from '@bufbuild/protobuf';
 import { Duration, DurationSchema } from '@bufbuild/protobuf/wkt';
+import { Temporal } from 'temporal-polyfill';
 import { OutOfRangeError } from '../errors.js';
 import { assertValidInt32 } from '../int32.js';
 import { assertValidInt64 } from '../int64.js';
@@ -98,7 +99,12 @@ export function assertValidDuration(d: Duration) {
     );
   }
   if (d.nanos < -999_999_999 || d.nanos > 999_999_999) {
-    throw new OutOfRangeError('out-of-range nanos', d.nanos, -999_999_999, 999_999_999);
+    throw new OutOfRangeError(
+      'out-of-range nanos',
+      d.nanos,
+      -999_999_999,
+      999_999_999
+    );
   }
 }
 
@@ -178,4 +184,48 @@ export function durationFromNanos(nanos: bigint) {
  */
 export function durationNanos(d: Duration) {
   return d.seconds * NANOS_PER_SECOND + BigInt(d.nanos);
+}
+
+/**
+ * Convert a Temporal.Duration to a google.protobuf.Duration message. Optionally accepts a
+ * `relativeTo` argument to balance the duration. The `relativeTo` argument can be any value
+ * that can be passed to the `relativeTo` parameter for `Temporal.Duration.round()`. The default
+ * is the current time.
+ */
+export function durationFromTemporal(
+  duration: Temporal.Duration,
+  relativeTo:
+    | string
+    | Temporal.PlainDateTime
+    | Temporal.ZonedDateTime
+    | Temporal.PlainDateTimeLike
+    | Temporal.ZonedDateTimeLike = Temporal.Now.plainDateTimeISO()
+) {
+  const totalSeconds = duration.total({ unit: 'seconds', relativeTo });
+  const seconds = BigInt(Math.floor(totalSeconds));
+  const remainingNanos = Math.round(
+    (totalSeconds % 1) * Number(NANOS_PER_SECOND)
+  );
+  return create(DurationSchema, {
+    seconds,
+    // This will make sure we don't end up with -0.
+    nanos: ensureNoNegativeZero(remainingNanos),
+  });
+}
+
+function ensureNoNegativeZero(value: number) {
+  if (Object.is(value, -0)) {
+    return 0;
+  }
+  return value;
+}
+
+/**
+ * Convert a google.protobuf.Duration message to a Temporal.Duration
+ */
+export function durationTemporal(duration: Duration) {
+  return Temporal.Duration.from({
+    seconds: Number(duration.seconds),
+    nanoseconds: Number(duration.nanos),
+  });
 }
