@@ -19,7 +19,6 @@
   ],
   "dependencies": {
     "@bufbuild/protobuf": "^2.2.5",
-    "temporal-polyfill": "^0.3.0",
-    "tslib": "^2.3.0"
+    "temporal-polyfill": "^0.3.0"
   }
 }
