@@ -4,10 +4,6 @@
 
 - **core:** add temporal duration functions ([e95ac25](https://github.com/jafaircl/protoutil/commit/e95ac25))
 
-### 🩹 Fixes
-
-- **core:** fix package.json exports issue ([7e1dfa2](https://github.com/jafaircl/protoutil/commit/7e1dfa2))
-
 ### ❤️ Thank You
 
 - jafaircl

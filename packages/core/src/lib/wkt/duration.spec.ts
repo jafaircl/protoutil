@@ -4,6 +4,7 @@ import { Temporal } from 'temporal-polyfill';
 import { MAX_INT32, MIN_INT32 } from '../int32.js';
 import { MAX_INT64, MIN_INT64 } from '../int64.js';
 import {
+  clampDuration,
   duration,
   durationFromNanos,
   durationFromString,
@@ -12,6 +13,8 @@ import {
   durationString,
   durationTemporal,
   isValidDuration,
+  MAX_DURATION_SECONDS,
+  MIN_DURATION_SECONDS,
 } from './duration.js';
 
 describe('duration', () => {
@@ -255,6 +258,38 @@ describe('duration', () => {
         nanoseconds: -1_000_000_001,
       });
       expect(Temporal.Duration.compare(d, t)).toEqual(0);
+    });
+  });
+
+  describe('clampDuration()', () => {
+    it('should clamp a duration to the max duration', () => {
+      const d = create(DurationSchema, { seconds: MAX_DURATION_SECONDS + 1n });
+      const clamped = clampDuration(d);
+      expect(clamped.seconds).toBe(MAX_DURATION_SECONDS);
+      expect(clamped.nanos).toBe(0);
+    });
+
+    it('should clamp a duration to the min duration', () => {
+      const d = create(DurationSchema, { seconds: MIN_DURATION_SECONDS - 1n });
+      const clamped = clampDuration(d);
+      expect(clamped.seconds).toBe(MIN_DURATION_SECONDS);
+      expect(clamped.nanos).toBe(0);
+    });
+
+    it('should accept a custom min duration', () => {
+      const d = create(DurationSchema, { seconds: -100n });
+      const min = create(DurationSchema, { seconds: -50n });
+      const clamped = clampDuration(d, min);
+      expect(clamped.seconds).toBe(-50n);
+      expect(clamped.nanos).toBe(0);
+    });
+
+    it('should accept a custom max duration', () => {
+      const d = create(DurationSchema, { seconds: 100n });
+      const max = create(DurationSchema, { seconds: 50n });
+      const clamped = clampDuration(d, undefined, max);
+      expect(clamped.seconds).toBe(50n);
+      expect(clamped.nanos).toBe(0);
     });
   });
 });

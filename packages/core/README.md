@@ -58,6 +58,20 @@ const oneWeekAfterEpoch = timestampFromNanos(
 timestampDateString(oneWeekAfterEpoch); // returns '1970-01-08T00:00:00.000Z'
 ```
 
+The `clampDuration` function can be used to ensure that a `Duration` is between two specified values. By default, `clampDuration` uses the minimum and maximum values as defined in the protobuf spec (-315,576,000,000 seconds & +315,576,000,000 seconds).
+
+```ts
+import { clampDuration } from '@protoutil/core';
+
+let min = duration(5n);
+let max = duration(10n);
+clampDuration(duration(15n), min, max); // returns the max value
+clampDuration(duration(1n), min, max); // returns the min value
+clampDuration(duration(7n), min, max); // returns the original value
+clampDuration(duration(-315,576,000,001n)); // returns a min (-315,576,000,000 seconds) duration
+clampDuration(duration(315,576,000,001n)); // returns a max (+315,576,000,000 seconds) duration
+```
+
 #### Temporal Functions
 
 `Temporal` is a Stage 3 TC39 proposal which has begun shipping in experimental releases of browsers. Since support is still experimental, we use the `temporal-polyfill`. Using `Temporal` instead of `Date` means native support for nanosecond resolution and simplified operations when working with calendar dates, time zones, date/time calculations, and more. [Read more about the `Temporal` API here.](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal)
@@ -67,8 +81,8 @@ The `durationFromTemporal` and `durationTemporal` functions convert `Temporal.Du
 ```ts
 import { durationFromTemporal, durationTemporal } from '@protoutil/core';
 
-durationFromTemporal(instant); // returns a `Duration` object representing the `Temporal.Duration`
-durationTemporal(ts); // returns a `Temporal.Duration` object representing the `Duration`
+durationFromTemporal(duration); // returns a `Duration` object representing the `Temporal.Duration`
+durationTemporal(message); // returns a `Temporal.Duration` object representing the `Duration`
 ```
 
 ### Fields
@@ -239,6 +253,20 @@ import { roundTimestampNanos, assertValidTimestamp } from '@protoutil/core';
 let ts = create(TimestampSchema, { nanos: 3 / 2 });
 ts = roundTimestampNanos(ts);
 assertValidTimestamp(ts); // should not throw
+```
+
+The `clampTimestamp` function can be used to ensure that a `Timestamp` is between two specified values. By default, `clampTimestamp` uses the minimum and maximum values as defined in the protobuf spec (0001-01-01T00:00:00Z & 9999-12-31T23:59:59.999999999Z).
+
+```ts
+import { clampTimestamp } from '@protoutil/core';
+
+let min = timestamp(5n);
+let max = timestamp(10n);
+clampTimestamp(timestamp(15n), min, max); // returns the max value
+clampTimestamp(timestamp(1n), min, max); // returns the min value
+clampTimestamp(timestamp(7n), min, max); // returns the original value
+clampTimestamp(timestamp(-62135596801n)); // returns a min (0001-01-01T00:00:00Z) timestamp
+clampTimestamp(timestamp(253402300800n)); // returns a max (9999-12-31T23:59:59.999999999Z) timestamp
 ```
 
 #### Temporal Functions

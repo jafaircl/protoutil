@@ -1,10 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import {
-  Timestamp,
-  timestampDate,
-  timestampFromDate,
-  TimestampSchema,
-} from '@bufbuild/protobuf/wkt';
+import { Timestamp, TimestampSchema } from '@bufbuild/protobuf/wkt';
 import { Temporal } from 'temporal-polyfill';
 import { assertValidInt32 } from '../int32.js';
 import { assertValidInt64 } from '../int64.js';
@@ -24,7 +19,8 @@ export const MIN_UNIX_TIME_MILLIS = MIN_UNIX_TIME_SECONDS * 1_000;
 /**
  * Number of nanoseconds between `0001-01-01T00:00:00Z` and the Unix epoch.
  */
-export const MIN_UNIX_TIME_NANOS = BigInt(MIN_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
+export const MIN_UNIX_TIME_NANOS =
+  BigInt(MIN_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
 
 /**
  * Number of seconds between `9999-12-31T23:59:59.999999999Z` and the Unix epoch.
@@ -39,7 +35,8 @@ export const MAX_UNIX_TIME_MILLIS = MAX_UNIX_TIME_SECONDS * 1_000;
 /**
  * Number of nanoseconds between `9999-12-31T23:59:59.999999999Z` and the Unix epoch.
  */
-export const MAX_UNIX_TIME_NANOS = BigInt(MAX_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
+export const MAX_UNIX_TIME_NANOS =
+  BigInt(MAX_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
 
 /**
  * Create a google.protobuf.Timestamp message. In addition to being less verbose, this function
@@ -137,7 +134,9 @@ export function timestampFromInstant(instant: Temporal.Instant) {
 export function timestampInstant(timestamp: Timestamp) {
   const seconds = BigInt(timestamp.seconds);
   const nanos = BigInt(timestamp.nanos);
-  return Temporal.Instant.fromEpochNanoseconds(seconds * NANOS_PER_SECOND + nanos);
+  return Temporal.Instant.fromEpochNanoseconds(
+    seconds * NANOS_PER_SECOND + nanos
+  );
 }
 
 /**
@@ -172,95 +171,55 @@ export function timestampNanos(timestamp: Timestamp) {
 }
 
 /**
- * Parses a string as an unsigned integer between min and max.
- */
-function parseUint(s: string, min: number, max: number) {
-  const parsed = parseInt(s, 10);
-  if (Number.isNaN(parsed) || parsed < min || parsed > max) {
-    return min;
-  }
-  return parsed;
-}
-
-/**
- * Parses a timestamp from a string. Will accept RFC3339 timestamps with or
- * without nanoseconds and with or without a timezone or ISO8601 timestamps
- * with or without a timezone.
+ * Parses a google.protobuf.Timestamp from a string. This function uses the
+ * Temporal API to parse the string. As such, any valid RFC9557, RFC3339, or
+ * ISO8601 string should be accepted. If an offset and a timezone are both
+ * present, any ambiguity will be resolved in favor of the offset.
  *
  * Example values:
  * - `1970-01-01T02:07:34.000000321Z`
  * - `1970-01-01T02:07:34.000000321+07:00`
+ * - `2011-10-05T14:48:00Z`
  * - `2011-10-05T14:48:00.000Z`
  * - `2011-10-05T14:48:00.000-04:00`
+ * - `2024-03-02T08:48:00Z[America/New_York]`
+ * - `2024-03-02T08:48:00-05:00[America/New_York]`
  *
- * This function is based on the Go implementation of RFC3339 parsing:
- * @see https://cs.opensource.google/go/go/+/refs/tags/go1.23.3:src/time/format_rfc3339.go
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Instant/from
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime/from
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime#offset_ambiguity
  */
 export function timestampFromDateString(value: string) {
-  if (value.length < '2006-01-02T15:04:05'.length) {
-    return null;
+  // If there is no timezone (i.e. 2024-03-02T08:48:00Z[America/New_York]), we
+  // can just use Temporal.Instant. If the value has an offset, Temporal.Instant
+  // will parse it correctly. Since we favor the offset over the timezone, we
+  // can just use Temporal.Instant. Using ZonedDateTime would cause the offset
+  // to be accounted for twice if both an offset and a timezone are present.
+  if (!dateStringHasBrackets(value) || dateStringHasOffset(value)) {
+    return timestampFromInstant(Temporal.Instant.from(value));
   }
-  const year = parseUint(value.slice(0, 4), 0, 9999); // e.g., 2006
-  const month = parseUint(value.slice(5, 7), 1, 12); // e.g., 01
-  const day = parseUint(value.slice(8, 10), 1, 31); // e.g., 02
-  const hour = parseUint(value.slice(11, 13), 0, 23); // e.g., 15
-  const min = parseUint(value.slice(14, 16), 0, 59); // e.g., 04
-  const sec = parseUint(value.slice(17, 19), 0, 59); // e.g., 05
+  // If the value has a timezone (i.e. 2024-03-02T08:48:00Z[America/New_York]),
+  // we need to use the zoned date time to get the correct offset.
+  const zoned = Temporal.ZonedDateTime.from(value, { offset: 'use' });
+  return timestampFromNanos(
+    zoned.epochNanoseconds - BigInt(zoned.offsetNanoseconds)
+  );
+}
 
-  value = value.slice(19);
+function dateStringHasOffset(value: string) {
+  return /([+-]\d{2}:\d{2})/.test(value);
+}
 
-  // Parse the fractional second.
-  let nanos = 0;
-  if (value.length > 1 && value[0] === '.') {
-    value = value.slice(2);
-    let i = 0;
-    while (i < value.length && '0' <= value[i] && value[i] <= '9') {
-      i++;
-    }
-    const frac = value.slice(0, i);
-    nanos = parseInt(frac, 10);
-    value = value.slice(i);
-  }
-
-  // Construct the date object
-  const date = new Date(Date.UTC(year, month - 1, day, hour, min, sec));
-
-  // Parse the timezone
-  if (value.length !== 1 || value !== 'Z') {
-    if (
-      value.length !== '-07:00'.length ||
-      (value[0] !== '+' && value[0] !== '-') ||
-      value[3] !== ':'
-    ) {
-      return null;
-    }
-    const hr = parseUint(value.slice(1, 3), 0, 23); // e.g., 07
-    const mm = parseUint(value.slice(4, 6), 0, 59); // e.g., 00
-    let zoneOffset = hr * 60 + mm;
-    if (value[0] === '-') {
-      zoneOffset = -zoneOffset;
-    }
-    date.setMinutes(date.getMinutes() + zoneOffset);
-  }
-  const ts = timestampFromDate(date);
-  return create(TimestampSchema, {
-    seconds: ts.seconds,
-    nanos,
-  });
+function dateStringHasBrackets(value: string) {
+  return /(\[.*?\])/.test(value);
 }
 
 /**
- * Converts a timestamp to a string. The string will be in RFC3339 format with
- * nanoseconds if the timestamp has nanoseconds. Otherwise, it will be in
- * ISO8061 format. The string will always be in UTC.
+ * Converts a google.protobuf.Timestamp value to a string. The string will be
+ * in RFC3339 format and will always be in UTC.
  */
 export function timestampDateString(ts: Timestamp) {
-  const date = timestampDate(ts);
-  if (ts.nanos === 0) {
-    return date.toISOString();
-  }
-  const paddedNanos = ts.nanos.toString().padStart(9, '0');
-  return date.toISOString().replace(/\.\d+Z$/, `.${paddedNanos}Z`);
+  return timestampInstant(ts).toString();
 }
 
 /**
@@ -270,4 +229,35 @@ export function timestampDateString(ts: Timestamp) {
  */
 export function roundTimestampNanos(ts: Timestamp) {
   return timestamp(ts.seconds, Math.round(ts.nanos));
+}
+
+/**
+ * The maximum google.protobuf.Timestamp value. It is equal to 9999-12-31T23:59:59.999999999Z.
+ */
+export const MAX_TIMESTAMP = timestampFromNanos(MAX_UNIX_TIME_NANOS);
+
+/**
+ * The minimum google.protobuf.Timestamp value. It is equal to 0001-01-01T00:00:00Z.
+ */
+export const MIN_TIMESTAMP = timestampFromNanos(MIN_UNIX_TIME_NANOS);
+
+/**
+ * Clamps a timestamp to the range of valid timestamps. The minimum and maximum
+ * values are inclusive. If the timestamp is less than the minimum, it will
+ * be set to the minimum. If the timestamp is greater than the maximum,
+ * it will be set to the maximum.
+ */
+export function clampTimestamp(
+  ts: Timestamp,
+  min = MIN_TIMESTAMP,
+  max = MAX_TIMESTAMP
+) {
+  const nanos = timestampNanos(ts);
+  if (nanos < timestampNanos(min)) {
+    return min;
+  }
+  if (nanos > timestampNanos(max)) {
+    return max;
+  }
+  return ts;
 }

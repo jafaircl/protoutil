@@ -229,3 +229,34 @@ export function durationTemporal(duration: Duration) {
     nanoseconds: Number(duration.nanos),
   });
 }
+
+/**
+ * The minimum google.protobuf.Duration value. This is the same as -315,576,000,000
+ * seconds.
+ */
+export const MIN_DURATION = duration(MIN_DURATION_SECONDS);
+
+/**
+ * The maximum google.protobuf.Duration value. This is the same as +315,576,000,000
+ * seconds.
+ */
+export const MAX_DURATION = duration(MAX_DURATION_SECONDS);
+
+/**
+ * Clamp a google.protobuf.Duration value to a range of valid durations. The default
+ * minimum is -315,576,000,000 seconds and the default maximum is +315,576,000,000 seconds.
+ */
+export function clampDuration(
+  value: Duration,
+  min = MIN_DURATION,
+  max = MAX_DURATION
+): Duration {
+  const nanos = durationNanos(value);
+  if (nanos < durationNanos(min)) {
+    return min;
+  }
+  if (nanos > durationNanos(max)) {
+    return max;
+  }
+  return value;
+}
