@@ -52,9 +52,7 @@ const epochTimestamp = timestampFromNanos(0n);
 const epochTimestampNanos = timestampNanos(epochTimestamp);
 const oneWeekDuration = durationFromString(`${7 * 24 * 60 * 60}s`);
 const oneWeekDurationNanos = durationNanos(oneWeekDuration);
-const oneWeekAfterEpoch = timestampFromNanos(
-  epochTimestampNanos + oneWeekDurationNanos
-);
+const oneWeekAfterEpoch = timestampFromNanos(epochTimestampNanos + oneWeekDurationNanos);
 timestampDateString(oneWeekAfterEpoch); // returns '1970-01-08T00:00:00.000Z'
 ```
 
@@ -106,6 +104,8 @@ setField(message, fieldDescriptor, value); // Sets the value of the field
 > Here `f` represents a field in some root message, `a` and `b` fields in the message found in `f`, and `d` a field found in the message in `f.b`.
 >
 > Field masks are used to specify a subset of fields that should be returned by a get operation or modified by an update operation.
+
+The `FieldMask` spec does not allow for wildcards and repeated or map fields must be the last part of the path. The final argument for all relevant `FieldMask` functions is `strict`, which defaults to `true`. If `strict` is `true`, the function will only allow field masks that are valid according to the spec. However, the [AIP Guidelines](https://google.aip.dev/161) allow for wildcards in field masks. So, if you want to allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
 
 The `fieldMask` function creates a `FieldMask` message and asserts that it is valid for the given schema:
 
@@ -239,9 +239,7 @@ const epochTimestamp = timestampFromNanos(0n);
 const epochTimestampNanos = timestampNanos(epochTimestamp);
 const oneWeekDuration = durationFromString(`${7 * 24 * 60 * 60}s`);
 const oneWeekDurationNanos = durationNanos(oneWeekDuration);
-const oneWeekAfterEpoch = timestampFromNanos(
-  epochTimestampNanos + oneWeekDurationNanos
-);
+const oneWeekAfterEpoch = timestampFromNanos(epochTimestampNanos + oneWeekDurationNanos);
 timestampDateString(oneWeekAfterEpoch); // returns '1970-01-08T00:00:00.000Z'
 ```
 

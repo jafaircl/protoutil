@@ -18,13 +18,16 @@ import { getField, setField } from '../field.js';
  * validate the field mask to ensure it is valid for the given message descriptor. An error will be
  * thrown if the field mask is invalid for the message descriptor.
  *
- * Note that the FieldMask spec does not allow for wildcards and repeated or map fields must be the
- * last part of the path. This function will error in those cases. `aipFieldMask` will allow field
- * masks with wildcards, repeated, and map fields.
+ * The `FieldMask` spec does not allow for wildcards and repeated or map fields must be the last part
+ * of the path. The final argument for this function is `strict`, which defaults to `true`. If `strict`
+ * is `true`, the function will only allow field masks that are valid according to the spec. However,
+ * the [AIP Guidelines](https://google.aip.dev/161) allow for wildcards in field masks. So, if you want to
+ * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
+ * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
-export function fieldMask(schema: DescMessage, ...paths: string[]) {
+export function fieldMask(schema: DescMessage, paths: string[], strict = true) {
   const value = create(FieldMaskSchema, { paths });
-  assertValidFieldMask(schema, value);
+  assertValidFieldMask(schema, value, strict);
   return value;
 }
 
@@ -32,36 +35,81 @@ export function fieldMask(schema: DescMessage, ...paths: string[]) {
  * A valid field name string must start with a lowercase letter, end with a lower case alphanumeric
  * character (and NOT an underscore) and can only contain lowercase letters, numbers, and
  * underscores. It cannot contain any other characters. It may be as few as one character long.
+ *
+ * The `FieldMask` spec does not allow for wildcards and repeated or map fields must be the last part
+ * of the path. The final argument for this function is `strict`, which defaults to `true`. If `strict`
+ * is `true`, the function will only allow field masks that are valid according to the spec. However,
+ * the [AIP Guidelines](https://google.aip.dev/161) allow for wildcards in field masks. So, if you want to
+ * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
+ * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
-export function isValidFieldName(str: string) {
-  return /^[a-z_][a-z0-9_]*[a-z0-9]$|^[a-z]$/.test(str);
+export function isValidFieldName(str: string, strict = true) {
+  if (strict) {
+    return /^[a-z_][a-z0-9_]*[a-z0-9]$|^[a-z]$/.test(str);
+  }
+  return /^[a-z_][a-z0-9_]*[a-z0-9]$|^[a-z]$|^\*$|^[a-z_][a-z0-9_]*\.$|^\*[a-z0-9]$/.test(str);
 }
 
 /**
  * Asserts that a field mask is valid for a given message descriptor.
  *
- * Note that the FieldMask spec does not allow for wildcards and repeated or map fields must be the
- * last part of the path. This function will error in those cases. `assertValidAipFieldMask` will
- * allow field masks with wildcards, repeated, and map fields.
+ * The `FieldMask` spec does not allow for wildcards and repeated or map fields must be the last part
+ * of the path. The final argument for this function is `strict`, which defaults to `true`. If `strict`
+ * is `true`, the function will only allow field masks that are valid according to the spec. However,
+ * the [AIP Guidelines](https://google.aip.dev/161) allow for wildcards in field masks. So, if you want to
+ * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
+ * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
-export function assertValidFieldMask(schema: DescMessage, fieldMask: FieldMask) {
+export function assertValidFieldMask(schema: DescMessage, fieldMask: FieldMask, strict = true) {
   for (const path of fieldMask.paths) {
+    // Special case for '*' wildcard. If a field is a wildcard, it must be
+    // the only path in the field mask.
+    if (!strict && path === '*') {
+      if (fieldMask.paths.length > 1) {
+        throw new InvalidValueError(
+          `invalid field path: '*' must not be used with other paths`,
+          path
+        );
+      }
+      // This path is valid and the only one
+      continue;
+    }
     let md: DescMessage | null = schema;
     let fd: DescField | null = null;
     const fields = path.split('.');
     for (const field of fields) {
       // Valid protobuf field names must be lower snake case.
-      if (!isValidFieldName(field)) {
+      if (!isValidFieldName(field, strict)) {
         throw new InvalidValueError(`invalid protobuf field name: ${field}`, path);
       }
+      // The field can be a wildcard as long as the previous field was a list
+      // or map. For example: `map_uint64_timestamp.*.seconds` might be valid
+      // since `map_uint64_timestamp` is presumably a map with timestamp
+      // message values. See: https://google.aip.dev/161#wildcards
+      if (!strict && field === '*') {
+        // If the field descriptor is nil, we cannot have a wildcard.
+        if (!fd) {
+          throw new InvalidValueError(`wildcards must be used with repeated or map fields`, path);
+        }
+        switch (fd.fieldKind) {
+          case 'list':
+          case 'map':
+            md = fd.message ?? null;
+            // This path is valid. Move on to the next field.
+            continue;
+          default:
+            // If the field descriptor is not a list or map, we cannot have a wildcard.
+            throw new InvalidValueError(`wildcards must be used with repeated or map fields`, path);
+        }
+      }
       if (!md) {
-        if (fd && fd.fieldKind === 'list') {
+        if (strict && fd && fd.fieldKind === 'list') {
           throw new InvalidValueError(
             `repeated field is only allowed in the last position: ${path}`,
             path
           );
         }
-        if (fd && fd.fieldKind === 'map') {
+        if (strict && fd && fd.fieldKind === 'map') {
           throw new InvalidValueError(
             `map field is only allowed in the last position: ${path}`,
             path
@@ -89,13 +137,16 @@ export function assertValidFieldMask(schema: DescMessage, fieldMask: FieldMask) 
 /**
  * Check if a field mask is valid for a given message descriptor.
  *
- * Note that the FieldMask spec does not allow for wildcards and repeated or map fields must be the
- * last part of the path. This function will error in those cases. `isValidAipFieldMask` will allow
- * field masks with wildcards, repeated, and map fields.
+ * The `FieldMask` spec does not allow for wildcards and repeated or map fields must be the last part
+ * of the path. The final argument for this function is `strict`, which defaults to `true`. If `strict`
+ * is `true`, the function will only allow field masks that are valid according to the spec. However,
+ * the [AIP Guidelines](https://google.aip.dev/161) allow for wildcards in field masks. So, if you want to
+ * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
+ * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
-export function isValidFieldMask(schema: DescMessage, fieldMask: FieldMask) {
+export function isValidFieldMask(schema: DescMessage, fieldMask: FieldMask, strict = true) {
   try {
-    assertValidFieldMask(schema, fieldMask);
+    assertValidFieldMask(schema, fieldMask, strict);
     return true;
   } catch {
     return false;
@@ -106,9 +157,23 @@ export function isValidFieldMask(schema: DescMessage, fieldMask: FieldMask) {
  * Check if a field mask has a path that matches the given path. A path matches if it is equal to
  * the passed path or if it starts with the passed path and a dot. For example, a field mask with
  * a "foo.bar" path will return true if the passed path is "foo.bar" or "foo.bar.baz".
+ *
+ * The `FieldMask` spec does not allow for wildcards and repeated or map fields must be the last part
+ * of the path. The final argument for this function is `strict`, which defaults to `true`. If `strict`
+ * is `true`, the function will only allow field masks that are valid according to the spec. However,
+ * the [AIP Guidelines](https://google.aip.dev/161) allow for wildcards in field masks. So, if you want to
+ * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
+ * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
-export function fieldMaskHasPath(fieldMask: FieldMask, path: string) {
+export function fieldMaskHasPath(fieldMask: FieldMask, path: string, strict = true) {
   for (const p of fieldMask.paths) {
+    // Wildcards, e.g. "*", match any path.
+    if (!strict && p === '*') {
+      return true;
+    }
+    // If the path is equal to the passed path, it matches.
+    // If the path starts with the passed path and a dot, it matches.
+    // i.e. "foo.bar" matches "foo.bar.baz"
     if (p === path || path.startsWith(p + '.')) {
       return true;
     }
@@ -122,17 +187,28 @@ export function fieldMaskHasPath(fieldMask: FieldMask, path: string) {
  * that only the fields NOT specified in the field mask are included in the new message. Note that
  * this operation does not mutate the original message. Instead, it creates a new message with the
  * field mask applied.
+ *
+ * The `FieldMask` spec does not allow for wildcards and repeated or map fields must be the last part
+ * of the path. The final argument for this function is `strict`, which defaults to `true`. If `strict`
+ * is `true`, the function will only allow field masks that are valid according to the spec. However,
+ * the [AIP Guidelines](https://google.aip.dev/161) allow for wildcards in field masks. So, if you want to
+ * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
+ * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
 export function applyFieldMask<Desc extends DescMessage>(
   schema: Desc,
   message: MessageShape<Desc>,
   fieldMask: FieldMask,
-  inverse = false
+  inverse = false,
+  strict = true
 ) {
-  assertValidFieldMask(schema, fieldMask);
+  assertValidFieldMask(schema, fieldMask, strict);
   const copy = inverse ? clone(schema, message) : create(schema);
   for (const path of fieldMask.paths) {
-    applyPath(schema, copy, message, path.split('.'), inverse);
+    if (!strict && path === '*') {
+      return inverse ? create(schema) : clone(schema, message);
+    }
+    applyPath(schema, copy, message, path.split('.'), inverse, strict);
   }
   return copy;
 }
@@ -142,7 +218,8 @@ function applyPath<Desc extends DescMessage>(
   target: MessageShape<Desc>,
   source: MessageShape<Desc>,
   segments: string[],
-  inverse: boolean
+  inverse: boolean,
+  strict: boolean
 ) {
   if (segments.length === 0) {
     return;
@@ -161,13 +238,40 @@ function applyPath<Desc extends DescMessage>(
     }
   }
   switch (field.fieldKind) {
+    case 'list':
+      if (!strict && segments[1] === '*' && field.listKind === 'message') {
+        const sourceList = getField(source, field) as Message[];
+        const targetList = getField(target, field) as Message[];
+        for (let i = 0; i < sourceList.length; i++) {
+          targetList[i] = inverse ? clone(field.message, sourceList[i]) : create(field.message);
+          applyPath(
+            field.message,
+            targetList[i],
+            sourceList[i],
+            segments.slice(2),
+            inverse,
+            strict
+          );
+        }
+      }
+      break;
+    case 'map':
+      if (!strict && segments[1] === '*' && field.mapKind === 'message') {
+        const sourceMap = getField(source, field) as Record<string | number | symbol, Message>;
+        const targetMap = getField(target, field) as Record<string | number | symbol, Message>;
+        for (const [key, sourceValue] of Object.entries(sourceMap)) {
+          targetMap[key] = inverse ? clone(field.message, sourceValue) : create(field.message);
+          applyPath(field.message, targetMap[key], sourceValue, segments.slice(2), inverse, strict);
+        }
+      }
+      break;
     case 'message':
       const sourceValue = getField(source, field) as Message;
       if (!isFieldSet(target, field) && !inverse) {
         setField(target, field, create(field.message));
       }
       const targetValue = getField(target, field) as Message;
-      applyPath(field.message, targetValue, sourceValue, segments.slice(1), inverse);
+      applyPath(field.message, targetValue, sourceValue, segments.slice(1), inverse, strict);
       break;
     default:
       break;

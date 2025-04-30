@@ -1,0 +1,27 @@
+{
+  "name": "@protoutil/aip",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/aip/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "packages/aip/dist",
+        "main": "packages/aip/src/index.ts",
+        "tsConfig": "packages/aip/tsconfig.lib.json",
+        "format": ["esm"],
+        "declarationRootDir": "packages/aip/src"
+      }
+    },
+    "genproto": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx buf generate",
+        "cwd": "packages/aip"
+      }
+    }
+  }
+}

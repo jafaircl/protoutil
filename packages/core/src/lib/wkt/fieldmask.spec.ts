@@ -47,6 +47,17 @@ describe('fieldmask', () => {
       },
       {
         schema: TestAllTypesSchema,
+        paths: ['*'],
+        strict: false,
+      },
+      {
+        schema: TestAllTypesSchema,
+        paths: ['*', 'map_string_bytes_wrapper'],
+        strict: false,
+        errorContains: `invalid field path: '*' must not be used with other paths`,
+      },
+      {
+        schema: TestAllTypesSchema,
         paths: ['invalid'],
         errorContains: `field 'invalid' not found in message`,
       },
@@ -292,8 +303,24 @@ describe('fieldmask', () => {
       },
       {
         schema: TestAllTypesSchema,
+        paths: ['map_uint64_timestamp.*.seconds'],
+        strict: false,
+      },
+      {
+        schema: TestAllTypesSchema,
+        paths: ['map_uint64_timestamp.*.invalid'],
+        strict: false,
+        errorContains: `field 'invalid' not found in message`,
+      },
+      {
+        schema: TestAllTypesSchema,
         paths: ['map_uint64_timestamp.seconds'],
         errorContains: `map field is only allowed in the last position`,
+      },
+      {
+        schema: TestAllTypesSchema,
+        paths: ['map_uint64_timestamp.*.seconds'],
+        errorContains: `invalid protobuf field name: *`,
       },
       {
         schema: TestAllTypesSchema,
@@ -301,8 +328,24 @@ describe('fieldmask', () => {
       },
       {
         schema: TestAllTypesSchema,
+        paths: ['repeated_timestamp.*.seconds'],
+        strict: false,
+      },
+      {
+        schema: TestAllTypesSchema,
+        paths: ['repeated_timestamp.*.invalid'],
+        strict: false,
+        errorContains: `field 'invalid' not found in message`,
+      },
+      {
+        schema: TestAllTypesSchema,
         paths: ['repeated_timestamp.seconds'],
         errorContains: `repeated field is only allowed in the last position`,
+      },
+      {
+        schema: TestAllTypesSchema,
+        paths: ['repeated_timestamp.*.seconds'],
+        errorContains: `invalid protobuf field name: *`,
       },
       {
         schema: TestAllTypesSchema,
@@ -330,15 +373,23 @@ describe('fieldmask', () => {
         schema: NestedTestAllTypesSchema,
         paths: ['child.child.child.payload.repeated_nested_message'],
       },
+      {
+        schema: NestedTestAllTypesSchema,
+        paths: ['child.payload.*'],
+        strict: false,
+        errorContains: `wildcards must be used with repeated or map fields`,
+      },
     ];
     for (const tc of testCases) {
       it(`creates a field mask with ${JSON.stringify(tc.paths)}`, () => {
         if (tc.errorContains) {
-          expect(() => fieldMask(tc.schema, ...tc.paths)).toThrow(
+          expect(() => fieldMask(tc.schema, tc.paths, tc.strict === false ? false : true)).toThrow(
             tc.errorContains
           );
         } else {
-          expect(() => fieldMask(tc.schema, ...tc.paths)).not.toThrow();
+          expect(() =>
+            fieldMask(tc.schema, tc.paths, tc.strict === false ? false : true)
+          ).not.toThrow();
         }
       });
     }
@@ -347,33 +398,66 @@ describe('fieldmask', () => {
   describe('fieldMaskHasPath()', () => {
     it('checks for paths', () => {
       expect(
+        fieldMaskHasPath(fieldMask(TestAllTypesSchema, ['single_int32']), 'single_int32')
+      ).toBe(true);
+      expect(
+        fieldMaskHasPath(fieldMask(TestAllTypesSchema, ['single_int32']), 'single_string')
+      ).toBe(false);
+      expect(
         fieldMaskHasPath(
-          fieldMask(TestAllTypesSchema, 'single_int32'),
-          'single_int32'
+          fieldMask(TestAllTypesSchema, ['standalone_message.bb']),
+          'standalone_message.bb'
         )
       ).toBe(true);
       expect(
         fieldMaskHasPath(
-          fieldMask(TestAllTypesSchema, 'single_int32'),
-          'single_string'
+          fieldMask(TestAllTypesSchema, ['standalone_message']),
+          'standalone_message.bb'
+        )
+      ).toBe(true);
+      expect(
+        fieldMaskHasPath(
+          fieldMask(TestAllTypesSchema, ['standalone_message.bb']),
+          'standalone_message'
+        )
+      ).toBe(false);
+      expect(
+        fieldMaskHasPath(fieldMask(TestAllTypesSchema, ['*'], false), 'map_uint64_timestamp', false)
+      ).toBe(true);
+      expect(
+        fieldMaskHasPath(
+          fieldMask(
+            TestAllTypesSchema,
+            ['map_uint64_timestamp.*.seconds', 'map_uint64_timestamp.*.nanos'],
+            false
+          ),
+          'map_uint64_timestamp.*.nanos',
+          false
+        )
+      ).toBe(true);
+      expect(
+        fieldMaskHasPath(
+          fieldMask(
+            TestAllTypesSchema,
+            ['map_uint64_timestamp.*.seconds', 'map_uint64_timestamp.*.nanos'],
+            false
+          ),
+          'map_uint64_timestamp.*.invalid',
+          false
         )
       ).toBe(false);
       expect(
         fieldMaskHasPath(
-          fieldMask(TestAllTypesSchema, 'standalone_message.bb'),
-          'standalone_message.bb'
+          fieldMask(TestAllTypesSchema, ['map_uint64_timestamp.*'], false),
+          'map_uint64_timestamp.*.nanos',
+          false
         )
       ).toBe(true);
       expect(
         fieldMaskHasPath(
-          fieldMask(TestAllTypesSchema, 'standalone_message'),
-          'standalone_message.bb'
-        )
-      ).toBe(true);
-      expect(
-        fieldMaskHasPath(
-          fieldMask(TestAllTypesSchema, 'standalone_message.bb'),
-          'standalone_message'
+          fieldMask(TestAllTypesSchema, ['map_uint64_timestamp.*.seconds'], false),
+          'map_uint64_timestamp',
+          false
         )
       ).toBe(false);
     });
@@ -385,7 +469,7 @@ describe('fieldmask', () => {
         applyFieldMask(
           TestAllTypesSchema,
           testAllTypes(),
-          fieldMask(TestAllTypesSchema, 'no_such_field')
+          fieldMask(TestAllTypesSchema, ['no_such_field'])
         )
       ).toThrow(`field 'no_such_field' not found in message`);
     });
@@ -394,14 +478,14 @@ describe('fieldmask', () => {
       {
         schema: TestAllTypesSchema,
         message: testAllTypes({ singleInt32: 1 }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'single_int32'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_int32']),
         inverse: false,
         expected: testAllTypes({ singleInt32: 1 }),
       },
       {
         schema: TestAllTypesSchema,
         message: testAllTypes({ singleInt32: 1 }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'single_int32'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_int32']),
         inverse: true,
         expected: testAllTypes(),
       },
@@ -411,7 +495,7 @@ describe('fieldmask', () => {
           singleInt32: 1,
           singleInt64: BigInt(2),
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'single_int32'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_int32']),
         inverse: false,
         expected: testAllTypes({ singleInt32: 1 }),
       },
@@ -421,7 +505,7 @@ describe('fieldmask', () => {
           singleInt32: 1,
           singleInt64: BigInt(2),
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'single_int32'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_int32']),
         inverse: true,
         expected: testAllTypes({
           singleInt64: BigInt(2),
@@ -433,11 +517,7 @@ describe('fieldmask', () => {
           singleInt32: 1,
           singleInt64: BigInt(2),
         }),
-        fieldMask: fieldMask(
-          TestAllTypesSchema,
-          'single_int32',
-          'single_int64'
-        ),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_int32', 'single_int64']),
         inverse: false,
         expected: testAllTypes({
           singleInt32: 1,
@@ -450,11 +530,7 @@ describe('fieldmask', () => {
           singleInt32: 1,
           singleInt64: BigInt(2),
         }),
-        fieldMask: fieldMask(
-          TestAllTypesSchema,
-          'single_int32',
-          'single_int64'
-        ),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_int32', 'single_int64']),
         inverse: true,
         expected: testAllTypes(),
       },
@@ -466,7 +542,7 @@ describe('fieldmask', () => {
             bb: 1,
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'standalone_message'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['standalone_message']),
         inverse: false,
         expected: testAllTypes({
           standaloneMessage: {
@@ -482,7 +558,7 @@ describe('fieldmask', () => {
             bb: 1,
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'standalone_message'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['standalone_message']),
         inverse: true,
         expected: testAllTypes({ singleInt32: 1 }),
       },
@@ -497,7 +573,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'single_nested_message'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_nested_message']),
         inverse: false,
         expected: testAllTypes({
           nestedType: {
@@ -519,7 +595,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'single_int32'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_int32']),
         inverse: false,
         expected: testAllTypes({ singleInt32: 1 }),
       },
@@ -534,7 +610,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'single_nested_message'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['single_nested_message']),
         inverse: true,
         expected: testAllTypes({ singleInt32: 1 }),
       },
@@ -553,7 +629,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'map_uint32_timestamp'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['map_uint32_timestamp']),
         inverse: false,
         expected: testAllTypes({
           mapUint32Timestamp: {
@@ -583,7 +659,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'map_uint32_timestamp'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['map_uint32_timestamp']),
         inverse: true,
         expected: testAllTypes({
           singleInt32: 1,
@@ -598,7 +674,7 @@ describe('fieldmask', () => {
             { nanos: 2, seconds: 2n },
           ],
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'repeated_timestamp'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['repeated_timestamp']),
         inverse: false,
         expected: testAllTypes({
           repeatedTimestamp: [
@@ -616,7 +692,7 @@ describe('fieldmask', () => {
             { nanos: 2, seconds: BigInt(2) },
           ],
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'repeated_timestamp'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['repeated_timestamp']),
         inverse: true,
         expected: testAllTypes({
           singleInt32: 1,
@@ -636,10 +712,7 @@ describe('fieldmask', () => {
             singleBool: true,
           },
         }),
-        fieldMask: fieldMask(
-          NestedTestAllTypesSchema,
-          'child.payload.single_int32'
-        ),
+        fieldMask: fieldMask(NestedTestAllTypesSchema, ['child.payload.single_int32']),
         inverse: false,
         expected: create(NestedTestAllTypesSchema, {
           child: {
@@ -663,10 +736,7 @@ describe('fieldmask', () => {
             singleBool: true,
           },
         }),
-        fieldMask: fieldMask(
-          NestedTestAllTypesSchema,
-          'child.payload.single_int32'
-        ),
+        fieldMask: fieldMask(NestedTestAllTypesSchema, ['child.payload.single_int32']),
         inverse: true,
         expected: create(NestedTestAllTypesSchema, {
           child: {
@@ -698,10 +768,7 @@ describe('fieldmask', () => {
             singleBool: true,
           },
         }),
-        fieldMask: fieldMask(
-          NestedTestAllTypesSchema,
-          'child.child.payload.map_int32_timestamp'
-        ),
+        fieldMask: fieldMask(NestedTestAllTypesSchema, ['child.child.payload.map_int32_timestamp']),
         inverse: false,
         expected: create(NestedTestAllTypesSchema, {
           child: {
@@ -734,10 +801,7 @@ describe('fieldmask', () => {
             singleBool: true,
           },
         }),
-        fieldMask: fieldMask(
-          NestedTestAllTypesSchema,
-          'child.child.payload.map_int32_timestamp'
-        ),
+        fieldMask: fieldMask(NestedTestAllTypesSchema, ['child.child.payload.map_int32_timestamp']),
         inverse: true,
         expected: create(NestedTestAllTypesSchema, {
           child: {
@@ -762,7 +826,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'oneof_msg'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['oneof_msg']),
         inverse: false,
         expected: testAllTypes({
           kind: {
@@ -784,7 +848,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(TestAllTypesSchema, 'oneof_msg'),
+        fieldMask: fieldMask(TestAllTypesSchema, ['oneof_msg']),
         inverse: true,
         expected: testAllTypes({
           singleInt32: 1,
@@ -805,10 +869,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(
-          NestedTestAllTypesSchema,
-          'child.payload.oneof_msg'
-        ),
+        fieldMask: fieldMask(NestedTestAllTypesSchema, ['child.payload.oneof_msg']),
         inverse: false,
         expected: create(NestedTestAllTypesSchema, {
           child: {
@@ -838,10 +899,7 @@ describe('fieldmask', () => {
             },
           },
         }),
-        fieldMask: fieldMask(
-          NestedTestAllTypesSchema,
-          'child.payload.oneof_msg'
-        ),
+        fieldMask: fieldMask(NestedTestAllTypesSchema, ['child.payload.oneof_msg']),
         inverse: true,
         expected: create(NestedTestAllTypesSchema, {
           child: {
@@ -851,18 +909,251 @@ describe('fieldmask', () => {
           },
         }),
       },
+      {
+        schema: TestAllTypesSchema,
+        message: testAllTypes({ singleInt32: 1, singleDouble: 3.14 }),
+        fieldMask: fieldMask(TestAllTypesSchema, ['*'], false),
+        inverse: false,
+        strict: false,
+        expected: testAllTypes({ singleInt32: 1, singleDouble: 3.14 }),
+      },
+      {
+        schema: TestAllTypesSchema,
+        message: testAllTypes({ singleInt32: 1 }),
+        fieldMask: fieldMask(TestAllTypesSchema, ['*'], false),
+        inverse: true,
+        strict: false,
+        expected: testAllTypes(),
+      },
+      {
+        schema: TestAllTypesSchema,
+        message: testAllTypes({
+          singleInt32: 1,
+          mapUint32Timestamp: {
+            1: {
+              nanos: 1,
+              seconds: BigInt(1),
+            },
+            2: {
+              nanos: 2,
+              seconds: BigInt(2),
+            },
+          },
+        }),
+        fieldMask: fieldMask(TestAllTypesSchema, ['map_uint32_timestamp.*.seconds'], false),
+        inverse: false,
+        strict: false,
+        expected: testAllTypes({
+          mapUint32Timestamp: {
+            1: {
+              seconds: BigInt(1),
+            },
+            2: {
+              seconds: BigInt(2),
+            },
+          },
+        }),
+      },
+      {
+        schema: TestAllTypesSchema,
+        message: testAllTypes({
+          singleInt32: 1,
+          mapUint32Timestamp: {
+            1: {
+              nanos: 1,
+              seconds: BigInt(1),
+            },
+            2: {
+              nanos: 2,
+              seconds: BigInt(2),
+            },
+          },
+        }),
+        fieldMask: fieldMask(TestAllTypesSchema, ['map_uint32_timestamp.*.seconds'], false),
+        inverse: true,
+        strict: false,
+        expected: testAllTypes({
+          singleInt32: 1,
+          mapUint32Timestamp: {
+            1: {
+              nanos: 1,
+            },
+            2: {
+              nanos: 2,
+            },
+          },
+        }),
+      },
+      {
+        schema: TestAllTypesSchema,
+        message: testAllTypes({
+          singleInt32: 1,
+          repeatedTimestamp: [
+            { nanos: 1, seconds: BigInt(1) },
+            { nanos: 2, seconds: BigInt(2) },
+          ],
+        }),
+        fieldMask: fieldMask(TestAllTypesSchema, ['repeated_timestamp.*.seconds'], false),
+        inverse: false,
+        strict: false,
+        expected: testAllTypes({
+          repeatedTimestamp: [{ seconds: BigInt(1) }, { seconds: BigInt(2) }],
+        }),
+      },
+      {
+        schema: TestAllTypesSchema,
+        message: testAllTypes({
+          singleInt32: 1,
+          repeatedTimestamp: [
+            { nanos: 1, seconds: BigInt(1) },
+            { nanos: 2, seconds: BigInt(2) },
+          ],
+        }),
+        fieldMask: fieldMask(TestAllTypesSchema, ['repeated_timestamp.*.seconds'], false),
+        inverse: true,
+        strict: false,
+        expected: testAllTypes({
+          singleInt32: 1,
+          repeatedTimestamp: [{ nanos: 1 }, { nanos: 2 }],
+        }),
+      },
+      {
+        schema: NestedTestAllTypesSchema,
+        message: create(NestedTestAllTypesSchema, {
+          child: {
+            payload: {
+              singleInt32: 1,
+              singleBool: true,
+            },
+          },
+          payload: {
+            singleInt32: 1,
+            singleBool: true,
+          },
+        }),
+        fieldMask: fieldMask(NestedTestAllTypesSchema, ['child.payload.single_int32'], false),
+        inverse: false,
+        strict: false,
+        expected: create(NestedTestAllTypesSchema, {
+          child: {
+            payload: {
+              singleInt32: 1,
+            },
+          },
+        }),
+      },
+      {
+        schema: NestedTestAllTypesSchema,
+        message: create(NestedTestAllTypesSchema, {
+          child: {
+            child: {
+              payload: {
+                mapInt32Timestamp: {
+                  1: {
+                    nanos: 1,
+                    seconds: BigInt(1),
+                  },
+                  2: {
+                    nanos: 2,
+                    seconds: BigInt(2),
+                  },
+                },
+              },
+            },
+          },
+          payload: {
+            singleInt32: 1,
+            singleBool: true,
+          },
+        }),
+        fieldMask: fieldMask(
+          NestedTestAllTypesSchema,
+          ['child.child.payload.map_int32_timestamp.*.seconds'],
+          false
+        ),
+        inverse: false,
+        strict: false,
+        expected: create(NestedTestAllTypesSchema, {
+          child: {
+            child: {
+              payload: {
+                mapInt32Timestamp: {
+                  1: {
+                    seconds: BigInt(1),
+                  },
+                  2: {
+                    seconds: BigInt(2),
+                  },
+                },
+              },
+            },
+          },
+        }),
+      },
+      {
+        schema: NestedTestAllTypesSchema,
+        message: create(NestedTestAllTypesSchema, {
+          child: {
+            child: {
+              payload: {
+                mapInt32Timestamp: {
+                  1: {
+                    nanos: 1,
+                    seconds: BigInt(1),
+                  },
+                  2: {
+                    nanos: 2,
+                    seconds: BigInt(2),
+                  },
+                },
+              },
+            },
+          },
+          payload: {
+            singleInt32: 1,
+            singleBool: true,
+          },
+        }),
+        fieldMask: fieldMask(
+          NestedTestAllTypesSchema,
+          ['child.child.payload.map_int32_timestamp.*.seconds'],
+          false
+        ),
+        inverse: true,
+        strict: false,
+        expected: create(NestedTestAllTypesSchema, {
+          child: {
+            child: {
+              payload: {
+                mapInt32Timestamp: {
+                  1: {
+                    nanos: 1,
+                  },
+                  2: {
+                    nanos: 2,
+                  },
+                },
+              },
+            },
+          },
+          payload: {
+            singleInt32: 1,
+            singleBool: true,
+          },
+        }),
+      },
     ];
     for (const tc of testCases) {
-      it(`should apply${
-        tc.inverse ? ' an inverse' : ''
-      } field mask ${toJsonString(FieldMaskSchema, tc.fieldMask)} to ${
-        tc.schema.typeName
-      }`, () => {
+      it(`should apply${tc.inverse ? ' an inverse' : ''} field mask ${toJsonString(
+        FieldMaskSchema,
+        tc.fieldMask
+      )} to ${tc.schema.typeName}`, () => {
         const result = applyFieldMask(
           tc.schema,
           tc.message,
           tc.fieldMask,
-          tc.inverse
+          tc.inverse,
+          tc.strict === false ? false : true
         );
         expect(result).toEqual(tc.expected);
       });
@@ -892,21 +1183,34 @@ describe('fieldmask', () => {
         out: ['child.child.payload'],
       },
       {
-        in: [
-          ['child.child.payload.map_int32_timestamp'],
-          ['child.child.payload'],
-        ],
+        in: [['child.child.payload.map_int32_timestamp'], ['child.child.payload']],
         out: ['child.child.payload'],
+      },
+      {
+        in: [
+          ['child.payload.map_int32_timestamp.*.seconds'],
+          ['child.payload.map_int32_timestamp.*.nanos'],
+        ],
+        out: [
+          'child.payload.map_int32_timestamp.*.nanos',
+          'child.payload.map_int32_timestamp.*.seconds',
+        ],
+      },
+      {
+        in: [
+          ['child.payload.repeated_timestamp.*.seconds'],
+          ['child.payload.repeated_timestamp.*.nanos'],
+        ],
+        out: [
+          'child.payload.repeated_timestamp.*.nanos',
+          'child.payload.repeated_timestamp.*.seconds',
+        ],
       },
     ];
 
     for (const tc of testCases) {
-      it(`merges field masks ${JSON.stringify(tc.in)} to ${JSON.stringify(
-        tc.out
-      )}`, () => {
-        const merged = mergeFieldMasks(
-          ...tc.in.map((m) => create(FieldMaskSchema, { paths: m }))
-        );
+      it(`merges field masks ${JSON.stringify(tc.in)} to ${JSON.stringify(tc.out)}`, () => {
+        const merged = mergeFieldMasks(...tc.in.map((m) => create(FieldMaskSchema, { paths: m })));
         expect(merged).toEqual(create(FieldMaskSchema, { paths: tc.out }));
       });
     }
@@ -931,27 +1235,23 @@ describe('fieldmask', () => {
         out: ['child.child.payload'],
       },
       {
-        in: [
-          ['child.child.payload.map_int32_timestamp'],
-          ['child.child.payload'],
-        ],
+        in: [['child.child.payload.map_int32_timestamp'], ['child.child.payload']],
         out: ['child.child.payload.map_int32_timestamp'],
       },
       {
-        in: [
-          ['a', 'b'],
-          ['b.b'],
-          ['b'],
-          ['b', 'a.A'],
-          ['b', 'c', 'c.a', 'c.b'],
-        ],
+        in: [['a', 'b'], ['b.b'], ['b'], ['b', 'a.A'], ['b', 'c', 'c.a', 'c.b']],
         out: ['b.b'],
+      },
+      {
+        in: [
+          ['child.payload.repeated_timestamp.*.seconds'],
+          ['child.payload.repeated_timestamp.*.nanos'],
+        ],
+        out: [],
       },
     ];
     for (const tc of testCases) {
-      it(`intersects field masks ${JSON.stringify(tc.in)} to ${JSON.stringify(
-        tc.out
-      )}`, () => {
+      it(`intersects field masks ${JSON.stringify(tc.in)} to ${JSON.stringify(tc.out)}`, () => {
         const intersected = intersectFieldMasks(
           ...tc.in.map((m) => create(FieldMaskSchema, { paths: m }))
         );

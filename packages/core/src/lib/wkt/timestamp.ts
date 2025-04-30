@@ -19,8 +19,7 @@ export const MIN_UNIX_TIME_MILLIS = MIN_UNIX_TIME_SECONDS * 1_000;
 /**
  * Number of nanoseconds between `0001-01-01T00:00:00Z` and the Unix epoch.
  */
-export const MIN_UNIX_TIME_NANOS =
-  BigInt(MIN_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
+export const MIN_UNIX_TIME_NANOS = BigInt(MIN_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
 
 /**
  * Number of seconds between `9999-12-31T23:59:59.999999999Z` and the Unix epoch.
@@ -35,8 +34,7 @@ export const MAX_UNIX_TIME_MILLIS = MAX_UNIX_TIME_SECONDS * 1_000;
 /**
  * Number of nanoseconds between `9999-12-31T23:59:59.999999999Z` and the Unix epoch.
  */
-export const MAX_UNIX_TIME_NANOS =
-  BigInt(MAX_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
+export const MAX_UNIX_TIME_NANOS = BigInt(MAX_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
 
 /**
  * Create a google.protobuf.Timestamp message. In addition to being less verbose, this function
@@ -134,9 +132,7 @@ export function timestampFromInstant(instant: Temporal.Instant) {
 export function timestampInstant(timestamp: Timestamp) {
   const seconds = BigInt(timestamp.seconds);
   const nanos = BigInt(timestamp.nanos);
-  return Temporal.Instant.fromEpochNanoseconds(
-    seconds * NANOS_PER_SECOND + nanos
-  );
+  return Temporal.Instant.fromEpochNanoseconds(seconds * NANOS_PER_SECOND + nanos);
 }
 
 /**
@@ -201,9 +197,7 @@ export function timestampFromDateString(value: string) {
   // If the value has a timezone (i.e. 2024-03-02T08:48:00Z[America/New_York]),
   // we need to use the zoned date time to get the correct offset.
   const zoned = Temporal.ZonedDateTime.from(value, { offset: 'use' });
-  return timestampFromNanos(
-    zoned.epochNanoseconds - BigInt(zoned.offsetNanoseconds)
-  );
+  return timestampFromNanos(zoned.epochNanoseconds - BigInt(zoned.offsetNanoseconds));
 }
 
 function dateStringHasOffset(value: string) {
@@ -247,11 +241,7 @@ export const MIN_TIMESTAMP = timestampFromNanos(MIN_UNIX_TIME_NANOS);
  * be set to the minimum. If the timestamp is greater than the maximum,
  * it will be set to the maximum.
  */
-export function clampTimestamp(
-  ts: Timestamp,
-  min = MIN_TIMESTAMP,
-  max = MAX_TIMESTAMP
-) {
+export function clampTimestamp(ts: Timestamp, min = MIN_TIMESTAMP, max = MAX_TIMESTAMP) {
   const nanos = timestampNanos(ts);
   if (nanos < timestampNanos(min)) {
     return min;
