@@ -1,3 +1,14 @@
+## 0.2.0 (2025-04-30)
+
+### 🚀 Features
+
+- **aip:** initial commit ([3e2f26f](https://github.com/jafaircl/protoutil/commit/3e2f26f))
+- **core:** add clamp functions; improve timestamp string parsing ([51db85d](https://github.com/jafaircl/protoutil/commit/51db85d))
+
+### ❤️ Thank You
+
+- jafaircl
+
 ## 0.1.3 (2025-04-25)
 
 ### 🚀 Features
