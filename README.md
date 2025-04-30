@@ -4,6 +4,8 @@ A set of utilities for working with [protobufs](https://protobuf.dev/). These ut
 
 ## Libraries
 
+- [AIP](packages/aip/README.md) - utilities for implementing [Google API Improvement Proposals](https://aip.dev/)
+  (AIPs)
 - [Core](packages/core/README.md) - utilities for working with well-known types
 
 <!-- <a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
