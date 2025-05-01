@@ -48,4 +48,40 @@ describe('request', () => {
     );
     expect(checkSum1).toEqual(checkSum2);
   });
+
+  it('should calculate the same checksum for fields with different pageTokens', () => {
+    const checkSum1 = calculateRequestCheckSum(
+      TestPaginationRequestSchema,
+      create(TestPaginationRequestSchema, { parent: 'shelves/1', pageToken: 'a' })
+    );
+    const checkSum2 = calculateRequestCheckSum(
+      TestPaginationRequestSchema,
+      create(TestPaginationRequestSchema, { parent: 'shelves/1', pageToken: 'b' })
+    );
+    expect(checkSum1).toEqual(checkSum2);
+  });
+
+  it('should calculate the same checksum for fields with different pageSizes', () => {
+    const checkSum1 = calculateRequestCheckSum(
+      TestPaginationRequestSchema,
+      create(TestPaginationRequestSchema, { parent: 'shelves/1', pageSize: 1 })
+    );
+    const checkSum2 = calculateRequestCheckSum(
+      TestPaginationRequestSchema,
+      create(TestPaginationRequestSchema, { parent: 'shelves/1', pageSize: 2 })
+    );
+    expect(checkSum1).toEqual(checkSum2);
+  });
+
+  it('should calculate the same checksum for fields with different skips', () => {
+    const checkSum1 = calculateRequestCheckSum(
+      TestPaginationRequestSchema,
+      create(TestPaginationRequestSchema, { parent: 'shelves/1', skip: 1 })
+    );
+    const checkSum2 = calculateRequestCheckSum(
+      TestPaginationRequestSchema,
+      create(TestPaginationRequestSchema, { parent: 'shelves/1', skip: 2 })
+    );
+    expect(checkSum1).toEqual(checkSum2);
+  });
 });

@@ -20,7 +20,6 @@
   "dependencies": {
     "@buf/googleapis_googleapis.bufbuild_es": "^2.2.5-20250411203938-61b203b9a916.1",
     "@bufbuild/protobuf": "^2.2.5",
-    "@protoutil/core": "0.2.1",
-    "crc": "^4.3.2"
+    "@protoutil/core": "0.2.1"
   }
 }

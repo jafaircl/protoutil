@@ -18,6 +18,7 @@ After adding Buf as a registry, use your configured package manager to install t
 ## Sub-Modules
 
 - [AIP-132: Order By](src/lib/orderby/README.md)
+- [AIP-154: Resource Freshness Validation](src/lib/etag/README.md)
 - [AIP-158: Pagination](src/lib/pagination/README.md)
 - [AIP-160: Filtering](src/lib/filtering/README.md)
 - [AIP-193: Errors](src/lib/errors/README.md)

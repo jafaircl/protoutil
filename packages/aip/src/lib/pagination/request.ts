@@ -1,5 +1,5 @@
-import { clearField, clone, DescMessage, Message, toBinary } from '@bufbuild/protobuf';
-import { crc32 } from 'crc';
+import { clearField, clone, DescMessage, Message } from '@bufbuild/protobuf';
+import { calculateMessageCheckSum } from '@protoutil/core';
 
 /**
  * Request is an interface for paginated request messages.
@@ -36,19 +36,15 @@ export function calculateRequestCheckSum<T extends string = string>(
   request: RequestMessage<T>
 ): number {
   const clonedRequest = clone(schema, request) as RequestMessage<T>;
-  const pageTokenField = schema.fields.find((f) => f.name === 'page_token');
-  if (pageTokenField) {
-    clearField(clonedRequest, pageTokenField);
+  // Clear the page token, page size, and skip fields from the request message.
+  if (schema.field.pageToken) {
+    clearField(clonedRequest, schema.field.pageToken);
   }
-  const pageSizeField = schema.fields.find((f) => f.name === 'page_size');
-  if (pageSizeField) {
-    clearField(clonedRequest, pageSizeField);
+  if (schema.field.pageSize) {
+    clearField(clonedRequest, schema.field.pageSize);
   }
-  const skipField = schema.fields.find((f) => f.name === 'skip');
-  if (skipField) {
-    clearField(clonedRequest, skipField);
+  if (schema.field.skip) {
+    clearField(clonedRequest, schema.field.skip);
   }
-
-  const bin = toBinary(schema, clonedRequest);
-  return crc32(bin);
+  return calculateMessageCheckSum(schema, clonedRequest);
 }
