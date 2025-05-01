@@ -8,6 +8,27 @@ Use your configured package manager to install the `@protoutil/core` package. i.
 
 ## Usage
 
+### CheckSum
+
+The `calculateMessageCheckSum` function can be used to calculate a non-cryptographic [checksum](https://en.wikipedia.org/wiki/Checksum) for a given message. The checksums for any two messages with identical values should be identical. But, the checksums for any two messages with different values should never match. Internally, this is used to create pagination page tokens and ETags in the AIP package. But, it is useful for quickly comparing any two messages:
+
+```ts
+import { calculateMessageCheckSum } from '@protoutil/core';
+
+const message1 = create(MySchema, { foo: 'bar' });
+const checksum1 = calculateMessageCheckSum(MySchema, message1);
+
+const message2 = create(MySchema, { foo: 'bar' });
+const checksum2 = calculateMessageCheckSum(MySchema, message2);
+
+const message3 = create(MySchema, { baz: 'quz' });
+const checksum3 = calculateMessageCheckSum(MySchema, message3);
+
+checksum1 === checksum2; // true
+checksum1 === checksum3; // false
+checksum2 === checksum3; // false
+```
+
 ### Duration
 
 > A Duration represents a signed, fixed-length span of time represented as a count of seconds and fractions of seconds at nanosecond resolution. It is independent of any calendar and concepts like "day" or "month". It is related to Timestamp in that the difference between two Timestamp values is a Duration and it can be added or subtracted from a Timestamp. Range is approximately +-10,000 years.

@@ -1,3 +1,4 @@
+export * from './lib/checksum.js';
 export * from './lib/errors.js';
 export * from './lib/field.js';
 export * from './lib/int32.js';
