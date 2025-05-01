@@ -1,3 +1,16 @@
+## 0.2.2 (2025-05-01)
+
+### 🚀 Features
+
+- **aip:** initial commit ([3e2f26f](https://github.com/jafaircl/protoutil/commit/3e2f26f))
+- **aip:** add etag functions; update pagination to use calculateMessageCheckSum from core package ([e42c212](https://github.com/jafaircl/protoutil/commit/e42c212))
+- **core:** add clamp functions; improve timestamp string parsing ([51db85d](https://github.com/jafaircl/protoutil/commit/51db85d))
+- **core:** add checksum function ([42e1ee5](https://github.com/jafaircl/protoutil/commit/42e1ee5))
+
+### ❤️ Thank You
+
+- jafaircl
+
 ## 0.2.1 (2025-04-30)
 
 ### 🚀 Features
