@@ -12,8 +12,9 @@
         "outputPath": "packages/aip/dist",
         "main": "packages/aip/src/index.ts",
         "tsConfig": "packages/aip/tsconfig.lib.json",
-        "format": ["esm"],
-        "declarationRootDir": "packages/aip/src"
+        "format": ["esm", "cjs"],
+        "declarationRootDir": "packages/aip/src",
+        "minify": true
       }
     },
     "genproto": {
