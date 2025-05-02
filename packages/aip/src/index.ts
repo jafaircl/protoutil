@@ -4,3 +4,4 @@ export * from './lib/fieldbehavior/index.js';
 export * from './lib/filtering/index.js';
 export * from './lib/orderby/index.js';
 export * from './lib/pagination/index.js';
+export * from './lib/resourcename/index.js';

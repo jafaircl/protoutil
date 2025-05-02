@@ -1,7 +1,7 @@
 # AIP
 
 TypeScript SDK for implementing [Google API Improvement Proposals](https://aip.dev/)
-(AIP).
+(AIP). Most of the utilities in this library are TypeScript re-implementations of the [AIP Go](https://github.com/einride/aip-go) library.
 
 ## Install
 
@@ -17,6 +17,7 @@ After adding Buf as a registry, use your configured package manager to install t
 
 ## Sub-Modules
 
+- [AIP-122: Resource Names](src/lib/resourcename/README.md)
 - [AIP-132: Order By](src/lib/orderby/README.md)
 - [AIP-154: Resource Freshness Validation](src/lib/etag/README.md)
 - [AIP-158: Pagination](src/lib/pagination/README.md)
