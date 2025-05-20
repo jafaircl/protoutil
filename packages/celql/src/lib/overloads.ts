@@ -132,6 +132,7 @@ export const STARTS_WITH_STRING_OVERLOAD = 'starts_with_string';
 export const EXT_FORMAT_STRING_OVERLOAD = 'string_format';
 
 // Time-based functions.
+export const TIMESTAMP_NOW = 'now';
 export const TIME_GET_FULL_YEAR_OVERLOAD = 'getFullYear';
 export const TIME_GET_MONTH_OVERLOAD = 'getMonth';
 export const TIME_GET_DAY_OF_YEAR_OVERLOAD = 'getDayOfYear';
@@ -186,6 +187,7 @@ export const TYPE_CONVERT_TIMESTAMP_OVERLOAD = 'timestamp';
 export const TYPE_CONVERT_DURATION_OVERLOAD = 'duration';
 export const TYPE_CONVERT_TYPE_OVERLOAD = 'type';
 export const TYPE_CONVERT_DYN_OVERLOAD = 'dyn';
+export const TYPE_CONVERT_DATE_OVERLOAD = 'date';
 
 // Int conversion functions.
 export const INT_TO_INT_OVERLOAD = 'int64_to_int64';
@@ -227,7 +229,9 @@ export const DURATION_TO_STRING_OVERLOAD = 'duration_to_string';
 
 // Timestamp conversion functions
 export const TIMESTAMP_TO_TIMESTAMP_OVERLOAD = 'timestamp_to_timestamp';
+export const TIMESTAMP_TO_TIMESTAMP_WITH_TZ_OVERLOAD = 'timestamp_to_timestamp_with_tz';
 export const STRING_TO_TIMESTAMP_OVERLOAD = 'string_to_timestamp';
+export const STRING_TO_TIMESTAMP_WITH_TZ_OVERLOAD = 'string_to_timestamp_with_tz';
 export const INT_TO_TIMESTAMP_OVERLOAD = 'int64_to_timestamp';
 
 // Convert duration from string
@@ -237,3 +241,26 @@ export const INT_TO_DURATION_OVERLOAD = 'int64_to_duration';
 
 // Convert to dyn
 export const TO_DYN_OVERLOAD = 'to_dyn';
+
+// CELQL specific overloads
+
+// Convert to date
+export const DATE_TO_DATE_OVERLOAD = 'date_to_date';
+export const STRING_TO_DATE_OVERLOAD = 'string_to_date';
+export const TIMESTAMP_TO_DATE_OVERLOAD = 'timestamp_to_date';
+
+// Timezone conversion
+export const TIME_AT_TIMEZONE_OVERLOAD = 'atTimeZone';
+export const TIMESTAMP_AT_TIMEZONE_OVERLOAD = 'timestamp_at_timezone';
+
+// String formatting
+export const STRING_LOWER_OVERLOAD = 'lower';
+export const STRING_UPPER_OVERLOAD = 'upper';
+export const STRING_TRIM_OVERLOAD = 'trim';
+
+// String case-insensitive comparison
+export const STRING_INSENSITIVE_EQUALS_OVERLOAD = 'equalsIgnoreCase';
+export const STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD = 'notEqualsIgnoreCase';
+export const STRING_INSENSITIVE_STARTS_WITH_OVERLOAD = 'startsWithIgnoreCase';
+export const STRING_INSENSITIVE_ENDS_WITH_OVERLOAD = 'endsWithIgnoreCase';
+export const STRING_INSENSITIVE_CONTAINS_OVERLOAD = 'containsIgnoreCase';

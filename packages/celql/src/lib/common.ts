@@ -117,3 +117,14 @@ export function isIntegerLiteral(expr: Expr): expr is Expr & {
   const constant = expr.exprKind.value.constantKind;
   return constant.case === 'int64Value';
 }
+
+export function unwrapStringConstant(expr: Expr): string | undefined {
+  if (expr.exprKind.case !== 'constExpr') {
+    return undefined;
+  }
+  const constant = expr.exprKind.value.constantKind;
+  if (constant.case !== 'stringValue') {
+    return undefined;
+  }
+  return constant.value;
+}

@@ -1,76 +1,57 @@
 /* eslint-disable no-case-declarations */
-import { AnyType, BytesType, listType, StringType } from '@bearclaw/cel';
+import {
+  BoolType,
+  BytesType,
+  DoubleType,
+  DurationType,
+  IntType,
+  ListType,
+  StringType,
+  TimestampType,
+  UintType,
+} from '@bearclaw/cel';
 import { Expr } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
-import { Duration, Timestamp, timestampDate } from '@bufbuild/protobuf/wkt';
-import { durationNanos } from '@protoutil/core';
+import { timestampDate } from '@bufbuild/protobuf/wkt';
+import { durationFromString, durationNanos, timestampFromDateString } from '@protoutil/core';
+import { unwrapStringConstant } from './common.js';
 import { ALL_KEYWORDS } from './keywords.js';
+import { DateType } from './library.js';
 import { ADD_OPERATOR, findReverse, LOGICAL_NOT_OPERATOR } from './operators.js';
 import {
   CONTAINS_OVERLOAD,
   ENDS_WITH_OVERLOAD,
   SIZE_OVERLOAD,
   STARTS_WITH_OVERLOAD,
+  STRING_INSENSITIVE_CONTAINS_OVERLOAD,
+  STRING_INSENSITIVE_ENDS_WITH_OVERLOAD,
+  STRING_INSENSITIVE_EQUALS_OVERLOAD,
+  STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD,
+  STRING_INSENSITIVE_STARTS_WITH_OVERLOAD,
+  STRING_LOWER_OVERLOAD,
+  STRING_TRIM_OVERLOAD,
+  STRING_UPPER_OVERLOAD,
+  TIME_AT_TIMEZONE_OVERLOAD,
+  TIME_GET_DATE_OVERLOAD,
+  TIME_GET_DAY_OF_WEEK_OVERLOAD,
+  TIME_GET_DAY_OF_YEAR_OVERLOAD,
+  TIME_GET_FULL_YEAR_OVERLOAD,
+  TIME_GET_HOURS_OVERLOAD,
+  TIME_GET_MILLISECONDS_OVERLOAD,
+  TIME_GET_MINUTES_OVERLOAD,
+  TIME_GET_MONTH_OVERLOAD,
+  TIME_GET_SECONDS_OVERLOAD,
+  TIMESTAMP_NOW,
+  TYPE_CONVERT_BOOL_OVERLOAD,
+  TYPE_CONVERT_BYTES_OVERLOAD,
+  TYPE_CONVERT_DATE_OVERLOAD,
+  TYPE_CONVERT_DOUBLE_OVERLOAD,
+  TYPE_CONVERT_DURATION_OVERLOAD,
+  TYPE_CONVERT_INT_OVERLOAD,
+  TYPE_CONVERT_STRING_OVERLOAD,
+  TYPE_CONVERT_TIMESTAMP_OVERLOAD,
+  TYPE_CONVERT_UINT_OVERLOAD,
 } from './overloads.js';
 import { Unparser } from './unparser.js';
-
-// TODO: when @bearclaw/cel is updated to export ListType, use that instead of listType(AnyType)
-const ListType = listType(AnyType);
-
-// /**
-//  * `IntervalStyle` to use for unparsing.
-//  *
-//  * Different DBMS follows different standards, popular ones are:
-//  *  - postgres_verbose: '2 years 15 months 100 weeks 99 hours 123456789 milliseconds' which is
-//  * compatible with arrow display format, as well as duckdb
-//  *  - sql standard format is '1-2' for year-month, or '1 10:10:10.123456' for day-time
-//  *
-//  * @see https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-INTERVAL-INPUT
-//  * @see https://www.contrib.andrew.cmu.edu/~shadow/sql/sql1992.txt
-//  */
-// export enum IntervalStyle {
-//   POSTGRES_VERBOSE,
-//   SQL_STANDARD,
-//   MYSQL,
-// }
-
-// /**
-//  * Datetime subfield extraction style for unparsing.
-//  *
-//  * Different DBMSs follow different standards; popular ones are:
-//  *  - date_part('YEAR', date '2001-02-16')
-//  *  - EXTRACT(YEAR from date '2001-02-16')
-//  *
-//  * Some DBMSs, like Postgres, support both, whereas others like MySQL require EXTRACT.
-//  *
-//  * @see https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-EXTRACT
-//  */
-// export enum DateFieldExtractStyle {
-//   DATE_PART,
-//   EXTRACT,
-//   STRFTIME,
-// }
-
-// /**
-//  * `CharacterLengthStyle` to use for unparsing
-//  *
-//  * Different DBMSs uses different names for function calculating the number of characters in the string
-//  *  - `LENGTH` style uses length(x)
-//  *  - `SQL_STANDARD` style uses character_length(x)
-//  */
-// export enum CharacterLengthStyle {
-//   LENGTH,
-//   CHARACTER_LENGTH,
-// }
-
-// /**
-//  * `TimeUnit` to use for unparsing
-//  */
-// export enum TimeUnit {
-//   SECOND,
-//   MILLISECOND,
-//   MICROSECOND,
-//   NANOSECOND,
-// }
 
 /**
  * `Dialect` to use for Unparsing
@@ -96,42 +77,24 @@ export class Dialect {
   }
 
   /**
-   * Unparse a duration to a string
-   * Most dialects use INTERVAL, but some require a different format
-   */
-  writeDuration(unparser: Unparser, duration: Duration): void {
-    unparser.writeString(`INTERVAL '1 SECOND' * `);
-    unparser.writeQueryParam(Number(durationNanos(duration)) / 1_000_000_000);
-  }
-
-  /**
-   * Unparse a timestamp to a string
-   * Most dialects use TIMESTAMP, but some require a different format
-   */
-  writeTimestamp(unparser: Unparser, timestamp: Timestamp): void {
-    const date = timestampDate(timestamp);
-    unparser.writeString(`TIMESTAMP '${date.toISOString()}'`);
-  }
-
-  /**
    * Allows the dialect to override function unparsing if the dialect has specific rules. Returns
    * a boolean indicating if the function was handled by the dialect.
    */
   functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean {
     switch (functionName) {
       case ADD_OPERATOR:
-        const lhs = args[0];
-        const lhsType = unparser.getType(lhs);
-        const rhs = args[1];
-        const rhsType = unparser.getType(rhs);
+        const addLhs = args[0];
+        const addLhsType = unparser.getType(addLhs);
+        const addRhs = args[1];
+        const addRhsType = unparser.getType(addRhs);
         if (
-          (lhsType?.kind() === StringType.kind() && rhsType?.kind() === StringType.kind()) ||
-          (lhsType?.kind() === BytesType.kind() && rhsType?.kind() === BytesType.kind()) ||
-          (lhsType?.kind() === ListType.kind() && rhsType?.kind() === ListType.kind())
+          (addLhsType?.kind() === StringType.kind() && addRhsType?.kind() === StringType.kind()) ||
+          (addLhsType?.kind() === BytesType.kind() && addRhsType?.kind() === BytesType.kind()) ||
+          (addLhsType?.kind() === ListType.kind() && addRhsType?.kind() === ListType.kind())
         ) {
-          unparser.visit(lhs);
+          unparser.visit(addLhs);
           unparser.writeString(' || ');
-          unparser.visit(rhs);
+          unparser.visit(addRhs);
           return true;
         }
         return false;
@@ -156,7 +119,147 @@ export class Dialect {
           unparser.writeString(')');
           return true;
         }
-        return false;
+        throw new Error(
+          `Unsupported type for "${TYPE_CONVERT_BOOL_OVERLOAD}": ${sizeArgType?.typeName()}`
+        );
+      case TYPE_CONVERT_BOOL_OVERLOAD:
+        const boolTypeConvertArg = args[0];
+        const boolTypeConvertArgType = unparser.getType(boolTypeConvertArg);
+        switch (boolTypeConvertArgType?.kind()) {
+          case BoolType.kind():
+          case StringType.kind():
+            unparser.writeString('CAST(');
+            unparser.visit(boolTypeConvertArg);
+            unparser.writeString(' AS BOOL)');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TYPE_CONVERT_BOOL_OVERLOAD}": ${boolTypeConvertArgType?.typeName()}`
+            );
+        }
+      case TYPE_CONVERT_BYTES_OVERLOAD:
+        const bytesTypeConvertArg = args[0];
+        const bytesTypeConvertArgType = unparser.getType(bytesTypeConvertArg);
+        switch (bytesTypeConvertArgType?.kind()) {
+          case BytesType.kind():
+          case StringType.kind():
+            unparser.writeString('CAST(');
+            unparser.visit(bytesTypeConvertArg);
+            unparser.writeString(' AS BYTEA)');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TYPE_CONVERT_BYTES_OVERLOAD}": ${bytesTypeConvertArgType?.typeName()}`
+            );
+        }
+      case TYPE_CONVERT_DOUBLE_OVERLOAD:
+        const doubleTypeConvertArg = args[0];
+        const doubleTypeConvertArgType = unparser.getType(doubleTypeConvertArg);
+        switch (doubleTypeConvertArgType?.kind()) {
+          case DoubleType.kind():
+          case IntType.kind():
+          case StringType.kind():
+          case UintType.kind():
+            unparser.writeString('CAST(');
+            unparser.visit(doubleTypeConvertArg);
+            unparser.writeString(' AS NUMERIC)');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TYPE_CONVERT_DOUBLE_OVERLOAD}": ${doubleTypeConvertArgType?.typeName()}`
+            );
+        }
+      case TYPE_CONVERT_DURATION_OVERLOAD:
+        const durationTypeConvertArg = args[0];
+        const durationTypeConvertArgType = unparser.getType(durationTypeConvertArg);
+        switch (durationTypeConvertArgType?.kind()) {
+          case DurationType.kind():
+            unparser.visit(durationTypeConvertArg);
+            return true;
+          case StringType.kind():
+            const durationStr = unwrapStringConstant(durationTypeConvertArg);
+            if (!durationStr) {
+              throw new Error(
+                `Unsupported type for "${TYPE_CONVERT_DURATION_OVERLOAD}": ${durationTypeConvertArgType?.typeName()}`
+              );
+            }
+            const duration = durationFromString(durationStr);
+            unparser.writeString(`INTERVAL '1 SECOND' * `);
+            unparser.writeQueryParam(Number(durationNanos(duration)) / 1_000_000_000);
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TYPE_CONVERT_DURATION_OVERLOAD}": ${durationTypeConvertArgType?.typeName()}`
+            );
+        }
+      case TYPE_CONVERT_INT_OVERLOAD:
+      case TYPE_CONVERT_UINT_OVERLOAD:
+        const intTypeConvertArg = args[0];
+        const intTypeConvertArgType = unparser.getType(intTypeConvertArg);
+        switch (intTypeConvertArgType?.kind()) {
+          case IntType.kind():
+          case UintType.kind():
+          case DoubleType.kind():
+          case StringType.kind():
+            unparser.writeString('CAST(');
+            unparser.visit(intTypeConvertArg);
+            unparser.writeString(' AS BIGINT)');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TYPE_CONVERT_INT_OVERLOAD}": ${intTypeConvertArgType?.typeName()}`
+            );
+        }
+      case TYPE_CONVERT_STRING_OVERLOAD:
+        const stringTypeConvertArg = args[0];
+        const stringTypeConvertArgType = unparser.getType(stringTypeConvertArg);
+        switch (stringTypeConvertArgType?.kind()) {
+          case StringType.kind():
+          case BoolType.kind():
+          case BytesType.kind():
+          case DoubleType.kind():
+          case IntType.kind():
+          case UintType.kind():
+            unparser.writeString('CAST(');
+            unparser.visit(stringTypeConvertArg);
+            unparser.writeString(' AS TEXT)');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TYPE_CONVERT_STRING_OVERLOAD}": ${stringTypeConvertArgType?.typeName()}`
+            );
+        }
+      case TYPE_CONVERT_TIMESTAMP_OVERLOAD:
+        const timestampTypeConvertArg = args[0];
+        const timestampTypeConvertArgType = unparser.getType(timestampTypeConvertArg);
+        switch (timestampTypeConvertArgType?.kind()) {
+          case TimestampType.kind():
+            unparser.visit(timestampTypeConvertArg);
+            if (args[1]) {
+              unparser.writeString(' AT TIME ZONE ');
+              unparser.visit(args[1]);
+            }
+            return true;
+          case StringType.kind():
+            const tsStr = unwrapStringConstant(timestampTypeConvertArg);
+            if (!tsStr) {
+              throw new Error(
+                `Unsupported type for "${TYPE_CONVERT_TIMESTAMP_OVERLOAD}": ${timestampTypeConvertArgType?.typeName()}`
+              );
+            }
+            const tsFromStr = timestampFromDateString(tsStr);
+            const tsDate = timestampDate(tsFromStr);
+            unparser.writeString(`TIMESTAMP '${tsDate.toISOString()}'`);
+            if (args[1]) {
+              unparser.writeString(' AT TIME ZONE ');
+              unparser.visit(args[1]);
+            }
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TYPE_CONVERT_TIMESTAMP_OVERLOAD}": ${timestampTypeConvertArgType?.typeName()}`
+            );
+        }
       case CONTAINS_OVERLOAD:
         unparser.visit(args[0]);
         unparser.writeString(" LIKE CONCAT('%', ");
@@ -172,6 +275,192 @@ export class Dialect {
       case STARTS_WITH_OVERLOAD:
         unparser.visit(args[0]);
         unparser.writeString(' LIKE CONCAT(');
+        unparser.visit(args[1]);
+        unparser.writeString(`, '%')`);
+        return true;
+      case TIMESTAMP_NOW:
+        unparser.writeString('NOW()');
+        return true;
+      case TIME_GET_FULL_YEAR_OVERLOAD:
+        unparser.writeString('EXTRACT(YEAR FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TIME_GET_MONTH_OVERLOAD:
+        unparser.writeString('EXTRACT(MONTH FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TIME_GET_DAY_OF_YEAR_OVERLOAD:
+        unparser.writeString('EXTRACT(DOY FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TIME_GET_DATE_OVERLOAD:
+        unparser.writeString('EXTRACT(DAY FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TIME_GET_DAY_OF_WEEK_OVERLOAD:
+        unparser.writeString('EXTRACT(DOW FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TIME_GET_HOURS_OVERLOAD:
+        unparser.writeString('EXTRACT(HOUR FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TIME_GET_MINUTES_OVERLOAD:
+        unparser.writeString('EXTRACT(MINUTE FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TIME_GET_SECONDS_OVERLOAD:
+        unparser.writeString('EXTRACT(SECOND FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TIME_GET_MILLISECONDS_OVERLOAD:
+        unparser.writeString('EXTRACT(MILLISECONDS FROM ');
+        unparser.visit(args[0]);
+        if (args[1]) {
+          unparser.writeString(' AT TIME ZONE ');
+          unparser.visit(args[1]);
+        }
+        unparser.writeString(')');
+        return true;
+      case TYPE_CONVERT_DATE_OVERLOAD:
+        const dateTypeConvertArg = args[0];
+        const dateTypeConvertArgType = unparser.getType(dateTypeConvertArg);
+        switch (dateTypeConvertArgType?.typeName()) {
+          case DateType.typeName():
+            unparser.visit(dateTypeConvertArg);
+            return true;
+          case StringType.typeName():
+          case TimestampType.typeName():
+            unparser.writeString('DATE(');
+            unparser.visit(dateTypeConvertArg);
+            unparser.writeString(')');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TYPE_CONVERT_DATE_OVERLOAD}": ${dateTypeConvertArgType?.typeName()}`
+            );
+        }
+      case TIME_AT_TIMEZONE_OVERLOAD:
+        const timeAtTimezoneArg = args[0];
+        const timeAtTimezoneArgType = unparser.getType(timeAtTimezoneArg);
+        switch (timeAtTimezoneArgType?.kind()) {
+          case TimestampType.kind():
+            unparser.visit(timeAtTimezoneArg);
+            unparser.writeString(' AT TIME ZONE ');
+            unparser.visit(args[1]);
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${TIME_AT_TIMEZONE_OVERLOAD}": ${timeAtTimezoneArgType?.typeName()}`
+            );
+        }
+      case STRING_LOWER_OVERLOAD:
+        const stringLowerArg = args[0];
+        const stringLowerArgType = unparser.getType(stringLowerArg);
+        switch (stringLowerArgType?.kind()) {
+          case StringType.kind():
+            unparser.writeString('LOWER(');
+            unparser.visit(stringLowerArg);
+            unparser.writeString(')');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${STRING_LOWER_OVERLOAD}": ${stringLowerArgType?.typeName()}`
+            );
+        }
+      case STRING_UPPER_OVERLOAD:
+        const stringUpperArg = args[0];
+        const stringUpperArgType = unparser.getType(stringUpperArg);
+        switch (stringUpperArgType?.kind()) {
+          case StringType.kind():
+            unparser.writeString('UPPER(');
+            unparser.visit(stringUpperArg);
+            unparser.writeString(')');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${STRING_UPPER_OVERLOAD}": ${stringUpperArgType?.typeName()}`
+            );
+        }
+      case STRING_TRIM_OVERLOAD:
+        const stringTrimArg = args[0];
+        const stringTrimArgType = unparser.getType(stringTrimArg);
+        switch (stringTrimArgType?.kind()) {
+          case StringType.kind():
+            unparser.writeString('TRIM(');
+            unparser.visit(stringTrimArg);
+            unparser.writeString(')');
+            return true;
+          default:
+            throw new Error(
+              `Unsupported type for "${STRING_TRIM_OVERLOAD}": ${stringTrimArgType?.typeName()}`
+            );
+        }
+      case STRING_INSENSITIVE_EQUALS_OVERLOAD:
+        unparser.visit(args[0]);
+        unparser.writeString(' ILIKE ');
+        unparser.visit(args[1]);
+        return true;
+      case STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD:
+        unparser.visit(args[0]);
+        unparser.writeString(' NOT ILIKE ');
+        unparser.visit(args[1]);
+        return true;
+      case STRING_INSENSITIVE_CONTAINS_OVERLOAD:
+        unparser.visit(args[0]);
+        unparser.writeString(" ILIKE CONCAT('%', ");
+        unparser.visit(args[1]);
+        unparser.writeString(`, '%')`);
+        return true;
+      case STRING_INSENSITIVE_ENDS_WITH_OVERLOAD:
+        unparser.visit(args[0]);
+        unparser.writeString(" ILIKE CONCAT('%', ");
+        unparser.visit(args[1]);
+        unparser.writeString(`)`);
+        return true;
+      case STRING_INSENSITIVE_STARTS_WITH_OVERLOAD:
+        unparser.visit(args[0]);
+        unparser.writeString(' ILIKE CONCAT(');
         unparser.visit(args[1]);
         unparser.writeString(`, '%')`);
         return true;
@@ -191,59 +480,6 @@ export class Dialect {
         return findReverse(operator);
     }
   }
-
-  //   /**
-  //    * Does the dialect use DOUBLE PRECISION to represent Float64 rather than DOUBLE?
-  //    * E.g. Postgres uses DOUBLE PRECISION instead of DOUBLE
-  //    */
-  //   readonly floatDtype = 'DOUBLE';
-
-  //   /**
-  //    * The SQL type to use for string unparsing
-  //    * Most dialects use VARCHAR, but some, like MySQL, require CHAR
-  //    */
-  //   readonly stringDtype = 'VARCHAR';
-
-  //   /**
-  //    * The SQL type to use for Arrow large string unparsing
-  //    * Most dialects use TEXT, but some, like MySQL, require CHAR
-  //    */
-  //   readonly largeStringDtype = 'TEXT';
-
-  //   /**
-  //    * The date field extract style to use: `DateFieldExtractStyle`
-  //    */
-  //   readonly dateFieldExtractStyle = DateFieldExtractStyle.DATE_PART;
-
-  //   /**
-  //    * The character length extraction style to use: `CharacterLengthStyle`
-  //    */
-  //   readonly characterLengthStyle = CharacterLengthStyle.CHARACTER_LENGTH;
-
-  //   /**
-  //    * The SQL type to use for Int64 unparsing
-  //    * Most dialects use BigInt, but some, like MySQL, require SIGNED
-  //    */
-  //   readonly int64Dtype = 'BIGINT';
-
-  //   /**
-  //    * The SQL type to use for Int32 unparsing
-  //    * Most dialects use Integer, but some, like MySQL, require SIGNED
-  //    */
-  //   readonly int32Dtype = 'INTEGER';
-
-  //   /**
-  //    * The SQL type to use for Date unparsing
-  //    * Most dialects use Date, but some, like SQLite require TEXT
-  //    */
-  //   readonly date32Dtype = 'DATE';
-
-  //   /**
-  //    * The division operator for the dialect
-  //    * Most dialect uses `/`
-  //    * But DuckDB dialect uses `//`
-  //    */
-  //   readonly divisionOperator = '/';
 }
 
 export const DEFAULT_DIALECT = new Dialect();

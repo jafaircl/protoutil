@@ -1,8 +1,7 @@
 /* eslint-disable no-case-declarations */
-import { Ast, StringType } from '@bearclaw/cel';
+import { Ast } from '@bearclaw/cel';
 import { Constant, Expr, ExprSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
 import { toJsonString } from '@bufbuild/protobuf';
-import { durationFromString, timestampFromDateString } from '@protoutil/core';
 import {
   isBinaryOrTernaryOperator,
   isComplexOperator,
@@ -33,7 +32,6 @@ import {
   NOT_EQUALS_OPERATOR,
   SUBTRACT_OPERATOR,
 } from './operators.js';
-import { TYPE_CONVERT_DURATION_OVERLOAD, TYPE_CONVERT_TIMESTAMP_OVERLOAD } from './overloads.js';
 
 export class Unparser {
   private _str = '';
@@ -132,13 +130,6 @@ export class Unparser {
       case NOT_EQUALS_OPERATOR:
       case SUBTRACT_OPERATOR:
         return this.visitCallBinary(expr);
-      // duration conversion
-      case TYPE_CONVERT_DURATION_OVERLOAD:
-        return this.visitCallDuration(expr);
-      // timestamp conversion
-      case TYPE_CONVERT_TIMESTAMP_OVERLOAD:
-        return this.visitCallTimestamp(expr);
-      // standard function calls.
       default:
         return this.visitCallFunc(expr);
     }
@@ -260,46 +251,6 @@ export class Unparser {
     this.writeString(unmangled);
     const nested = isComplexOperator(args[0]);
     return this.visitMaybeNested(args[0], nested);
-  }
-
-  visitCallDuration(expr: Expr) {
-    if (expr.exprKind.case !== 'callExpr') {
-      throw new Error('Expected callExpr');
-    }
-    const c = expr.exprKind.value;
-    const typeConvertDurArg = c.args[0];
-    const argKind = this.getType(typeConvertDurArg)?.kind();
-    switch (argKind) {
-      case StringType.kind():
-        if (!isStringLiteral(typeConvertDurArg)) {
-          throw new Error('Expected string literal');
-        }
-        const durFromStr = durationFromString(typeConvertDurArg.exprKind.value.constantKind.value);
-        this._dialect.writeDuration(this, durFromStr);
-        return;
-      default:
-        throw new Error(`Unsupported type for duration conversion: ${argKind}`);
-    }
-  }
-
-  visitCallTimestamp(expr: Expr) {
-    if (expr.exprKind.case !== 'callExpr') {
-      throw new Error('Expected callExpr');
-    }
-    const c = expr.exprKind.value;
-    const args = c.args;
-    const argKind = this.getType(args[0])?.kind();
-    switch (argKind) {
-      case StringType.kind():
-        if (!isStringLiteral(args[0])) {
-          throw new Error('Expected string literal');
-        }
-        const tsFromStr = timestampFromDateString(args[0].exprKind.value.constantKind.value);
-        this._dialect.writeTimestamp(this, tsFromStr);
-        return;
-      default:
-        throw new Error(`Unsupported type for timestamp conversion: ${argKind}`);
-    }
   }
 
   visitConst(expr: Expr) {
