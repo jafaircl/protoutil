@@ -103,6 +103,11 @@ describe('celql', () => {
 
       // Mathematical operators
       {
+        in: `single_bytes + b"foo" == b"bar"`,
+        out: `single_bytes || $1 = $2`,
+        vars: [new TextEncoder().encode('foo'), new TextEncoder().encode('bar')],
+      },
+      {
         in: `single_double + 2.0 == 3.0`,
         out: `single_double + $1 = $2`,
         vars: [2, 3],
@@ -524,6 +529,21 @@ describe('celql', () => {
         vars: ['foo'],
       },
       {
+        in: `b"foo" < b"bar"`,
+        out: `$1 < $2`,
+        vars: [new TextEncoder().encode('foo'), new TextEncoder().encode('bar')],
+      },
+      {
+        in: `single_bytes < b"bar"`,
+        out: `single_bytes < $1`,
+        vars: [new TextEncoder().encode('bar')],
+      },
+      {
+        in: `b"foo" < single_bytes`,
+        out: `$1 < single_bytes`,
+        vars: [new TextEncoder().encode('foo')],
+      },
+      {
         in: `timestamp('2023-10-01T00:00:00Z') < timestamp('2023-10-01T00:00:01Z')`,
         out: `TIMESTAMP '2023-10-01T00:00:00.000Z' < TIMESTAMP '2023-10-01T00:00:01.000Z'`,
       },
@@ -713,6 +733,21 @@ describe('celql', () => {
         in: `'foo' <= single_string`,
         out: `$1 <= single_string`,
         vars: ['foo'],
+      },
+      {
+        in: `b"foo" <= b"bar"`,
+        out: `$1 <= $2`,
+        vars: [new TextEncoder().encode('foo'), new TextEncoder().encode('bar')],
+      },
+      {
+        in: `single_bytes <= b"bar"`,
+        out: `single_bytes <= $1`,
+        vars: [new TextEncoder().encode('bar')],
+      },
+      {
+        in: `b"foo" <= single_bytes`,
+        out: `$1 <= single_bytes`,
+        vars: [new TextEncoder().encode('foo')],
       },
       {
         in: `timestamp('2023-10-01T00:00:00Z') <= timestamp('2023-10-01T00:00:01Z')`,
@@ -907,6 +942,21 @@ describe('celql', () => {
         vars: ['foo'],
       },
       {
+        in: `b"foo" > b"bar"`,
+        out: `$1 > $2`,
+        vars: [new TextEncoder().encode('foo'), new TextEncoder().encode('bar')],
+      },
+      {
+        in: `single_bytes > b"bar"`,
+        out: `single_bytes > $1`,
+        vars: [new TextEncoder().encode('bar')],
+      },
+      {
+        in: `b"foo" > single_bytes`,
+        out: `$1 > single_bytes`,
+        vars: [new TextEncoder().encode('foo')],
+      },
+      {
         in: `timestamp('2023-10-01T00:00:00Z') > timestamp('2023-10-01T00:00:01Z')`,
         out: `TIMESTAMP '2023-10-01T00:00:00.000Z' > TIMESTAMP '2023-10-01T00:00:01.000Z'`,
       },
@@ -1097,6 +1147,21 @@ describe('celql', () => {
         in: `'foo' >= single_string`,
         out: `$1 >= single_string`,
         vars: ['foo'],
+      },
+      {
+        in: `b"foo" >= b"bar"`,
+        out: `$1 >= $2`,
+        vars: [new TextEncoder().encode('foo'), new TextEncoder().encode('bar')],
+      },
+      {
+        in: `single_bytes >= b"bar"`,
+        out: `single_bytes >= $1`,
+        vars: [new TextEncoder().encode('bar')],
+      },
+      {
+        in: `b"foo" >= single_bytes`,
+        out: `$1 >= single_bytes`,
+        vars: [new TextEncoder().encode('foo')],
       },
       {
         in: `timestamp('2023-10-01T00:00:00Z') >= timestamp('2023-10-01T00:00:01Z')`,

@@ -1,5 +1,6 @@
 import {
   BoolType,
+  BytesType,
   DoubleType,
   DurationType,
   EnvOption,
@@ -36,6 +37,7 @@ import {
   SUBTRACT_OPERATOR,
 } from './operators.js';
 import {
+  ADD_BYTES_OVERLOAD,
   ADD_DOUBLE_OVERLOAD,
   ADD_DURATION_DURATION_OVERLOAD,
   ADD_DURATION_TIMESTAMP_OVERLOAD,
@@ -54,11 +56,13 @@ import {
   ENDS_WITH_STRING_OVERLOAD,
   EQUALS_OVERLOAD,
   GREATER_BOOL_OVERLOAD,
+  GREATER_BYTES_OVERLOAD,
   GREATER_DOUBLE_INT64_OVERLOAD,
   GREATER_DOUBLE_OVERLOAD,
   GREATER_DOUBLE_UINT64_OVERLOAD,
   GREATER_DURATION_OVERLOAD,
   GREATER_EQUALS_BOOL_OVERLOAD,
+  GREATER_EQUALS_BYTES_OVERLOAD,
   GREATER_EQUALS_DOUBLE_INT64_OVERLOAD,
   GREATER_EQUALS_DOUBLE_OVERLOAD,
   GREATER_EQUALS_DOUBLE_UINT64_OVERLOAD,
@@ -81,11 +85,13 @@ import {
   GREATER_UINT64_OVERLOAD,
   IN_LIST_OVERLOAD,
   LESS_BOOL_OVERLOAD,
+  LESS_BYTES_OVERLOAD,
   LESS_DOUBLE_INT64_OVERLOAD,
   LESS_DOUBLE_OVERLOAD,
   LESS_DOUBLE_UINT64_OVERLOAD,
   LESS_DURATION_OVERLOAD,
   LESS_EQUALS_BOOL_OVERLOAD,
+  LESS_EQUALS_BYTES_OVERLOAD,
   LESS_EQUALS_DOUBLE_INT64_OVERLOAD,
   LESS_EQUALS_DOUBLE_OVERLOAD,
   LESS_EQUALS_DOUBLE_UINT64_OVERLOAD,
@@ -148,7 +154,7 @@ const sqlFunctions: EnvOption[] = [
   // Mathematical operators
   func(
     ADD_OPERATOR,
-    // overload(ADD_BYTES_OVERLOAD, [BytesType, BytesType], BytesType),
+    overload(ADD_BYTES_OVERLOAD, [BytesType, BytesType], BytesType),
     overload(ADD_DOUBLE_OVERLOAD, [DoubleType, DoubleType], DoubleType),
     overload(ADD_DURATION_DURATION_OVERLOAD, [DurationType, DurationType], DurationType),
     overload(ADD_DURATION_TIMESTAMP_OVERLOAD, [DurationType, TimestampType], TimestampType),
@@ -205,8 +211,7 @@ const sqlFunctions: EnvOption[] = [
     overload(LESS_DOUBLE_INT64_OVERLOAD, [DoubleType, IntType], BoolType),
     overload(LESS_DOUBLE_UINT64_OVERLOAD, [DoubleType, UintType], BoolType),
     overload(LESS_STRING_OVERLOAD, [StringType, StringType], BoolType),
-    // TODO: bytes
-    // overload(LESS_BYTES_OVERLOAD, [BytesType, BytesType], BoolType)
+    overload(LESS_BYTES_OVERLOAD, [BytesType, BytesType], BoolType),
     overload(LESS_TIMESTAMP_OVERLOAD, [TimestampType, TimestampType], BoolType),
     overload(LESS_DURATION_OVERLOAD, [DurationType, DurationType], BoolType)
   ),
@@ -223,8 +228,7 @@ const sqlFunctions: EnvOption[] = [
     overload(LESS_EQUALS_DOUBLE_INT64_OVERLOAD, [DoubleType, IntType], BoolType),
     overload(LESS_EQUALS_DOUBLE_UINT64_OVERLOAD, [DoubleType, UintType], BoolType),
     overload(LESS_EQUALS_STRING_OVERLOAD, [StringType, StringType], BoolType),
-    // TODO: bytes
-    // overload(LESS_EQUALS_BYTES_OVERLOAD, [BytesType, BytesType], BoolType)
+    overload(LESS_EQUALS_BYTES_OVERLOAD, [BytesType, BytesType], BoolType),
     overload(LESS_EQUALS_TIMESTAMP_OVERLOAD, [TimestampType, TimestampType], BoolType),
     overload(LESS_EQUALS_DURATION_OVERLOAD, [DurationType, DurationType], BoolType)
   ),
@@ -241,8 +245,7 @@ const sqlFunctions: EnvOption[] = [
     overload(GREATER_DOUBLE_INT64_OVERLOAD, [DoubleType, IntType], BoolType),
     overload(GREATER_DOUBLE_UINT64_OVERLOAD, [DoubleType, UintType], BoolType),
     overload(GREATER_STRING_OVERLOAD, [StringType, StringType], BoolType),
-    // TODO: bytes
-    // overload(GREATER_BYTES_OVERLOAD, [BytesType, BytesType], BoolType)
+    overload(GREATER_BYTES_OVERLOAD, [BytesType, BytesType], BoolType),
     overload(GREATER_TIMESTAMP_OVERLOAD, [TimestampType, TimestampType], BoolType),
     overload(GREATER_DURATION_OVERLOAD, [DurationType, DurationType], BoolType)
   ),
@@ -259,29 +262,17 @@ const sqlFunctions: EnvOption[] = [
     overload(GREATER_EQUALS_DOUBLE_INT64_OVERLOAD, [DoubleType, IntType], BoolType),
     overload(GREATER_EQUALS_DOUBLE_UINT64_OVERLOAD, [DoubleType, UintType], BoolType),
     overload(GREATER_EQUALS_STRING_OVERLOAD, [StringType, StringType], BoolType),
-    // TODO: bytes
-    // overload(GREATER_EQUALS_BYTES_OVERLOAD, [BytesType, BytesType], BoolType)
+    overload(GREATER_EQUALS_BYTES_OVERLOAD, [BytesType, BytesType], BoolType),
     overload(GREATER_EQUALS_TIMESTAMP_OVERLOAD, [TimestampType, TimestampType], BoolType),
     overload(GREATER_EQUALS_DURATION_OVERLOAD, [DurationType, DurationType], BoolType)
   ),
 
-  // String functions
-  func(
-    CONTAINS_OVERLOAD,
-    memberOverload(CONTAINS_STRING_OVERLOAD, [StringType, StringType], BoolType)
-  ),
-  func(
-    ENDS_WITH_OVERLOAD,
-    memberOverload(ENDS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType)
-  ),
-  // func(MATCHES_OVERLOAD, memberOverload(MATCHES_OVERLOAD, [StringType, StringType], BoolType)),
-  func(
-    STARTS_WITH_OVERLOAD,
-    memberOverload(STARTS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType)
-  ),
-
   // Collections operators
-  func(IN_OPERATOR, overload(IN_LIST_OVERLOAD, [paramA, listOfA], BoolType)),
+  func(
+    IN_OPERATOR,
+    overload(IN_LIST_OVERLOAD, [paramA, listOfA], BoolType)
+    // overload(IN_MAP_OVERLOAD, [paramA, mapOfAB], BoolType)
+  ),
   // func(SIZE_OVERLOAD, overload(SIZE_OVERLOAD, [listOfA], IntType)),
 
   // Duration conversions
@@ -294,6 +285,22 @@ const sqlFunctions: EnvOption[] = [
   func(
     TYPE_CONVERT_TIMESTAMP_OVERLOAD,
     overload(STRING_TO_TIMESTAMP_OVERLOAD, [StringType], TimestampType)
+  ),
+
+  // String functions
+  func(
+    CONTAINS_OVERLOAD,
+    memberOverload(CONTAINS_STRING_OVERLOAD, [StringType, StringType], BoolType)
+  ),
+  func(
+    ENDS_WITH_OVERLOAD,
+    memberOverload(ENDS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType)
+  ),
+  // TODO: sql equivalent?
+  // func(MATCHES_OVERLOAD, memberOverload(MATCHES_OVERLOAD, [StringType, StringType], BoolType)),
+  func(
+    STARTS_WITH_OVERLOAD,
+    memberOverload(STARTS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType)
   ),
 ];
 

@@ -319,14 +319,7 @@ export class Unparser {
       case 'uint64Value':
       case 'nullValue':
       case 'stringValue':
-        this.writeQueryParam(val.constantKind.value);
-        break;
-      //   case 'durationValue':
-      //     this.writeString(this._dialect.durationToSql(val.constantKind.value));
-      //     break;
-      //   case 'timestampValue':
-      //     this.writeString(this._dialect.timestampToSql(val.constantKind.value));
-      //     break;
+        return this.writeQueryParam(val.constantKind.value);
       default:
         throw new Error('Unsupported constant type');
     }

@@ -1,5 +1,5 @@
 /* eslint-disable no-case-declarations */
-import { AnyType, listType, StringType } from '@bearclaw/cel';
+import { AnyType, BytesType, listType, StringType } from '@bearclaw/cel';
 import { Expr } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
 import { Duration, Timestamp, timestampDate } from '@bufbuild/protobuf/wkt';
 import { durationNanos } from '@protoutil/core';
@@ -121,6 +121,7 @@ export class Dialect {
         const rhsType = unparser.getType(rhs);
         if (
           (lhsType?.kind() === StringType.kind() && rhsType?.kind() === StringType.kind()) ||
+          (lhsType?.kind() === BytesType.kind() && rhsType?.kind() === BytesType.kind()) ||
           (lhsType?.kind() === ListType.kind() && rhsType?.kind() === ListType.kind())
         ) {
           unparser.visit(lhs);
