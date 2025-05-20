@@ -1,22 +1,22 @@
 import {
   BoolType,
   BytesType,
+  crossTypeNumericComparisons,
   DoubleType,
   DurationType,
   EnvOption,
-  IntType,
-  SingletonLibrary,
-  StringType,
-  TimestampType,
-  UintType,
-  crossTypeNumericComparisons,
   func,
+  IntType,
   lib,
   listType,
   mapType,
   memberOverload,
   overload,
+  SingletonLibrary,
+  StringType,
+  TimestampType,
   typeParamType,
+  UintType,
 } from '@bearclaw/cel';
 import {
   ADD_OPERATOR,
@@ -26,6 +26,7 @@ import {
   GREATER_EQUALS_OPERATOR,
   GREATER_OPERATOR,
   IN_OPERATOR,
+  INDEX_OPERATOR,
   LESS_EQUALS_OPERATOR,
   LESS_OPERATOR,
   LOGICAL_AND_OPERATOR,
@@ -84,6 +85,7 @@ import {
   GREATER_UINT64_INT64_OVERLOAD,
   GREATER_UINT64_OVERLOAD,
   IN_LIST_OVERLOAD,
+  INDEX_LIST_OVERLOAD,
   LESS_BOOL_OVERLOAD,
   LESS_BYTES_OVERLOAD,
   LESS_DOUBLE_INT64_OVERLOAD,
@@ -121,6 +123,13 @@ import {
   MULTIPLY_INT64_OVERLOAD,
   MULTIPLY_UINT64_OVERLOAD,
   NOT_EQUALS_OVERLOAD,
+  SIZE_BYTES_INST_OVERLOAD,
+  SIZE_BYTES_OVERLOAD,
+  SIZE_LIST_INST_OVERLOAD,
+  SIZE_LIST_OVERLOAD,
+  SIZE_OVERLOAD,
+  SIZE_STRING_INST_OVERLOAD,
+  SIZE_STRING_OVERLOAD,
   STARTS_WITH_OVERLOAD,
   STARTS_WITH_STRING_OVERLOAD,
   STRING_TO_DURATION_OVERLOAD,
@@ -267,13 +276,33 @@ const sqlFunctions: EnvOption[] = [
     overload(GREATER_EQUALS_DURATION_OVERLOAD, [DurationType, DurationType], BoolType)
   ),
 
+  // Indexing
+  func(
+    INDEX_OPERATOR,
+    overload(INDEX_LIST_OVERLOAD, [listOfA, IntType], paramA)
+    // TODO: maps
+    // overload(INDEX_MAP_OVERLOAD, [mapOfAB, paramA], paramB)
+  ),
+
   // Collections operators
   func(
     IN_OPERATOR,
     overload(IN_LIST_OVERLOAD, [paramA, listOfA], BoolType)
+    // TODO: maps
     // overload(IN_MAP_OVERLOAD, [paramA, mapOfAB], BoolType)
   ),
-  // func(SIZE_OVERLOAD, overload(SIZE_OVERLOAD, [listOfA], IntType)),
+  func(
+    SIZE_OVERLOAD,
+    overload(SIZE_BYTES_OVERLOAD, [BytesType], IntType),
+    memberOverload(SIZE_BYTES_INST_OVERLOAD, [BytesType], IntType),
+    overload(SIZE_LIST_OVERLOAD, [listOfA], IntType),
+    memberOverload(SIZE_LIST_INST_OVERLOAD, [listOfA], IntType),
+    // TODO: maps
+    // overload(SIZE_MAP_OVERLOAD, [mapOfAB], IntType),
+    // memberOverload(SIZE_MAP_INST_OVERLOAD, [mapOfAB], IntType)
+    overload(SIZE_STRING_OVERLOAD, [StringType], IntType),
+    memberOverload(SIZE_STRING_INST_OVERLOAD, [StringType], IntType)
+  ),
 
   // Duration conversions
   func(

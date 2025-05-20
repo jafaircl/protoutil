@@ -17,7 +17,3 @@ export function sql(
   const unparser = new Unparser(compiled, dialect);
   return unparser.unparse();
 }
-
-export function celql(): string {
-  return 'celql';
-}

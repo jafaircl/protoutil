@@ -1232,6 +1232,13 @@ describe('celql', () => {
      | .......................^`,
       },
 
+      // Indexing
+      {
+        in: `repeated_int64[0] == 1`,
+        out: `repeated_int64[$1] = $2`,
+        vars: [0n, 1n],
+      },
+
       // Collections operators
       {
         in: `1 in [1, 2, 3]`,
@@ -1253,6 +1260,66 @@ describe('celql', () => {
         in: `single_int64 in [7, 8, 9]`,
         out: `single_int64 IN ($1, $2, $3)`,
         vars: [7n, 8n, 9n],
+      },
+      {
+        in: `size(b"foo") == 3`,
+        out: `LENGTH($1) = $2`,
+        vars: [new TextEncoder().encode('foo'), 3n],
+      },
+      {
+        in: `size(single_bytes) == 3`,
+        out: `LENGTH(single_bytes) = $1`,
+        vars: [3n],
+      },
+      {
+        in: `b"foo".size() == 3`,
+        out: `LENGTH($1) = $2`,
+        vars: [new TextEncoder().encode('foo'), 3n],
+      },
+      {
+        in: `single_bytes.size() == 3`,
+        out: `LENGTH(single_bytes) = $1`,
+        vars: [3n],
+      },
+      {
+        in: `size([1, 2, 3]) == 3`,
+        out: `ARRAY_LENGTH(($1, $2, $3), 1) = $4`,
+        vars: [1n, 2n, 3n, 3n],
+      },
+      {
+        in: `size(repeated_int64) == 3`,
+        out: `ARRAY_LENGTH(repeated_int64, 1) = $1`,
+        vars: [3n],
+      },
+      {
+        in: `[1, 2, 3].size() == 3`,
+        out: `ARRAY_LENGTH(($1, $2, $3), 1) = $4`,
+        vars: [1n, 2n, 3n, 3n],
+      },
+      {
+        in: `repeated_int64.size() == 3`,
+        out: `ARRAY_LENGTH(repeated_int64, 1) = $1`,
+        vars: [3n],
+      },
+      {
+        in: `size("foo") == 3`,
+        out: `CHAR_LENGTH($1) = $2`,
+        vars: ['foo', 3n],
+      },
+      {
+        in: `single_string.size() == 3`,
+        out: `CHAR_LENGTH(single_string) = $1`,
+        vars: [3n],
+      },
+      {
+        in: `"foo".size() == 3`,
+        out: `CHAR_LENGTH($1) = $2`,
+        vars: ['foo', 3n],
+      },
+      {
+        in: `single_string.size() == 3`,
+        out: `CHAR_LENGTH(single_string) = $1`,
+        vars: [3n],
       },
 
       // Duration conversions

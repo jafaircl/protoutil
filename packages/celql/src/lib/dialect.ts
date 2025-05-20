@@ -5,7 +5,12 @@ import { Duration, Timestamp, timestampDate } from '@bufbuild/protobuf/wkt';
 import { durationNanos } from '@protoutil/core';
 import { ALL_KEYWORDS } from './keywords.js';
 import { ADD_OPERATOR, findReverse, LOGICAL_NOT_OPERATOR } from './operators.js';
-import { CONTAINS_OVERLOAD, ENDS_WITH_OVERLOAD, STARTS_WITH_OVERLOAD } from './overloads.js';
+import {
+  CONTAINS_OVERLOAD,
+  ENDS_WITH_OVERLOAD,
+  SIZE_OVERLOAD,
+  STARTS_WITH_OVERLOAD,
+} from './overloads.js';
 import { Unparser } from './unparser.js';
 
 // TODO: when @bearclaw/cel is updated to export ListType, use that instead of listType(AnyType)
@@ -127,6 +132,28 @@ export class Dialect {
           unparser.visit(lhs);
           unparser.writeString(' || ');
           unparser.visit(rhs);
+          return true;
+        }
+        return false;
+      case SIZE_OVERLOAD:
+        const sizeArg = args[0];
+        const sizeArgType = unparser.getType(sizeArg);
+        if (sizeArgType?.kind() === BytesType.kind()) {
+          unparser.writeString('LENGTH(');
+          unparser.visit(sizeArg);
+          unparser.writeString(')');
+          return true;
+        }
+        if (sizeArgType?.kind() === ListType.kind()) {
+          unparser.writeString('ARRAY_LENGTH(');
+          unparser.visit(sizeArg);
+          unparser.writeString(', 1)');
+          return true;
+        }
+        if (sizeArgType?.kind() === StringType.kind()) {
+          unparser.writeString('CHAR_LENGTH(');
+          unparser.visit(sizeArg);
+          unparser.writeString(')');
           return true;
         }
         return false;
