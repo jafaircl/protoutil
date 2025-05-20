@@ -8,6 +8,9 @@
     },
     {
       "path": "./packages/aip"
+    },
+    {
+      "path": "./packages/celql"
     }
   ]
 }

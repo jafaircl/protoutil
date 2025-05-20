@@ -37,14 +37,10 @@ describe('duration', () => {
     it('throws an error for out of range seconds', () => {
       expect(() => duration(315_576_000_001n)).toThrow('exceeds +10000 years');
       expect(() => duration(315_576_000_000n)).not.toThrow();
-      expect(() => duration(315_576_000_000n, 1)).toThrow(
-        'exceeds +10000 years'
-      );
+      expect(() => duration(315_576_000_000n, 1)).toThrow('exceeds +10000 years');
       expect(() => duration(-315_576_000_001n)).toThrow('exceeds -10000 years');
       expect(() => duration(-315_576_000_000n)).not.toThrow();
-      expect(() => duration(-315_576_000_000n, -1)).toThrow(
-        'exceeds -10000 years'
-      );
+      expect(() => duration(-315_576_000_000n, -1)).toThrow('exceeds -10000 years');
       expect(() => duration(MAX_INT64 + 1n)).toThrow('out-of-range Int64');
       expect(() => duration(MIN_INT64 - 1n)).toThrow('out-of-range Int64');
     });
@@ -53,48 +49,30 @@ describe('duration', () => {
   describe('isValidDuration()', () => {
     it('validates a duration', () => {
       // Valid durations
+      expect(isValidDuration(create(DurationSchema, { seconds: 0n, nanos: 0 }))).toBe(true);
       expect(
-        isValidDuration(create(DurationSchema, { seconds: 0n, nanos: 0 }))
+        isValidDuration(create(DurationSchema, { seconds: 1234567890n, nanos: 123456789 }))
       ).toBe(true);
       expect(
-        isValidDuration(
-          create(DurationSchema, { seconds: 1234567890n, nanos: 123456789 })
-        )
-      ).toBe(true);
-      expect(
-        isValidDuration(
-          create(DurationSchema, { seconds: -1234567890n, nanos: -123456789 })
-        )
+        isValidDuration(create(DurationSchema, { seconds: -1234567890n, nanos: -123456789 }))
       ).toBe(true);
 
       // Invalid durations
+      expect(isValidDuration(create(DurationSchema, { seconds: 315_576_000_001n }))).toBe(false);
+      expect(isValidDuration(create(DurationSchema, { seconds: 315_576_000_000n, nanos: 1 }))).toBe(
+        false
+      );
+      expect(isValidDuration(create(DurationSchema, { seconds: -315_576_000_001n }))).toBe(false);
       expect(
-        isValidDuration(create(DurationSchema, { seconds: 315_576_000_001n }))
-      ).toBe(false);
-      expect(
-        isValidDuration(
-          create(DurationSchema, { seconds: 315_576_000_000n, nanos: 1 })
-        )
-      ).toBe(false);
-      expect(
-        isValidDuration(create(DurationSchema, { seconds: -315_576_000_001n }))
-      ).toBe(false);
-      expect(
-        isValidDuration(
-          create(DurationSchema, { seconds: -315_576_000_000n, nanos: -1 })
-        )
+        isValidDuration(create(DurationSchema, { seconds: -315_576_000_000n, nanos: -1 }))
       ).toBe(false);
     });
   });
 
   describe('durationFromString()', () => {
     it('should throw an error if the string is not formatted correctly', () => {
-      expect(() => durationFromString('invalid')).toThrow(
-        `duration string must end with 's'`
-      );
-      expect(() => durationFromString('1.0')).toThrow(
-        `duration string must end with 's'`
-      );
+      expect(() => durationFromString('invalid')).toThrow(`duration string must end with 's'`);
+      expect(() => durationFromString('1.0')).toThrow(`duration string must end with 's'`);
     });
 
     it('should create a duration from a string', () => {
@@ -103,6 +81,14 @@ describe('duration', () => {
       expect(durationFromString('1s')).toEqual(duration(1n, 0));
       expect(durationFromString('1.000000001s')).toEqual(duration(1n, 1));
       expect(durationFromString('-1.000000001s')).toEqual(duration(-1n, -1));
+      expect(durationFromString('1.01s')).toEqual(duration(1n, 10000000));
+      expect(durationFromString('-1.01s')).toEqual(duration(-1n, -10000000));
+      expect(durationFromString('1.1s')).toEqual(duration(1n, 100000000));
+      expect(durationFromString('-1.1s')).toEqual(duration(-1n, -100000000));
+      expect(durationFromString('1.234s')).toEqual(duration(1n, 234000000));
+      expect(durationFromString('-1.234s')).toEqual(duration(-1n, -234000000));
+      expect(durationFromString('1.00234s')).toEqual(duration(1n, 2340000));
+      expect(durationFromString('-1.00234s')).toEqual(duration(-1n, -2340000));
     });
   });
 
@@ -145,9 +131,7 @@ describe('duration', () => {
       const d = Temporal.Duration.from({
         years: 1,
       });
-      expect(durationFromTemporal(d)).toEqual(
-        duration(BigInt(365 * 24 * 60 * 60), 0)
-      );
+      expect(durationFromTemporal(d)).toEqual(duration(BigInt(365 * 24 * 60 * 60), 0));
     });
 
     it('should create a duration from a Temporal.Duration with a relativeTo', () => {
@@ -159,9 +143,7 @@ describe('duration', () => {
         month: 1,
         day: 1,
       });
-      expect(durationFromTemporal(d, relativeTo)).toEqual(
-        duration(BigInt(366 * 24 * 60 * 60), 0)
-      );
+      expect(durationFromTemporal(d, relativeTo)).toEqual(duration(BigInt(366 * 24 * 60 * 60), 0));
     });
 
     it('should create a duration from a Tempora.Duration with nanoseconds', () => {
@@ -205,9 +187,7 @@ describe('duration', () => {
       const d = Temporal.Duration.from({
         years: -1,
       });
-      expect(durationFromTemporal(d)).toEqual(
-        duration(BigInt(-365 * 24 * 60 * 60), 0)
-      );
+      expect(durationFromTemporal(d)).toEqual(duration(BigInt(-365 * 24 * 60 * 60), 0));
     });
   });
 

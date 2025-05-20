@@ -99,12 +99,7 @@ export function assertValidDuration(d: Duration) {
     );
   }
   if (d.nanos < -999_999_999 || d.nanos > 999_999_999) {
-    throw new OutOfRangeError(
-      'out-of-range nanos',
-      d.nanos,
-      -999_999_999,
-      999_999_999
-    );
+    throw new OutOfRangeError('out-of-range nanos', d.nanos, -999_999_999, 999_999_999);
   }
 }
 
@@ -138,6 +133,8 @@ export function durationFromString(str: string) {
     throw new Error(`out-of-range nanos`);
   }
   let nanosInt = nanos ? parseInt(nanos, 10) : 0;
+  const leadingZeros = nanos ? 9 - nanos.length : 0;
+  nanosInt = nanosInt * Math.pow(10, leadingZeros);
   // If the string is negative, we need to negate the nanos value. We also need to make sure we
   // don't end up with -0.
   if (isNegative && nanosInt > 0) {
@@ -203,9 +200,7 @@ export function durationFromTemporal(
 ) {
   const totalSeconds = duration.total({ unit: 'seconds', relativeTo });
   const seconds = BigInt(Math.floor(totalSeconds));
-  const remainingNanos = Math.round(
-    (totalSeconds % 1) * Number(NANOS_PER_SECOND)
-  );
+  const remainingNanos = Math.round((totalSeconds % 1) * Number(NANOS_PER_SECOND));
   return create(DurationSchema, {
     seconds,
     // This will make sure we don't end up with -0.
@@ -246,11 +241,7 @@ export const MAX_DURATION = duration(MAX_DURATION_SECONDS);
  * Clamp a google.protobuf.Duration value to a range of valid durations. The default
  * minimum is -315,576,000,000 seconds and the default maximum is +315,576,000,000 seconds.
  */
-export function clampDuration(
-  value: Duration,
-  min = MIN_DURATION,
-  max = MAX_DURATION
-): Duration {
+export function clampDuration(value: Duration, min = MIN_DURATION, max = MAX_DURATION): Duration {
   const nanos = durationNanos(value);
   if (nanos < durationNanos(min)) {
     return min;

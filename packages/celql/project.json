@@ -1,0 +1,20 @@
+{
+  "name": "@protoutil/celql",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/celql/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "packages/celql/dist",
+        "main": "packages/celql/src/index.ts",
+        "tsConfig": "packages/celql/tsconfig.lib.json",
+        "format": ["esm"],
+        "declarationRootDir": "packages/celql/src"
+      }
+    }
+  }
+}
