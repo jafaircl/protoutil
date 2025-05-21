@@ -33,15 +33,15 @@ export const IN_OPERATOR = '@in';
 
 const operatorMap = new Map<string, { displayName: string; precedence: number; arity: number }>([
   [CONDITIONAL_OPERATOR, { displayName: '', precedence: 8, arity: 3 }],
-  [LOGICAL_OR_OPERATOR, { displayName: 'OR', precedence: 7, arity: 2 }],
-  [LOGICAL_AND_OPERATOR, { displayName: 'AND', precedence: 6, arity: 2 }],
-  [EQUALS_OPERATOR, { displayName: '=', precedence: 5, arity: 2 }],
+  [LOGICAL_OR_OPERATOR, { displayName: '||', precedence: 7, arity: 2 }],
+  [LOGICAL_AND_OPERATOR, { displayName: '&&', precedence: 6, arity: 2 }],
+  [EQUALS_OPERATOR, { displayName: '==', precedence: 5, arity: 2 }],
   [GREATER_OPERATOR, { displayName: '>', precedence: 5, arity: 2 }],
   [GREATER_EQUALS_OPERATOR, { displayName: '>=', precedence: 5, arity: 2 }],
   [LESS_OPERATOR, { displayName: '<', precedence: 5, arity: 2 }],
   [LESS_EQUALS_OPERATOR, { displayName: '<=', precedence: 5, arity: 2 }],
   [NOT_EQUALS_OPERATOR, { displayName: '!=', precedence: 5, arity: 2 }],
-  [IN_OPERATOR, { displayName: 'IN', precedence: 5, arity: 2 }],
+  [IN_OPERATOR, { displayName: 'in', precedence: 5, arity: 2 }],
   [ADD_OPERATOR, { displayName: '+', precedence: 4, arity: 2 }],
   [SUBTRACT_OPERATOR, { displayName: '-', precedence: 4, arity: 2 }],
   [DIVIDE_OPERATOR, { displayName: '/', precedence: 3, arity: 2 }],
@@ -57,17 +57,6 @@ const operatorMap = new Map<string, { displayName: string; precedence: number; a
 export function findReverse(operator: string) {
   const op = operatorMap.get(operator);
   if (!op) {
-    return '';
-  }
-  return op.displayName;
-}
-
-export function findReverseBinaryOperator(symbol: string) {
-  const op = operatorMap.get(symbol);
-  if (!op || op.arity !== 2) {
-    return '';
-  }
-  if (op.displayName === '') {
     return '';
   }
   return op.displayName;

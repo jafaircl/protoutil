@@ -1,11 +1,14 @@
 import { declareContextProto } from '@bearclaw/cel';
 import { TestAllTypesSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/conformance/proto3/test_all_types_pb.js';
 import { sql } from './celql.js';
-import { SqlEnv } from './env.js';
+import { Dialect } from './dialect.js';
+import { CelqlEnv } from './env.js';
+
+const DEFAULT_DIALECT = new Dialect();
 
 describe('celql', () => {
   describe('sql()', () => {
-    const env = new SqlEnv(declareContextProto(TestAllTypesSchema));
+    const env = new CelqlEnv(declareContextProto(TestAllTypesSchema));
     const testCases = [
       // Logical operators
       {
@@ -1595,6 +1598,21 @@ describe('celql', () => {
 
       // String functions
       {
+        in: `"foobar".contains("foo")`,
+        out: `$1 LIKE CONCAT('%', $2, '%')`,
+        vars: ['foobar', 'foo'],
+      },
+      {
+        in: `"FoObAr".contains("foo", true)`,
+        out: `$1 ILIKE CONCAT('%', $2, '%')`,
+        vars: ['FoObAr', 'foo'],
+      },
+      {
+        in: `"FoObAr".contains("foo", false)`,
+        out: `$1 LIKE CONCAT('%', $2, '%')`,
+        vars: ['FoObAr', 'foo'],
+      },
+      {
         in: `single_string.contains("foo")`,
         out: `single_string LIKE CONCAT('%', $1, '%')`,
         vars: ['foo'],
@@ -1611,6 +1629,21 @@ describe('celql', () => {
         vars: ['foo'],
       },
       {
+        in: `"foobar".endsWith("foo")`,
+        out: `$1 LIKE CONCAT('%', $2)`,
+        vars: ['foobar', 'foo'],
+      },
+      {
+        in: `"FoObAr".endsWith("foo", true)`,
+        out: `$1 ILIKE CONCAT('%', $2)`,
+        vars: ['FoObAr', 'foo'],
+      },
+      {
+        in: `"FoObAr".endsWith("foo", false)`,
+        out: `$1 LIKE CONCAT('%', $2)`,
+        vars: ['FoObAr', 'foo'],
+      },
+      {
         in: `single_double.endsWith("foo")`,
         err: `ERROR: <input>:1:23: found no matching overload for 'endsWith' applied to 'double.(string)'
      | single_double.endsWith("foo")
@@ -1620,6 +1653,21 @@ describe('celql', () => {
         in: `single_string.startsWith("foo")`,
         out: `single_string LIKE CONCAT($1, '%')`,
         vars: ['foo'],
+      },
+      {
+        in: `"foobar".startsWith("foo")`,
+        out: `$1 LIKE CONCAT($2, '%')`,
+        vars: ['foobar', 'foo'],
+      },
+      {
+        in: `"FoObAr".startsWith("foo", true)`,
+        out: `$1 ILIKE CONCAT($2, '%')`,
+        vars: ['FoObAr', 'foo'],
+      },
+      {
+        in: `"FoObAr".startsWith("foo", false)`,
+        out: `$1 LIKE CONCAT($2, '%')`,
+        vars: ['FoObAr', 'foo'],
       },
       {
         in: `single_int64.startsWith("foo")`,
@@ -1938,98 +1986,59 @@ describe('celql', () => {
         vars: [' foo ', 3n],
       },
 
-      // String case-insensitive comparison
+      // String functions
       {
-        in: `'foo'.equalsIgnoreCase('bar')`,
+        in: `single_string.like("foo")`,
+        out: `single_string LIKE $1`,
+        vars: ['foo'],
+      },
+      {
+        in: `"foobar".like("foo")`,
+        out: `$1 LIKE $2`,
+        vars: ['foobar', 'foo'],
+      },
+      {
+        in: `"FoObAr".like("foo", true)`,
         out: `$1 ILIKE $2`,
-        vars: ['foo', 'bar'],
+        vars: ['FoObAr', 'foo'],
       },
       {
-        in: `single_string.equalsIgnoreCase('bar')`,
-        out: `single_string ILIKE $1`,
-        vars: ['bar'],
+        in: `"FoObAr".like("foo", false)`,
+        out: `$1 LIKE $2`,
+        vars: ['FoObAr', 'foo'],
       },
       {
-        in: `123.equalsIgnoreCase('bar')`,
-        err: `ERROR: <input>:1:21: found no matching overload for 'equalsIgnoreCase' applied to 'int.(string)'
-     | 123.equalsIgnoreCase('bar')
-     | ....................^`,
+        in: `single_int64.like("foo")`,
+        err: `ERROR: <input>:1:18: found no matching overload for 'like' applied to 'int.(string)'
+   | single_int64.like("foo")
+   | .................^`,
       },
       {
-        in: `'foo'.notEqualsIgnoreCase('bar')`,
-        out: `$1 NOT ILIKE $2`,
-        vars: ['foo', 'bar'],
+        in: `!single_string.like("foo")`,
+        out: `NOT single_string LIKE $1`,
+        vars: ['foo'],
       },
       {
-        in: `single_string.notEqualsIgnoreCase('bar')`,
-        out: `single_string NOT ILIKE $1`,
-        vars: ['bar'],
+        in: `!single_string.like("foo", true)`,
+        out: `NOT (single_string ILIKE $1)`,
+        vars: ['foo'],
       },
       {
-        in: `123.notEqualsIgnoreCase('bar')`,
-        err: `ERROR: <input>:1:24: found no matching overload for 'notEqualsIgnoreCase' applied to 'int.(string)'
-     | 123.notEqualsIgnoreCase('bar')
-     | .......................^`,
-      },
-      {
-        in: `'foo'.containsIgnoreCase('bar')`,
-        out: `$1 ILIKE CONCAT('%', $2, '%')`,
-        vars: ['foo', 'bar'],
-      },
-      {
-        in: `single_string.containsIgnoreCase('bar')`,
-        out: `single_string ILIKE CONCAT('%', $1, '%')`,
-        vars: ['bar'],
-      },
-      {
-        in: `123.containsIgnoreCase('bar')`,
-        err: `ERROR: <input>:1:23: found no matching overload for 'containsIgnoreCase' applied to 'int.(string)'
-     | 123.containsIgnoreCase('bar')
-     | ......................^`,
-      },
-      {
-        in: `'foo'.startsWithIgnoreCase('bar')`,
-        out: `$1 ILIKE CONCAT($2, '%')`,
-        vars: ['foo', 'bar'],
-      },
-      {
-        in: `single_string.startsWithIgnoreCase('bar')`,
-        out: `single_string ILIKE CONCAT($1, '%')`,
-        vars: ['bar'],
-      },
-      {
-        in: `123.startsWithIgnoreCase('bar')`,
-        err: `ERROR: <input>:1:25: found no matching overload for 'startsWithIgnoreCase' applied to 'int.(string)'
-     | 123.startsWithIgnoreCase('bar')
-     | ........................^`,
-      },
-      {
-        in: `'foo'.endsWithIgnoreCase('bar')`,
-        out: `$1 ILIKE CONCAT('%', $2)`,
-        vars: ['foo', 'bar'],
-      },
-      {
-        in: `single_string.endsWithIgnoreCase('bar')`,
-        out: `single_string ILIKE CONCAT('%', $1)`,
-        vars: ['bar'],
-      },
-      {
-        in: `123.endsWithIgnoreCase('bar')`,
-        err: `ERROR: <input>:1:23: found no matching overload for 'endsWithIgnoreCase' applied to 'int.(string)'
-     | 123.endsWithIgnoreCase('bar')
-     | ......................^`,
+        in: `!single_string.like("foo", false)`,
+        out: `NOT (single_string LIKE $1)`,
+        vars: ['foo'],
       },
     ];
     for (const tc of testCases) {
       it(`should convert "${tc.in}"`, () => {
         if (tc.out) {
-          const out = sql(tc.in, env);
+          const out = sql(tc.in, env, DEFAULT_DIALECT);
           expect(out.sql).toEqual(tc.out);
           if (tc.vars) {
             expect(out.vars).toEqual(tc.vars);
           }
         } else if (tc.err) {
-          expect(() => sql(tc.in, env)).toThrow(
+          expect(() => sql(tc.in, env, DEFAULT_DIALECT)).toThrow(
             tc.err
               .split('\n')
               .map((line) => line.trim())

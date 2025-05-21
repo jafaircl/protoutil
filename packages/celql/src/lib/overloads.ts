@@ -119,17 +119,20 @@ export const ENDS_WITH_OVERLOAD = 'endsWith';
 // export const MATCHES_OVERLOAD = 'matches';
 export const STARTS_WITH_OVERLOAD = 'startsWith';
 
-// Extension function overloads with complex behaviors that need to be referenced in runtime and static analysis cost computations.
-export const EXT_QUOTE_STRING_OVERLOAD = 'strings_quote';
+// // Extension function overloads with complex behaviors that need to be referenced in runtime and static analysis cost computations.
+// export const EXT_QUOTE_STRING_OVERLOAD = 'strings_quote';
 
 // String function overload names.
 export const CONTAINS_STRING_OVERLOAD = 'contains_string';
+export const CONTAINS_STRING_FLAG_OVERLOAD = 'contains_string_flag';
 export const ENDS_WITH_STRING_OVERLOAD = 'ends_with_string';
+export const ENDS_WITH_STRING_FLAG_OVERLOAD = 'ends_with_string_flag';
 // export const MATCHES_STRING_OVERLOAD = 'matches_string';
 export const STARTS_WITH_STRING_OVERLOAD = 'starts_with_string';
+export const STARTS_WITH_STRING_FLAG_OVERLOAD = 'starts_with_string_flag';
 
-// Extension function overloads with complex behaviors that need to be referenced in runtime and static analysis cost computations.
-export const EXT_FORMAT_STRING_OVERLOAD = 'string_format';
+// // Extension function overloads with complex behaviors that need to be referenced in runtime and static analysis cost computations.
+// export const EXT_FORMAT_STRING_OVERLOAD = 'string_format';
 
 // Time-based functions.
 export const TIMESTAMP_NOW = 'now';
@@ -258,9 +261,7 @@ export const STRING_LOWER_OVERLOAD = 'lower';
 export const STRING_UPPER_OVERLOAD = 'upper';
 export const STRING_TRIM_OVERLOAD = 'trim';
 
-// String case-insensitive comparison
-export const STRING_INSENSITIVE_EQUALS_OVERLOAD = 'equalsIgnoreCase';
-export const STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD = 'notEqualsIgnoreCase';
-export const STRING_INSENSITIVE_STARTS_WITH_OVERLOAD = 'startsWithIgnoreCase';
-export const STRING_INSENSITIVE_ENDS_WITH_OVERLOAD = 'endsWithIgnoreCase';
-export const STRING_INSENSITIVE_CONTAINS_OVERLOAD = 'containsIgnoreCase';
+// String functions
+export const LIKE_OVERLOAD = 'like';
+export const LIKE_STRING_OVERLOAD = 'like_string';
+export const LIKE_STRING_FLAG_OVERLOAD = 'like_string_flag';

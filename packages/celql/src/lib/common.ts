@@ -1,7 +1,8 @@
 import { Expr, Expr_Call } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
 import {
+  arity,
   CONDITIONAL_OPERATOR,
-  findReverseBinaryOperator,
+  findReverse,
   LOGICAL_AND_OPERATOR,
   LOGICAL_OR_OPERATOR,
   precedence,
@@ -70,7 +71,8 @@ export function isBinaryOrTernaryOperator(expr: Expr) {
   if (expr.exprKind.case !== 'callExpr' || expr.exprKind.value.args.length < 2) {
     return false;
   }
-  const isBinaryOp = findReverseBinaryOperator(expr.exprKind.value.function) !== '';
+  const isBinaryOp =
+    findReverse(expr.exprKind.value.function) !== '' && arity(expr.exprKind.value.function) === 2;
   return isBinaryOp || isSamePrecedence(CONDITIONAL_OPERATOR, expr);
 }
 
@@ -119,11 +121,28 @@ export function isIntegerLiteral(expr: Expr): expr is Expr & {
 }
 
 export function unwrapStringConstant(expr: Expr): string | undefined {
+  if (!expr) {
+    return undefined;
+  }
   if (expr.exprKind.case !== 'constExpr') {
     return undefined;
   }
   const constant = expr.exprKind.value.constantKind;
   if (constant.case !== 'stringValue') {
+    return undefined;
+  }
+  return constant.value;
+}
+
+export function unwrapBoolConstant(expr: Expr): boolean | undefined {
+  if (!expr) {
+    return undefined;
+  }
+  if (expr.exprKind.case !== 'constExpr') {
+    return undefined;
+  }
+  const constant = expr.exprKind.value.constantKind;
+  if (constant.case !== 'boolValue') {
     return undefined;
   }
   return constant.value;

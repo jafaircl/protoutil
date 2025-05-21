@@ -13,20 +13,24 @@ import {
 import { Expr } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
 import { timestampDate } from '@bufbuild/protobuf/wkt';
 import { durationFromString, durationNanos, timestampFromDateString } from '@protoutil/core';
-import { unwrapStringConstant } from './common.js';
+import { unwrapBoolConstant, unwrapStringConstant } from './common.js';
 import { ALL_KEYWORDS } from './keywords.js';
 import { DateType } from './library.js';
-import { ADD_OPERATOR, findReverse, LOGICAL_NOT_OPERATOR } from './operators.js';
+import {
+  ADD_OPERATOR,
+  EQUALS_OPERATOR,
+  findReverse,
+  IN_OPERATOR,
+  LOGICAL_AND_OPERATOR,
+  LOGICAL_NOT_OPERATOR,
+  LOGICAL_OR_OPERATOR,
+} from './operators.js';
 import {
   CONTAINS_OVERLOAD,
   ENDS_WITH_OVERLOAD,
+  LIKE_OVERLOAD,
   SIZE_OVERLOAD,
   STARTS_WITH_OVERLOAD,
-  STRING_INSENSITIVE_CONTAINS_OVERLOAD,
-  STRING_INSENSITIVE_ENDS_WITH_OVERLOAD,
-  STRING_INSENSITIVE_EQUALS_OVERLOAD,
-  STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD,
-  STRING_INSENSITIVE_STARTS_WITH_OVERLOAD,
   STRING_LOWER_OVERLOAD,
   STRING_TRIM_OVERLOAD,
   STRING_UPPER_OVERLOAD,
@@ -262,19 +266,31 @@ export class Dialect {
         }
       case CONTAINS_OVERLOAD:
         unparser.visit(args[0]);
-        unparser.writeString(" LIKE CONCAT('%', ");
+        if (unwrapBoolConstant(args[2]) === true) {
+          unparser.writeString(" ILIKE CONCAT('%', ");
+        } else {
+          unparser.writeString(" LIKE CONCAT('%', ");
+        }
         unparser.visit(args[1]);
         unparser.writeString(`, '%')`);
         return true;
       case ENDS_WITH_OVERLOAD:
         unparser.visit(args[0]);
-        unparser.writeString(" LIKE CONCAT('%', ");
+        if (unwrapBoolConstant(args[2]) === true) {
+          unparser.writeString(" ILIKE CONCAT('%', ");
+        } else {
+          unparser.writeString(" LIKE CONCAT('%', ");
+        }
         unparser.visit(args[1]);
         unparser.writeString(`)`);
         return true;
       case STARTS_WITH_OVERLOAD:
         unparser.visit(args[0]);
-        unparser.writeString(' LIKE CONCAT(');
+        if (unwrapBoolConstant(args[2]) === true) {
+          unparser.writeString(' ILIKE CONCAT(');
+        } else {
+          unparser.writeString(' LIKE CONCAT(');
+        }
         unparser.visit(args[1]);
         unparser.writeString(`, '%')`);
         return true;
@@ -436,33 +452,14 @@ export class Dialect {
               `Unsupported type for "${STRING_TRIM_OVERLOAD}": ${stringTrimArgType?.typeName()}`
             );
         }
-      case STRING_INSENSITIVE_EQUALS_OVERLOAD:
+      case LIKE_OVERLOAD:
         unparser.visit(args[0]);
-        unparser.writeString(' ILIKE ');
+        if (unwrapBoolConstant(args[2]) === true) {
+          unparser.writeString(' ILIKE ');
+        } else {
+          unparser.writeString(' LIKE ');
+        }
         unparser.visit(args[1]);
-        return true;
-      case STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD:
-        unparser.visit(args[0]);
-        unparser.writeString(' NOT ILIKE ');
-        unparser.visit(args[1]);
-        return true;
-      case STRING_INSENSITIVE_CONTAINS_OVERLOAD:
-        unparser.visit(args[0]);
-        unparser.writeString(" ILIKE CONCAT('%', ");
-        unparser.visit(args[1]);
-        unparser.writeString(`, '%')`);
-        return true;
-      case STRING_INSENSITIVE_ENDS_WITH_OVERLOAD:
-        unparser.visit(args[0]);
-        unparser.writeString(" ILIKE CONCAT('%', ");
-        unparser.visit(args[1]);
-        unparser.writeString(`)`);
-        return true;
-      case STRING_INSENSITIVE_STARTS_WITH_OVERLOAD:
-        unparser.visit(args[0]);
-        unparser.writeString(' ILIKE CONCAT(');
-        unparser.visit(args[1]);
-        unparser.writeString(`, '%')`);
         return true;
       default:
         return false;
@@ -474,6 +471,14 @@ export class Dialect {
    */
   findSqlOperator(operator: string): string {
     switch (operator) {
+      case LOGICAL_OR_OPERATOR:
+        return 'OR';
+      case LOGICAL_AND_OPERATOR:
+        return 'AND';
+      case EQUALS_OPERATOR:
+        return '=';
+      case IN_OPERATOR:
+        return 'IN';
       case LOGICAL_NOT_OPERATOR:
         return 'NOT ';
       default:
@@ -482,4 +487,21 @@ export class Dialect {
   }
 }
 
-export const DEFAULT_DIALECT = new Dialect();
+export class PostgresqlDialect extends Dialect {}
+
+export class MySqlDialec extends Dialect {
+  override functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean {
+    switch (functionName) {
+      // MySQL LIKE is case insensitive by default
+      case LIKE_OVERLOAD:
+        unparser.visit(args[0]);
+        unparser.writeString(' LIKE ');
+        unparser.visit(args[1]);
+        return true;
+      default:
+        return super.functionToSqlOverrides(unparser, functionName, args);
+    }
+  }
+}
+
+// TODO: DEFAULT should be ANSI SQL

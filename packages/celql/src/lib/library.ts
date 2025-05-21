@@ -9,7 +9,6 @@ import {
   IntType,
   lib,
   listType,
-  mapType,
   memberOverload,
   opaqueType,
   overload,
@@ -54,6 +53,7 @@ import {
   BYTES_TO_STRING_OVERLOAD,
   CONDITIONAL_OVERLOAD,
   CONTAINS_OVERLOAD,
+  CONTAINS_STRING_FLAG_OVERLOAD,
   CONTAINS_STRING_OVERLOAD,
   DATE_TO_DATE_OVERLOAD,
   DIVIDE_DOUBLE_OVERLOAD,
@@ -65,6 +65,7 @@ import {
   DOUBLE_TO_UINT_OVERLOAD,
   DURATION_TO_DURATION_OVERLOAD,
   ENDS_WITH_OVERLOAD,
+  ENDS_WITH_STRING_FLAG_OVERLOAD,
   ENDS_WITH_STRING_OVERLOAD,
   EQUALS_OVERLOAD,
   GREATER_BOOL_OVERLOAD,
@@ -129,6 +130,9 @@ import {
   LESS_UINT64_DOUBLE_OVERLOAD,
   LESS_UINT64_INT64_OVERLOAD,
   LESS_UINT64_OVERLOAD,
+  LIKE_OVERLOAD,
+  LIKE_STRING_FLAG_OVERLOAD,
+  LIKE_STRING_OVERLOAD,
   LOGICAL_AND_OVERLOAD,
   LOGICAL_NOT_OVERLOAD,
   LOGICAL_OR_OVERLOAD,
@@ -146,12 +150,8 @@ import {
   SIZE_STRING_INST_OVERLOAD,
   SIZE_STRING_OVERLOAD,
   STARTS_WITH_OVERLOAD,
+  STARTS_WITH_STRING_FLAG_OVERLOAD,
   STARTS_WITH_STRING_OVERLOAD,
-  STRING_INSENSITIVE_CONTAINS_OVERLOAD,
-  STRING_INSENSITIVE_ENDS_WITH_OVERLOAD,
-  STRING_INSENSITIVE_EQUALS_OVERLOAD,
-  STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD,
-  STRING_INSENSITIVE_STARTS_WITH_OVERLOAD,
   STRING_LOWER_OVERLOAD,
   STRING_TO_BOOL_OVERLOAD,
   STRING_TO_BYTES_OVERLOAD,
@@ -222,7 +222,7 @@ import {
 const paramA = typeParamType('A');
 const paramB = typeParamType('B');
 const listOfA = listType(paramA);
-const mapOfAB = mapType(paramA, paramB);
+// const mapOfAB = mapType(paramA, paramB);
 
 export const DateType = opaqueType('Date');
 
@@ -459,17 +459,20 @@ const sqlFunctions: EnvOption[] = [
   // String functions
   func(
     CONTAINS_OVERLOAD,
-    memberOverload(CONTAINS_STRING_OVERLOAD, [StringType, StringType], BoolType)
+    memberOverload(CONTAINS_STRING_OVERLOAD, [StringType, StringType], BoolType),
+    memberOverload(CONTAINS_STRING_FLAG_OVERLOAD, [StringType, StringType, BoolType], BoolType)
   ),
   func(
     ENDS_WITH_OVERLOAD,
-    memberOverload(ENDS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType)
+    memberOverload(ENDS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType),
+    memberOverload(ENDS_WITH_STRING_FLAG_OVERLOAD, [StringType, StringType, BoolType], BoolType)
   ),
   // TODO: sql equivalent?
   // func(MATCHES_OVERLOAD, memberOverload(MATCHES_OVERLOAD, [StringType, StringType], BoolType)),
   func(
     STARTS_WITH_OVERLOAD,
-    memberOverload(STARTS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType)
+    memberOverload(STARTS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType),
+    memberOverload(STARTS_WITH_STRING_FLAG_OVERLOAD, [StringType, StringType, BoolType], BoolType)
   ),
 
   // Timestamp / duration functions
@@ -558,26 +561,11 @@ const sqlFunctions: EnvOption[] = [
   func(STRING_UPPER_OVERLOAD, memberOverload(STRING_UPPER_OVERLOAD, [StringType], StringType)),
   func(STRING_TRIM_OVERLOAD, memberOverload(STRING_TRIM_OVERLOAD, [StringType], StringType)),
 
-  // String case-insensitive comparison
+  // String functions
   func(
-    STRING_INSENSITIVE_EQUALS_OVERLOAD,
-    memberOverload(STRING_INSENSITIVE_EQUALS_OVERLOAD, [StringType, StringType], BoolType)
-  ),
-  func(
-    STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD,
-    memberOverload(STRING_INSENSITIVE_NOT_EQUALS_OVERLOAD, [StringType, StringType], BoolType)
-  ),
-  func(
-    STRING_INSENSITIVE_CONTAINS_OVERLOAD,
-    memberOverload(STRING_INSENSITIVE_CONTAINS_OVERLOAD, [StringType, StringType], BoolType)
-  ),
-  func(
-    STRING_INSENSITIVE_STARTS_WITH_OVERLOAD,
-    memberOverload(STRING_INSENSITIVE_STARTS_WITH_OVERLOAD, [StringType, StringType], BoolType)
-  ),
-  func(
-    STRING_INSENSITIVE_ENDS_WITH_OVERLOAD,
-    memberOverload(STRING_INSENSITIVE_ENDS_WITH_OVERLOAD, [StringType, StringType], BoolType)
+    LIKE_OVERLOAD,
+    memberOverload(LIKE_STRING_OVERLOAD, [StringType, StringType], BoolType),
+    memberOverload(LIKE_STRING_FLAG_OVERLOAD, [StringType, StringType, BoolType], BoolType)
   ),
 ];
 

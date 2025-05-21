@@ -1,4 +1,3 @@
-/* eslint-disable no-case-declarations */
 import { Ast } from '@bearclaw/cel';
 import { Constant, Expr, ExprSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
 import { toJsonString } from '@bufbuild/protobuf';
@@ -10,13 +9,12 @@ import {
   isSamePrecedence,
   isStringLiteral,
 } from './common.js';
-import { DEFAULT_DIALECT, Dialect } from './dialect.js';
+import { Dialect } from './dialect.js';
 import {
   ADD_OPERATOR,
   CONDITIONAL_OPERATOR,
   DIVIDE_OPERATOR,
   EQUALS_OPERATOR,
-  findReverseBinaryOperator,
   GREATER_EQUALS_OPERATOR,
   GREATER_OPERATOR,
   IN_OPERATOR,
@@ -37,7 +35,7 @@ export class Unparser {
   private _str = '';
   private _vars: unknown[] = [];
 
-  constructor(private readonly _expr: Ast, private readonly _dialect: Dialect = DEFAULT_DIALECT) {}
+  constructor(private readonly _expr: Ast, private readonly _dialect: Dialect) {}
 
   get vars() {
     return this._vars;
@@ -153,7 +151,7 @@ export class Unparser {
       rhsParen = isSamePrecedence(fun, rhs);
     }
     this.visitMaybeNested(lhs, lhsParen);
-    const unmangled = findReverseBinaryOperator(fun);
+    const unmangled = this._dialect.findSqlOperator(fun);
     if (!unmangled) {
       throw new Error(`Cannot unmangle operator: ${fun}`);
     }
