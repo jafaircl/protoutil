@@ -489,7 +489,7 @@ export class Dialect {
 
 export class PostgresqlDialect extends Dialect {}
 
-export class MySqlDialec extends Dialect {
+export class MySqlDialect extends Dialect {
   override functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean {
     switch (functionName) {
       // MySQL LIKE is case insensitive by default

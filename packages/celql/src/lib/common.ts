@@ -147,3 +147,13 @@ export function unwrapBoolConstant(expr: Expr): boolean | undefined {
   }
   return constant.value;
 }
+
+export function unwrapIdent(expr: Expr): string | undefined {
+  if (!expr) {
+    return undefined;
+  }
+  if (expr.exprKind.case !== 'identExpr') {
+    return undefined;
+  }
+  return expr.exprKind.value.name;
+}

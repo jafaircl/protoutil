@@ -2049,5 +2049,21 @@ describe('celql', () => {
         }
       });
     }
+
+    it('should be fast', () => {
+      const iterations = 10000;
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        sql('single_string.startsWith("foo") && single_int64 > 2', env, DEFAULT_DIALECT);
+      }
+      const end = performance.now();
+      const elapsed = end - start;
+      const iterTime = elapsed / iterations;
+      const opsPerSecond = Math.floor(1000 / iterTime);
+      console.log(`Average time: ${iterTime.toFixed(3)} ms`);
+      console.log(`Ops/sec: ${opsPerSecond}`);
+      expect(iterTime).toBeLessThan(1);
+      expect(opsPerSecond).toBeGreaterThan(1000);
+    });
   });
 });

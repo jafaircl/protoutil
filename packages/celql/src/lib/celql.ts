@@ -1,5 +1,5 @@
 import { Ast, BoolType, Env, Issues } from '@bearclaw/cel';
-import { Dialect, PostgresqlDialect } from './dialect.js';
+import { Dialect, MySqlDialect, PostgresqlDialect } from './dialect.js';
 import { Unparser } from './unparser.js';
 
 /**
@@ -42,7 +42,7 @@ export function postgres(expression: string, env: Env): { sql: string; vars: unk
   return sql(expression, env, POSTGRESQL_DIALECT);
 }
 
-const MYSQL_DIALECT = new Dialect();
+const MYSQL_DIALECT = new MySqlDialect();
 
 /**
  * Convert a CEL expression into a MySQL expression.
