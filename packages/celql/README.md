@@ -12,9 +12,9 @@ First, you will need to let the CEL environment know about your columns. This ca
 
 ```typescript
 import { variable } from '@bearclaw/cel';
-import { CelqlEnv } from '@protoutil/core';
+import { DefaultEnv } from '@protoutil/celql';
 
-const env = new CelqlEnv(
+const env = new DefaultEnv(
   variable('name', StringType),
   ...
 );
@@ -25,10 +25,10 @@ Or, if you have a protobuf representation of your database table, you can define
 ```typescript
 
 import { declareContextProto } from '@bearclaw/cel';
-import { CelqlEnv } from '@protoutil/core';
+import { DefaultEnv } from '@protoutil/celql';
 import { MySchema } from './gen/myschema_pb.js';
 
-const env = new CelqlEnv(
+const env = new DefaultEnv(
   declareContextProto(MySchema),
   ...
 );
@@ -70,7 +70,7 @@ TODO: Document functionality that is not implemented
 
 ##### String Functions
 
-The string `contains`, `endsWith`, and `startsWith` member functions can optionally take a boolean `ignoreCase` parameter to control case sensitivity. Passing `true` will make their searches case insensitive. It is important to note that this parameter may not have an effect on all databases. For example, MySQL `LIKE` queries are case-insensitive by default. Since `contains`, `endsWith`, and `startsWith` use `LIKE` under the hood, passing `true` will have no effect on the output for MySQL queries.
+The string `contains`, `endsWith`, and `startsWith` member functions can optionally take a boolean `ignoreCase` parameter to control case sensitivity. Passing `true` will make their searches case insensitive. It is important to note that this parameter may cause the `LOWER` function to be called. So, creating a lower-case index of string columns may significantly improve performance for these queries.
 
 ```typescript
 my_column.contains('foo', true); // Will output a case-insensitive query i.e. ILIKE for PostgreSQL

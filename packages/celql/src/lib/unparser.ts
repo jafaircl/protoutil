@@ -1,4 +1,4 @@
-import { Ast } from '@bearclaw/cel';
+import { Ast, CELError } from '@bearclaw/cel';
 import { Constant, Expr, ExprSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
 import { toJsonString } from '@bufbuild/protobuf';
 import {
@@ -87,13 +87,13 @@ export class Unparser {
       case 'structExpr':
         return this.visitStruct(expr);
       default:
-        throw new Error(`Unsupported expression: ${expr.exprKind.case}`);
+        throw this.formatError(expr, `Unsupported expression: ${expr.exprKind.case}`);
     }
   }
 
   visitCall(expr: Expr) {
     if (expr.exprKind.case !== 'callExpr') {
-      throw new Error('Expected callExpr');
+      throw this.formatError(expr, 'Expected callExpr');
     }
     const c = expr.exprKind.value;
     const override = this.visitCallFuncOverride(c.function, c.args, c.target);
@@ -135,7 +135,7 @@ export class Unparser {
 
   visitCallBinary(expr: Expr) {
     if (expr.exprKind.case !== 'callExpr') {
-      throw new Error('Expected callExpr');
+      throw this.formatError(expr, 'Expected callExpr');
     }
     const c = expr.exprKind.value;
     const fun = c.function;
@@ -162,7 +162,7 @@ export class Unparser {
 
   visitCallConditional(expr: Expr) {
     if (expr.exprKind.case !== 'callExpr') {
-      throw new Error('Expected callExpr');
+      throw this.formatError(expr, 'Expected callExpr');
     }
     const c = expr.exprKind.value;
     const args = c.args;
@@ -188,7 +188,7 @@ export class Unparser {
 
   visitCallFunc(expr: Expr) {
     if (expr.exprKind.case !== 'callExpr') {
-      throw new Error('Expected callExpr');
+      throw this.formatError(expr, 'Expected callExpr');
     }
     const c = expr.exprKind.value;
     const fun = c.function;
@@ -224,27 +224,23 @@ export class Unparser {
 
   visitCallIndex(expr: Expr) {
     if (expr.exprKind.case !== 'callExpr') {
-      throw new Error('Expected callExpr');
+      throw this.formatError(expr, 'Expected callExpr');
     }
     const c = expr.exprKind.value;
     const args = c.args;
-    const nested = isBinaryOrTernaryOperator(args[0]);
-    this.visitMaybeNested(args[0], nested);
-    this.writeString('[');
-    this.visit(args[1]);
-    this.writeString(']');
+    this._dialect.index(this, args[0], args[1]);
   }
 
   visitCallUnary(expr: Expr) {
     if (expr.exprKind.case !== 'callExpr') {
-      throw new Error('Expected callExpr');
+      throw this.formatError(expr, 'Expected callExpr');
     }
     const c = expr.exprKind.value;
     const fun = c.function;
     const args = c.args;
     const unmangled = this._dialect.findSqlOperator(fun);
     if (!unmangled) {
-      throw new Error(`Cannot unmangle operator: ${fun}`);
+      throw this.formatError(expr, `Cannot unmangle operator: ${fun}`);
     }
     this.writeString(unmangled);
     const nested = isComplexOperator(args[0]);
@@ -253,7 +249,7 @@ export class Unparser {
 
   visitConst(expr: Expr) {
     if (expr.exprKind.case !== 'constExpr') {
-      throw new Error('Expected constExpr');
+      throw this.formatError(expr, 'Expected constExpr');
     }
     const val = expr.exprKind.value;
     this.visitConstVal(val);
@@ -276,7 +272,7 @@ export class Unparser {
 
   visitIdent(expr: Expr) {
     if (expr.exprKind.case !== 'identExpr') {
-      throw new Error('Expected identExpr');
+      throw this.formatError(expr, 'Expected identExpr');
     }
     const id = expr.exprKind.value;
     this.writeString(this._dialect.maybeQuoteIdentifier(id.name));
@@ -284,24 +280,15 @@ export class Unparser {
 
   visitList(expr: Expr) {
     if (expr.exprKind.case !== 'listExpr') {
-      throw new Error('Expected listExpr');
+      throw this.formatError(expr, 'Expected listExpr');
     }
     const l = expr.exprKind.value;
-    const elems = l.elements;
-    this.writeString('(');
-    for (let i = 0; i < elems.length; i += 1) {
-      const elem = elems[i];
-      this.visit(elem);
-      if (i < elems.length - 1) {
-        this.writeString(', ');
-      }
-    }
-    this.writeString(')');
+    this._dialect.createList(this, l);
   }
 
   visitSelect(expr: Expr) {
     if (expr.exprKind.case !== 'selectExpr') {
-      throw new Error('Expected selectExpr');
+      throw this.formatError(expr, 'Expected selectExpr');
     }
     const sel = expr.exprKind.value;
     return this.visitSelectInternal(sel.operand as Expr, sel.testOnly, '.', sel.field);
@@ -323,7 +310,7 @@ export class Unparser {
 
   visitStruct(expr: Expr) {
     if (expr.exprKind.case !== 'structExpr') {
-      throw new Error('Expected structExpr');
+      throw this.formatError(expr, 'Expected structExpr');
     }
     if (expr.exprKind.value.messageName !== '') {
       return this.visitStructMsg(expr);
@@ -333,7 +320,7 @@ export class Unparser {
 
   visitStructMsg(expr: Expr) {
     if (expr.exprKind.case !== 'structExpr') {
-      throw new Error('Expected structExpr');
+      throw this.formatError(expr, 'Expected structExpr');
     }
     const m = expr.exprKind.value;
     const fields = m.entries;
@@ -355,7 +342,7 @@ export class Unparser {
 
   visitStructMap(expr: Expr) {
     if (expr.exprKind.case !== 'structExpr') {
-      throw new Error('Expected structExpr');
+      throw this.formatError(expr, 'Expected structExpr');
     }
     const m = expr.exprKind.value;
     const entries = m.entries;
@@ -396,15 +383,27 @@ export class Unparser {
     }
   }
 
+  ast() {
+    return this._expr.nativeRep();
+  }
+
   getType(expr: Expr) {
-    return this._expr.nativeRep().getType(expr.id);
+    return this.ast().getType(expr.id);
   }
 
   extractFieldName(expr: Expr) {
     if (!isStringLiteral(expr)) {
-      throw new Error(`unsupported field name type ${toJsonString(ExprSchema, expr)}`);
+      throw this.formatError(expr, `unsupported field name type ${toJsonString(ExprSchema, expr)}`);
     }
     const name = expr.exprKind.value.constantKind.value;
     return this._dialect.maybeQuoteIdentifier(name);
+  }
+
+  formatError(expr: Expr, message: string) {
+    const location = this.ast().sourceInfo().getStartLocation(expr.id);
+    const errMessage = new CELError(expr.id, location, message).toDisplayString(
+      this.ast().sourceInfo().source()
+    );
+    return new Error(errMessage);
   }
 }

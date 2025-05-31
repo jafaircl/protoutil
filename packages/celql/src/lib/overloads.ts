@@ -136,6 +136,7 @@ export const STARTS_WITH_STRING_FLAG_OVERLOAD = 'starts_with_string_flag';
 
 // Time-based functions.
 export const TIMESTAMP_NOW = 'now';
+export const TIMESTAMP_NOW_WITH_TZ = 'now_with_tz';
 export const TIME_GET_FULL_YEAR_OVERLOAD = 'getFullYear';
 export const TIME_GET_MONTH_OVERLOAD = 'getMonth';
 export const TIME_GET_DAY_OF_YEAR_OVERLOAD = 'getDayOfYear';
@@ -147,30 +148,51 @@ export const TIME_GET_MINUTES_OVERLOAD = 'getMinutes';
 export const TIME_GET_SECONDS_OVERLOAD = 'getSeconds';
 export const TIME_GET_MILLISECONDS_OVERLOAD = 'getMilliseconds';
 
-// Timestamp overloads for time functions without timezones.
+// Temporal overloads for time functions without timezones.
+export const DATE_TO_YEAR_OVERLOAD = 'date_to_year';
 export const TIMESTAMP_TO_YEAR_OVERLOAD = 'timestamp_to_year';
+export const DATE_TO_MONTH_OVERLOAD = 'date_to_month';
 export const TIMESTAMP_TO_MONTH_OVERLOAD = 'timestamp_to_month';
+export const DATE_TO_DAY_OF_YEAR_OVERLOAD = 'date_to_day_of_year';
 export const TIMESTAMP_TO_DAY_OF_YEAR_OVERLOAD = 'timestamp_to_day_of_year';
+export const DATE_TO_DAY_OF_MONTH_ZERO_BASED_OVERLOAD = 'date_to_day_of_month';
 export const TIMESTAMP_TO_DAY_OF_MONTH_ZERO_BASED_OVERLOAD = 'timestamp_to_day_of_month';
+export const DATE_TO_DAY_OF_MONTH_ONE_BASED_OVERLOAD = 'date_to_day_of_month_1_based';
 export const TIMESTAMP_TO_DAY_OF_MONTH_ONE_BASED_OVERLOAD = 'timestamp_to_day_of_month_1_based';
+export const DATE_TO_DAY_OF_WEEK_OVERLOAD = 'date_to_day_of_week';
 export const TIMESTAMP_TO_DAY_OF_WEEK_OVERLOAD = 'timestamp_to_day_of_week';
+export const TIME_TO_HOURS_OVERLOAD = 'time_to_hours';
 export const TIMESTAMP_TO_HOURS_OVERLOAD = 'timestamp_to_hours';
+export const TIME_TO_MINUTES_OVERLOAD = 'time_to_minutes';
 export const TIMESTAMP_TO_MINUTES_OVERLOAD = 'timestamp_to_minutes';
+export const TIME_TO_SECONDS_OVERLOAD = 'time_to_seconds';
 export const TIMESTAMP_TO_SECONDS_OVERLOAD = 'timestamp_to_seconds';
+export const TIME_TO_MILLISECONDS_OVERLOAD = 'time_to_milliseconds';
 export const TIMESTAMP_TO_MILLISECONDS_OVERLOAD = 'timestamp_to_milliseconds';
 
-// Timestamp overloads for time functions with timezones.
+// Temporal overloads for time functions with timezones.
+export const DATE_TO_YEAR_WITH_TZ_OVERLOAD = 'date_to_year_with_tz';
 export const TIMESTAMP_TO_YEAR_WITH_TZ_OVERLOAD = 'timestamp_to_year_with_tz';
+export const DATE_TO_MONTH_WITH_TZ_OVERLOAD = 'date_to_month_with_tz';
 export const TIMESTAMP_TO_MONTH_WITH_TZ_OVERLOAD = 'timestamp_to_month_with_tz';
+export const DATE_TO_DAY_OF_YEAR_WITH_TZ_OVERLOAD = 'date_to_day_of_year_with_tz';
 export const TIMESTAMP_TO_DAY_OF_YEAR_WITH_TZ_OVERLOAD = 'timestamp_to_day_of_year_with_tz';
+export const DATE_TO_DAY_OF_MONTH_ZERO_BASED_WITH_TZ_OVERLOAD = 'date_to_day_of_month_with_tz';
 export const TIMESTAMP_TO_DAY_OF_MONTH_ZERO_BASED_WITH_TZ_OVERLOAD =
   'timestamp_to_day_of_month_with_tz';
+export const DATE_TO_DAY_OF_MONTH_ONE_BASED_WITH_TZ_OVERLOAD =
+  'date_to_day_of_month_1_based_with_tz';
 export const TIMESTAMP_TO_DAY_OF_MONTH_ONE_BASED_WITH_TZ_OVERLOAD =
   'timestamp_to_day_of_month_1_based_with_tz';
+export const DATE_TO_DAY_OF_WEEK_WITH_TZ_OVERLOAD = 'date_to_day_of_week_with_tz';
 export const TIMESTAMP_TO_DAY_OF_WEEK_WITH_TZ_OVERLOAD = 'timestamp_to_day_of_week_with_tz';
+export const TIME_TO_HOURS_WITH_TZ_OVERLOAD = 'time_to_hours_with_tz';
 export const TIMESTAMP_TO_HOURS_WITH_TZ_OVERLOAD = 'timestamp_to_hours_with_tz';
+export const TIME_TO_MINUTES_WITH_TZ_OVERLOAD = 'time_to_minutes_with_tz';
 export const TIMESTAMP_TO_MINUTES_WITH_TZ_OVERLOAD = 'timestamp_to_minutes_with_tz';
+export const TIME_TO_SECONDS_WITH_TZ_OVERLOAD = 'time_to_seconds_with_tz';
 export const TIMESTAMP_TO_SECONDS_WITH_TZ_OVERLOAD = 'timestamp_to_seconds_tz';
+export const TIME_TO_MILLISECONDS_WITH_TZ_OVERLOAD = 'time_to_milliseconds_with_tz';
 export const TIMESTAMP_TO_MILLISECONDS_WITH_TZ_OVERLOAD = 'timestamp_to_milliseconds_with_tz';
 
 // Duration overloads for time functions.
@@ -191,6 +213,7 @@ export const TYPE_CONVERT_DURATION_OVERLOAD = 'duration';
 export const TYPE_CONVERT_TYPE_OVERLOAD = 'type';
 export const TYPE_CONVERT_DYN_OVERLOAD = 'dyn';
 export const TYPE_CONVERT_DATE_OVERLOAD = 'date';
+export const TYPE_CONVERT_TIME_OVERLOAD = 'time';
 
 // Int conversion functions.
 export const INT_TO_INT_OVERLOAD = 'int64_to_int64';
@@ -241,6 +264,8 @@ export const INT_TO_TIMESTAMP_OVERLOAD = 'int64_to_timestamp';
 export const DURATION_TO_DURATION_OVERLOAD = 'duration_to_duration';
 export const STRING_TO_DURATION_OVERLOAD = 'string_to_duration';
 export const INT_TO_DURATION_OVERLOAD = 'int64_to_duration';
+export const DOUBLE_TO_DURATION_OVERLOAD = 'double_to_duration';
+export const UINT_TO_DURATION_OVERLOAD = 'uint64_to_duration';
 
 // Convert to dyn
 export const TO_DYN_OVERLOAD = 'to_dyn';
@@ -252,8 +277,14 @@ export const DATE_TO_DATE_OVERLOAD = 'date_to_date';
 export const STRING_TO_DATE_OVERLOAD = 'string_to_date';
 export const TIMESTAMP_TO_DATE_OVERLOAD = 'timestamp_to_date';
 
+// Convert to time
+export const TIME_TO_TIME_OVERLOAD = 'time_to_time';
+export const STRING_TO_TIME_OVERLOAD = 'string_to_time';
+export const TIMESTAMP_TO_TIME_OVERLOAD = 'timestamp_to_time';
+
 // Timezone conversion
-export const TIME_AT_TIMEZONE_OVERLOAD = 'atTimeZone';
+export const AT_TIMEZONE_OVERLOAD = 'atTimeZone';
+export const TIME_AT_TIMEZONE_OVERLOAD = 'time_at_timezone';
 export const TIMESTAMP_AT_TIMEZONE_OVERLOAD = 'timestamp_at_timezone';
 
 // String formatting

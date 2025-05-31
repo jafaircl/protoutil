@@ -12,7 +12,7 @@
         "outputPath": "packages/celql/dist",
         "main": "packages/celql/src/index.ts",
         "tsConfig": "packages/celql/tsconfig.lib.json",
-        "format": ["esm"],
+        "format": ["esm", "cjs"],
         "declarationRootDir": "packages/celql/src"
       }
     }

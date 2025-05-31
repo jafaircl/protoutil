@@ -17,4 +17,8 @@ export default {
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
   transformIgnorePatterns: ['node_modules/(?!@bearclaw|@buf|@bufbuild)'],
+  // Enable worker threads for assertion failures involving BigInt
+  // See https://github.com/jestjs/jest/issues/11617#issuecomment-1458155552
+  workerThreads: true,
+  maxWorkers: 1,
 };

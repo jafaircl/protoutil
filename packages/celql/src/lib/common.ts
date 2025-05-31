@@ -148,6 +148,48 @@ export function unwrapBoolConstant(expr: Expr): boolean | undefined {
   return constant.value;
 }
 
+export function unwrapIntConstant(expr: Expr): bigint | undefined {
+  if (!expr) {
+    return undefined;
+  }
+  if (expr.exprKind.case !== 'constExpr') {
+    return undefined;
+  }
+  const constant = expr.exprKind.value.constantKind;
+  if (constant.case !== 'int64Value') {
+    return undefined;
+  }
+  return constant.value;
+}
+
+export function unwrapDoubleConstant(expr: Expr): number | undefined {
+  if (!expr) {
+    return undefined;
+  }
+  if (expr.exprKind.case !== 'constExpr') {
+    return undefined;
+  }
+  const constant = expr.exprKind.value.constantKind;
+  if (constant.case !== 'doubleValue') {
+    return undefined;
+  }
+  return constant.value;
+}
+
+export function unwrapUintConstant(expr: Expr): bigint | undefined {
+  if (!expr) {
+    return undefined;
+  }
+  if (expr.exprKind.case !== 'constExpr') {
+    return undefined;
+  }
+  const constant = expr.exprKind.value.constantKind;
+  if (constant.case !== 'uint64Value') {
+    return undefined;
+  }
+  return constant.value;
+}
+
 export function unwrapIdent(expr: Expr): string | undefined {
   if (!expr) {
     return undefined;

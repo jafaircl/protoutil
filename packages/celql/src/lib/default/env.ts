@@ -1,19 +1,19 @@
 import { CustomEnv, eagerlyValidateDeclarations, EnvOption } from '@bearclaw/cel';
-import { SqlLib } from './library.js';
+import { DefaultLib } from './library.js';
 
-let celqlEnv: CustomEnv | null = null;
+let defaultEnv: CustomEnv | null = null;
 
 /**
- * getCelqlEnv lazy initializes the SQL CEL environment.
+ * getDefaultEnv lazy initializes the SQL CEL environment.
  */
-function getCelqlEnv() {
-  if (!celqlEnv) {
-    celqlEnv = new CustomEnv(SqlLib(), eagerlyValidateDeclarations(true));
+function getDefaultEnv() {
+  if (!defaultEnv) {
+    defaultEnv = new CustomEnv(DefaultLib(), eagerlyValidateDeclarations(true));
   }
-  return celqlEnv;
+  return defaultEnv;
 }
 
-export class CelqlEnv extends CustomEnv {
+export class DefaultEnv extends CustomEnv {
   constructor(...opts: EnvOption[]) {
     super();
     // Extend the statically configured SQL environment, disabling eager
@@ -22,7 +22,7 @@ export class CelqlEnv extends CustomEnv {
     // options can easily re-enable the eager validation as they are processed
     // after this default option.
     const stdOpts: EnvOption[] = [eagerlyValidateDeclarations(false), ...opts];
-    const env = getCelqlEnv();
+    const env = getDefaultEnv();
     return env.extend(...stdOpts);
   }
 }

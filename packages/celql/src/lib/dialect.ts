@@ -1,507 +1,299 @@
-/* eslint-disable no-case-declarations */
-import {
-  BoolType,
-  BytesType,
-  DoubleType,
-  DurationType,
-  IntType,
-  ListType,
-  StringType,
-  TimestampType,
-  UintType,
-} from '@bearclaw/cel';
-import { Expr } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
-import { timestampDate } from '@bufbuild/protobuf/wkt';
-import { durationFromString, durationNanos, timestampFromDateString } from '@protoutil/core';
-import { unwrapBoolConstant, unwrapStringConstant } from './common.js';
-import { ALL_KEYWORDS } from './keywords.js';
-import { DateType } from './library.js';
-import {
-  ADD_OPERATOR,
-  EQUALS_OPERATOR,
-  findReverse,
-  IN_OPERATOR,
-  LOGICAL_AND_OPERATOR,
-  LOGICAL_NOT_OPERATOR,
-  LOGICAL_OR_OPERATOR,
-} from './operators.js';
-import {
-  CONTAINS_OVERLOAD,
-  ENDS_WITH_OVERLOAD,
-  LIKE_OVERLOAD,
-  SIZE_OVERLOAD,
-  STARTS_WITH_OVERLOAD,
-  STRING_LOWER_OVERLOAD,
-  STRING_TRIM_OVERLOAD,
-  STRING_UPPER_OVERLOAD,
-  TIME_AT_TIMEZONE_OVERLOAD,
-  TIME_GET_DATE_OVERLOAD,
-  TIME_GET_DAY_OF_WEEK_OVERLOAD,
-  TIME_GET_DAY_OF_YEAR_OVERLOAD,
-  TIME_GET_FULL_YEAR_OVERLOAD,
-  TIME_GET_HOURS_OVERLOAD,
-  TIME_GET_MILLISECONDS_OVERLOAD,
-  TIME_GET_MINUTES_OVERLOAD,
-  TIME_GET_MONTH_OVERLOAD,
-  TIME_GET_SECONDS_OVERLOAD,
-  TIMESTAMP_NOW,
-  TYPE_CONVERT_BOOL_OVERLOAD,
-  TYPE_CONVERT_BYTES_OVERLOAD,
-  TYPE_CONVERT_DATE_OVERLOAD,
-  TYPE_CONVERT_DOUBLE_OVERLOAD,
-  TYPE_CONVERT_DURATION_OVERLOAD,
-  TYPE_CONVERT_INT_OVERLOAD,
-  TYPE_CONVERT_STRING_OVERLOAD,
-  TYPE_CONVERT_TIMESTAMP_OVERLOAD,
-  TYPE_CONVERT_UINT_OVERLOAD,
-} from './overloads.js';
+import { Expr, Expr_CreateList } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
 import { Unparser } from './unparser.js';
 
 /**
- * `Dialect` to use for Unparsing
+ * Dialect interface defines the methods that a dialect must implement to
+ * support unparsing expressions into SQL or other query languages.
  */
-export class Dialect {
+export interface Dialect {
   /**
    * Write a query parameter to the unparser and push it to the stack
    */
-  writeQueryParam(unparser: Unparser, param: unknown): void {
-    unparser.pushVar(param);
-    unparser.writeString(`$${unparser.vars.length}`);
-  }
+  writeQueryParam(unparser: Unparser, param: unknown): void;
 
   /**
    * If the identifier needs to be quoted, return the identifier with quotes
    */
-  maybeQuoteIdentifier(identifier: string): string {
-    const identifierRegex = /^[A-Za-z_][0-9A-Za-z_]*$/;
-    if (ALL_KEYWORDS.has(identifier.toUpperCase()) || !identifierRegex.test(identifier)) {
-      return `"${identifier}"`;
-    }
-    return identifier;
-  }
+  maybeQuoteIdentifier(identifier: string): string;
+
+  /**
+   * Create a list expression in the dialect.
+   */
+  createList(unparser: Unparser, listExpr: Expr_CreateList): void;
+
+  /**
+   * The name of the dialect, used for debugging.
+   */
+  name(): string;
+
+  /**
+   * The boolean data type for the dialect.
+   */
+  booleanDataType(): string;
+
+  /**
+   * Cast an expression to a boolean value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToBoolean(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * The bytes data type for the dialect.
+   */
+  bytesDataType(): string;
+
+  /**
+   * Cast an expression to a bytes value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToBytes(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * The data type for a date value in the dialect.
+   */
+  dateDataType(): string;
+
+  /**
+   * Cast an expression to a date value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToDate(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * The data type for a double value in the dialect.
+   */
+  doubleDataType(): string;
+
+  /**
+   * Cast an expression to a double value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToDouble(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * The data type for a duration value in the dialect.
+   */
+  durationDataType(): string;
+
+  /**
+   * Cast an expression to a duration value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToDuration(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * The data type for an integer value in the dialect.
+   */
+  intDataType(): string;
+
+  /**
+   * Cast an expression to an integer value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToInt(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * The data type for a list value in the dialect. The optional `elemType` parameter
+   * specifies the type of the elements in the list, if known.
+   */
+  listDataType(elemType?: string): string;
+
+  /**
+   * The data type for a map value in the dialect. The optional `keyType` and `valueType`
+   * parameters specify the types of the keys and values in the map, if known.
+   */
+  mapDataType(keyType?: string, valueType?: string): string;
+
+  /**
+   * The data type for a string value in the dialect.
+   */
+  stringDataType(): string;
+
+  /**
+   * Cast an expression to a string value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToString(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * The data type for a time value in the dialect.
+   */
+  timeDataType(): string;
+
+  /**
+   * Cast an expression to a time value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToTime(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * The data type for a timestamp value in the dialect.
+   */
+  timestampDataType(): string;
+
+  /**
+   * The data type for a timestamp with time zone value in the dialect.
+   */
+  timestampTzDataType(): string;
+
+  /**
+   * Cast an expression to a timestamp value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToTimestamp(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * The data type for an unsigned integer value in the dialect.
+   */
+  uintDataType(): string;
+
+  /**
+   * Cast an expression to an unsigned integer value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToUint(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * Handle the addition operator for the dialect. In some dialects, addition can be used to concatenate
+   * strings, bytes, or lists. This method returns a boolean indicating whether the addition operation
+   * was handled by the dialect.
+   */
+  add(unparser: Unparser, lhs: Expr, rhs: Expr): boolean;
+
+  /**
+   * Handle how the dialect unparses an array index operation. Some dialects do not support array indexing
+   * or may have specific syntax for it. This method returns a boolean indicating whether the index operation
+   * was handled by the dialect.
+   */
+  index(unparser: Unparser, expr: Expr, index: Expr): boolean;
+
+  /**
+   * Handle size function unparsing for the dialect. Different dialects may vary in how they determine the size
+   * of data or in what data types are eligible to have their size checked. It returns a boolean indicating
+   * whether the size function was handled by the dialect.
+   */
+  size(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * Handle string contains function unparsing for the dialect. This function checks if a string contains a
+   * substring, optionally with case insensitivity. It returns a boolean indicating whether the function was
+   * handled by the dialect.
+   */
+  stringContains(unparser: Unparser, expr: Expr, substr: Expr, caseInsensitive?: Expr): boolean;
+
+  /**
+   * Handle string starts with function unparsing for the dialect. This function checks if a string starts with
+   * a given prefix, optionally with case insensitivity. It returns a boolean indicating whether the function was
+   * handled by the dialect.
+   */
+  stringStartsWith(unparser: Unparser, expr: Expr, prefix: Expr, caseInsensitive?: Expr): boolean;
+
+  /**
+   * Handle string ends with function unparsing for the dialect. This function checks if a string ends with
+   * a given suffix, optionally with case insensitivity. It returns a boolean indicating whether the function was
+   * handled by the dialect.
+   */
+  stringEndsWith(unparser: Unparser, expr: Expr, suffix: Expr, caseInsensitive?: Expr): boolean;
+
+  /**
+   * Handle string lower function unparsing for the dialect. This function converts a string to lowercase. It
+   * returns a boolean indicating whether the function was handled by the dialect.
+   */
+  stringLower(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * Handle string upper function unparsing for the dialect. This function converts a string to uppercase. It
+   * returns a boolean indicating whether the function was handled by the dialect.
+   */
+  stringUpper(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * Handle string trim function unparsing for the dialect. This function removes leading and trailing whitespace
+   * from a string. It returns a boolean indicating whether the function was handled by the dialect.
+   */
+  stringTrim(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * Handle string like function unparsing for the dialect. This function checks if a string matches a pattern,
+   * optionally with case insensitivity. It returns a boolean indicating whether the function was handled by the
+   * dialect.
+   */
+  stringLike(unparser: Unparser, expr: Expr, pattern: Expr, caseInsensitive?: Expr): boolean;
+
+  /**
+   * Handle converting an expression to a specific time zone. It returns a boolean indicating whether the
+   * operation was handled by the dialect.
+   */
+  atTimeZone(unparser: Unparser, expr: Expr, tzExpr: Expr): boolean;
+
+  /**
+   * Handle getting the current timestamp in the dialect. It returns a boolean indicating whether the operation
+   * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  now(unparser: Unparser, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the full year from a temporal expression. It returns a boolean indicating whether the
+   * operation was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getFullYear(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the month from a temporal expression. It returns a boolean indicating whether the operation
+   * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getMonth(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the day of the year from a temporal expression. It returns a boolean indicating whether the
+   * operation was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getDayOfYear(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the date from a temporal expression. It returns a boolean indicating whether the operation
+   * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getDate(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the day of the week from a temporal expression. It returns a boolean indicating whether the
+   * operation was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getDayOfWeek(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the hours from a temporal expression. It returns a boolean indicating whether the operation
+   * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getHours(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the minutes from a temporal expression. It returns a boolean indicating whether the operation
+   * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getMinutes(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the seconds from a temporal expression. It returns a boolean indicating whether the operation
+   * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getSeconds(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle getting the milliseconds from a temporal expression. It returns a boolean indicating whether the operation
+   * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
+   */
+  getMilliseconds(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
 
   /**
    * Allows the dialect to override function unparsing if the dialect has specific rules. Returns
    * a boolean indicating if the function was handled by the dialect.
    */
-  functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean {
-    switch (functionName) {
-      case ADD_OPERATOR:
-        const addLhs = args[0];
-        const addLhsType = unparser.getType(addLhs);
-        const addRhs = args[1];
-        const addRhsType = unparser.getType(addRhs);
-        if (
-          (addLhsType?.kind() === StringType.kind() && addRhsType?.kind() === StringType.kind()) ||
-          (addLhsType?.kind() === BytesType.kind() && addRhsType?.kind() === BytesType.kind()) ||
-          (addLhsType?.kind() === ListType.kind() && addRhsType?.kind() === ListType.kind())
-        ) {
-          unparser.visit(addLhs);
-          unparser.writeString(' || ');
-          unparser.visit(addRhs);
-          return true;
-        }
-        return false;
-      case SIZE_OVERLOAD:
-        const sizeArg = args[0];
-        const sizeArgType = unparser.getType(sizeArg);
-        if (sizeArgType?.kind() === BytesType.kind()) {
-          unparser.writeString('LENGTH(');
-          unparser.visit(sizeArg);
-          unparser.writeString(')');
-          return true;
-        }
-        if (sizeArgType?.kind() === ListType.kind()) {
-          unparser.writeString('ARRAY_LENGTH(');
-          unparser.visit(sizeArg);
-          unparser.writeString(', 1)');
-          return true;
-        }
-        if (sizeArgType?.kind() === StringType.kind()) {
-          unparser.writeString('CHAR_LENGTH(');
-          unparser.visit(sizeArg);
-          unparser.writeString(')');
-          return true;
-        }
-        throw new Error(
-          `Unsupported type for "${TYPE_CONVERT_BOOL_OVERLOAD}": ${sizeArgType?.typeName()}`
-        );
-      case TYPE_CONVERT_BOOL_OVERLOAD:
-        const boolTypeConvertArg = args[0];
-        const boolTypeConvertArgType = unparser.getType(boolTypeConvertArg);
-        switch (boolTypeConvertArgType?.kind()) {
-          case BoolType.kind():
-          case StringType.kind():
-            unparser.writeString('CAST(');
-            unparser.visit(boolTypeConvertArg);
-            unparser.writeString(' AS BOOL)');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TYPE_CONVERT_BOOL_OVERLOAD}": ${boolTypeConvertArgType?.typeName()}`
-            );
-        }
-      case TYPE_CONVERT_BYTES_OVERLOAD:
-        const bytesTypeConvertArg = args[0];
-        const bytesTypeConvertArgType = unparser.getType(bytesTypeConvertArg);
-        switch (bytesTypeConvertArgType?.kind()) {
-          case BytesType.kind():
-          case StringType.kind():
-            unparser.writeString('CAST(');
-            unparser.visit(bytesTypeConvertArg);
-            unparser.writeString(' AS BYTEA)');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TYPE_CONVERT_BYTES_OVERLOAD}": ${bytesTypeConvertArgType?.typeName()}`
-            );
-        }
-      case TYPE_CONVERT_DOUBLE_OVERLOAD:
-        const doubleTypeConvertArg = args[0];
-        const doubleTypeConvertArgType = unparser.getType(doubleTypeConvertArg);
-        switch (doubleTypeConvertArgType?.kind()) {
-          case DoubleType.kind():
-          case IntType.kind():
-          case StringType.kind():
-          case UintType.kind():
-            unparser.writeString('CAST(');
-            unparser.visit(doubleTypeConvertArg);
-            unparser.writeString(' AS NUMERIC)');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TYPE_CONVERT_DOUBLE_OVERLOAD}": ${doubleTypeConvertArgType?.typeName()}`
-            );
-        }
-      case TYPE_CONVERT_DURATION_OVERLOAD:
-        const durationTypeConvertArg = args[0];
-        const durationTypeConvertArgType = unparser.getType(durationTypeConvertArg);
-        switch (durationTypeConvertArgType?.kind()) {
-          case DurationType.kind():
-            unparser.visit(durationTypeConvertArg);
-            return true;
-          case StringType.kind():
-            const durationStr = unwrapStringConstant(durationTypeConvertArg);
-            if (!durationStr) {
-              throw new Error(
-                `Unsupported type for "${TYPE_CONVERT_DURATION_OVERLOAD}": ${durationTypeConvertArgType?.typeName()}`
-              );
-            }
-            const duration = durationFromString(durationStr);
-            unparser.writeString(`INTERVAL '1 SECOND' * `);
-            unparser.writeQueryParam(Number(durationNanos(duration)) / 1_000_000_000);
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TYPE_CONVERT_DURATION_OVERLOAD}": ${durationTypeConvertArgType?.typeName()}`
-            );
-        }
-      case TYPE_CONVERT_INT_OVERLOAD:
-      case TYPE_CONVERT_UINT_OVERLOAD:
-        const intTypeConvertArg = args[0];
-        const intTypeConvertArgType = unparser.getType(intTypeConvertArg);
-        switch (intTypeConvertArgType?.kind()) {
-          case IntType.kind():
-          case UintType.kind():
-          case DoubleType.kind():
-          case StringType.kind():
-            unparser.writeString('CAST(');
-            unparser.visit(intTypeConvertArg);
-            unparser.writeString(' AS BIGINT)');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TYPE_CONVERT_INT_OVERLOAD}": ${intTypeConvertArgType?.typeName()}`
-            );
-        }
-      case TYPE_CONVERT_STRING_OVERLOAD:
-        const stringTypeConvertArg = args[0];
-        const stringTypeConvertArgType = unparser.getType(stringTypeConvertArg);
-        switch (stringTypeConvertArgType?.kind()) {
-          case StringType.kind():
-          case BoolType.kind():
-          case BytesType.kind():
-          case DoubleType.kind():
-          case IntType.kind():
-          case UintType.kind():
-            unparser.writeString('CAST(');
-            unparser.visit(stringTypeConvertArg);
-            unparser.writeString(' AS TEXT)');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TYPE_CONVERT_STRING_OVERLOAD}": ${stringTypeConvertArgType?.typeName()}`
-            );
-        }
-      case TYPE_CONVERT_TIMESTAMP_OVERLOAD:
-        const timestampTypeConvertArg = args[0];
-        const timestampTypeConvertArgType = unparser.getType(timestampTypeConvertArg);
-        switch (timestampTypeConvertArgType?.kind()) {
-          case TimestampType.kind():
-            unparser.visit(timestampTypeConvertArg);
-            if (args[1]) {
-              unparser.writeString(' AT TIME ZONE ');
-              unparser.visit(args[1]);
-            }
-            return true;
-          case StringType.kind():
-            const tsStr = unwrapStringConstant(timestampTypeConvertArg);
-            if (!tsStr) {
-              throw new Error(
-                `Unsupported type for "${TYPE_CONVERT_TIMESTAMP_OVERLOAD}": ${timestampTypeConvertArgType?.typeName()}`
-              );
-            }
-            const tsFromStr = timestampFromDateString(tsStr);
-            const tsDate = timestampDate(tsFromStr);
-            unparser.writeString(`TIMESTAMP '${tsDate.toISOString()}'`);
-            if (args[1]) {
-              unparser.writeString(' AT TIME ZONE ');
-              unparser.visit(args[1]);
-            }
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TYPE_CONVERT_TIMESTAMP_OVERLOAD}": ${timestampTypeConvertArgType?.typeName()}`
-            );
-        }
-      case CONTAINS_OVERLOAD:
-        unparser.visit(args[0]);
-        if (unwrapBoolConstant(args[2]) === true) {
-          unparser.writeString(" ILIKE CONCAT('%', ");
-        } else {
-          unparser.writeString(" LIKE CONCAT('%', ");
-        }
-        unparser.visit(args[1]);
-        unparser.writeString(`, '%')`);
-        return true;
-      case ENDS_WITH_OVERLOAD:
-        unparser.visit(args[0]);
-        if (unwrapBoolConstant(args[2]) === true) {
-          unparser.writeString(" ILIKE CONCAT('%', ");
-        } else {
-          unparser.writeString(" LIKE CONCAT('%', ");
-        }
-        unparser.visit(args[1]);
-        unparser.writeString(`)`);
-        return true;
-      case STARTS_WITH_OVERLOAD:
-        unparser.visit(args[0]);
-        if (unwrapBoolConstant(args[2]) === true) {
-          unparser.writeString(' ILIKE CONCAT(');
-        } else {
-          unparser.writeString(' LIKE CONCAT(');
-        }
-        unparser.visit(args[1]);
-        unparser.writeString(`, '%')`);
-        return true;
-      case TIMESTAMP_NOW:
-        unparser.writeString('NOW()');
-        return true;
-      case TIME_GET_FULL_YEAR_OVERLOAD:
-        unparser.writeString('EXTRACT(YEAR FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TIME_GET_MONTH_OVERLOAD:
-        unparser.writeString('EXTRACT(MONTH FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TIME_GET_DAY_OF_YEAR_OVERLOAD:
-        unparser.writeString('EXTRACT(DOY FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TIME_GET_DATE_OVERLOAD:
-        unparser.writeString('EXTRACT(DAY FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TIME_GET_DAY_OF_WEEK_OVERLOAD:
-        unparser.writeString('EXTRACT(DOW FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TIME_GET_HOURS_OVERLOAD:
-        unparser.writeString('EXTRACT(HOUR FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TIME_GET_MINUTES_OVERLOAD:
-        unparser.writeString('EXTRACT(MINUTE FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TIME_GET_SECONDS_OVERLOAD:
-        unparser.writeString('EXTRACT(SECOND FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TIME_GET_MILLISECONDS_OVERLOAD:
-        unparser.writeString('EXTRACT(MILLISECONDS FROM ');
-        unparser.visit(args[0]);
-        if (args[1]) {
-          unparser.writeString(' AT TIME ZONE ');
-          unparser.visit(args[1]);
-        }
-        unparser.writeString(')');
-        return true;
-      case TYPE_CONVERT_DATE_OVERLOAD:
-        const dateTypeConvertArg = args[0];
-        const dateTypeConvertArgType = unparser.getType(dateTypeConvertArg);
-        switch (dateTypeConvertArgType?.typeName()) {
-          case DateType.typeName():
-            unparser.visit(dateTypeConvertArg);
-            return true;
-          case StringType.typeName():
-          case TimestampType.typeName():
-            unparser.writeString('DATE(');
-            unparser.visit(dateTypeConvertArg);
-            unparser.writeString(')');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TYPE_CONVERT_DATE_OVERLOAD}": ${dateTypeConvertArgType?.typeName()}`
-            );
-        }
-      case TIME_AT_TIMEZONE_OVERLOAD:
-        const timeAtTimezoneArg = args[0];
-        const timeAtTimezoneArgType = unparser.getType(timeAtTimezoneArg);
-        switch (timeAtTimezoneArgType?.kind()) {
-          case TimestampType.kind():
-            unparser.visit(timeAtTimezoneArg);
-            unparser.writeString(' AT TIME ZONE ');
-            unparser.visit(args[1]);
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${TIME_AT_TIMEZONE_OVERLOAD}": ${timeAtTimezoneArgType?.typeName()}`
-            );
-        }
-      case STRING_LOWER_OVERLOAD:
-        const stringLowerArg = args[0];
-        const stringLowerArgType = unparser.getType(stringLowerArg);
-        switch (stringLowerArgType?.kind()) {
-          case StringType.kind():
-            unparser.writeString('LOWER(');
-            unparser.visit(stringLowerArg);
-            unparser.writeString(')');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${STRING_LOWER_OVERLOAD}": ${stringLowerArgType?.typeName()}`
-            );
-        }
-      case STRING_UPPER_OVERLOAD:
-        const stringUpperArg = args[0];
-        const stringUpperArgType = unparser.getType(stringUpperArg);
-        switch (stringUpperArgType?.kind()) {
-          case StringType.kind():
-            unparser.writeString('UPPER(');
-            unparser.visit(stringUpperArg);
-            unparser.writeString(')');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${STRING_UPPER_OVERLOAD}": ${stringUpperArgType?.typeName()}`
-            );
-        }
-      case STRING_TRIM_OVERLOAD:
-        const stringTrimArg = args[0];
-        const stringTrimArgType = unparser.getType(stringTrimArg);
-        switch (stringTrimArgType?.kind()) {
-          case StringType.kind():
-            unparser.writeString('TRIM(');
-            unparser.visit(stringTrimArg);
-            unparser.writeString(')');
-            return true;
-          default:
-            throw new Error(
-              `Unsupported type for "${STRING_TRIM_OVERLOAD}": ${stringTrimArgType?.typeName()}`
-            );
-        }
-      case LIKE_OVERLOAD:
-        unparser.visit(args[0]);
-        if (unwrapBoolConstant(args[2]) === true) {
-          unparser.writeString(' ILIKE ');
-        } else {
-          unparser.writeString(' LIKE ');
-        }
-        unparser.visit(args[1]);
-        return true;
-      default:
-        return false;
-    }
-  }
+  functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean;
 
   /**
    * Allows the dialect to override operator unparsing if the dialect has specific rules.
    */
-  findSqlOperator(operator: string): string {
-    switch (operator) {
-      case LOGICAL_OR_OPERATOR:
-        return 'OR';
-      case LOGICAL_AND_OPERATOR:
-        return 'AND';
-      case EQUALS_OPERATOR:
-        return '=';
-      case IN_OPERATOR:
-        return 'IN';
-      case LOGICAL_NOT_OPERATOR:
-        return 'NOT ';
-      default:
-        return findReverse(operator);
-    }
-  }
+  findSqlOperator(operator: string): string;
 }
-
-export class PostgresqlDialect extends Dialect {}
-
-export class MySqlDialect extends Dialect {
-  override functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean {
-    switch (functionName) {
-      // MySQL LIKE is case insensitive by default
-      case LIKE_OVERLOAD:
-        unparser.visit(args[0]);
-        unparser.writeString(' LIKE ');
-        unparser.visit(args[1]);
-        return true;
-      default:
-        return super.functionToSqlOverrides(unparser, functionName, args);
-    }
-  }
-}
-
-// TODO: DEFAULT should be ANSI SQL
