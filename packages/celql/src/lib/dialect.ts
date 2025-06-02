@@ -99,6 +99,12 @@ export interface Dialect {
   listDataType(elemType?: string): string;
 
   /**
+   * Cast an expression to a list value in the dialect. Returns a boolean indicating
+   * whether the cast was successful or not.
+   */
+  castToList(unparser: Unparser, expr: Expr): boolean;
+
+  /**
    * The data type for a map value in the dialect. The optional `keyType` and `valueType`
    * parameters specify the types of the keys and values in the map, if known.
    */
@@ -285,6 +291,31 @@ export interface Dialect {
    * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
    */
   getMilliseconds(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
+
+  /**
+   * Handle the `unnest` function for the dialect. For dialects that do not have an `unnest` function, this method
+   * should be overridden to return `false`. If the dialect supports `unnest`, it should handle the expression
+   * and return `true`.
+   */
+  unnest(unparser: Unparser, expr: Expr): boolean;
+
+  /**
+   * Handle the `exists` macro for the dialect. It returns a boolean indicating whether the operation was handled
+   * by the dialect.
+   */
+  exists(unparser: Unparser, target: Expr, iterVar: Expr, condition: Expr): boolean;
+
+  /**
+   * Handle the `existsOne` macro for the dialect. It returns a boolean indicating whether the operation was handled
+   * by the dialect.
+   */
+  existsOne(unparser: Unparser, target: Expr, iterVar: Expr, condition: Expr): boolean;
+
+  /**
+   * Handle the `all` macro for the dialect. It returns a boolean indicating whether the operation was handled by
+   * the dialect.
+   */
+  all(unparser: Unparser, target: Expr, iterVar: Expr, condition: Expr): boolean;
 
   /**
    * Allows the dialect to override function unparsing if the dialect has specific rules. Returns

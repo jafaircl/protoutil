@@ -37,13 +37,13 @@ const env = new DefaultEnv(
 Now, you can convert your CEL expressions to SQL:
 
 ```typescript
-import { postgres } from '@protoutil/celql';
+import { translatePostgres } from '@protoutil/celql';
 
-const whereClause = postgres('my_column == "foo"', env);
+const whereClause = translatePostgres('my_column == "foo"', env);
 // Will output { sql: 'my_column = $1', vars: ['foo'] }
 ```
 
-SQL output is separated into a query clause and an array of variables. This is done so user input can be sanitized using a parameterized query. The exception is that `Timestamp` values will be printed as ISO strings. String parsing of `Timestamp` values will throw an error with invalid inputs which should disallow any unsanitized user input.
+SQL output is separated into a query clause and an array of variables. This is done so user input can be sanitized using a parameterized query. The exception is that `Timestamp` values will be printed in 'yyyy-mm-dd hh:mi:ss.us' format with millisecond resolution. String parsing of `Timestamp` values will throw an error with invalid inputs which should disallow any unsanitized malicious user input.
 
 If you want to validate your expression before sending it to the server to be converted, you can do that with the `compile` function:
 
@@ -57,6 +57,10 @@ try {
   // Handle your error
 }
 ```
+
+### Notes
+
+- `Timestamp` values will be formatted in 'yyyy-mm-dd hh:mi:ss.us' format with millisecond resolution. Successful querying will depend on how your flavor of SQL handles those inputs. You may need to specify a fractional section resolution for `Timestamp` columns (i.e. `TIMESTAMP(3)`). You can override this behavior with a custom dialect.
 
 ### Expressions
 
@@ -77,6 +81,14 @@ my_column.contains('foo', true); // Will output a case-insensitive query i.e. IL
 my_column.contains('foo', false); // Will output a case-sensitive query i.e. LIKE for PostgreSQL
 ```
 
+##### Timestamp Functions
+
+`timestamp` functions optionally take a second parameter which corresponds to the time zone.
+
+```typescript
+timestamp('2023-01-01T12:34:56Z', 'America/New_York'); // Will output { sql: `TIMESTAMP '2023-01-01 12:34:56.000' AT TIME ZONE $1`, vars: ['America/New_York'] }
+```
+
 #### New Functions
 
 ##### Date
@@ -89,6 +101,18 @@ my_column.contains('foo', false); // Will output a case-sensitive query i.e. LIK
 
 ```typescript
 date(my_column) == date('2023-10-01'); // Will output { sql: 'DATE(my_column) = DATE($1)', vars: ['2023-10-01'] }
+```
+
+##### Time
+
+**Signatures:**
+
+- `time(time) -> time` (identity)
+- `time(string) -> time` converts a string to a `Time`
+- `time(timestamp) -> time` converts a `Timestamp` to a `Time`
+
+```typescript
+time(my_column) == time('12:34:56'); // Will output { sql: 'TIME(my_column) = TIME($1)', vars: ['12:34:56'] }
 ```
 
 ##### Timezones
@@ -132,12 +156,12 @@ my_column.like('foobar', true); // Will output { sql: 'my_column ILIKE $1', vars
 You are able to define your own `Dialect` class and add functions by extending the CEL environment:
 
 ```typescript
-import { CelqlEnv, Dialect, sql } from '@protoutil/celql';
+import { DefaultEnv, DefaultDialect, translate } from '@protoutil/celql';
 import { BoolType, func, overload, StringType } from '@bearclaw/cel';
 
 const myFuncOverload = 'myFunc';
 
-class MyDialect extends Dialect {
+class MyDialect extends DefaultDialect {
   override functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean {
     switch (functionName) {
       case myFuncOverload:
@@ -151,12 +175,12 @@ class MyDialect extends Dialect {
   }
 }
 
-const env = new CelqlEnv(
+const env = new DefaultEnv(
   ...,
   func(myFuncOverload, overload(myFuncOverload, [StringType, StringType], BoolType))
 )
 
-sql(`myFunc('a', 'b')`, env, new MyDialect());
+translate(`myFunc('a', 'b')`, env, new MyDialect());
 // Will output: { sql: '$1 MY_CUSTOM_OPERATOR $2', vars: ['a', 'b'] }
 ```
 

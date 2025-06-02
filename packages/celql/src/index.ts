@@ -1,7 +1,12 @@
 export { compile } from './lib/compile.js';
 export { DefaultDialect } from './lib/default/dialect.js';
 export { DefaultEnv } from './lib/default/env.js';
-export { defaultSql } from './lib/default/index.js';
+export { translateDefault } from './lib/default/index.js';
 export { DefaultLib } from './lib/default/library.js';
 export type { Dialect } from './lib/dialect.js';
+export { PostgresDialect } from './lib/postgres/dialect.js';
+export { PostgresEnv } from './lib/postgres/env.js';
+export { translatePostgres } from './lib/postgres/index.js';
+export { PostgresLib } from './lib/postgres/library.js';
+export { translate } from './lib/translate.js';
 export { Unparser } from './lib/unparser.js';

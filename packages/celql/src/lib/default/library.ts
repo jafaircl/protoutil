@@ -1,13 +1,18 @@
 import {
+  AllMacro,
   BoolType,
   BytesType,
   crossTypeNumericComparisons,
   DoubleType,
   DurationType,
+  enableMacroCallTracking,
   EnvOption,
+  ExistsMacro,
+  ExistsOneMacro,
   func,
   IntType,
   lib,
+  macros,
   memberOverload,
   overload,
   SingletonLibrary,
@@ -32,6 +37,7 @@ import {
   MODULO_OPERATOR,
   MULTIPLY_OPERATOR,
   NOT_EQUALS_OPERATOR,
+  NOT_STRICTLY_FALSE_OPERATOR,
   SUBTRACT_OPERATOR,
 } from '../operators.js';
 import {
@@ -262,6 +268,12 @@ export const defaultLibraryFunctions = new Map([
   [
     LOGICAL_NOT_OPERATOR,
     func(LOGICAL_NOT_OPERATOR, overload(LOGICAL_NOT_OVERLOAD, [BoolType], BoolType)),
+  ],
+
+  // Comprehension short-circuiting related function
+  [
+    NOT_STRICTLY_FALSE_OPERATOR,
+    func(NOT_STRICTLY_FALSE_OPERATOR, overload(NOT_STRICTLY_FALSE_OPERATOR, [BoolType], BoolType)),
   ],
 
   // Equality operators
@@ -734,10 +746,13 @@ class defaultLib implements SingletonLibrary {
   compileOptions(): EnvOption[] {
     return [
       crossTypeNumericComparisons(true),
+      enableMacroCallTracking(),
       // Set default functions
       ...defaultLibraryFunctions.values(),
       // Set default types
       ...defaultLibraryTypes.values(),
+      // Set macros
+      macros(ExistsMacro, ExistsOneMacro, AllMacro),
     ];
   }
 

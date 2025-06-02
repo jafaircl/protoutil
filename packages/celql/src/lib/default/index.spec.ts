@@ -1,11 +1,15 @@
 import { declareContextProto } from '@bearclaw/cel';
 import { TestAllTypesSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/conformance/proto3/test_all_types_pb.js';
+import { protoTable } from '../options.js';
 import { formatError } from '../test-helpers.js';
 import { DefaultEnv } from './env.js';
-import { defaultSql } from './index.js';
+import { translateDefault } from './index.js';
 
 describe('Default Dialect', () => {
-  const env = new DefaultEnv(declareContextProto(TestAllTypesSchema));
+  const env = new DefaultEnv(
+    declareContextProto(TestAllTypesSchema),
+    protoTable('table_2', TestAllTypesSchema)
+  );
   const testCases: { in: string; out?: string; err?: string; vars?: unknown[] }[] = [
     // Addition of non-numbers
     {
@@ -30,7 +34,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `[1, 2] + [3, 4] == true`,
-      out: `ARRAY[$1, $2] || ARRAY[$3, $4] = $5`,
+      out: `($1, $2) || ($3, $4) = $5`,
       vars: [1n, 2n, 3n, 4n, true],
     },
     {
@@ -113,7 +117,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `date(timestamp('2023-01-01T12:34:56Z')) == true`,
-      out: `CAST(TIMESTAMP '2023-01-01T12:34:56.000Z' AS DATE) = $1`,
+      out: `CAST(TIMESTAMP '2023-01-01 12:34:56.000' AS DATE) = $1`,
       vars: [true],
     },
     {
@@ -123,7 +127,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `date(timestamp('2023-01-01T12:34:56Z', 'America/New_York')) == true`,
-      out: `CAST(TIMESTAMP '2023-01-01T12:34:56.000Z' AT TIME ZONE $1 AS DATE) = $2`,
+      out: `CAST(TIMESTAMP '2023-01-01 12:34:56.000' AT TIME ZONE $1 AS DATE) = $2`,
       vars: ['America/New_York', true],
     },
     {
@@ -298,6 +302,12 @@ describe('Default Dialect', () => {
      | ...^`,
     },
     {
+      in: `list([1, 2, 3]) == [1, 2, 3]`,
+      err: `ERROR: <input>:1:5: undeclared reference to 'list' (in container '')
+     | list([1, 2, 3]) == [1, 2, 3]
+     | ....^`,
+    },
+    {
       // Unnecessary type casting should be ignored
       in: `string('abc') == true`,
       out: `$1 = $2`,
@@ -384,7 +394,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `time(timestamp('2023-01-01T12:34:56Z')) == true`,
-      out: `CAST(TIMESTAMP '2023-01-01T12:34:56.000Z' AS TIME) = $1`,
+      out: `CAST(TIMESTAMP '2023-01-01 12:34:56.000' AS TIME) = $1`,
       vars: [true],
     },
     {
@@ -394,7 +404,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `time(timestamp('2023-01-01T12:34:56Z', 'America/New_York')) == true`,
-      out: `CAST(TIMESTAMP '2023-01-01T12:34:56.000Z' AT TIME ZONE $1 AS TIME) = $2`,
+      out: `CAST(TIMESTAMP '2023-01-01 12:34:56.000' AT TIME ZONE $1 AS TIME) = $2`,
       vars: ['America/New_York', true],
     },
     {
@@ -411,7 +421,7 @@ describe('Default Dialect', () => {
     {
       // Unnecessary type casting should be ignored
       in: `timestamp(timestamp(timestamp('2023-01-01T12:34:56Z'))) == true`,
-      out: `TIMESTAMP '2023-01-01T12:34:56.000Z' = $1`,
+      out: `TIMESTAMP '2023-01-01 12:34:56.000' = $1`,
       vars: [true],
     },
     {
@@ -422,7 +432,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp(timestamp('2023-01-01T12:34:56Z'), 'America/New_York') == true`,
-      out: `TIMESTAMP '2023-01-01T12:34:56.000Z' AT TIME ZONE $1 = $2`,
+      out: `TIMESTAMP '2023-01-01 12:34:56.000' AT TIME ZONE $1 = $2`,
       vars: ['America/New_York', true],
     },
     {
@@ -432,7 +442,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-01-01T12:34:56Z') == true`,
-      out: `TIMESTAMP '2023-01-01T12:34:56.000Z' = $1`,
+      out: `TIMESTAMP '2023-01-01 12:34:56.000' = $1`,
       vars: [true],
     },
     {
@@ -442,7 +452,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-01-01T12:34:56Z', 'America/New_York') == true`,
-      out: `TIMESTAMP '2023-01-01T12:34:56.000Z' AT TIME ZONE $1 = $2`,
+      out: `TIMESTAMP '2023-01-01 12:34:56.000' AT TIME ZONE $1 = $2`,
       vars: ['America/New_York', true],
     },
     {
@@ -533,7 +543,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `single_bool in [true, false]`,
-      out: `single_bool IN ARRAY[$1, $2]`,
+      out: `single_bool IN ($1, $2)`,
       vars: [true, false],
     },
     {
@@ -545,7 +555,7 @@ describe('Default Dialect', () => {
     // Indexing
     {
       in: `[1, 2, 3][0] == 1`,
-      out: `ARRAY[$1, $2, $3][$4] = $5`,
+      out: `($1, $2, $3)[$4] = $5`,
       vars: [1n, 2n, 3n, 0n, 1n],
     },
     {
@@ -603,7 +613,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `size([1, 2, 3]) == 3`,
-      out: `CARDINALITY(ARRAY[$1, $2, $3]) = $4`,
+      out: `CARDINALITY(($1, $2, $3)) = $4`,
       vars: [1n, 2n, 3n, 3n],
     },
     {
@@ -613,7 +623,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `[1, 2, 3].size() == 3`,
-      out: `CARDINALITY(ARRAY[$1, $2, $3]) = $4`,
+      out: `CARDINALITY(($1, $2, $3)) = $4`,
       vars: [1n, 2n, 3n, 3n],
     },
     {
@@ -844,7 +854,7 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').atTimeZone('America/New_York') == timestamp('2023-10-01T00:00:00Z')`,
-      out: `TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1 = TIMESTAMP '2023-10-01T00:00:00.000Z'`,
+      out: `TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1 = TIMESTAMP '2023-10-01 00:00:00.000'`,
       vars: ['America/New_York'],
     },
     {
@@ -862,22 +872,22 @@ describe('Default Dialect', () => {
     // Temporal functions
     {
       in: `now() == timestamp('2023-10-01T00:00:00Z')`,
-      out: `CURRENT_TIMESTAMP = TIMESTAMP '2023-10-01T00:00:00.000Z'`,
+      out: `CURRENT_TIMESTAMP = TIMESTAMP '2023-10-01 00:00:00.000'`,
       vars: [],
     },
     {
       in: `now('America/New_York') == timestamp('2023-10-01T00:00:00Z')`,
-      out: `CURRENT_TIMESTAMP AT TIME ZONE $1 = TIMESTAMP '2023-10-01T00:00:00.000Z'`,
+      out: `CURRENT_TIMESTAMP AT TIME ZONE $1 = TIMESTAMP '2023-10-01 00:00:00.000'`,
       vars: ['America/New_York'],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getFullYear() == single_timestamp.getFullYear()`,
-      out: `EXTRACT(YEAR FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(YEAR FROM single_timestamp)`,
+      out: `EXTRACT(YEAR FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(YEAR FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getFullYear('America/New_York') == single_timestamp.getFullYear('America/Los_Angeles')`,
-      out: `EXTRACT(YEAR FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(YEAR FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(YEAR FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(YEAR FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -898,12 +908,12 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getMonth() == single_timestamp.getMonth()`,
-      out: `EXTRACT(MONTH FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(MONTH FROM single_timestamp)`,
+      out: `EXTRACT(MONTH FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(MONTH FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getMonth('America/New_York') == single_timestamp.getMonth('America/Los_Angeles')`,
-      out: `EXTRACT(MONTH FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(MONTH FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(MONTH FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(MONTH FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -924,12 +934,12 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getDayOfYear() == single_timestamp.getDayOfYear()`,
-      out: `EXTRACT(DOY FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(DOY FROM single_timestamp)`,
+      out: `EXTRACT(DOY FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(DOY FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getDayOfYear('America/New_York') == single_timestamp.getDayOfYear('America/Los_Angeles')`,
-      out: `EXTRACT(DOY FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(DOY FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(DOY FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(DOY FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -950,12 +960,12 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getDate() == single_timestamp.getDate()`,
-      out: `EXTRACT(DAY FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(DAY FROM single_timestamp)`,
+      out: `EXTRACT(DAY FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(DAY FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getDate('America/New_York') == single_timestamp.getDate('America/Los_Angeles')`,
-      out: `EXTRACT(DAY FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(DAY FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(DAY FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(DAY FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -976,12 +986,12 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getDayOfWeek() == single_timestamp.getDayOfWeek()`,
-      out: `EXTRACT(DOW FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(DOW FROM single_timestamp)`,
+      out: `EXTRACT(DOW FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(DOW FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getDayOfWeek('America/New_York') == single_timestamp.getDayOfWeek('America/Los_Angeles')`,
-      out: `EXTRACT(DOW FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(DOW FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(DOW FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(DOW FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -1002,12 +1012,12 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getHours() == single_timestamp.getHours()`,
-      out: `EXTRACT(HOUR FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(HOUR FROM single_timestamp)`,
+      out: `EXTRACT(HOUR FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(HOUR FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getHours('America/New_York') == single_timestamp.getHours('America/Los_Angeles')`,
-      out: `EXTRACT(HOUR FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(HOUR FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(HOUR FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(HOUR FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -1028,12 +1038,12 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getMinutes() == single_timestamp.getMinutes()`,
-      out: `EXTRACT(MINUTE FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(MINUTE FROM single_timestamp)`,
+      out: `EXTRACT(MINUTE FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(MINUTE FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getMinutes('America/New_York') == single_timestamp.getMinutes('America/Los_Angeles')`,
-      out: `EXTRACT(MINUTE FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(MINUTE FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(MINUTE FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(MINUTE FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -1054,12 +1064,12 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getSeconds() == single_timestamp.getSeconds()`,
-      out: `EXTRACT(SECOND FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(SECOND FROM single_timestamp)`,
+      out: `EXTRACT(SECOND FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(SECOND FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getSeconds('America/New_York') == single_timestamp.getSeconds('America/Los_Angeles')`,
-      out: `EXTRACT(SECOND FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(SECOND FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(SECOND FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(SECOND FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -1080,12 +1090,12 @@ describe('Default Dialect', () => {
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getMilliseconds() == single_timestamp.getMilliseconds()`,
-      out: `EXTRACT(MILLISECOND FROM TIMESTAMP '2023-10-01T00:00:00.000Z') = EXTRACT(MILLISECOND FROM single_timestamp)`,
+      out: `EXTRACT(MILLISECOND FROM TIMESTAMP '2023-10-01 00:00:00.000') = EXTRACT(MILLISECOND FROM single_timestamp)`,
       vars: [],
     },
     {
       in: `timestamp('2023-10-01T00:00:00Z').getMilliseconds('America/New_York') == single_timestamp.getMilliseconds('America/Los_Angeles')`,
-      out: `EXTRACT(MILLISECOND FROM TIMESTAMP '2023-10-01T00:00:00.000Z' AT TIME ZONE $1) = EXTRACT(MILLISECOND FROM single_timestamp AT TIME ZONE $2)`,
+      out: `EXTRACT(MILLISECOND FROM TIMESTAMP '2023-10-01 00:00:00.000' AT TIME ZONE $1) = EXTRACT(MILLISECOND FROM single_timestamp AT TIME ZONE $2)`,
       vars: ['America/New_York', 'America/Los_Angeles'],
     },
     {
@@ -1104,18 +1114,65 @@ describe('Default Dialect', () => {
      | 1.getMilliseconds() == 2023
      | .................^`,
     },
+
+    // Macros
+    {
+      in: `table_2.exists(x, x.single_string == 'abc')`,
+      out: `EXISTS (SELECT 1 FROM table_2 AS x WHERE x.single_string = $1)`,
+      vars: ['abc'],
+    },
+    {
+      in: `table_2.exists(x, x.single_string == single_string)`,
+      out: `EXISTS (SELECT 1 FROM table_2 AS x WHERE x.single_string = single_string)`,
+    },
+    {
+      in: `single_string.exists(x, x.single_string == 'abc')`,
+      err: `ERROR: <input>:1:1: expression of type 'string' cannot be range of a comprehension (must be list, map, or dynamic)
+     | single_string.exists(x, x.single_string == 'abc')
+     | ^`,
+    },
+    {
+      in: `table_2.existsOne(x, x.single_string == 'abc')`,
+      out: `(SELECT COUNT(*) FROM table_2 AS x WHERE x.single_string = $1) = 1`,
+      vars: ['abc'],
+    },
+    {
+      in: `table_2.existsOne(x, x.single_string == single_string)`,
+      out: `(SELECT COUNT(*) FROM table_2 AS x WHERE x.single_string = single_string) = 1`,
+    },
+    {
+      in: `single_string.existsOne(x, x.single_string == 'abc')`,
+      err: `ERROR: <input>:1:1: expression of type 'string' cannot be range of a comprehension (must be list, map, or dynamic)
+     | single_string.existsOne(x, x.single_string == 'abc')
+     | ^`,
+    },
+    {
+      in: `table_2.all(x, x.single_string == 'abc')`,
+      out: `NOT EXISTS (SELECT 1 FROM table_2 AS x WHERE NOT (x.single_string = $1))`,
+      vars: ['abc'],
+    },
+    {
+      in: `table_2.all(x, x.single_string == single_string)`,
+      out: `NOT EXISTS (SELECT 1 FROM table_2 AS x WHERE NOT (x.single_string = single_string))`,
+    },
+    {
+      in: `single_string.all(x, x.single_string == 'abc')`,
+      err: `ERROR: <input>:1:1: expression of type 'string' cannot be range of a comprehension (must be list, map, or dynamic)
+     | single_string.all(x, x.single_string == 'abc')
+     | ^`,
+    },
   ];
 
   for (const tc of testCases) {
     it(`should convert "${tc.in}"`, () => {
       if (tc.out) {
-        const out = defaultSql(tc.in, env);
+        const out = translateDefault(tc.in, env);
         expect(out.sql).toEqual(tc.out);
         if (tc.vars) {
           expect(out.vars).toEqual(tc.vars);
         }
       } else if (tc.err) {
-        expect(() => defaultSql(tc.in, env)).toThrow(formatError(tc.err));
+        expect(() => translateDefault(tc.in, env)).toThrow(formatError(tc.err));
       } else {
         throw new Error('Test case must have either "out" or "err" property');
       }

@@ -25,7 +25,10 @@ import { Dialect } from '../dialect.js';
 import { ALL_KEYWORDS } from '../keywords.js';
 import {
   ADD_OPERATOR,
+  ALL_MACRO,
   EQUALS_OPERATOR,
+  EXISTS_MACRO,
+  EXISTS_ONE_MACRO,
   findReverse,
   IN_OPERATOR,
   INDEX_OPERATOR,
@@ -60,10 +63,12 @@ import {
   TYPE_CONVERT_DOUBLE_OVERLOAD,
   TYPE_CONVERT_DURATION_OVERLOAD,
   TYPE_CONVERT_INT_OVERLOAD,
+  TYPE_CONVERT_LIST_OVERLOAD,
   TYPE_CONVERT_STRING_OVERLOAD,
   TYPE_CONVERT_TIME_OVERLOAD,
   TYPE_CONVERT_TIMESTAMP_OVERLOAD,
   TYPE_CONVERT_UINT_OVERLOAD,
+  UNNEST_OVERLOAD,
 } from '../overloads.js';
 import { DateType, TimeType } from '../types.js';
 import { Unparser } from '../unparser.js';
@@ -90,14 +95,14 @@ export class DefaultDialect implements Dialect {
 
   createList(unparser: Unparser, listExpr: Expr_CreateList): void {
     const elems = listExpr.elements;
-    unparser.writeString('ARRAY[');
+    unparser.writeString('(');
     for (let i = 0; i < elems.length; i++) {
       if (i > 0) {
         unparser.writeString(', ');
       }
       unparser.visit(elems[i]);
     }
-    unparser.writeString(']');
+    unparser.writeString(')');
   }
 
   name() {
@@ -297,6 +302,10 @@ export class DefaultDialect implements Dialect {
     return `${elemType} ARRAY`;
   }
 
+  castToList(unparser: Unparser, expr: Expr): boolean {
+    throw unparser.formatError(expr, `cannot cast expression to list type`);
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mapDataType(keyType?: string, valueType?: string): string {
     return `JSON`;
@@ -380,7 +389,8 @@ export class DefaultDialect implements Dialect {
         if (tsStr) {
           const tsFromStr = timestampFromDateString(tsStr);
           const tsDate = timestampDate(tsFromStr);
-          unparser.writeString(`TIMESTAMP '${tsDate.toISOString()}'`);
+          const sqlDateString = tsDate.toISOString().replace('T', ' ').replace('Z', '');
+          unparser.writeString(`TIMESTAMP '${sqlDateString}'`);
           if (tzExpr) {
             unparser.writeString(' AT TIME ZONE ');
             unparser.visit(tzExpr);
@@ -851,6 +861,71 @@ export class DefaultDialect implements Dialect {
     }
   }
 
+  unnest(unparser: Unparser, expr: Expr): boolean {
+    const type = unparser.getType(expr);
+    if (type?.kind() !== ListType.kind()) {
+      throw unparser.formatError(expr, `cannot unnest expression of type ${type?.typeName()}`);
+    }
+    unparser.writeString('UNNEST(');
+    unparser.visit(expr);
+    unparser.writeString(')');
+    return true;
+  }
+
+  exists(unparser: Unparser, target: Expr, iterVar: Expr, condition: Expr): boolean {
+    const type = unparser.getType(target);
+    if (type?.kind() !== ListType.kind()) {
+      throw unparser.formatError(
+        target,
+        `cannot apply EXISTS macro to expression of type ${type?.typeName()}`
+      );
+    }
+    unparser.writeString('EXISTS (SELECT 1 FROM ');
+    unparser.visit(target);
+    unparser.writeString(' AS ');
+    unparser.visit(iterVar);
+    unparser.writeString(' WHERE ');
+    unparser.visit(condition);
+    unparser.writeString(')');
+    return true;
+  }
+
+  existsOne(unparser: Unparser, target: Expr, iterVar: Expr, condition: Expr): boolean {
+    const type = unparser.getType(target);
+    if (type?.kind() !== ListType.kind()) {
+      throw unparser.formatError(
+        target,
+        `cannot apply EXISTS_ONE macro to expression of type ${type?.typeName()}`
+      );
+    }
+    unparser.writeString('(SELECT COUNT(*) FROM ');
+    unparser.visit(target);
+    unparser.writeString(' AS ');
+    unparser.visit(iterVar);
+    unparser.writeString(' WHERE ');
+    unparser.visit(condition);
+    unparser.writeString(') = 1');
+    return true;
+  }
+
+  all(unparser: Unparser, target: Expr, iterVar: Expr, condition: Expr): boolean {
+    const type = unparser.getType(target);
+    if (type?.kind() !== ListType.kind()) {
+      throw unparser.formatError(
+        target,
+        `cannot apply ALL macro to expression of type ${type?.typeName()}`
+      );
+    }
+    unparser.writeString('NOT EXISTS (SELECT 1 FROM ');
+    unparser.visit(target);
+    unparser.writeString(' AS ');
+    unparser.visit(iterVar);
+    unparser.writeString(' WHERE NOT (');
+    unparser.visit(condition);
+    unparser.writeString('))');
+    return true;
+  }
+
   functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean {
     switch (functionName) {
       case ADD_OPERATOR:
@@ -907,6 +982,8 @@ export class DefaultDialect implements Dialect {
         return this.castToDuration(unparser, args[0]);
       case TYPE_CONVERT_INT_OVERLOAD:
         return this.castToInt(unparser, args[0]);
+      case TYPE_CONVERT_LIST_OVERLOAD:
+        return this.castToList(unparser, args[0]);
       case TYPE_CONVERT_STRING_OVERLOAD:
         return this.castToString(unparser, args[0]);
       case TYPE_CONVERT_TIME_OVERLOAD:
@@ -915,6 +992,15 @@ export class DefaultDialect implements Dialect {
         return this.castToTimestamp(unparser, args[0], args[1]);
       case TYPE_CONVERT_UINT_OVERLOAD:
         return this.castToUint(unparser, args[0]);
+      // TODO: unnest should only be in dialects that support it
+      case UNNEST_OVERLOAD:
+        return this.unnest(unparser, args[0]);
+      case EXISTS_MACRO:
+        return this.exists(unparser, args[0], args[1], args[2]);
+      case EXISTS_ONE_MACRO:
+        return this.existsOne(unparser, args[0], args[1], args[2]);
+      case ALL_MACRO:
+        return this.all(unparser, args[0], args[1], args[2]);
       default:
         break;
     }

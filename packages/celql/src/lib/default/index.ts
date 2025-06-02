@@ -1,5 +1,4 @@
-import { compile } from '../compile.js';
-import { Unparser } from '../unparser.js';
+import { translate } from '../translate.js';
 import { DefaultDialect } from './dialect.js';
 import { DefaultEnv } from './env.js';
 
@@ -12,8 +11,9 @@ function getDefaultDialect(): DefaultDialect {
   return defaultDialect;
 }
 
-export function defaultSql(expr: string, env: DefaultEnv) {
-  const compiled = compile(expr, env);
-  const unparser = new Unparser(compiled, getDefaultDialect());
-  return unparser.unparse();
+/**
+ * Translate a CEL expression into an SQL query string using the provided environment and default dialect.
+ */
+export function translateDefault(expr: string, env: DefaultEnv) {
+  return translate(expr, env, getDefaultDialect());
 }

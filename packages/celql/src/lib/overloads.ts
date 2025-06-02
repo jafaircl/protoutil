@@ -214,6 +214,7 @@ export const TYPE_CONVERT_TYPE_OVERLOAD = 'type';
 export const TYPE_CONVERT_DYN_OVERLOAD = 'dyn';
 export const TYPE_CONVERT_DATE_OVERLOAD = 'date';
 export const TYPE_CONVERT_TIME_OVERLOAD = 'time';
+export const TYPE_CONVERT_LIST_OVERLOAD = 'list';
 
 // Int conversion functions.
 export const INT_TO_INT_OVERLOAD = 'int64_to_int64';
@@ -242,6 +243,10 @@ export const STRING_TO_BOOL_OVERLOAD = 'string_to_bool';
 // Bytes conversion functions.
 export const BYTES_TO_BYTES_OVERLOAD = 'bytes_to_bytes';
 export const STRING_TO_BYTES_OVERLOAD = 'string_to_bytes';
+
+// List conversion functions.
+export const LIST_TO_LIST_OVERLOAD = 'list_to_list';
+export const STRING_TO_LIST_OVERLOAD = 'string_to_list';
 
 // String conversion functions.
 export const STRING_TO_STRING_OVERLOAD = 'string_to_string';
@@ -296,3 +301,6 @@ export const STRING_TRIM_OVERLOAD = 'trim';
 export const LIKE_OVERLOAD = 'like';
 export const LIKE_STRING_OVERLOAD = 'like_string';
 export const LIKE_STRING_FLAG_OVERLOAD = 'like_string_flag';
+
+// List functions
+export const UNNEST_OVERLOAD = 'unnest';

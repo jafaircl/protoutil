@@ -23,7 +23,7 @@ export const OPT_SELECT_OPERATOR = '_?._';
 export const HAS_MACRO = 'has';
 export const ALL_MACRO = 'all';
 export const EXISTS_MACRO = 'exists';
-export const EXISTS_ONE_MACRO = 'exists_one';
+export const EXISTS_ONE_MACRO = 'existsOne';
 export const MAP_MACRO = 'map';
 export const FILTER_MACRO = 'filter';
 
