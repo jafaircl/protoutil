@@ -99,12 +99,7 @@ export function assertValidDuration(d: Duration) {
     );
   }
   if (d.nanos < -999_999_999 || d.nanos > 999_999_999) {
-    throw new OutOfRangeError(
-      'out-of-range nanos',
-      d.nanos,
-      -999_999_999,
-      999_999_999
-    );
+    throw new OutOfRangeError('out-of-range nanos', d.nanos, -999_999_999, 999_999_999);
   }
 }
 
@@ -123,30 +118,105 @@ export function isValidDuration(d: Duration) {
 }
 
 /**
- * Create a google.protobuf.Duration message from a string. The string must end with 's' and can be
- * in the format of '3s' for 3 seconds or '3.000000001s' for 3 seconds and 1 nanosecond.
- * Sub-nanosecond precision is not supported.
+ * Create a google.protobuf.Duration message from a string. A duration string is a possibly signed sequence
+ * of decimal numbers, each with optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m".
+ * Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
  */
-export function durationFromString(str: string) {
-  if (!str.endsWith('s')) {
-    throw new Error(`duration string must end with 's'`);
+export function durationFromString(
+  text: string,
+  relativeTo:
+    | string
+    | Temporal.PlainDateTime
+    | Temporal.ZonedDateTime
+    | Temporal.PlainDateTimeLike
+    | Temporal.ZonedDateTimeLike = Temporal.Now.plainDateTimeISO()
+): Duration {
+  const temporal = Temporal.Duration.from(durationStringToISO8601DurationString(text));
+  return durationFromTemporal(temporal, relativeTo);
+}
+
+const durationStringFormatMessage =
+  `A duration string is a possibly signed sequence of decimal numbers, each with optional fraction
+  and a unit suffix, such as "300ms", "-1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"),
+  "ms", "s", "m", "h".`
+    .split('\n')
+    .map((line) => line.trim())
+    .join(' ');
+
+function durationStringToISO8601DurationString(durationString: string): string {
+  if (!durationString || typeof durationString !== 'string') {
+    throw new Error('Invalid input: expected a non-empty string');
   }
-  const secondsStr = str.slice(0, -1);
-  const [seconds, nanos] = secondsStr.split('.');
-  const isNegative = seconds.startsWith('-');
-  if (nanos && nanos.length > 9) {
-    throw new Error(`out-of-range nanos`);
+
+  // Check for invalid units (Go-like strings don't support units larger than hours)
+  const invalidUnits = /(\d+(?:\.\d+)?)(d|w|mo|y)/g;
+  if (invalidUnits.test(durationString)) {
+    throw new Error(`Invalid input: '${durationString}'. ${durationStringFormatMessage}`);
   }
-  let nanosInt = nanos ? parseInt(nanos, 10) : 0;
-  // If the string is negative, we need to negate the nanos value. We also need to make sure we
-  // don't end up with -0.
-  if (isNegative && nanosInt > 0) {
-    nanosInt = -nanosInt;
+
+  // Handle negative durations
+  const isNegative = durationString.startsWith('-');
+  const duration = isNegative ? durationString.slice(1) : durationString;
+
+  // Parse the Go duration string - Go-like strings only support units up to hours
+  const regex = /(\d+(?:\.\d+)?)(ns|µs|us|ms|s|m|h)/g;
+  const matches = [...duration.matchAll(regex)];
+
+  if (matches.length === 0) {
+    throw new Error(`Invalid input: '${durationString}'. ${durationStringFormatMessage}`);
   }
-  return create(DurationSchema, {
-    seconds: BigInt(seconds),
-    nanos: nanosInt,
-  });
+
+  // Convert to total seconds
+  let totalSeconds = 0;
+  const unitMultipliers: Record<string, number> = {
+    ns: 1e-9,
+    µs: 1e-6,
+    us: 1e-6, // Alternative microsecond notation
+    ms: 1e-3,
+    s: 1,
+    m: 60,
+    h: 3600,
+  };
+
+  for (const match of matches) {
+    const value = parseFloat(match[1]);
+    const unit = match[2];
+    totalSeconds += value * unitMultipliers[unit];
+  }
+
+  // Round to nearest nanosecond precision
+  const totalNanoseconds = Math.round(totalSeconds * 1e9);
+  const roundedTotalSeconds = totalNanoseconds / 1e9;
+
+  // Convert to ISO 8601 format
+  const hours = Math.floor(roundedTotalSeconds / 3600);
+  const minutes = Math.floor((roundedTotalSeconds % 3600) / 60);
+  const seconds = roundedTotalSeconds % 60;
+
+  let iso8601 = 'PT';
+
+  if (hours > 0) {
+    iso8601 += `${hours}H`;
+  }
+
+  if (minutes > 0) {
+    iso8601 += `${minutes}M`;
+  }
+
+  if (seconds > 0) {
+    // Format seconds to remove unnecessary trailing zeros
+    const formattedSeconds =
+      seconds % 1 === 0 ? seconds.toString() : seconds.toFixed(9).replace(/\.?0+$/, '');
+    iso8601 += `${formattedSeconds}S`;
+  }
+
+  // Handle zero duration
+  if (iso8601 === 'PT') {
+    iso8601 = 'PT0S';
+  }
+
+  // Add negative sign if needed
+  return isNegative ? `-${iso8601}` : iso8601;
 }
 
 /**
@@ -202,10 +272,8 @@ export function durationFromTemporal(
     | Temporal.ZonedDateTimeLike = Temporal.Now.plainDateTimeISO()
 ) {
   const totalSeconds = duration.total({ unit: 'seconds', relativeTo });
-  const seconds = BigInt(Math.floor(totalSeconds));
-  const remainingNanos = Math.round(
-    (totalSeconds % 1) * Number(NANOS_PER_SECOND)
-  );
+  const seconds = BigInt(totalSeconds < 0 ? Math.ceil(totalSeconds) : Math.floor(totalSeconds));
+  const remainingNanos = Math.round((totalSeconds % 1) * Number(NANOS_PER_SECOND));
   return create(DurationSchema, {
     seconds,
     // This will make sure we don't end up with -0.
@@ -246,11 +314,7 @@ export const MAX_DURATION = duration(MAX_DURATION_SECONDS);
  * Clamp a google.protobuf.Duration value to a range of valid durations. The default
  * minimum is -315,576,000,000 seconds and the default maximum is +315,576,000,000 seconds.
  */
-export function clampDuration(
-  value: Duration,
-  min = MIN_DURATION,
-  max = MAX_DURATION
-): Duration {
+export function clampDuration(value: Duration, min = MIN_DURATION, max = MAX_DURATION): Duration {
   const nanos = durationNanos(value);
   if (nanos < durationNanos(min)) {
     return min;

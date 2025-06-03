@@ -15,7 +15,7 @@
         "tsConfig": "packages/core/tsconfig.lib.json",
         "format": ["esm", "cjs"],
         "declarationRootDir": "packages/core/src",
-        "minify": true
+        "minify": false
       }
     }
   }
