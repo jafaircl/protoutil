@@ -1,0 +1,49 @@
+{
+  "name": "@protoutil/cel",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/cel/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "packages/cel/dist",
+        "main": "packages/cel/src/index.ts",
+        "tsConfig": "packages/cel/tsconfig.lib.json",
+        "format": ["esm", "cjs"],
+        "declarationRootDir": "packages/cel/src",
+        "minify": false,
+        "external": [
+          "@bufbuild/protobuf",
+          "@protoutil/core",
+          "antlr4ng",
+          "dequal",
+          "safe-stable-stringify"
+        ]
+      }
+    },
+    "prepare-conformance": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run textproto-to-json.go",
+        "cwd": "packages/cel/src/lib/conformance"
+      }
+    },
+    "genantlr": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "antlr-ng -Dlanguage=TypeScript -v -o src/lib/gen src/lib/CEL.g4",
+        "cwd": "packages/cel"
+      }
+    },
+    "genproto": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx buf generate",
+        "cwd": "packages/cel"
+      }
+    }
+  }
+}

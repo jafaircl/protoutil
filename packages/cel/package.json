@@ -1,0 +1,27 @@
+{
+  "name": "@protoutil/cel",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.2.5",
+    "@protoutil/core": "0.2.4",
+    "antlr4ng": "3.0.16",
+    "dequal": "^2.0.3",
+    "safe-stable-stringify": "^2.5.0"
+  }
+}
