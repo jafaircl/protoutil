@@ -149,7 +149,7 @@ export function timestampFromNanos(ns: bigint) {
   // BigInt, we need to do it manually.
   if (nanos < 0) {
     nanos += Number(NANOS_PER_SECOND);
-    return timestamp(seconds - 1n, nanos);
+    return create(TimestampSchema, { seconds: seconds - 1n, nanos });
   }
   return create(TimestampSchema, {
     seconds,

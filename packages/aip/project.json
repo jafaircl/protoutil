@@ -14,7 +14,7 @@
         "tsConfig": "packages/aip/tsconfig.lib.json",
         "format": ["esm", "cjs"],
         "declarationRootDir": "packages/aip/src",
-        "minify": true
+        "minify": false
       }
     },
     "genproto": {

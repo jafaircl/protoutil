@@ -71,8 +71,12 @@ describe('duration', () => {
 
   describe('durationFromString()', () => {
     it('should throw an error if the string is not formatted correctly', () => {
-      expect(() => durationFromString('invalid')).toThrow(`duration string must end with 's'`);
-      expect(() => durationFromString('1.0')).toThrow(`duration string must end with 's'`);
+      expect(() => durationFromString('invalid')).toThrow(
+        `Invalid input: 'invalid'. A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".`
+      );
+      expect(() => durationFromString('1.0')).toThrow(
+        `Invalid input: '1.0'. A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".`
+      );
     });
 
     it('should create a duration from a string', () => {
@@ -89,6 +93,16 @@ describe('duration', () => {
       expect(durationFromString('-1.234s')).toEqual(duration(-1n, -234000000));
       expect(durationFromString('1.00234s')).toEqual(duration(1n, 2340000));
       expect(durationFromString('-1.00234s')).toEqual(duration(-1n, -2340000));
+      expect(durationFromString('1ns')).toEqual(duration(0n, 1));
+      expect(durationFromString('-1ns')).toEqual(duration(0n, -1));
+      expect(durationFromString('1µs')).toEqual(duration(0n, 1000));
+      expect(durationFromString('-1µs')).toEqual(duration(0n, -1000));
+      expect(durationFromString('1ms')).toEqual(duration(0n, 1000000));
+      expect(durationFromString('-1ms')).toEqual(duration(0n, -1000000));
+      expect(durationFromString('1m1.234s')).toEqual(duration(1n * 60n + 1n, 234000000));
+      expect(durationFromString('-1m1.234s')).toEqual(duration(-1n * 60n - 1n, -234000000));
+      expect(durationFromString('1h4.567s')).toEqual(duration(1n * 60n * 60n + 4n, 567000000));
+      expect(durationFromString('-1h4.567s')).toEqual(duration(-1n * 60n * 60n - 4n, -567000000));
     });
   });
 

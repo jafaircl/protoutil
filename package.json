@@ -23,6 +23,7 @@
     "@swc/jest": "~0.2.36",
     "@types/jest": "^29.5.12",
     "@types/node": "18.16.9",
+    "antlr-ng": "^1.0.9",
     "esbuild": "^0.19.2",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
@@ -59,6 +60,9 @@
     "@buf/googleapis_googleapis.bufbuild_es": "^2.2.5-20250411203938-61b203b9a916.1",
     "@bufbuild/protobuf": "^2.2.5",
     "crc": "^4.3.2",
+    "dequal": "^2.0.3",
+    "iso8601-duration": "^2.1.2",
+    "safe-stable-stringify": "^2.5.0",
     "temporal-polyfill": "^0.3.0"
   }
 }
