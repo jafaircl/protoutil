@@ -1,7 +1,7 @@
-import { TestAllTypesSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/conformance/proto3/test_all_types_pb.js';
 import { create, equals } from '@bufbuild/protobuf';
 import { compileMessage } from '@bufbuild/protocompile';
 import { fieldMask } from '@protoutil/core';
+import { TestAllTypesSchema } from '@protoutil/core/unittest-proto3';
 import { calculateMessageEtag } from './etag.js';
 
 const TestEtagSchema = compileMessage(`
@@ -21,7 +21,7 @@ describe('etag', () => {
     it('should calculate the etag for a message', () => {
       const etag = calculateMessageEtag(
         TestAllTypesSchema,
-        create(TestAllTypesSchema, { singleDouble: 3.14 })
+        create(TestAllTypesSchema, { optionalDouble: 3.14 })
       );
       expect(typeof etag).toBe('string');
       expect(etag.startsWith('W/"')).toBe(false);
@@ -32,19 +32,19 @@ describe('etag', () => {
       const etag1 = calculateMessageEtag(
         TestAllTypesSchema,
         create(TestAllTypesSchema, {
-          singleDouble: 3.14,
-          singleBool: true,
-          singleInt32: 1,
-          singleInt64: 1n,
+          optionalDouble: 3.14,
+          optionalBool: true,
+          optionalInt32: 1,
+          optionalInt64: 1n,
         })
       );
       const etag2 = calculateMessageEtag(
         TestAllTypesSchema,
         create(TestAllTypesSchema, {
-          singleDouble: 2.71,
-          singleBool: true,
-          singleInt32: 1,
-          singleInt64: 1n,
+          optionalDouble: 2.71,
+          optionalBool: true,
+          optionalInt32: 1,
+          optionalInt64: 1n,
         })
       );
       expect(etag1).not.toBe(etag2);
@@ -53,29 +53,29 @@ describe('etag', () => {
     it('should mark the etag as weak for a message with a field mask', () => {
       const etag = calculateMessageEtag(
         TestAllTypesSchema,
-        create(TestAllTypesSchema, { singleDouble: 3.14 }),
-        fieldMask(TestAllTypesSchema, ['single_double'])
+        create(TestAllTypesSchema, { optionalDouble: 3.14 }),
+        fieldMask(TestAllTypesSchema, ['optional_double'])
       );
       expect(etag.startsWith('W/"')).toBe(true);
       expect(etag.endsWith('"')).toBe(true);
     });
 
     it('should not modify the original message when calculating the etag', () => {
-      const message = create(TestAllTypesSchema, { singleDouble: 3.14, singleInt32: 42 });
-      const fm = fieldMask(TestAllTypesSchema, ['single_double']);
+      const message = create(TestAllTypesSchema, { optionalDouble: 3.14, optionalInt32: 42 });
+      const fm = fieldMask(TestAllTypesSchema, ['optional_double']);
       calculateMessageEtag(TestAllTypesSchema, message, fm);
       expect(
         equals(
           TestAllTypesSchema,
           message,
-          create(TestAllTypesSchema, { singleDouble: 3.14, singleInt32: 42 })
+          create(TestAllTypesSchema, { optionalDouble: 3.14, optionalInt32: 42 })
         )
       ).toBe(true);
     });
 
     it('should invert the field mask when specified', () => {
-      const message = create(TestAllTypesSchema, { singleDouble: 3.14, singleInt32: 42 });
-      const fm = fieldMask(TestAllTypesSchema, ['single_double']);
+      const message = create(TestAllTypesSchema, { optionalDouble: 3.14, optionalInt32: 42 });
+      const fm = fieldMask(TestAllTypesSchema, ['optional_double']);
       const etag1 = calculateMessageEtag(TestAllTypesSchema, message, fm, true);
       const etag2 = calculateMessageEtag(TestAllTypesSchema, message, fm, false);
       expect(etag1).not.toBe(etag2);

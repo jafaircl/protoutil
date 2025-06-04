@@ -1,9 +1,9 @@
 /* eslint-disable no-case-declarations */
-import { FieldBehavior } from '@buf/googleapis_googleapis.bufbuild_es/google/api/field_behavior_pb.js';
 import { DescField, DescMessage, isFieldSet, Message, MessageShape } from '@bufbuild/protobuf';
 import { FieldMask } from '@bufbuild/protobuf/wkt';
 import { fieldMask, fieldMaskHasPath, getField } from '@protoutil/core';
 import { InvalidArgumentError } from '../errors/errors.js';
+import { FieldBehavior } from '../gen/google/api/field_behavior_pb.js';
 import { hasFieldBehavior } from './fieldbehavior.js';
 
 /**

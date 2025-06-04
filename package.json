@@ -7,7 +7,6 @@
   },
   "private": true,
   "devDependencies": {
-    "@buf/google_cel-spec.bufbuild_es": "^2.2.5-20250407210311-f098f2988c91.1",
     "@bufbuild/buf": "^1.53.0",
     "@bufbuild/protoc-gen-es": "^2.2.5",
     "@bufbuild/protocompile": "^0.0.1",
@@ -56,7 +55,6 @@
     }
   },
   "dependencies": {
-    "@bearclaw/cel": "^0.1.0-alpha.9",
     "@buf/googleapis_googleapis.bufbuild_es": "^2.2.5-20250411203938-61b203b9a916.1",
     "@bufbuild/protobuf": "^2.2.5",
     "crc": "^4.3.2",

@@ -11,7 +11,7 @@ import {
   overload,
   SingletonLibrary,
   StringType,
-} from '@bearclaw/cel';
+} from '@protoutil/cel';
 import { defaultLibraryFunctions } from '../default/library.js';
 import {
   LIST_TO_LIST_OVERLOAD,

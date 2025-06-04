@@ -1,5 +1,5 @@
-import { declareContextProto } from '@bearclaw/cel';
-import { TestAllTypesSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/conformance/proto3/test_all_types_pb.js';
+import { declareContextProto } from '@protoutil/cel';
+import { TestAllTypesSchema } from '@protoutil/cel/conformance-proto3';
 import { protoTable } from '../options.js';
 import { formatError } from '../test-helpers.js';
 import { PostgresEnv } from './env.js';

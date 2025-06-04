@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package protoutil.aip.v1;
+
+import "google/rpc/code.proto";
+import "google/rpc/error_details.proto";
+import "google/rpc/status.proto";
+
+message TestError {
+  google.rpc.Code code = 1;
+  google.rpc.Status status = 2;
+  repeated google.rpc.ErrorInfo error_info = 3;
+}

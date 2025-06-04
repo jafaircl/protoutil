@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf';
 import { fieldMask } from '@protoutil/core';
-import { TestImmutableFieldBehaviorSchema } from '../gen/bearclaw/aip/v1/fieldbehavior_pb.js';
+import { TestImmutableFieldBehaviorSchema } from '../gen/protoutil/aip/v1/fieldbehavior_pb.js';
 import { validateImmutableFields, validateImmutableFieldsWithMask } from './immutable.js';
 
 describe('immutable', () => {

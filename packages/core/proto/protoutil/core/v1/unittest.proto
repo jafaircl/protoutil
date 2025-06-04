@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package protoutil.core.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message UnittestMessage {
+
+    // Singular fields
+    int32 optional_int32 = 1;
+    int64 optional_int64 = 2;
+    uint32 optional_uint32 = 3;
+    uint64 optional_uint64 = 4;
+    sint32 optional_sint32 = 5;
+    sint64 optional_sint64 = 6;
+    fixed32 optional_fixed32 = 7;
+    fixed64 optional_fixed64 = 8;
+    sfixed32 optional_sfixed32 = 9;
+    sfixed64 optional_sfixed64 = 10;
+    float optional_float = 11;
+    double optional_double = 12;
+    bool optional_bool = 13;
+    string optional_string = 14;
+    bytes optional_bytes = 15;
+    google.protobuf.Timestamp optional_timestamp = 16;
+
+    // Nested message
+    UnittestMessage optional_nested_message = 17;
+
+    // Maps
+    map<int32, google.protobuf.Timestamp> map_int32_timestamp = 100;
+    map<string, string> map_string_string = 101;
+    map<string, UnittestMessage> map_string_message = 102;
+    map<int32, UnittestMessage> map_int32_message = 103;
+    map<string, int32> map_string_int32 = 104;
+    map<string, int64> map_string_int64 = 105;
+    map<string, uint32> map_string_uint32 = 106;
+    map<string, uint64> map_string_uint64 = 107;
+    map<string, bool> map_string_bool = 108;
+    map<string, float> map_string_float = 109;
+    map<string, double> map_string_double = 110;
+    map<string, bytes> map_string_bytes = 111;
+    map<string, google.protobuf.Timestamp> map_string_timestamp = 112;
+    
+    // Repeated
+    repeated int32 repeated_int32 = 20;
+    repeated int64 repeated_int64 = 21;
+    repeated uint32 repeated_uint32 = 22;
+    repeated uint64 repeated_uint64 = 23;
+    repeated sint32 repeated_sint32 = 24;
+    repeated sint64 repeated_sint64 = 25;
+    repeated fixed32 repeated_fixed32 = 26;
+    repeated fixed64 repeated_fixed64 = 27;
+    repeated sfixed32 repeated_sfixed32 = 28;
+    repeated sfixed64 repeated_sfixed64 = 29;
+    repeated float repeated_float = 30;
+    repeated double repeated_double = 31;
+    repeated bool repeated_bool = 32;
+    repeated string repeated_string = 33;
+    repeated bytes repeated_bytes = 34;
+    repeated google.protobuf.Timestamp repeated_timestamp = 35;
+}
+
+message NestedUnittestMessage {
+    // This message is used to test that nested messages are handled correctly.
+    UnittestMessage nested_message = 100;
+}

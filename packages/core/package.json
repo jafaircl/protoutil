@@ -15,7 +15,44 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
       "default": "./dist/index.js"
+    },
+    "./unittest": {
+      "types": "./dist/lib/gen-exports/index_unittest.d.ts",
+      "import": "./dist/lib/gen-exports/index_unittest.js",
+      "require": "./dist/lib/gen-exports/index_unittest.cjs",
+      "default": "./dist/lib/gen-exports/index_unittest.js"
+    },
+    "./unittest-editions": {
+      "types": "./dist/lib/gen-exports/index_unittest_editions.d.ts",
+      "import": "./dist/lib/gen-exports/index_unittest_editions.js",
+      "require": "./dist/lib/gen-exports/index_unittest_editions.cjs",
+      "default": "./dist/lib/gen-exports/index_unittest_editions.js"
+    },
+    "./unittest-proto2": {
+      "types": "./dist/lib/gen-exports/index_unittest_proto2.d.ts",
+      "import": "./dist/lib/gen-exports/index_unittest_proto2.js",
+      "require": "./dist/lib/gen-exports/index_unittest_proto2.cjs",
+      "default": "./dist/lib/gen-exports/index_unittest_proto2.js"
+    },
+    "./unittest-proto2-lite": {
+      "types": "./dist/lib/gen-exports/index_unittest_proto2_lite.d.ts",
+      "import": "./dist/lib/gen-exports/index_unittest_proto2_lite.js",
+      "require": "./dist/lib/gen-exports/index_unittest_proto2_lite.cjs",
+      "default": "./dist/lib/gen-exports/index_unittest_proto2_lite.js"
+    },
+    "./unittest-proto3": {
+      "types": "./dist/lib/gen-exports/index_unittest_proto3.d.ts",
+      "import": "./dist/lib/gen-exports/index_unittest_proto3.js",
+      "require": "./dist/lib/gen-exports/index_unittest_proto3.cjs",
+      "default": "./dist/lib/gen-exports/index_unittest_proto3.js"
+    },
+    "./unittest-proto3-lite": {
+      "types": "./dist/lib/gen-exports/index_unittest_proto3_lite.d.ts",
+      "import": "./dist/lib/gen-exports/index_unittest_proto3_lite.js",
+      "require": "./dist/lib/gen-exports/index_unittest_proto3_lite.cjs",
+      "default": "./dist/lib/gen-exports/index_unittest_proto3_lite.js"
     }
   },
   "files": [

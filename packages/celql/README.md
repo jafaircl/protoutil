@@ -11,7 +11,7 @@ Use your configured package manager to install the `@protoutil/celql` package. i
 First, you will need to let the CEL environment know about your columns. This can be done by defining a CEL `Env` instance. You can define each column with its CEL-equivalent type individually:
 
 ```typescript
-import { variable } from '@bearclaw/cel';
+import { variable } from '@protoutil/cel';
 import { DefaultEnv } from '@protoutil/celql';
 
 const env = new DefaultEnv(
@@ -24,7 +24,7 @@ Or, if you have a protobuf representation of your database table, you can define
 
 ```typescript
 
-import { declareContextProto } from '@bearclaw/cel';
+import { declareContextProto } from '@protoutil/cel';
 import { DefaultEnv } from '@protoutil/celql';
 import { MySchema } from './gen/myschema_pb.js';
 
@@ -157,7 +157,7 @@ You are able to define your own `Dialect` class and add functions by extending t
 
 ```typescript
 import { DefaultEnv, DefaultDialect, translate } from '@protoutil/celql';
-import { BoolType, func, overload, StringType } from '@bearclaw/cel';
+import { BoolType, func, overload, StringType } from '@protoutil/cel';
 
 const myFuncOverload = 'myFunc';
 

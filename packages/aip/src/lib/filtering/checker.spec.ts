@@ -2,7 +2,7 @@ import {
   TestAllTypes_NestedEnumSchema,
   TestAllTypes_NestedMessageSchema,
   TestAllTypesSchema,
-} from '@buf/google_cel-spec.bufbuild_es/cel/expr/conformance/proto3/test_all_types_pb.js';
+} from '@protoutil/core/unittest-proto3';
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import {
   CheckedExprSchema,
@@ -377,7 +377,7 @@ describe('Checker', () => {
       errorContains: 'invalid UTF-8',
     },
     {
-      filter: 'a.single_bool',
+      filter: 'a.optional_bool',
       declarations: [
         ...standardFunctionDeclarations(),
         newIdentDeclaration('a', typeMessage(TestAllTypesSchema.typeName)),
@@ -394,7 +394,7 @@ describe('Checker', () => {
       errorContains: `unknown field 'abc' for message type`,
     },
     {
-      filter: 'a.single_int64',
+      filter: 'a.optional_int64',
       declarations: [
         ...standardFunctionDeclarations(),
         newIdentDeclaration('a', typeMessage(TestAllTypesSchema.typeName)),
@@ -403,7 +403,7 @@ describe('Checker', () => {
       errorContains: 'non-bool result type',
     },
     {
-      filter: 'a.single_int64 = 1',
+      filter: 'a.optional_int64 = 1',
       declarations: [
         ...standardFunctionDeclarations(),
         newIdentDeclaration('a', typeMessage(TestAllTypesSchema.typeName)),
@@ -411,7 +411,7 @@ describe('Checker', () => {
       descriptors: [TestAllTypesSchema],
     },
     {
-      filter: 'a.standalone_message.bb > 1',
+      filter: 'a.optional_nested_message.bb > 1',
       declarations: [
         ...standardFunctionDeclarations(),
         newIdentDeclaration('a', typeMessage(TestAllTypesSchema.typeName)),
@@ -419,7 +419,7 @@ describe('Checker', () => {
       descriptors: [TestAllTypesSchema, TestAllTypes_NestedMessageSchema],
     },
     {
-      filter: 'a.standalone_message.bb = 1',
+      filter: 'a.optional_nested_message.bb = 1',
       declarations: [
         ...standardFunctionDeclarations(),
         newIdentDeclaration('a', typeMessage(TestAllTypesSchema.typeName)),

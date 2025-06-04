@@ -1,6 +1,6 @@
-import { CheckedExprSchema } from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb.js';
-import { ParsedExprSchema } from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/syntax_pb.js';
 import { isMessage } from '@bufbuild/protobuf';
+import { CheckedExprSchema } from '../gen/google/api/expr/v1alpha1/checked_pb.js';
+import { ParsedExprSchema } from '../gen/google/api/expr/v1alpha1/syntax_pb.js';
 import { newIdentDeclaration } from './declarations.js';
 import { extendStandardFilterDeclarations, parseAndCheckFilter, parseFilter } from './helpers.js';
 import { TypeInt } from './types.js';

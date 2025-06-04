@@ -1,16 +1,4 @@
 import {
-  Decl,
-  Decl_FunctionDecl,
-  Decl_FunctionDecl_Overload,
-  Decl_FunctionDecl_OverloadSchema,
-  DeclSchema,
-  Type,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb.js';
-import {
-  Constant,
-  ConstantSchema,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/syntax_pb.js';
-import {
   create,
   createMutableRegistry,
   DescEnum,
@@ -20,6 +8,15 @@ import {
   isMessage,
   MutableRegistry,
 } from '@bufbuild/protobuf';
+import {
+  Decl,
+  Decl_FunctionDecl,
+  Decl_FunctionDecl_Overload,
+  Decl_FunctionDecl_OverloadSchema,
+  DeclSchema,
+  Type,
+} from '../gen/google/api/expr/v1alpha1/checked_pb.js';
+import { Constant, ConstantSchema } from '../gen/google/api/expr/v1alpha1/syntax_pb.js';
 import { FunctionEquals, FunctionNotEquals } from './functions.js';
 import { TypeBool, typeEnum } from './types.js';
 

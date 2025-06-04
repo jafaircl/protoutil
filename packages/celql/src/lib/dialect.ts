@@ -1,4 +1,4 @@
-import { Expr, Expr_CreateList } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
+import { Expr, Expr_CreateList } from '@protoutil/cel/proto';
 import { Unparser } from './unparser.js';
 
 /**
@@ -291,13 +291,6 @@ export interface Dialect {
    * was handled by the dialect. If a time zone expression is provided, it will be used to adjust the output.
    */
   getMilliseconds(unparser: Unparser, expr: Expr, tzExpr?: Expr): boolean;
-
-  /**
-   * Handle the `unnest` function for the dialect. For dialects that do not have an `unnest` function, this method
-   * should be overridden to return `false`. If the dialect supports `unnest`, it should handle the expression
-   * and return `true`.
-   */
-  unnest(unparser: Unparser, expr: Expr): boolean;
 
   /**
    * Handle the `exists` macro for the dialect. It returns a boolean indicating whether the operation was handled

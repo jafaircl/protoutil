@@ -1,6 +1,11 @@
 {
   "name": "@protoutil/cel",
-  "version": "0.0.1",
+  "version": "0.2.4",
+  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/cel",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jafaircl/protoutil"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -10,7 +15,32 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
       "default": "./dist/index.js"
+    },
+    "./proto": {
+      "types": "./dist/lib/protogen-exports/index.d.ts",
+      "import": "./dist/lib/protogen-exports/index.js",
+      "require": "./dist/lib/protogen-exports/index.cjs",
+      "default": "./dist/lib/protogen-exports/index.js"
+    },
+    "./conformance": {
+      "types": "./dist/lib/protogen-exports/index_conformance_test.d.ts",
+      "import": "./dist/lib/protogen-exports/index_conformance_test.js",
+      "require": "./dist/lib/protogen-exports/index_conformance_test.cjs",
+      "default": "./dist/lib/protogen-exports/index_conformance_test.js"
+    },
+    "./conformance-proto2": {
+      "types": "./dist/lib/protogen-exports/index_conformance_proto2.d.ts",
+      "import": "./dist/lib/protogen-exports/index_conformance_proto2.js",
+      "require": "./dist/lib/protogen-exports/index_conformance_proto2.cjs",
+      "default": "./dist/lib/protogen-exports/index_conformance_proto2.js"
+    },
+    "./conformance-proto3": {
+      "types": "./dist/lib/protogen-exports/index_conformance_proto3.d.ts",
+      "import": "./dist/lib/protogen-exports/index_conformance_proto3.js",
+      "require": "./dist/lib/protogen-exports/index_conformance_proto3.cjs",
+      "default": "./dist/lib/protogen-exports/index_conformance_proto3.js"
     }
   },
   "files": [

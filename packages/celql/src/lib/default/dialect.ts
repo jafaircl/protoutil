@@ -1,4 +1,5 @@
 /* eslint-disable no-case-declarations */
+import { timestampDate } from '@bufbuild/protobuf/wkt';
 import {
   BoolType,
   BytesType,
@@ -9,9 +10,8 @@ import {
   StringType,
   TimestampType,
   UintType,
-} from '@bearclaw/cel';
-import { Expr, Expr_CreateList } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
-import { timestampDate } from '@bufbuild/protobuf/wkt';
+} from '@protoutil/cel';
+import { Expr, Expr_CreateList } from '@protoutil/cel/proto';
 import { durationFromString, durationNanos, timestampFromDateString } from '@protoutil/core';
 import {
   isBinaryOrTernaryOperator,
@@ -68,7 +68,6 @@ import {
   TYPE_CONVERT_TIME_OVERLOAD,
   TYPE_CONVERT_TIMESTAMP_OVERLOAD,
   TYPE_CONVERT_UINT_OVERLOAD,
-  UNNEST_OVERLOAD,
 } from '../overloads.js';
 import { DateType, TimeType } from '../types.js';
 import { Unparser } from '../unparser.js';
@@ -861,17 +860,6 @@ export class DefaultDialect implements Dialect {
     }
   }
 
-  unnest(unparser: Unparser, expr: Expr): boolean {
-    const type = unparser.getType(expr);
-    if (type?.kind() !== ListType.kind()) {
-      throw unparser.formatError(expr, `cannot unnest expression of type ${type?.typeName()}`);
-    }
-    unparser.writeString('UNNEST(');
-    unparser.visit(expr);
-    unparser.writeString(')');
-    return true;
-  }
-
   exists(unparser: Unparser, target: Expr, iterVar: Expr, condition: Expr): boolean {
     const type = unparser.getType(target);
     if (type?.kind() !== ListType.kind()) {
@@ -992,9 +980,6 @@ export class DefaultDialect implements Dialect {
         return this.castToTimestamp(unparser, args[0], args[1]);
       case TYPE_CONVERT_UINT_OVERLOAD:
         return this.castToUint(unparser, args[0]);
-      // TODO: unnest should only be in dialects that support it
-      case UNNEST_OVERLOAD:
-        return this.unnest(unparser, args[0]);
       case EXISTS_MACRO:
         return this.exists(unparser, args[0], args[1], args[2]);
       case EXISTS_ONE_MACRO:

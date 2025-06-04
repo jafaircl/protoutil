@@ -1,5 +1,5 @@
-import { declareContextProto, Env, Issues } from '@bearclaw/cel';
-import { TestAllTypesSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/conformance/proto3/test_all_types_pb.js';
+import { declareContextProto, Env, Issues } from '@protoutil/cel';
+import { TestAllTypesSchema } from '@protoutil/cel/conformance-proto3';
 import { DefaultDialect } from './default/dialect.js';
 import { DefaultEnv } from './default/env.js';
 import { Dialect } from './dialect.js';

@@ -1,4 +1,4 @@
-import { CustomEnv, eagerlyValidateDeclarations, EnvOption } from '@bearclaw/cel';
+import { CustomEnv, eagerlyValidateDeclarations, EnvOption } from '@protoutil/cel';
 import { DefaultLib } from './library.js';
 
 let defaultEnv: CustomEnv | null = null;

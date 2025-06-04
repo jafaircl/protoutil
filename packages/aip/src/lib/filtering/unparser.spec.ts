@@ -1,4 +1,4 @@
-import { Decl } from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb.js';
+import { Decl } from '../gen/google/api/expr/v1alpha1/checked_pb.js';
 import {
   EnumDecl,
   newFunctionDeclaration,

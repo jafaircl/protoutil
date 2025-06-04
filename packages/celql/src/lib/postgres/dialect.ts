@@ -1,7 +1,8 @@
-import { ListType, StringType } from '@bearclaw/cel';
-import { Expr, Expr_CreateList } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
+import { ListType, StringType } from '@protoutil/cel';
+import { Expr, Expr_CreateList } from '@protoutil/cel/proto';
 import { unwrapBoolConstant } from '../common.js';
 import { DefaultDialect } from '../default/dialect.js';
+import { UNNEST_OVERLOAD } from '../overloads.js';
 import { Unparser } from '../unparser.js';
 
 export class PostgresDialect extends DefaultDialect {
@@ -71,8 +72,24 @@ export class PostgresDialect extends DefaultDialect {
     return true;
   }
 
+  /**
+   * Handle the `unnest` function
+   */
+  unnest(unparser: Unparser, expr: Expr): boolean {
+    const type = unparser.getType(expr);
+    if (type?.kind() !== ListType.kind()) {
+      throw unparser.formatError(expr, `cannot unnest expression of type ${type?.typeName()}`);
+    }
+    unparser.writeString('UNNEST(');
+    unparser.visit(expr);
+    unparser.writeString(')');
+    return true;
+  }
+
   override functionToSqlOverrides(unparser: Unparser, functionName: string, args: Expr[]): boolean {
     switch (functionName) {
+      case UNNEST_OVERLOAD:
+        return this.unnest(unparser, args[0]);
       default:
         return super.functionToSqlOverrides(unparser, functionName, args);
     }

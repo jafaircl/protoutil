@@ -19,7 +19,7 @@ import {
   StringType,
   TimestampType,
   UintType,
-} from '@bearclaw/cel';
+} from '@protoutil/cel';
 import {
   ADD_OPERATOR,
   CONDITIONAL_OPERATOR,

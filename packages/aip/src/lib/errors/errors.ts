@@ -1,5 +1,5 @@
-import { Code } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/code_pb.js';
-import { Status } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/status_pb.js';
+import { Code } from '../gen/google/rpc/code_pb.js';
+import { Status } from '../gen/google/rpc/status_pb.js';
 import { errorDetails, ErrorDetails, status, StatusInit, unpackErrorDetails } from './status.js';
 
 /**

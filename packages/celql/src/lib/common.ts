@@ -1,4 +1,4 @@
-import { Expr, Expr_Call } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
+import { Expr, Expr_Call } from '@protoutil/cel/proto';
 import {
   arity,
   CONDITIONAL_OPERATOR,

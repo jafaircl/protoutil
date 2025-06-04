@@ -1,4 +1,4 @@
-import { listType, mapType, opaqueType, typeParamType } from '@bearclaw/cel';
+import { listType, mapType, opaqueType, typeParamType } from '@protoutil/cel';
 
 export const DateType = opaqueType('DateType');
 export const TimeType = opaqueType('TimeType');

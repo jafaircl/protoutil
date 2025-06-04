@@ -1,5 +1,5 @@
-import { EnvOption, listType, objectType, types, variable } from '@bearclaw/cel';
 import { DescMessage } from '@bufbuild/protobuf';
+import { EnvOption, listType, objectType, types, variable } from '@protoutil/cel';
 
 /**
  * Creates an environment option that registers a variable with the given name as a list of Protobuf

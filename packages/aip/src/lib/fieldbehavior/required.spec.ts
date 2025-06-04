@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf';
 import { fieldMask } from '@protoutil/core';
-import { TestRequiredFieldBehaviorSchema } from '../gen/bearclaw/aip/v1/fieldbehavior_pb.js';
+import { TestRequiredFieldBehaviorSchema } from '../gen/protoutil/aip/v1/fieldbehavior_pb.js';
 import { validateRequiredFields, validateRequiredFieldsWithFieldMask } from './required.js';
 
 describe('required', () => {

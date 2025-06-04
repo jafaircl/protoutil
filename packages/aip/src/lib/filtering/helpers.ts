@@ -1,12 +1,6 @@
-import {
-  CheckedExpr,
-  Decl,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb.js';
-import {
-  Expr,
-  ParsedExpr,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/syntax_pb.js';
 import { createMutableRegistry } from '@bufbuild/protobuf';
+import { CheckedExpr, Decl } from '../gen/google/api/expr/v1alpha1/checked_pb.js';
+import { Expr, ParsedExpr } from '../gen/google/api/expr/v1alpha1/syntax_pb.js';
 import { Checker } from './checker.js';
 import { Declarations, EnumDecl } from './declarations.js';
 import { drillDownOnErrorMessage } from './errors.js';

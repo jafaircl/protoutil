@@ -1,6 +1,6 @@
-import { FieldBehavior } from '@buf/googleapis_googleapis.bufbuild_es/google/api/field_behavior_pb.js';
 import { create } from '@bufbuild/protobuf';
-import { TestFieldBehaviorSchema } from '../gen/bearclaw/aip/v1/fieldbehavior_pb.js';
+import { FieldBehavior } from '../gen/google/api/field_behavior_pb.js';
+import { TestFieldBehaviorSchema } from '../gen/protoutil/aip/v1/fieldbehavior_pb.js';
 import { clearFieldsWithBehaviors } from './fieldbehavior.js';
 
 describe('fieldbehavior', () => {

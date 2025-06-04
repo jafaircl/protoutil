@@ -1,4 +1,4 @@
-import { Ast, BoolType, CELError, Env, Issues } from '@bearclaw/cel';
+import { Ast, BoolType, CELError, Env, Issues } from '@protoutil/cel';
 
 /**
  * Compile a CEL expression into an AST. This will check to make sure the expression

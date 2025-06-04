@@ -1,4 +1,4 @@
-import { Ast } from '@bearclaw/cel';
+import { Ast } from '@protoutil/cel';
 import { compile } from './compile.js';
 import { DefaultEnv } from './default/env.js';
 import { formatError } from './test-helpers.js';

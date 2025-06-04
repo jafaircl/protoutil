@@ -1,6 +1,6 @@
-import { Ast, CELError } from '@bearclaw/cel';
-import { Constant, Expr, ExprSchema } from '@buf/google_cel-spec.bufbuild_es/cel/expr/syntax_pb.js';
 import { toJsonString } from '@bufbuild/protobuf';
+import { Ast, CELError } from '@protoutil/cel';
+import { Constant, Expr, ExprSchema } from '@protoutil/cel/proto';
 import {
   isBinaryOrTernaryOperator,
   isComplexOperator,
@@ -383,12 +383,8 @@ export class Unparser {
     }
   }
 
-  ast() {
-    return this._expr.nativeRep();
-  }
-
   getType(expr: Expr) {
-    return this.ast().getType(expr.id);
+    return this._expr.nativeRep().getType(expr.id);
   }
 
   extractFieldName(expr: Expr) {
@@ -400,9 +396,9 @@ export class Unparser {
   }
 
   formatError(expr: Expr, message: string) {
-    const location = this.ast().sourceInfo().getStartLocation(expr.id);
+    const location = this._expr.nativeRep().sourceInfo().getStartLocation(expr.id);
     const errMessage = new CELError(expr.id, location, message).toDisplayString(
-      this.ast().sourceInfo().source()
+      this._expr.nativeRep().sourceInfo().source()
     );
     return new Error(errMessage);
   }

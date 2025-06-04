@@ -14,7 +14,8 @@
         "tsConfig": "packages/aip/tsconfig.lib.json",
         "format": ["esm", "cjs"],
         "declarationRootDir": "packages/aip/src",
-        "minify": false
+        "minify": false,
+        "external": ["@bufbuild/protobuf", "@protoutil/core"]
       }
     },
     "genproto": {

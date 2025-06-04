@@ -1,4 +1,6 @@
-import { Code } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/code_pb.js';
+import { create, createRegistry, MessageInitShape } from '@bufbuild/protobuf';
+import { Any, anyPack, anyUnpack } from '@bufbuild/protobuf/wkt';
+import { Code } from '../gen/google/rpc/code_pb.js';
 import {
   BadRequest,
   BadRequestSchema,
@@ -20,10 +22,8 @@ import {
   ResourceInfoSchema,
   RetryInfo,
   RetryInfoSchema,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb.js';
-import { StatusSchema } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/status_pb.js';
-import { create, createRegistry, MessageInitShape } from '@bufbuild/protobuf';
-import { Any, anyPack, anyUnpack } from '@bufbuild/protobuf/wkt';
+} from '../gen/google/rpc/error_details_pb.js';
+import { StatusSchema } from '../gen/google/rpc/status_pb.js';
 
 const statusErrorRegistry = createRegistry(
   ErrorInfoSchema,

@@ -1,4 +1,4 @@
-import { CustomEnv, eagerlyValidateDeclarations, EnvOption } from '@bearclaw/cel';
+import { CustomEnv, eagerlyValidateDeclarations, EnvOption } from '@protoutil/cel';
 import { PostgresLib } from './library.js';
 
 let postgresEnv: CustomEnv | null = null;
