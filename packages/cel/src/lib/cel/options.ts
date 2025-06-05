@@ -338,7 +338,7 @@ export enum EvalOption {
  * CostEstimatorOptions configure type-check time options for estimating
  * expression cost.
  */
-export function costEstimatorOptions(costOpts: CostOption[]): EnvOption {
+export function costEstimatorOptions(...costOpts: CostOption[]): EnvOption {
   return (e) => {
     e.costOptions.push(...costOpts);
     return e;

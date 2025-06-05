@@ -761,10 +761,19 @@ class defaultLib implements SingletonLibrary {
   }
 }
 
+let defaultLibInstance: defaultLib | null = null;
+
+function getDefaultLib(): defaultLib {
+  if (!defaultLibInstance) {
+    defaultLibInstance = new defaultLib();
+  }
+  return defaultLibInstance;
+}
+
 /**
  * DefaultLib implements the Library interface and provides functional options
  * for the documented SQL features.
  */
 export function DefaultLib() {
-  return lib(new defaultLib());
+  return lib(getDefaultLib());
 }

@@ -451,6 +451,23 @@ export function overloadCostEstimate(
 }
 
 /**
+ * VariableCostFn is a function that takes a base CostEstimate and returns
+ * a modified CostEstimate.
+ */
+export type VariableCostFn = (base: CostEstimate) => CostEstimate;
+
+/**
+ * If calling a variable incurs some extra cost, this function can be used
+ * to calculate the cost of the variable.
+ */
+export function variableCostEstimate(variable: string, fn: VariableCostFn): CostOption {
+  return (c) => {
+    c.variableCostFunctions.set(variable, fn);
+    return c;
+  };
+}
+
+/**
  * Cost estimates the cost of the parsed and type checked CEL expression.
  */
 export class Coster {
@@ -475,6 +492,11 @@ export class Coster {
    */
   presenceTestCost: CostEstimate = new CostEstimate(BigInt(1), BigInt(1));
   #cachedCost?: CostEstimate;
+  /**
+   * If calling a variable incurs some extra cost, this map can be used to
+   * calculate the cost of the variable.
+   */
+  variableCostFunctions: Map<string, VariableCostFn> = new Map();
 
   constructor(checked: AST, estimator: CostEstimator, ...options: CostOption[]) {
     this.#checkedAst = checked;
@@ -550,6 +572,13 @@ export class Coster {
       }
     } else {
       this.#addPath(e, [identName]);
+    }
+    if (this.variableCostFunctions.has(identName)) {
+      const fn = this.variableCostFunctions.get(identName);
+      if (isNil(fn)) {
+        throw new Error(`costIdent: variable cost function not found for ${identName}`);
+      }
+      return fn(selectAndIdentCost);
     }
     return selectAndIdentCost;
   }

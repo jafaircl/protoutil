@@ -36,6 +36,7 @@ import {
   overloadCostEstimate,
   presenceTestHasCost,
   SizeEstimate,
+  variableCostEstimate,
 } from './cost.js';
 import { Env } from './env.js';
 
@@ -576,6 +577,20 @@ describe('cost', () => {
       name: 'nested comprehension',
       expr: `[1,2,3].all(i, i in [1,2,3].map(j, j + j))`,
       wanted: new CostEstimate(BigInt(20), BigInt(230)),
+    },
+    {
+      name: 'variable cost function',
+      expr: `timestamp1.getFullYear()`,
+      vars: [newVariableDecl('timestamp1', TimestampType)],
+      wanted: new CostEstimate(107n, 107n),
+      options: [variableCostEstimate('timestamp1', (e) => e.multiplyByCostFactor(100))],
+    },
+    {
+      name: 'variable cost function',
+      expr: `timestamp1.getFullYear()`,
+      vars: [newVariableDecl('timestamp1', TimestampType)],
+      wanted: new CostEstimate(8n, 8n),
+      options: [variableCostEstimate('unknown', (e) => e.multiplyByCostFactor(100))],
     },
   ];
 

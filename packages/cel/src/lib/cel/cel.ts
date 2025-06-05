@@ -4,16 +4,20 @@ export {
   CostEstimate,
   Coster,
   SizeEstimate,
+  addUint64NoOverflow,
   constCost,
   createListBaseCost,
   createMapBaseCost,
   createMessageBaseCost,
   isScalar,
+  multiplyByCostFactor,
+  multiplyUint64NoOverflow,
   overloadCostEstimate,
   presenceTestHasCost,
   selectAndIdentCost,
+  variableCostEstimate,
 } from '../checker/cost.js';
-export type { CostEstimator, CostOption } from '../checker/cost.js';
+export type { CostEstimator, CostOption, VariableCostFn } from '../checker/cost.js';
 export {
   isAssignable,
   isAssignableList,
@@ -24,6 +28,15 @@ export {
   isOptional,
   isValidTypeSubstitution,
 } from '../checker/types.js';
+export {
+  ConstCost,
+  ListCreateBaseCost,
+  MapCreateBaseCost,
+  RegexStringLengthCostFactor,
+  SelectAndIdentCost,
+  StringTraversalCostFactor,
+  StructCreateBaseCost,
+} from '../common/cost.js';
 export {
   isBoolProtoConstant,
   isBytesProtoConstant,
@@ -56,6 +69,27 @@ export {
   isStructProtoExpr,
   isTestOnlySelectProtoExpr,
   isUintProtoExpr,
+  unwrapBoolProtoExpr,
+  unwrapBytesProtoExpr,
+  unwrapCallProtoExpr,
+  unwrapComprehensionProtoExpr,
+  unwrapConstantProtoExpr,
+  unwrapDoubleProtoExpr,
+  unwrapGlobalCallProtoExpr,
+  unwrapIdentProtoExpr,
+  unwrapIntProtoExpr,
+  unwrapListProtoExpr,
+  unwrapMapEntryProtoExpr,
+  unwrapMapProtoExpr,
+  unwrapMessageFieldProtoExpr,
+  unwrapMessageProtoExpr,
+  unwrapNullProtoExpr,
+  unwrapReceiverCallProtoExpr,
+  unwrapSelectProtoExpr,
+  unwrapStringProtoExpr,
+  unwrapStructProtoExpr,
+  unwrapTestOnlySelectProtoExpr,
+  unwrapUintProtoExpr,
 } from '../common/pb/expressions.js';
 export {
   isAnyProtoType,

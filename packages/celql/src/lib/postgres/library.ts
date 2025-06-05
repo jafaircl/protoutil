@@ -61,10 +61,19 @@ class postgresLib implements SingletonLibrary {
   }
 }
 
+let postgresLibInstance: postgresLib | null = null;
+
+function getPostgresLib() {
+  if (!postgresLibInstance) {
+    postgresLibInstance = new postgresLib();
+  }
+  return postgresLibInstance;
+}
+
 /**
  * PostgresLib implements the Library interface and provides functional options
  * for the documented PostgreSQL features.
  */
 export function PostgresLib() {
-  return lib(new postgresLib());
+  return lib(getPostgresLib());
 }
