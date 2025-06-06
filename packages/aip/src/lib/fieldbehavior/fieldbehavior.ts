@@ -1,8 +1,4 @@
 import {
-  field_behavior,
-  FieldBehavior,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/field_behavior_pb.js';
-import {
   clearField,
   clone,
   DescField,
@@ -13,6 +9,7 @@ import {
   MessageShape,
 } from '@bufbuild/protobuf';
 import { getField } from '@protoutil/core';
+import { field_behavior, FieldBehavior } from '../gen/google/api/field_behavior_pb.js';
 
 /**
  * Get returns the field behavior of the provided field descriptor.

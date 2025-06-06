@@ -1,8 +1,5 @@
-import {
-  Expr,
-  ExprSchema,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/syntax_pb.js';
 import { create } from '@bufbuild/protobuf';
+import { Expr, ExprSchema } from '../gen/google/api/expr/v1alpha1/syntax_pb.js';
 import {
   FunctionAnd,
   FunctionDuration,

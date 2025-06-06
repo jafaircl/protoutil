@@ -11,6 +11,9 @@
     },
     {
       "path": "./packages/cel"
+    },
+    {
+      "path": "./packages/celql"
     }
   ]
 }

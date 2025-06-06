@@ -59,7 +59,7 @@ Let's expose `name` and `group` variables to CEL using the `cel.Variable`
 environment option:
 
 ```ts
-import { Env, variable, StringType } from '@bearclaw/cel';
+import { Env, variable, StringType } from '@protoutil/cel';
 
 const env = new Env(variable('name', StringType), variable('group', StringType));
 ```
@@ -226,7 +226,7 @@ This package has dependencies which require adding Buf as a registry in your pac
 
 See [here](https://buf.build/docs/bsr/generated-sdks/npm/) for more information.
 
-After adding Buf as a registry, use your configured package manager to install the `@bearclaw/cel` package. i.e. install from npm using `npm install @bearclaw/cel`.
+After adding Buf as a registry, use your configured package manager to install the `@protoutil/cel` package. i.e. install from npm using `npm install @protoutil/cel`.
 
 ## Common Questions
 

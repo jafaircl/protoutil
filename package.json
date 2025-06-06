@@ -2,10 +2,11 @@
   "name": "@protoutil/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "nx": "nx"
+  },
   "private": true,
   "devDependencies": {
-    "@buf/google_cel-spec.bufbuild_es": "^2.2.5-20250407210311-f098f2988c91.1",
     "@bufbuild/buf": "^1.53.0",
     "@bufbuild/protoc-gen-es": "^2.2.5",
     "@bufbuild/protocompile": "^0.0.1",

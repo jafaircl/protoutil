@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package protoutil.aip.v1;
+
+import "google/api/expr/v1alpha1/checked.proto";
+
+message TestFiltering {
+  google.api.expr.v1alpha1.CheckedExpr checked_expr = 1;
+}

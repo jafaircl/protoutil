@@ -1,4 +1,4 @@
-import { Expr } from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/syntax_pb.js';
+import { Expr } from '../gen/google/api/expr/v1alpha1/syntax_pb.js';
 import { drillDownOnErrorMessage } from './errors.js';
 import {
   and,

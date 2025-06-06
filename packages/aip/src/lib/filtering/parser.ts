@@ -1,10 +1,10 @@
+import { create } from '@bufbuild/protobuf';
 import {
   Expr,
   ParsedExpr,
   ParsedExprSchema,
   SourceInfoSchema,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/syntax_pb.js';
-import { create } from '@bufbuild/protobuf';
+} from '../gen/google/api/expr/v1alpha1/syntax_pb.js';
 import { ParseError } from './errors.js';
 import { FunctionNot } from './functions.js';
 import { Lexer } from './lexer.js';

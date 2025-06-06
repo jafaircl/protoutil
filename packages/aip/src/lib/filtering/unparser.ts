@@ -1,9 +1,6 @@
-import {
-  Expr,
-  ExprSchema,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/syntax_pb.js';
 import { toJsonString } from '@bufbuild/protobuf';
 import { durationString, timestampDateString } from '@protoutil/core';
+import { Expr, ExprSchema } from '../gen/google/api/expr/v1alpha1/syntax_pb.js';
 import {
   FunctionAnd,
   FunctionEquals,

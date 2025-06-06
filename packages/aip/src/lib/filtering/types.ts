@@ -1,11 +1,11 @@
 /* eslint-disable no-case-declarations */
+import { create, DescField, ScalarType } from '@bufbuild/protobuf';
 import {
   Type,
   Type_PrimitiveType,
   Type_WellKnownType,
   TypeSchema,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb.js';
-import { create, DescField, ScalarType } from '@bufbuild/protobuf';
+} from '../gen/google/api/expr/v1alpha1/checked_pb.js';
 
 // Primitive types.
 export const TypeInt = create(TypeSchema, {

@@ -12,10 +12,25 @@
       "options": {
         "outputPath": "packages/core/dist",
         "main": "packages/core/src/index.ts",
+        "additionalEntryPoints": [
+          "packages/core/src/lib/gen-exports/index_unittest.ts",
+          "packages/core/src/lib/gen-exports/index_unittest_proto2.ts",
+          "packages/core/src/lib/gen-exports/index_unittest_proto2_lite.ts",
+          "packages/core/src/lib/gen-exports/index_unittest_proto3.ts",
+          "packages/core/src/lib/gen-exports/index_unittest_proto3_lite.ts",
+          "packages/core/src/lib/gen-exports/index_unittest_editions.ts"
+        ],
         "tsConfig": "packages/core/tsconfig.lib.json",
         "format": ["esm", "cjs"],
         "declarationRootDir": "packages/core/src",
         "minify": false
+      }
+    },
+    "genproto": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx buf generate",
+        "cwd": "packages/core"
       }
     }
   }

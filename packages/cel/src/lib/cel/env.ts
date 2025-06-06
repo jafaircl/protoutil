@@ -374,7 +374,7 @@ export class EnvBase {
     const libsCopy = new Map(this.libraries);
     // validatorsCopy := make([]ASTValidator, len(e.validators))
     // copy(validatorsCopy, e.validators)
-    const costOptsCopy = { ...(this.costOptions ?? []) };
+    const costOptsCopy = [...(this.costOptions ?? [])];
 
     const ext = new EnvBase({
       container: this.container,

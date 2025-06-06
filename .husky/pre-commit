@@ -1,0 +1,2 @@
+npm run nx affected:lint --base=main --head=HEAD
+npm run nx affected:test --base=main --head=HEAD

@@ -1,0 +1,30 @@
+{
+  "name": "@protoutil/celql",
+  "version": "0.2.4",
+  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/celql",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jafaircl/protoutil"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.2.5",
+    "@protoutil/cel": "0.2.4",
+    "@protoutil/core": "0.2.4"
+  }
+}

@@ -11,6 +11,12 @@
       "options": {
         "outputPath": "packages/cel/dist",
         "main": "packages/cel/src/index.ts",
+        "additionalEntryPoints": [
+          "packages/cel/src/lib/protogen-exports/index.ts",
+          "packages/cel/src/lib/protogen-exports/index_conformance_test.ts",
+          "packages/cel/src/lib/protogen-exports/index_conformance_proto2.ts",
+          "packages/cel/src/lib/protogen-exports/index_conformance_proto3.ts"
+        ],
         "tsConfig": "packages/cel/tsconfig.lib.json",
         "format": ["esm", "cjs"],
         "declarationRootDir": "packages/cel/src",

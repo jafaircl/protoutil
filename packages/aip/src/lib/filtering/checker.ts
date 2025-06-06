@@ -1,16 +1,4 @@
 /* eslint-disable no-case-declarations */
-import {
-  CheckedExprSchema,
-  Decl_FunctionDecl,
-  Decl_FunctionDecl_Overload,
-  Decl_IdentDecl,
-  Type,
-  TypeSchema,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb.js';
-import {
-  Expr,
-  SourceInfo,
-} from '@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/syntax_pb.js';
 import { create, equals } from '@bufbuild/protobuf';
 import {
   durationFromString,
@@ -18,6 +6,15 @@ import {
   isValidTimestamp,
   timestampFromDateString,
 } from '@protoutil/core';
+import {
+  CheckedExprSchema,
+  Decl_FunctionDecl,
+  Decl_FunctionDecl_Overload,
+  Decl_IdentDecl,
+  Type,
+  TypeSchema,
+} from '../gen/google/api/expr/v1alpha1/checked_pb.js';
+import { Expr, SourceInfo } from '../gen/google/api/expr/v1alpha1/syntax_pb.js';
 import { Declarations } from './declarations.js';
 import { TypeError } from './errors.js';
 import {
