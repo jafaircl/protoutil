@@ -280,6 +280,22 @@ export class Registry implements IRegistry {
     return null;
   }
 
+  types() {
+    const map = new Map<string, Type>();
+    for (const [name, type] of this.#refTypeMap) {
+      map.set(name, type);
+    }
+    return map;
+  }
+
+  descriptors(): Map<string, DescMessage | DescEnum> {
+    const map = new Map<string, DescMessage | DescEnum>();
+    for (const desc of this.#pbdb) {
+      map.set(desc.typeName, desc as DescMessage | DescEnum);
+    }
+    return map;
+  }
+
   enumValue(enumName: string): RefVal {
     // Sanitize the enumName.
     enumName = sanitizeProtoName(enumName);

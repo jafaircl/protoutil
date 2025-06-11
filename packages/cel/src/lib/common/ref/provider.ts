@@ -113,10 +113,21 @@ export interface Registry extends Provider, Adapter {
   registerType(...types: RefType[]): void;
 
   /**
+   * Types returns a map of all registered types, keyed by their type name.
+   */
+  types(): Map<string, RefType>;
+
+  /**
    * RegisterDescriptor registers a protocol buffer descriptor and its
    * dependencies.
    */
   registerDescriptor(desc: DescMessage | DescEnum): void;
+
+  /**
+   * Descriptors returns a map of all registered protocol buffer descriptors,
+   * keyed by their type name.
+   */
+  descriptors(): Map<string, DescMessage | DescEnum>;
 }
 
 export function isRegistry(value: any): value is Registry {
