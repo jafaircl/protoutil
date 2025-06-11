@@ -17,12 +17,23 @@ import {
 } from '../interpreter/activation.js';
 import { InterpretableDecorator } from '../interpreter/decorators.js';
 import { Macro } from '../parser/macro.js';
+import { enableOptionalSyntax as parserEnableOptionalSyntax } from '../parser/parser.js';
 import { Declaration, maybeUnwrapDeclaration, Type, variable } from './decls.js';
 import { EnvBase } from './env.js';
 import { Feature } from './library.js';
 import { prog } from './program.js';
 
 export type EnvOption = (e: EnvBase) => EnvBase;
+
+/**
+ * EnableOptionalSyntax enables the optional syntax for CEL expressions.
+ */
+export function enableOptionalSyntax(flag: boolean): EnvOption {
+  return (e) => {
+    e.prsrOpts.push(parserEnableOptionalSyntax(flag));
+    return e;
+  };
+}
 
 /**
  * ClearMacros options clears all parser macros.

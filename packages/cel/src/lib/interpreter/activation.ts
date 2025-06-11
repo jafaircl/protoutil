@@ -12,7 +12,7 @@ import { AttributePattern } from './attribute-patterns.js';
 export interface Activation {
   /**
    * ResolveName returns a value from the activation by qualified name, or
-   * false if the name could not be found.
+   * null if the name could not be found.
    */
   resolveName<T = any>(name: string): T | null;
 
@@ -118,11 +118,18 @@ export function newActivation(bindings: Map<string, any> | Record<string, any> |
   if (isNil(bindings)) {
     throw new Error('bindings must be non-nil');
   }
-  if (bindings instanceof MapActivation || bindings instanceof HierarchicalActivation) {
+  if (
+    bindings instanceof MapActivation ||
+    bindings instanceof HierarchicalActivation ||
+    bindings instanceof EmptyActivation
+  ) {
     return bindings;
   }
   if (isMap<string, any>(bindings) || isPlainObject(bindings)) {
     return new MapActivation(bindings);
+  }
+  if (bindings instanceof Error) {
+    throw bindings;
   }
   throw new Error(
     `activation input must be an activation or map[string]interface: got ${typeof bindings}`

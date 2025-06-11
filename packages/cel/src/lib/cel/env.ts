@@ -352,11 +352,11 @@ export class EnvBase {
     // from the TypeAdapter, the possible configurations which could use a
     // TypeRegistry as the base implementation are captured below.
     if (isRegistry(adapter) && isRegistry(provider)) {
-      const reg = adapter.copy();
+      const reg = provider.copy();
       provider = reg;
       // If the adapter and provider are the same object, set the adapter
       // to the same ref.TypeRegistry as the provider.
-      if (adapter == provider) {
+      if (adapter === provider) {
         adapter = reg;
       } else {
         // Otherwise, make a copy of the adapter.

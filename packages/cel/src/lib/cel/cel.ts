@@ -27,6 +27,7 @@ export {
   isError,
   isOptional,
   isValidTypeSubstitution,
+  maybeUnwrapOptional,
 } from '../checker/types.js';
 export {
   ConstCost,
@@ -37,6 +38,14 @@ export {
   StringTraversalCostFactor,
   StructCreateBaseCost,
 } from '../common/cost.js';
+export {
+  FunctionDecl,
+  OverloadDecl,
+  VariableDecl,
+  binaryBinding as overloadBinaryBinding,
+  functionBinding as overloadFunctionBinding,
+  unaryBinding as overloadUnaryBinding,
+} from '../common/decls.js';
 export {
   isBoolProtoConstant,
   isBytesProtoConstant,
@@ -118,6 +127,7 @@ export {
 } from '../common/pb/values.js';
 export { isAdapter, isFieldType, isProvider, isRegistry } from '../common/ref/provider.js';
 export { isRefType, isRefVal } from '../common/ref/reference.js';
+export type { RefType, RefVal } from '../common/ref/reference.js';
 export { isBoolRefVal } from '../common/types/bool.js';
 export { isErrorRefVal } from '../common/types/error.js';
 export { isValidInt32, isValidInt64 } from '../common/types/int.js';
@@ -145,12 +155,20 @@ export {
 export { isReceiver } from '../common/types/traits/receiver.js';
 export { isSizer } from '../common/types/traits/sizer.js';
 export { isZeroer } from '../common/types/traits/zeroer.js';
-export { isType, isWellKnownType } from '../common/types/types.js';
+export { isType, isWellKnownType, maybeForeignType } from '../common/types/types.js';
 export { isValidUint32, isValidUint64 } from '../common/types/uint.js';
 export { isIdentifierCharater, isUnknownRefVal } from '../common/types/unknown.js';
 export { isUnknownOrError } from '../common/types/utils.js';
 export { isWrapperType } from '../common/types/wrapper.js';
 export { isHexString, isOctalString, isScientificNotationString } from '../common/utils.js';
+export {
+  EmptyActivation,
+  HierarchicalActivation,
+  MapActivation,
+  PartialActivation,
+  newActivation,
+} from '../interpreter/activation.js';
+export type { Activation } from '../interpreter/activation.js';
 export { isQualifierValueEquator } from '../interpreter/attribute-patterns.js';
 export {
   isAttribute,
@@ -280,6 +298,7 @@ export {
   eagerlyValidateDeclarations,
   enableIdentifierEscapeSyntax,
   enableMacroCallTracking,
+  enableOptionalSyntax,
   globals,
   homogeneousAggregateLiterals,
   macros,

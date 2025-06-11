@@ -1,6 +1,8 @@
 import { Errors } from '../common/errors.js';
+import { TestAllTypesSchema } from '../protogen/cel/expr/conformance/proto3/test_all_types_pb.js';
 import { func, overload, StringType } from './decls.js';
 import { Env, Issues } from './env.js';
+import { types } from './options.js';
 
 describe('env', () => {
   it('TestIssuesEmpty', () => {
@@ -51,4 +53,14 @@ describe('env', () => {
   });
 
   // TODO: add missing tests for formatting, extend race conditions, partial vars, functions and benchmarking
+
+  it('Test_EnvExtend', () => {
+    const e = new Env(types(TestAllTypesSchema));
+    expect(e.provider.findStructType(TestAllTypesSchema.typeName)).not.toBeNull();
+    const extended = e.extend();
+    expect(extended.provider.findStructType(TestAllTypesSchema.typeName)).not.toBeNull();
+    expect(extended.provider.findStructType(TestAllTypesSchema.typeName)).toEqual(
+      e.provider.findStructType(TestAllTypesSchema.typeName)
+    );
+  });
 });

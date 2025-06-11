@@ -27,6 +27,7 @@ export class ObjectRefVal implements RefVal, Zeroer {
 
   convertToNative(type: NativeType) {
     switch (type) {
+      case Object:
       case this.typeDesc:
         return this.value();
       case AnySchema:

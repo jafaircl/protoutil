@@ -94,5 +94,6 @@ describe('object', () => {
     });
     const obj = registry.nativeToValue(msg) as ObjectRefVal;
     expect(obj.convertToNative(obj.typeDesc)).toStrictEqual(msg);
+    expect(obj.convertToNative(Object)).toStrictEqual(msg);
   });
 });
