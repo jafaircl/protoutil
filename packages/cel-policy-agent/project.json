@@ -1,0 +1,22 @@
+{
+  "name": "@protoutil/cel-policy-agent",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/cel-policy-agent/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "packages/cel-policy-agent/dist",
+        "main": "packages/cel-policy-agent/src/index.ts",
+        "tsConfig": "packages/cel-policy-agent/tsconfig.lib.json",
+        "format": ["esm", "cjs"],
+        "declarationRootDir": "packages/cel-policy-agent/src",
+        "minify": false,
+        "external": ["@bufbuild/protobuf", "@protoutil/cel"]
+      }
+    }
+  }
+}
