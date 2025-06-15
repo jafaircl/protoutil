@@ -140,10 +140,7 @@ describe('PolicyDecisionPoint', () => {
   });
 
   it('should be fast', () => {
-    const pdp = new PolicyDecisionPoint();
-    pdp.add(policy2);
-    pdp.add(policy3);
-    pdp.add(policy4);
+    const pdp = new PolicyDecisionPoint(policy2, policy3, policy4);
     const iterations = 1000;
     const start = performance.now();
     for (let i = 0; i < iterations; i++) {

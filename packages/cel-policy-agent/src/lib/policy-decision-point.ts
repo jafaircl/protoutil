@@ -4,6 +4,12 @@ import { Policy } from './policy.js';
 export class PolicyDecisionPoint {
   #policyMap = new Map<string, Policy>();
 
+  constructor(...policies: Policy[]) {
+    for (const policy of policies) {
+      this.add(policy);
+    }
+  }
+
   /**
    * Add a policy to the decision point. If a policy with the same name already exists,
    * it will be replaced with the new policy.

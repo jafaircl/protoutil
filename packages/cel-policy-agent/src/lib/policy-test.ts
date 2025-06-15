@@ -6,25 +6,45 @@ import {
   DynType,
   EmptyActivation,
   Env,
-  EnvOption,
   func,
+  isRegistry,
   Issues,
   mapType,
   overload,
   overloadUnaryBinding,
   Program,
   StringType,
+  types,
 } from '@protoutil/cel';
 import { Policy } from './policy.js';
 
+/**
+ * A PolicyTest is a test for a CEL policy expression. It allows you to define a CEL Policy
+ * expression and a test expression with bindings that will be evaluated against the policy.
+ *
+ * @example
+ * ```typescript
+ * import { Env, StringType, types, variable } from '@protoutil/cel';
+ * import { Policy, PolicyTest } from '@protoutil/cel-policy-agent';
+ * const policy = new Policy('testPolicy', 'input == "allowed"', new Env(variable('input', StringType)));
+ * const positiveTest = new PolicyTest('test1', 'allow({ "input": "allowed" }) == true', policy);
+ * positiveTest.compile();
+ * const positiveResult = positiveTest.run();
+ * console.log(positiveResult.result); // true
+ * const negativeTest = new PolicyTest('test2', 'allow({ "input": "not-allowed" }) == false', policy);
+ * negativeTest.compile();
+ * const negativeResult = negativeTest.run();
+ * console.log(negativeResult.result); // true
+ * ```
+ */
 export class PolicyTest {
-  #env: Env | null = null;
   #program: Program | null = null;
 
   constructor(
     public readonly name: string,
     public readonly expression: string,
-    public readonly policy: Policy
+    public readonly policy: Policy,
+    public env: Env = new Env()
   ) {}
 
   /**
@@ -33,24 +53,6 @@ export class PolicyTest {
    */
   public get compiled(): boolean {
     return this.#program !== null;
-  }
-
-  /**
-   * A CEL function that allows the policy to be evaluated against a set of bindings.
-   */
-  #allowFunc() {
-    const boundAllow = this.policy.allow.bind(this.policy);
-    return func(
-      'allow',
-      overload(
-        'allow_overload',
-        [mapType(StringType, DynType)],
-        BoolType,
-        overloadUnaryBinding((x) => {
-          return new BoolVal(boundAllow(x.convertToNative(Object)));
-        })
-      )
-    );
   }
 
   /**
@@ -63,12 +65,23 @@ export class PolicyTest {
     if (this.compiled) {
       return;
     }
-    const opts: EnvOption[] = [];
-    if (!this.policy.env.hasFunction('allow')) {
-      opts.push(this.#allowFunc());
+    if (isRegistry(this.policy.env.provider)) {
+      this.env = this.env.extend(types(...this.policy.env.provider.descriptors().values()));
     }
-    this.#env = this.policy.env.extend(...opts);
-    const compiled = this.#env.compile(this.expression);
+    // Add the `allow` function to the environment
+    const boundAllow = this.policy.allow.bind(this.policy);
+    this.env = this.env.extend(
+      func(
+        'allow',
+        overload(
+          'allow_overload',
+          [mapType(StringType, DynType)],
+          BoolType,
+          overloadUnaryBinding((x) => new BoolVal(boundAllow(x.convertToNative(Object))))
+        )
+      )
+    );
+    const compiled = this.env.compile(this.expression);
     if (compiled instanceof Issues) {
       throw compiled.err();
     }
@@ -86,7 +99,7 @@ export class PolicyTest {
       ).toDisplayString(sourceInfo.source());
       throw new Error(errMessage);
     }
-    const program = this.#env.program(compiled);
+    const program = this.env.program(compiled);
     if (program instanceof Error) {
       throw program;
     }
@@ -95,7 +108,7 @@ export class PolicyTest {
 
   /**
    * Run the policy test against the compiled program. This will evaluate the
-   * policy test expression against an empty activation, as policy tests
+   * policy test expression against an empty activation, as policy test
    * bindings are defined within the test expression.
    */
   run() {
@@ -105,7 +118,7 @@ export class PolicyTest {
     if (!this.compiled) {
       this.compile();
     }
-    const [result, details, err] = this.#program!.eval(new EmptyActivation());
-    return { result, details, err };
+    const [result] = this.#program!.eval(new EmptyActivation());
+    return (result?.value() as boolean | null) ?? false;
   }
 }

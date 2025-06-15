@@ -54,6 +54,9 @@ export {
   isNullProtoConstant,
   isStringProtoConstant,
   isUintProtoConstant,
+  protoConstantToRefVal,
+  protoConstantToType,
+  refValToProtoConstant,
 } from '../common/pb/constants.js';
 export { isConstIdentDeclProto, isVarIdentDeclProto } from '../common/pb/decls.js';
 export {

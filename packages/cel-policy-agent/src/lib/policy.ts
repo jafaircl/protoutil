@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { isMessage } from '@bufbuild/protobuf';
 import {
+  Ast,
   BoolType,
   CELError,
   Env,
@@ -14,6 +15,7 @@ import {
 } from '@protoutil/cel';
 
 export class Policy {
+  #ast: Ast | null = null;
   #program: Program | null = null;
   #envVariableMap = new Map<string, VariableDecl>();
 
@@ -32,6 +34,17 @@ export class Policy {
   }
 
   /**
+   * Get the compiled AST of the policy expression. If the policy has not been compiled,
+   * this will compile the expression first.
+   */
+  public get ast(): Ast {
+    if (!this.compiled) {
+      this.compile();
+    }
+    return this.#ast!;
+  }
+
+  /**
    * Compile a CEL expression into a program. This will check to make sure the expression
    * is a valid CEL expression that will evaluate to a boolean value. The compiled program
    * can then be evaluated against a set of bindings to determine if the policy allows the
@@ -45,6 +58,7 @@ export class Policy {
     if (compiled instanceof Issues) {
       throw compiled.err();
     }
+    this.#ast = compiled;
     if (!compiled.outputType()?.equal(BoolType).value()) {
       const ast = compiled.nativeRep();
       const expr = ast.expr();

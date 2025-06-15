@@ -80,43 +80,93 @@ describe('PolicyTest', () => {
     {
       name: 'TestMessageWithNestedField',
       env: new Env(
-        container('cel.expr.conformance.proto3'),
         types(NestedTestAllTypesSchema, TestAllTypesSchema),
         variable('msg', objectType(NestedTestAllTypesSchema.typeName))
       ),
       expr: 'msg.child.payload.single_string == "allowed"',
-      test: `allow({ 'msg': NestedTestAllTypes{child: NestedTestAllTypes{payload: TestAllTypes{single_string: "allowed"}}} }) == true`,
+      test: `allow({
+      'msg': cel.expr.conformance.proto3.NestedTestAllTypes{
+        child: cel.expr.conformance.proto3.NestedTestAllTypes{
+          payload: cel.expr.conformance.proto3.TestAllTypes{
+            single_string: "allowed"
+          }
+        }
+      } }) == true`,
       out: true,
     },
     {
       name: 'TestMessageWithNestedFieldNotEqual',
       env: new Env(
-        container('cel.expr.conformance.proto3'),
         types(NestedTestAllTypesSchema, TestAllTypesSchema),
         variable('msg', objectType(NestedTestAllTypesSchema.typeName))
       ),
       expr: 'msg.child.payload.single_string == "allowed"',
-      test: `allow({ 'msg': NestedTestAllTypes{child: NestedTestAllTypes{payload: TestAllTypes{single_string: "not-allowed"}}} }) == true`,
+      test: `allow({
+      'msg': cel.expr.conformance.proto3.NestedTestAllTypes{
+        child: cel.expr.conformance.proto3.NestedTestAllTypes{
+          payload: cel.expr.conformance.proto3.TestAllTypes{
+            single_string: "not-allowed"
+          }
+        }
+      } }) == true`,
       out: false,
     },
     {
       name: 'TestMessageWithNestedFieldNotEqualPass',
       env: new Env(
-        container('cel.expr.conformance.proto3'),
         types(NestedTestAllTypesSchema, TestAllTypesSchema),
         variable('msg', objectType(NestedTestAllTypesSchema.typeName))
       ),
       expr: 'msg.child.payload.single_string == "allowed"',
-      test: `allow({ 'msg': NestedTestAllTypes{child: NestedTestAllTypes{payload: TestAllTypes{single_string: "not-allowed"}}} }) == false`,
+      test: `allow({
+      'msg': cel.expr.conformance.proto3.NestedTestAllTypes{
+        child: cel.expr.conformance.proto3.NestedTestAllTypes{
+          payload: cel.expr.conformance.proto3.TestAllTypes{
+            single_string: "not-allowed"
+          }
+        }
+      } }) == false`,
+      out: true,
+    },
+    {
+      name: 'TestMessageWithNestedField',
+      env: new Env(
+        types(NestedTestAllTypesSchema, TestAllTypesSchema),
+        variable('msg', objectType(NestedTestAllTypesSchema.typeName))
+      ),
+      testEnv: new Env(container('cel.expr.conformance.proto3')),
+      expr: 'msg.child.payload.single_string == "allowed"',
+      test: `allow({'msg': NestedTestAllTypes{child: NestedTestAllTypes{payload: TestAllTypes{single_string: "allowed"}}}}) == true`,
+      out: true,
+    },
+    {
+      name: 'TestMessageWithNestedFieldNotEqual',
+      env: new Env(
+        types(NestedTestAllTypesSchema, TestAllTypesSchema),
+        variable('msg', objectType(NestedTestAllTypesSchema.typeName))
+      ),
+      testEnv: new Env(container('cel.expr.conformance.proto3')),
+      expr: 'msg.child.payload.single_string == "allowed"',
+      test: `allow({'msg': NestedTestAllTypes{child: NestedTestAllTypes{payload: TestAllTypes{single_string: "not-allowed"}}}}) == true`,
+      out: false,
+    },
+    {
+      name: 'TestMessageWithNestedFieldNotEqualPass',
+      env: new Env(
+        types(NestedTestAllTypesSchema, TestAllTypesSchema),
+        variable('msg', objectType(NestedTestAllTypesSchema.typeName))
+      ),
+      testEnv: new Env(container('cel.expr.conformance.proto3')),
+      expr: 'msg.child.payload.single_string == "allowed"',
+      test: `allow({'msg': NestedTestAllTypes{child: NestedTestAllTypes{payload: TestAllTypes{single_string: "not-allowed"}}}}) == false`,
       out: true,
     },
   ];
   for (const tc of testCases) {
     it(`${tc.name}`, () => {
       const policy = new Policy(tc.name, tc.expr, tc.env);
-      const policyTest = new PolicyTest(tc.name, tc.test, policy);
-      const { result } = policyTest.run();
-      expect(result?.value()).toEqual(tc.out);
+      const policyTest = new PolicyTest(tc.name, tc.test, policy, tc.testEnv);
+      expect(policyTest.run()).toEqual(tc.out);
     });
   }
 });

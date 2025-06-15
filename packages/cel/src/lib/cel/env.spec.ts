@@ -1,4 +1,6 @@
+import { create } from '@bufbuild/protobuf';
 import { Errors } from '../common/errors.js';
+import { ErrorType } from '../common/types/types.js';
 import { TestAllTypesSchema } from '../protogen/cel/expr/conformance/proto3/test_all_types_pb.js';
 import { func, overload, StringType } from './decls.js';
 import { Env, Issues } from './env.js';
@@ -62,5 +64,10 @@ describe('env', () => {
     expect(extended.provider.findStructType(TestAllTypesSchema.typeName)).toEqual(
       e.provider.findStructType(TestAllTypesSchema.typeName)
     );
+    const value = create(TestAllTypesSchema, { singleString: 'test' });
+    expect(extended.adapter.nativeToValue(value).type().typeName()).not.toEqual(
+      ErrorType.typeName()
+    );
+    expect(extended.adapter.nativeToValue(value)).toEqual(e.adapter.nativeToValue(value));
   });
 });
