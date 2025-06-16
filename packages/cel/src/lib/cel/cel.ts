@@ -29,6 +29,7 @@ export {
   isValidTypeSubstitution,
   maybeUnwrapOptional,
 } from '../checker/types.js';
+export { ReferenceInfo, SourceInfo } from '../common/ast.js';
 export {
   ConstCost,
   ListCreateBaseCost,
@@ -46,6 +47,8 @@ export {
   functionBinding as overloadFunctionBinding,
   unaryBinding as overloadUnaryBinding,
 } from '../common/decls.js';
+export { CELError } from '../common/error.js';
+export { Location, NoLocation } from '../common/location.js';
 export {
   isBoolProtoConstant,
   isBytesProtoConstant,
@@ -129,16 +132,23 @@ export {
   isUintProtoValue,
 } from '../common/pb/values.js';
 export { isAdapter, isFieldType, isProvider, isRegistry } from '../common/ref/provider.js';
+export type { Registry } from '../common/ref/provider.js';
 export { isRefType, isRefVal } from '../common/ref/reference.js';
 export type { RefType, RefVal } from '../common/ref/reference.js';
-export { isBoolRefVal } from '../common/types/bool.js';
+export { BoolRefVal as BoolVal, isBoolRefVal } from '../common/types/bool.js';
+export { BytesRefVal as BytesVal } from '../common/types/bytes.js';
+export { DoubleRefVal as DoubleVal } from '../common/types/double.js';
+export { DurationRefVal as DurationVal } from '../common/types/duration.js';
 export { isErrorRefVal } from '../common/types/error.js';
-export { isValidInt32, isValidInt64 } from '../common/types/int.js';
-export { isNullRefVal } from '../common/types/null.js';
+export { IntRefVal as IntVal, isValidInt32, isValidInt64 } from '../common/types/int.js';
+export { RefValList as ListVal } from '../common/types/list.js';
+export { RefValMap as MapVal } from '../common/types/map.js';
+export { NullRefVal as NullVal, isNullRefVal } from '../common/types/null.js';
 export { isNumberProtoValue, isNumberRefVal } from '../common/types/number.js';
-export { isMessageZeroValue } from '../common/types/object.js';
-export { isOptionalRefVal } from '../common/types/optional.js';
-export { isStringRefVal } from '../common/types/string.js';
+export { ObjectRefVal as ObjectVal, isMessageZeroValue } from '../common/types/object.js';
+export { OptionalRefVal as OptionalVal, isOptionalRefVal } from '../common/types/optional.js';
+export { StringRefVal as StringVal, isStringRefVal } from '../common/types/string.js';
+export { TimestampRefVal as TimestampVal } from '../common/types/timestamp.js';
 export { isComparer } from '../common/types/traits/comparer.js';
 export { isContainer } from '../common/types/traits/container.js';
 export { isFieldTester } from '../common/types/traits/field-tester.js';
@@ -159,19 +169,15 @@ export { isReceiver } from '../common/types/traits/receiver.js';
 export { isSizer } from '../common/types/traits/sizer.js';
 export { isZeroer } from '../common/types/traits/zeroer.js';
 export { isType, isWellKnownType, maybeForeignType } from '../common/types/types.js';
-export { isValidUint32, isValidUint64 } from '../common/types/uint.js';
-export { isIdentifierCharater, isUnknownRefVal } from '../common/types/unknown.js';
+export { UintRefVal as UintVal, isValidUint32, isValidUint64 } from '../common/types/uint.js';
+export {
+  UnknownRefVal as UnknownVal,
+  isIdentifierCharater,
+  isUnknownRefVal,
+} from '../common/types/unknown.js';
 export { isUnknownOrError } from '../common/types/utils.js';
 export { isWrapperType } from '../common/types/wrapper.js';
 export { isHexString, isOctalString, isScientificNotationString } from '../common/utils.js';
-export {
-  EmptyActivation,
-  HierarchicalActivation,
-  MapActivation,
-  PartialActivation,
-  newActivation,
-} from '../interpreter/activation.js';
-export type { Activation } from '../interpreter/activation.js';
 export { isQualifierValueEquator } from '../interpreter/attribute-patterns.js';
 export {
   isAttribute,
@@ -188,31 +194,6 @@ export {
   isInterpretableConst,
   isInterpretableConstructor,
 } from '../interpreter/interpretable.js';
-
-export { ReferenceInfo, SourceInfo } from '../common/ast.js';
-export {
-  checkedExprToAST,
-  parsedExprToAST,
-  toCheckedExprProto,
-  toParsedExprProto,
-} from '../common/conversion.js';
-export { CELError } from '../common/error.js';
-export { Location, NoLocation } from '../common/location.js';
-export type { Registry } from '../common/ref/provider.js';
-export { BoolRefVal as BoolVal } from '../common/types/bool.js';
-export { BytesRefVal as BytesVal } from '../common/types/bytes.js';
-export { DoubleRefVal as DoubleVal } from '../common/types/double.js';
-export { DurationRefVal as DurationVal } from '../common/types/duration.js';
-export { IntRefVal as IntVal } from '../common/types/int.js';
-export { RefValList as ListVal } from '../common/types/list.js';
-export { RefValMap as MapVal } from '../common/types/map.js';
-export { NullRefVal as NullVal } from '../common/types/null.js';
-export { ObjectRefVal as ObjectVal } from '../common/types/object.js';
-export { OptionalRefVal as OptionalVal } from '../common/types/optional.js';
-export { StringRefVal as StringVal } from '../common/types/string.js';
-export { TimestampRefVal as TimestampVal } from '../common/types/timestamp.js';
-export { UintRefVal as UintVal } from '../common/types/uint.js';
-export { UnknownRefVal as UnknownVal } from '../common/types/unknown.js';
 export type { ParserOption } from '../parser/parser.js';
 export {
   unparse,
@@ -283,9 +264,20 @@ export {
 export type { Declaration } from './decls.js';
 export { Ast, CustomEnv, Env, Issues, formatCELType } from './env.js';
 export type { Source } from './env.js';
+export {
+  astToCheckedExpr,
+  astToParsedExpr,
+  astToString,
+  checkedExprToAst,
+  checkedExprToAstWithSource,
+  exprToString,
+  parsedExprToAst,
+  parsedExprToAstWithSource,
+} from './io.js';
 export { Feature, StdLib, isLibrary, isSingletonLibrary, lib } from './library.js';
 export type { Library, SingletonLibrary } from './library.js';
 export {
+  EvalOption,
   abbrevs,
   clearMacros,
   container,
@@ -302,12 +294,13 @@ export {
   enableIdentifierEscapeSyntax,
   enableMacroCallTracking,
   enableOptionalSyntax,
+  evalOptions,
   globals,
   homogeneousAggregateLiterals,
   macros,
   types,
   variadicLogicalOperatorASTs,
 } from './options.js';
-export type { EnvOption, EvalOption, ProgramOption } from './options.js';
-export { EvalDetails } from './program.js';
-export type { Program } from './program.js';
+export type { EnvOption, ProgramOption } from './options.js';
+export { EvalDetails, attributePattern, newActivation, noVars, partialVars } from './program.js';
+export type { Activation, AttributePatternType, PartialActivation, Program } from './program.js';

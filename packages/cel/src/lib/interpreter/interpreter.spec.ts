@@ -55,7 +55,7 @@ import { AttrFactory, AttributeFactory, enableErrorOnBadPresenceTest } from './a
 import { InterpretableDecorator } from './decorators.js';
 import { DefaultDispatcher, Dispatcher } from './dispatcher.js';
 import { Interpretable } from './interpretable.js';
-import { ExprInterpreter } from './interpreter.js';
+import { ExprInterpreter, PlannerOption } from './interpreter.js';
 
 interface TestCase {
   name: string;
@@ -1600,7 +1600,7 @@ describe('interpreter', () => {
 
 function program(
   tst: TestCase,
-  ...opts: InterpretableDecorator[]
+  ...opts: PlannerOption[]
 ): [Interpretable | null, Activation | null, Error | null] {
   // Configure the package.
   let cont = new Container(containerName(tst.container ?? ''));
@@ -1671,7 +1671,7 @@ function program(
   return [prg, vars, null];
 }
 
-function addFunctionBindings(dispatcher: Dispatcher) {
+export function addFunctionBindings(dispatcher: Dispatcher) {
   for (const fn of stdFunctions) {
     const bindings = fn.bindings();
     dispatcher.add(...bindings);

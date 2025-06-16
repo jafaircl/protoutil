@@ -18,7 +18,7 @@ import {
   unwrapStructProtoExpr,
 } from './pb/expressions.js';
 import { RefVal } from './ref/reference.js';
-import { Source } from './source.js';
+import { Source, StringSource } from './source.js';
 import { DynType, Type } from './types/types.js';
 import { isNil, mapToObject } from './utils.js';
 
@@ -426,7 +426,7 @@ export class OffsetRange {
  * NewSourceInfo creates a simple SourceInfo object from an input common.Source
  * value.
  */
-export function newSourceInfo(src: Source) {
+export function newSourceInfo(src?: Source) {
   let lineOffsets: number[] | undefined;
   let desc: string | undefined;
   let baseLine = 0;
@@ -443,7 +443,14 @@ export function newSourceInfo(src: Source) {
       baseCol = loc.column;
     }
   }
-  return new SourceInfo(src, '', desc ?? '', lineOffsets ?? [], baseLine, baseCol);
+  return new SourceInfo(
+    src ?? new StringSource('', ''),
+    '',
+    desc ?? '',
+    lineOffsets ?? [],
+    baseLine,
+    baseCol
+  );
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   newActivation,
 } from '../interpreter/activation.js';
 import { InterpretableDecorator } from '../interpreter/decorators.js';
+import { customDecorator as interpreterCustomDecorator } from '../interpreter/interpreter.js';
 import { Macro } from '../parser/macro.js';
 import { enableOptionalSyntax as parserEnableOptionalSyntax } from '../parser/parser.js';
 import { Declaration, maybeUnwrapDeclaration, Type, variable } from './decls.js';
@@ -245,15 +246,15 @@ export function abbrevs(...qualifiedNames: string[]): EnvOption {
  */
 export function types(...types: (DescMessage | DescEnum | Type)[]): EnvOption {
   return (e) => {
-    const reg = e.provider;
-    if (!isRegistry(reg)) {
-      throw new Error(`custom types not supported by provider: ${reg}`);
+    const provider = e.provider;
+    if (!isRegistry(provider)) {
+      throw new Error(`custom types not supported by provider: ${provider}`);
     }
     for (const t of types) {
       if (isType(t)) {
-        reg.registerType(t);
+        provider.registerType(t);
       } else {
-        reg.registerDescriptor(t);
+        provider.registerDescriptor(t);
       }
     }
     return e;
@@ -274,7 +275,7 @@ export type ProgramOption = (p: prog) => prog;
  */
 export function customDecorator(dec: InterpretableDecorator): ProgramOption {
   return (p) => {
-    p.decorators.push(dec);
+    p.plannerOptions.push(interpreterCustomDecorator(dec));
     return p;
   };
 }
@@ -343,6 +344,16 @@ export enum EvalOption {
    * cost within evalDetails cost calculation is available via func ActualCost()
    */
   TrackCost,
+}
+
+/**
+ * EvalOptions sets one or more evaluation options which may affect the evaluation or Result.
+ */
+export function evalOptions(...opts: EvalOption[]): ProgramOption {
+  return (p) => {
+    p.evalOpts.push(...opts);
+    return p;
+  };
 }
 
 /**

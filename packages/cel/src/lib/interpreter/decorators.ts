@@ -1,4 +1,11 @@
+import { ConditionalAttribute, isConditionalAttribute } from './attributes.js';
 import {
+  EvalAnd,
+  EvalExhaustiveAnd,
+  EvalExhaustiveConditional,
+  EvalExhaustiveOr,
+  EvalFold,
+  EvalOr,
   EvalWatch,
   EvalWatchAttr,
   EvalWatchConst,
@@ -38,5 +45,26 @@ export function decObserveEval(observer: EvalObserver): InterpretableDecorator {
     } else {
       return new EvalWatch(int, observer);
     }
+  };
+}
+
+/**
+ * decDisableShortcircuits ensures that all branches of an expression will be evaluated, no short-circuiting.
+ */
+export function decDisableShortcuts(): InterpretableDecorator {
+  return (i) => {
+    if (i instanceof EvalOr) {
+      return new EvalExhaustiveOr(i.id(), i.terms);
+    } else if (i instanceof EvalAnd) {
+      return new EvalExhaustiveAnd(i.id(), i.terms);
+    } else if (i instanceof EvalFold) {
+      i.exhaustive = true;
+      return i;
+    } else if (isInterpretableAttribute(i)) {
+      if (isConditionalAttribute(i.attr())) {
+        return new EvalExhaustiveConditional(i.id(), i.adapter(), i.attr() as ConditionalAttribute);
+      }
+    }
+    return i;
   };
 }

@@ -28,9 +28,9 @@ export class EvalState {
   setValue(id: bigint, value: RefVal) {
     if (isNil(value)) {
       this.#values.delete(id);
-      return;
+    } else {
+      this.#values.set(id, value);
     }
-    this.#values.set(id, value);
   }
 
   /**

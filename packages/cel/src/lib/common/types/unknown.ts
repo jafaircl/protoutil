@@ -258,11 +258,17 @@ export function isUnknownRefVal(val: unknown): val is UnknownRefVal {
  * If both values are non-nil and unknown, then the return value will be a
  * merge of both unknowns.
  */
-export function maybeMergeUnknowns(val: RefVal | null, unk: UnknownRefVal | null): RefVal | null {
+export function maybeMergeUnknowns(
+  val: RefVal | null,
+  unk: UnknownRefVal | null
+): [RefVal | null, boolean] {
   if (!isUnknownRefVal(val)) {
-    return unk;
+    if (!isNil(unk)) {
+      return [unk, true];
+    }
+    return [unk, false];
   }
-  return mergeUnknowns(val, unk);
+  return [mergeUnknowns(val, unk), true];
 }
 
 /**

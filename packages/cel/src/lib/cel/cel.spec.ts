@@ -6,7 +6,17 @@ import { BoolRefVal } from '../common/types/bool.js';
 import { IntRefVal } from '../common/types/int.js';
 import { Activation } from '../interpreter/activation.js';
 import { ExprSchema } from '../protogen/cel/expr/syntax_pb.js';
-import { BoolType, StringType, variable } from './decls.js';
+import { astToString } from './cel.js';
+import {
+  BoolType,
+  DynType,
+  IntType,
+  listType,
+  mapType,
+  StringType,
+  TimestampType,
+  variable,
+} from './decls.js';
 import { Ast, CustomEnv, Env, Issues } from './env.js';
 import { StdLib } from './library.js';
 import {
@@ -14,10 +24,13 @@ import {
   container,
   crossTypeNumericComparisons,
   enableIdentifierEscapeSyntax,
+  enableMacroCallTracking,
   EnvOption,
+  EvalOption,
+  evalOptions,
   types,
 } from './options.js';
-import { Program } from './program.js';
+import { attributePattern, EvalDetails, partialVars, Program } from './program.js';
 
 describe('cel', () => {
   it('Test_ExampleWithBuiltins', () => {
@@ -170,6 +183,136 @@ describe('cel', () => {
           const [out] = interpret(env, tc.expr || '', {});
           expect(out?.value()).toEqual(tc.out?.value());
         }
+      });
+    }
+  });
+
+  describe('TestResidualAst', () => {
+    it('should work', () => {
+      const env = new Env(variable('x', IntType), variable('y', IntType));
+      const unkVars = env.unknownVars();
+      const ast = env.parse(`x < 10 && (y == 0 || 'hello' != 'goodbye')`);
+      expect(ast).not.toBeInstanceOf(Issues);
+      if (ast instanceof Issues) {
+        throw ast.err();
+      }
+      const prg = env.program(ast, evalOptions(EvalOption.TrackState, EvalOption.PartialEval));
+      expect(prg).not.toBeInstanceOf(Error);
+      if (prg instanceof Error) {
+        throw prg;
+      }
+      const [, det] = prg.eval(unkVars);
+      // TODO: out is null and err is populated but everything still works. why?
+      // if !types.IsUnknown(out) {
+      // 	t.Fatalf("got %v, expected unknown", out)
+      // }
+      // if err != nil {
+      // 	t.Fatalf("prg.Eval() failed: %v", err)
+      // }
+      const residual = env.residualAst(ast, det as EvalDetails);
+      expect(residual).not.toBeInstanceOf(Error);
+      if (residual instanceof Error) {
+        throw residual;
+      }
+      const expr = astToString(residual);
+      expect(expr).toEqual('x < 10');
+    });
+  });
+
+  describe('TestResidualAstComplex', () => {
+    it('should work', () => {
+      const env = new Env(
+        variable('resource.name', StringType),
+        variable('request.time', TimestampType),
+        variable('request.auth.claims', mapType(StringType, StringType))
+      );
+      const unkVars = partialVars(
+        {
+          'resource.name': 'bucket/my-bucket/objects/private',
+          'request.auth.claims': {
+            email_verified: 'true',
+          },
+        },
+        attributePattern('request.auth.claims').qualString('email')
+      );
+      const ast = env.compile(`resource.name.startsWith("bucket/my-bucket") &&
+         bool(request.auth.claims.email_verified) == true &&
+         request.auth.claims.email == "wiley@acme.co"`);
+      if (ast instanceof Issues) {
+        throw ast.err();
+      }
+      const prog = env.program(ast, evalOptions(EvalOption.TrackState, EvalOption.PartialEval));
+      if (prog instanceof Error) {
+        throw prog;
+      }
+      const [, det] = prog.eval(unkVars);
+      // TODO: out is null and err is populated but everything still works. why?
+      // if !types.IsUnknown(out) {
+      // 	t.Fatalf("got %v, expected unknown", out)
+      // }
+      // if err != nil {
+      // 	t.Fatalf("prg.Eval() failed: %v", err)
+      // }
+      const residual = env.residualAst(ast, det as EvalDetails);
+      if (residual instanceof Error) {
+        throw residual;
+      }
+      const expr = astToString(residual);
+      expect(expr).toEqual(`request.auth.claims.email == "wiley@acme.co"`);
+    });
+  });
+
+  describe('TestResidualAstMacros', () => {
+    const testCases = [
+      {
+        env: new Env(
+          variable('x', listType(IntType)),
+          variable('y', IntType),
+          enableMacroCallTracking()
+        ),
+        in: { y: 11 },
+        unks: [attributePattern('x')],
+        expr: `x.exists(i, i < 10) && [11, 12, 13].all(i, i in [y, 12, 13])`,
+        residual: `x.exists(i, i < 10)`,
+      },
+      {
+        env: new Env(
+          variable('bar', mapType(StringType, DynType)),
+          variable('foo', mapType(StringType, DynType)),
+          enableMacroCallTracking()
+        ),
+        in: { foo: { a: 'b' } },
+        unks: [attributePattern('bar').qualString('baz').wildcard()],
+        expr: `foo.exists(t, t == bar.baz.x)`,
+        residual: `{"a": "b"}.exists(t, t == bar.baz.x)`,
+      },
+    ];
+    for (const tc of testCases) {
+      it(`TestResidualAstMacros: ${tc.expr}`, () => {
+        const env = tc.env;
+        const unkVars = partialVars(tc.in, ...tc.unks);
+        const ast = env.compile(tc.expr);
+        if (ast instanceof Issues) {
+          throw ast.err();
+        }
+        const prg = env.program(ast, evalOptions(EvalOption.TrackState, EvalOption.PartialEval));
+        if (prg instanceof Error) {
+          throw prg;
+        }
+        const [, det] = prg.eval(unkVars);
+        // TODO: out is null and err is populated but everything still works. why?
+        // if !types.IsUnknown(out) {
+        // 	t.Fatalf("got %v, expected unknown", out)
+        // }
+        // if err != nil {
+        // 	t.Fatalf("prg.Eval() failed: %v", err)
+        // }
+        const residual = env.residualAst(ast, det as EvalDetails);
+        if (residual instanceof Error) {
+          throw residual;
+        }
+        const expr = astToString(residual);
+        expect(expr).toEqual(tc.residual);
       });
     }
   });

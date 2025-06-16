@@ -21,16 +21,26 @@ import { isUnknownOrError } from '../common/types/utils.js';
 import { isFunction, isNil } from '../common/utils.js';
 import { IN_OPERATOR } from './../common/operators.js';
 import { MutableMap, toFoldableMap } from './../common/types/map.js';
-import { Activation } from './activation.js';
-import { isQualifierValueEquator } from './attribute-patterns.js';
+import {
+  Activation,
+  isPartialActivation,
+  isPartialActivationConverter,
+  PartialActivation,
+} from './activation.js';
+import {
+  AttributePattern,
+  isQualifierValueEquator,
+  QualifierValueEquator,
+} from './attribute-patterns.js';
 import {
   Attribute,
+  ConditionalAttribute,
   ConstantQualifier,
   isAttribute,
   isConstantQualifier,
   Qualifier,
 } from './attributes.js';
-import { EvalObserver } from './interpreter.js';
+import { EvalObserver, StatefulObserver } from './interpreter.js';
 
 /**
  * Interpretable can accept a given Activation and produce a value along with
@@ -194,6 +204,45 @@ export function isInterpretableConstructor(value: any): value is InterpretableCo
   return value && isFunction(value.initVals) && isFunction(value.type) && isInterpretable(value);
 }
 
+/**
+ * ObservableInterpretable is an Interpretable which supports stateful observation, such as tracing
+ * or cost-tracking.
+ */
+export class ObservableInterpretable implements Interpretable {
+  constructor(public interpretable: Interpretable, public observers: StatefulObserver[]) {}
+
+  id(): bigint {
+    return this.interpretable.id();
+  }
+
+  eval(activation: Activation): RefVal {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return this.observeEval(activation, () => {});
+  }
+
+  /**
+   * ObserveEval evaluates an interpretable and performs per-evaluation state-tracking.
+   *
+   * This method is concurrency safe and the expectation is that the observer function will use
+   * a switch statement to determine the type of the state which has been reported back from the call.
+   */
+  observeEval(vars: Activation, observer: (...args: any[]) => any) {
+    // Initialize the state needed for the observers to function.
+    for (const obs of this.observers) {
+      vars = obs.initState(vars);
+      // Provide an initial reference to the state to ensure state is available
+      // even in cases of interrupting errors generated during evaluation.
+      observer(obs.getState(vars));
+    }
+    const result = this.interpretable.eval(vars);
+    // Get the state which needs to be reported back as having been observed.
+    for (const obs of this.observers) {
+      observer(obs.getState(vars));
+    }
+    return result;
+  }
+}
+
 // Core Interpretable implementations used during the program planning phase.
 
 export class EvalTestOnly implements InterpretableAttribute {
@@ -246,6 +295,7 @@ export class EvalTestOnly implements InterpretableAttribute {
 
   eval(activation: Activation): RefVal {
     const val = this.resolve(activation);
+    // Return an error if the resolve step fails
     if (val instanceof Error) {
       return labelErrorNode(this.#id, wrapError(val));
     }
@@ -256,11 +306,15 @@ export class EvalTestOnly implements InterpretableAttribute {
   }
 }
 
-class TestOnlyQualifier implements Qualifier {
+class TestOnlyQualifier implements ConstantQualifier, QualifierValueEquator {
   #qual: ConstantQualifier;
 
   constructor(qual: ConstantQualifier) {
     this.#qual = qual;
+  }
+
+  value(): RefVal {
+    return this.#qual.value();
   }
 
   id(): bigint {
@@ -301,6 +355,14 @@ class TestOnlyQualifier implements Qualifier {
   ): [any | null, boolean, Error | null] {
     // Only ever test for presence
     return this.#qual.qualifyIfPresent(vars, obj, true);
+  }
+
+  /**
+   * QualifierValueEquals determines whether the test-only constant qualifier equals the input value.
+   */
+  qualifierValueEquals(value: any): boolean {
+    // The input qualifier will always be of type string
+    return this.#qual.value().value() === value;
   }
 }
 
@@ -351,7 +413,7 @@ export class EvalOr implements Interpretable {
         }
       } else {
         if (unk && isUnknownRefVal(unk)) {
-          unk = maybeMergeUnknowns(val, unk) as UnknownRefVal;
+          [unk] = maybeMergeUnknowns(val, unk) as [UnknownRefVal | null, boolean];
         } else if (isNil(err)) {
           if (isErrorRefVal(val)) {
             err = val;
@@ -387,18 +449,18 @@ export class EvalAnd implements Interpretable {
 
   eval(ctx: Activation): RefVal {
     let err: RefVal | null = null;
-    let unk: UnknownRefVal | null = null;
+    let unk: RefVal | null = null;
     for (const term of this.terms) {
       const val = term.eval(ctx);
-      if (val.type() === BoolType) {
-        // short-circuit on false.
-        if (val.value() === false) {
-          return BoolRefVal.False;
-        }
-      } else {
-        if (unk && isUnknownRefVal(unk)) {
-          unk = maybeMergeUnknowns(val, unk) as UnknownRefVal;
-        } else if (isNil(err)) {
+      const boolVal = isBoolRefVal(val) ? val : null;
+      // short-circuit on false.
+      if (boolVal?.value() === false) {
+        return BoolRefVal.False;
+      }
+      if (isNil(boolVal)) {
+        let isUnk = false;
+        [unk, isUnk] = maybeMergeUnknowns(val, unk as UnknownRefVal | null);
+        if (!isUnk && isNil(err)) {
           if (isErrorRefVal(val)) {
             err = val;
           } else {
@@ -1030,6 +1092,9 @@ export class EvalFold implements Interpretable {
     const f = new Folder(this, ctx);
 
     const foldRange = this.iterRange.eval(ctx);
+    if (isUnknownOrError(foldRange)) {
+      return foldRange;
+    }
     if (this.iterVar2 != '') {
       let foldable: Foldable | null = null;
       if (isMapper(foldRange)) {
@@ -1048,6 +1113,58 @@ export class EvalFold implements Interpretable {
     }
     const iterable = foldRange as RefVal & Iterable;
     return f.foldIterable(iterable);
+
+    // const foldRange = this.iterRange.eval(ctx);
+    // if (!foldRange.type().hasTrait(Trait.ITERABLE_TYPE)) {
+    //   return ErrorRefVal.valOrErr(foldRange, `got '${foldRange.type()}', expected iterable type`);
+    // }
+    // // Configure the fold activation with the accumulator initial value.
+    // const accuCtx = new varActivation(ctx, this.accuVar, this.accu.eval(ctx));
+    // // If the accumulator starts as an empty list, then the comprehension will build a list
+    // // so create a mutable list to optimize the cost of the inner loop.
+    // const l = accuCtx.val as Lister;
+    // let buildingList = false;
+    // if (!this.exhaustive && isLister(l) && l.size().value() === 0n) {
+    //   buildingList = true;
+    //   accuCtx.val = new MutableList(this.adapter, []);
+    // }
+    // const iterCtx = new varActivation(accuCtx, this.iterVar);
+
+    // let interrupted = false;
+    // const it = (foldRange as unknown as Iterable).iterator();
+    // while (it.hasNext().value()) {
+    //   // Modify the iter var in the fold activation.
+    //   iterCtx.val = it.next();
+
+    //   // Evaluate the condition, terminate the loop if false.
+    //   const cond = this.cond.eval(iterCtx);
+    //   const condBool = cond as BoolRefVal;
+    //   if (!this.exhaustive && isBoolRefVal(cond) && condBool.value() !== true) {
+    //     break;
+    //   }
+    //   // Evaluate the evaluation step into accu var.
+    //   accuCtx.val = this.step.eval(iterCtx);
+    //   if (this.interruptable) {
+    //     const stop = ctx.resolveName('#interrupted');
+    //     if (stop && stop === true) {
+    //       interrupted = true;
+    //       break;
+    //     }
+    //   }
+    // }
+    // if (interrupted) {
+    //   return new ErrorRefVal('operation interrupted');
+    // }
+
+    // // Compute the result.
+    // let res = this.result.eval(accuCtx);
+    // // Convert a mutable list to an immutable one, if the comprehension has generated a list as a result.
+    // if (!isUnknownOrError(res) && buildingList) {
+    //   if (isMutableLister(res)) {
+    //     res = res.toImmutableList();
+    //   }
+    // }
+    // return res;
   }
 }
 
@@ -1075,7 +1192,7 @@ export class EvalWatch implements Interpretable {
 
   eval(ctx: Activation): RefVal {
     const val = this.#interpretable.eval(ctx);
-    this.#observer(this.id(), this.#interpretable, val);
+    this.#observer(ctx, this.id(), this.#interpretable, val);
     return val;
   }
 }
@@ -1160,7 +1277,7 @@ export class EvalWatchAttr implements InterpretableAttribute {
 
   eval(ctx: Activation): RefVal {
     const val = this.interpretableAttr.eval(ctx);
-    this.#observer(this.id(), this.interpretableAttr, val);
+    this.#observer(ctx, this.id(), this.interpretableAttr, val);
     return val;
   }
 }
@@ -1202,7 +1319,7 @@ export class EvalWatchConstQual implements ConstantQualifier {
     } else {
       val = this.#adapter.nativeToValue(out);
     }
-    this.#observer(this.id(), this.#constantQualifier, val);
+    this.#observer(vars, this.id(), this.#constantQualifier, val);
     return out;
   }
 
@@ -1225,7 +1342,7 @@ export class EvalWatchConstQual implements ConstantQualifier {
       val = new BoolRefVal(present);
     }
     if (present || presenceOnly) {
-      this.#observer(this.id(), this.#constantQualifier, val!);
+      this.#observer(vars, this.id(), this.#constantQualifier, val!);
     }
     return [out, present, err];
   }
@@ -1235,10 +1352,10 @@ export class EvalWatchConstQual implements ConstantQualifier {
    * qualifying constant.
    */
   qualifierValueEquals(val: any): boolean {
-    if (isQualifierValueEquator(this.#constantQualifier)) {
-      return this.#constantQualifier.qualifierValueEquals(val);
-    }
-    return false;
+    return (
+      isQualifierValueEquator(this.#constantQualifier) &&
+      this.#constantQualifier.qualifierValueEquals(val)
+    );
   }
 }
 
@@ -1285,7 +1402,7 @@ export class EvalWatchAttrQual implements Attribute {
     } else {
       val = this.#adapter.nativeToValue(out);
     }
-    this.#observer(this.id(), this.#attr, val);
+    this.#observer(vars, this.id(), this.#attr, val);
     return out;
   }
 
@@ -1308,7 +1425,7 @@ export class EvalWatchAttrQual implements Attribute {
       val = new BoolRefVal(present);
     }
     if (present || presenceOnly) {
-      this.#observer(this.id(), this.#attr, val!);
+      this.#observer(vars, this.id(), this.#attr, val!);
     }
     return [out, present, err];
   }
@@ -1349,7 +1466,7 @@ export class EvalWatchQual implements Qualifier {
     } else {
       val = this.#adapter.nativeToValue(out);
     }
-    this.#observer(this.id(), this.#qual, val);
+    this.#observer(vars, this.id(), this.#qual, val);
     return out;
   }
 
@@ -1372,7 +1489,7 @@ export class EvalWatchQual implements Qualifier {
       val = new BoolRefVal(present);
     }
     if (present || presenceOnly) {
-      this.#observer(this.id(), this.#qual, val!);
+      this.#observer(vars, this.id(), this.#qual, val!);
     }
     return [out, present, err];
   }
@@ -1399,8 +1516,149 @@ export class EvalWatchConst implements InterpretableConst {
 
   eval(ctx: Activation) {
     const val = this.value();
-    this.#observer(this.id(), this.#const, val);
+    this.#observer(ctx, this.id(), this.#const, val);
     return val;
+  }
+}
+
+/**
+ * evalExhaustiveOr is just like evalOr, but does not short-circuit argument evaluation.
+ */
+export class EvalExhaustiveOr implements Interpretable {
+  #id: bigint;
+  terms: Interpretable[];
+
+  constructor(id: bigint, terms: Interpretable[]) {
+    this.#id = id;
+    this.terms = terms;
+  }
+
+  id() {
+    return this.#id;
+  }
+
+  eval(ctx: Activation): RefVal {
+    let err: RefVal | null = null;
+    let unk: UnknownRefVal | null = null;
+    let isTrue = false;
+    for (const term of this.terms) {
+      const val = term.eval(ctx);
+      // flag the result as true
+      if (isBoolRefVal(val) && val.value() === true) {
+        isTrue = true;
+      }
+      if (!isBoolRefVal(val) && !isTrue) {
+        let isUnk = false;
+        [unk, isUnk] = maybeMergeUnknowns(val, unk) as [UnknownRefVal | null, boolean];
+        if (!isUnk && isNil(err)) {
+          if (isErrorRefVal(val)) {
+            err = val;
+          } else {
+            err = ErrorRefVal.maybeNoSuchOverload(val);
+          }
+        }
+      }
+    }
+    if (isTrue) {
+      return BoolRefVal.True;
+    }
+    if (!isNil(unk)) {
+      return unk;
+    }
+    if (!isNil(err)) {
+      return err;
+    }
+    return BoolRefVal.False;
+  }
+}
+
+/**
+ * evalExhaustiveAnd is just like evalAnd, but does not short-circuit argument evaluation.
+ */
+export class EvalExhaustiveAnd implements Interpretable {
+  #id: bigint;
+  terms: Interpretable[];
+
+  constructor(id: bigint, terms: Interpretable[]) {
+    this.#id = id;
+    this.terms = terms;
+  }
+
+  id() {
+    return this.#id;
+  }
+
+  eval(ctx: Activation): RefVal {
+    let err: RefVal | null = null;
+    let unk: UnknownRefVal | null = null;
+    let isFalse = false;
+    for (const term of this.terms) {
+      const val = term.eval(ctx);
+      // short-circuit on false.
+      if (isBoolRefVal(val) && val.value() === false) {
+        isFalse = false;
+      } else {
+        let isUnk = false;
+        [unk, isUnk] = maybeMergeUnknowns(val, unk) as [UnknownRefVal | null, boolean];
+        if (!isUnk && isNil(err)) {
+          if (isErrorRefVal(val)) {
+            err = val;
+          } else {
+            err = ErrorRefVal.maybeNoSuchOverload(val);
+          }
+        }
+      }
+    }
+    if (isFalse) {
+      return BoolRefVal.False;
+    }
+    if (!isNil(unk)) {
+      return unk;
+    }
+    if (!isNil(err)) {
+      return err;
+    }
+    return BoolRefVal.True;
+  }
+}
+
+/**
+ * evalExhaustiveConditional is like evalConditional, but does not short-circuit argument
+ * evaluation.
+ */
+export class EvalExhaustiveConditional implements Interpretable {
+  readonly #id: bigint;
+
+  constructor(
+    id: bigint,
+    public readonly adapter: Adapter,
+    public readonly attr: ConditionalAttribute
+  ) {
+    this.#id = id;
+  }
+
+  id(): bigint {
+    return this.#id;
+  }
+
+  eval(ctx: Activation): RefVal {
+    const cVal = this.attr.expr.eval(ctx);
+    const tVal = this.attr.truthy.resolve(ctx);
+    const fVal = this.attr.falsy.resolve(ctx);
+
+    if (!isBoolRefVal(cVal)) {
+      return ErrorRefVal.valOrErr(cVal, 'no such overload');
+    }
+    if (cVal.value() === true) {
+      if (isErrorRefVal(tVal)) {
+        return labelErrorNode(this.id(), wrapError(tVal.value()));
+      }
+      return this.adapter.nativeToValue(tVal);
+    }
+    if (isErrorRefVal(fVal)) {
+      return labelErrorNode(this.id(), wrapError(fVal.value()));
+    }
+    return this.adapter.nativeToValue(fVal);
   }
 }
 
@@ -1491,7 +1749,7 @@ export class EvalWatchConstructor implements InterpretableConstructor {
 
   eval(activation: Activation): RefVal {
     const val = this.#ctor.eval(activation);
-    this.#observer(this.#ctor.id(), this.#ctor, val);
+    this.#observer(activation, this.#ctor.id(), this.#ctor, val);
     return val;
   }
 }
@@ -1533,7 +1791,7 @@ export class Folder implements Activation {
   }
 
   parent() {
-    return this.#activation.parent();
+    return this.#activation;
   }
 
   foldIterable(iterable: Iterable): RefVal {
@@ -1643,6 +1901,30 @@ export class Folder implements Activation {
       }
     }
     return res;
+  }
+
+  /**
+   * UnknownAttributePatterns implements the PartialActivation interface returning the unknown patterns
+   * if they were provided to the input activation, or an empty set if the proxied activation is not partial.
+   */
+  unknownAttributePatterns(): AttributePattern[] {
+    if (isPartialActivationConverter(this.#activation)) {
+      const partial = this.#activation.asPartialActivation();
+      if (isPartialActivation(partial)) {
+        return partial.unknownAttributePatterns();
+      }
+    }
+    return [];
+  }
+
+  asPartialActivation(): PartialActivation | null {
+    if (isPartialActivationConverter(this.#activation)) {
+      const partial = this.#activation.asPartialActivation();
+      if (isPartialActivation(partial)) {
+        return partial;
+      }
+    }
+    return null;
   }
 }
 

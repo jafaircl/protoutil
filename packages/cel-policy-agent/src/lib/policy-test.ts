@@ -4,12 +4,12 @@ import {
   BoolVal,
   CELError,
   DynType,
-  EmptyActivation,
   Env,
   func,
   isRegistry,
   Issues,
   mapType,
+  noVars,
   overload,
   overloadUnaryBinding,
   Program,
@@ -118,7 +118,7 @@ export class PolicyTest {
     if (!this.compiled) {
       this.compile();
     }
-    const [result] = this.#program!.eval(new EmptyActivation());
+    const [result] = this.#program!.eval(noVars());
     return (result?.value() as boolean | null) ?? false;
   }
 }

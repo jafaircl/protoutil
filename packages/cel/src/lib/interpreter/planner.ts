@@ -59,22 +59,14 @@ import {
   InterpretableAttribute,
   isInterpretableAttribute,
   isInterpretableConst,
+  ObservableInterpretable,
 } from './interpretable.js';
-
-/**
- * interpretablePlanner creates an Interpretable evaluation plan from a proto Expr value.
- */
-export interface InterpretablePlanner {
-  /**
-   * Plan generates an Interpretable value (or error) from the input proto Expr.
-   */
-  plan(expr: Expr): Interpretable | Error;
-}
+import { StatefulObserver } from './interpreter.js';
 
 /**
  * planner is an implementation of the interpretablePlanner interface.
  */
-export class Planner implements InterpretablePlanner {
+export class Planner {
   #disp: Dispatcher;
   #provider: Provider;
   #adapter: Adapter;
@@ -82,7 +74,8 @@ export class Planner implements InterpretablePlanner {
   #container: Container;
   #refMap: Map<bigint, ReferenceInfo>;
   #typeMap: Map<bigint, Type>;
-  #decorators: InterpretableDecorator[];
+  public decorators: InterpretableDecorator[] = [];
+  public observers: StatefulObserver[] = [];
 
   constructor(
     disp: Dispatcher,
@@ -90,8 +83,7 @@ export class Planner implements InterpretablePlanner {
     adapter: Adapter,
     attrFactory: AttributeFactory,
     cont: Container,
-    exprAst: AST,
-    decorators: InterpretableDecorator[]
+    exprAst: AST
   ) {
     this.#disp = disp;
     this.#provider = provider;
@@ -100,10 +92,20 @@ export class Planner implements InterpretablePlanner {
     this.#container = cont;
     this.#refMap = exprAst.referenceMap();
     this.#typeMap = exprAst.typeMap();
-    this.#decorators = decorators;
   }
 
   plan(expr: Expr): Interpretable | Error {
+    const i = this._plan(expr);
+    if (i instanceof Error) {
+      return i;
+    }
+    if (this.observers.length === 0) {
+      return i;
+    }
+    return new ObservableInterpretable(i, this.observers);
+  }
+
+  _plan(expr: Expr): Interpretable | Error {
     switch (expr.exprKind.case) {
       case 'identExpr':
         return this.decorate(this.planIdent(expr));
@@ -136,7 +138,7 @@ export class Planner implements InterpretablePlanner {
     if (i instanceof Error) {
       return i;
     }
-    for (const decorator of this.#decorators) {
+    for (const decorator of this.decorators) {
       const decorated = decorator(i);
       if (decorated instanceof Error) {
         return decorated;
@@ -204,7 +206,7 @@ export class Planner implements InterpretablePlanner {
 
     const sel = unwrapSelectProtoExpr(expr)!;
     // Plan the operand evaluation.
-    const op = this.plan(sel.operand!);
+    const op = this._plan(sel.operand!);
     if (op instanceof Error) {
       return op;
     }
@@ -265,14 +267,14 @@ export class Planner implements InterpretablePlanner {
 
     const args: Interpretable[] = [];
     if (!isNil(target)) {
-      const arg = this.plan(target);
+      const arg = this._plan(target);
       if (arg instanceof Error) {
         return arg;
       }
       args.push(arg);
     }
     for (let i = 0; i < call.args.length; i++) {
-      const arg = this.plan(call.args[i]);
+      const arg = this._plan(call.args[i]);
       if (arg instanceof Error) {
         return arg;
       }
@@ -533,7 +535,7 @@ export class Planner implements InterpretablePlanner {
     }
     const elems: Interpretable[] = [];
     for (let i = 0; i < elements.length; i++) {
-      const elemVal = this.plan(elements[i]);
+      const elemVal = this._plan(elements[i]);
       if (elemVal instanceof Error) {
         return elemVal;
       }
@@ -557,7 +559,7 @@ export class Planner implements InterpretablePlanner {
     let hasOptionals = false;
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
-      const keyVal = this.plan(entry.keyKind.value);
+      const keyVal = this._plan(entry.keyKind.value);
       if (keyVal instanceof Error) {
         return keyVal;
       }
@@ -567,7 +569,7 @@ export class Planner implements InterpretablePlanner {
         return new Error(`required map value missing`);
       }
       // TODO: this could be an issue for maps with optional values
-      const valVal = this.plan(entry.value!);
+      const valVal = this._plan(entry.value!);
       if (valVal instanceof Error) {
         return valVal;
       }
@@ -598,7 +600,7 @@ export class Planner implements InterpretablePlanner {
     for (let i = 0; i < objFields.length; i++) {
       const field = objFields[i];
       fields.push(field.keyKind.value);
-      const val = this.plan(field.value!);
+      const val = this._plan(field.value!);
       if (val instanceof Error) {
         return val;
       }
@@ -617,23 +619,23 @@ export class Planner implements InterpretablePlanner {
       throw new Error('expected comprehensionExpr');
     }
     const fold = unwrapComprehensionProtoExpr(expr)!;
-    const accu = this.plan(fold.accuInit!);
+    const accu = this._plan(fold.accuInit!);
     if (accu instanceof Error) {
       return accu;
     }
-    const iterRange = this.plan(fold.iterRange!);
+    const iterRange = this._plan(fold.iterRange!);
     if (iterRange instanceof Error) {
       return iterRange;
     }
-    const cond = this.plan(fold.loopCondition!);
+    const cond = this._plan(fold.loopCondition!);
     if (cond instanceof Error) {
       return cond;
     }
-    const step = this.plan(fold.loopStep!);
+    const step = this._plan(fold.loopStep!);
     if (step instanceof Error) {
       return step;
     }
-    const result = this.plan(fold.result!);
+    const result = this._plan(fold.result!);
     if (result instanceof Error) {
       return result;
     }

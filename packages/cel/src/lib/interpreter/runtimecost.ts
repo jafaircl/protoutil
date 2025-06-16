@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable no-case-declarations */
+import { ListType, MapType } from '../cel/decls.js';
 import { multiplyByCostFactor } from '../checker/cost.js';
 import {
   ListCreateBaseCost,
@@ -35,9 +36,10 @@ import {
 } from '../common/overloads.js';
 import { RefVal } from '../common/ref/reference.js';
 import { isSizer } from '../common/types/traits/sizer.js';
-import { ListType, MapType } from '../common/types/types.js';
-import { isNil } from '../common/utils.js';
+import { isFunction, isNil } from '../common/utils.js';
+import { Activation, asPartialActivation } from './activation.js';
 import { isConditionalAttribute, isConstantQualifier, isQualifier } from './attributes.js';
+import { decObserveEval } from './decorators.js';
 import {
   EvalAnd,
   EvalFold,
@@ -50,7 +52,7 @@ import {
   isInterpretableConst,
   isInterpretableConstructor,
 } from './interpretable.js';
-import { EvalObserver } from './interpreter.js';
+import { PlannerOption, StatefulObserver } from './interpreter.js';
 
 // WARNING: Any changes to cost calculations in this file require a corresponding change in checker/cost.go
 
@@ -66,10 +68,187 @@ export interface ActualCostEstimator {
 }
 
 /**
+ * costTrackPlanOption modifies the cost tracking factory associatied with the CostObserver
+ */
+type costTrackPlanOption = (c: _costTrackerFactory) => _costTrackerFactory;
+
+/**
+ * CostTrackerFactory configures the factory method to generate a new cost-tracker per-evaluation.
+ */
+export function costTrackerFactory(factory: () => CostTracker): costTrackPlanOption {
+  return (c: _costTrackerFactory) => {
+    c.factory = factory;
+    return c;
+  };
+}
+
+/**
  * CostObserver provides an observer that tracks runtime cost.
  */
-export function costObserver(tracker: CostTracker): EvalObserver {
-  return (id: bigint, programStep: any, value: RefVal) => {
+export function costObserver(...opts: costTrackPlanOption[]): PlannerOption {
+  let ct = new _costTrackerFactory();
+  for (const opt of opts) {
+    ct = opt(ct);
+  }
+  return (p) => {
+    if (isNil(ct.factory)) {
+      throw new Error('cost tracker factory not configured');
+    }
+    p.observers.push(ct);
+    p.decorators.push(decObserveEval(ct.observe.bind(ct)));
+    return p;
+  };
+}
+// export function costObserver(tracker: CostTracker): EvalObserver {
+//   return (vars: Activation, id: bigint, programStep: any, value: RefVal) => {
+//     if (isConstantQualifier(programStep)) {
+//       // TODO: Push identifiers on to the stack before observing constant qualifiers that apply to them and enable the below pop. Once enabled this can case can be collapsed into the Qualifier case.
+//       tracker.cost++;
+//     } else if (isInterpretableConst(programStep)) {
+//       // zero cost
+//     } else if (isInterpretableAttribute(programStep)) {
+//       const a = programStep.attr();
+//       if (isConditionalAttribute(a)) {
+//         // Ternary has no direct cost. All cost is from the conditional and the true/false branch expressions.
+//         tracker.stack.drop(a.falsy.id(), a.truthy.id(), a.expr.id());
+//       } else {
+//         tracker.stack.drop(programStep.attr().id());
+//         tracker.cost += BigInt(SelectAndIdentCost);
+//       }
+//       if (!tracker.presenceTestHasCost) {
+//         if (programStep instanceof EvalTestOnly) {
+//           tracker.cost -= BigInt(SelectAndIdentCost);
+//         }
+//       }
+//       // TODO:
+//       // } else if (isEvalExhaustiveConditional(programStep)) {
+
+//       // }
+//     } else if (programStep instanceof EvalOr) {
+//       for (const term of programStep.terms) {
+//         tracker.stack.drop(term.id());
+//       }
+//     } else if (programStep instanceof EvalAnd) {
+//       for (const term of programStep.terms) {
+//         tracker.stack.drop(term.id());
+//       }
+//       // TODO: Implement exhaustive evaluation
+//       // } else if (programStep instanceof EvalExhaustiveAnd) {
+//       //   for (const term of programStep.terms) {
+//       //     tracker.stack.drop(term.id());
+//       //   }
+//       // } else if (programStep instanceof EvalExhaustiveOr) {
+//       //   for (const term of programStep.terms) {
+//       //     tracker.stack.drop(term.id());
+//       //   }
+//       // }
+//     } else if (programStep instanceof EvalFold) {
+//       tracker.stack.drop(programStep.iterRange.id());
+//     } else if (isQualifier(programStep)) {
+//       tracker.cost++;
+//     } else if (isInterpretableCall(programStep)) {
+//       const [argVals, ok] = tracker.stack.dropArgs(programStep.args());
+//       if (ok) {
+//         tracker.cost += tracker.costCall(programStep, argVals!, value);
+//       }
+//     } else if (isInterpretableConstructor(programStep)) {
+//       tracker.stack.dropArgs(programStep.initVals());
+//       switch (programStep.type()) {
+//         case ListType:
+//           tracker.cost += BigInt(ListCreateBaseCost);
+//           break;
+//         case MapType:
+//           tracker.cost += BigInt(MapCreateBaseCost);
+//           break;
+//         default:
+//           tracker.cost += BigInt(StructCreateBaseCost);
+//           break;
+//       }
+//     }
+//     tracker.stack.push(value, id);
+
+//     if (!isNil(tracker.limit) && tracker.cost > tracker.limit) {
+//       throw new Error('operation cancelled: actual cost limit exceeded');
+//       // TODO: panic(EvalCancelledError{Cause: CostLimitExceeded, Message: "operation cancelled: actual cost limit exceeded"})
+//     }
+//   };
+// }
+
+/**
+ * costTrackerConverter identifies an object which is convertible to a CostTracker instance.
+ */
+interface costTrackerConverter {
+  asCostTracker(): CostTracker;
+}
+
+/**
+ * costTrackActivation hides state in the Activation in a manner not accessible to expressions.
+ */
+class costTrackActivation implements costTrackerConverter {
+  constructor(public readonly vars: Activation, public readonly costTracker: CostTracker) {}
+
+  /**
+   * ResolveName proxies variable lookups to the backing activation.
+   */
+  resolveName(name: string) {
+    return this.vars.resolveName(name);
+  }
+
+  /**
+   * Parent proxies parent lookups to the backing activation.
+   */
+  parent() {
+    return this.vars;
+  }
+
+  /**
+   * AsPartialActivation supports conversion to a partial activation in order to detect unknown attributes.
+   */
+  asPartialActivation() {
+    return asPartialActivation(this.vars);
+  }
+
+  asCostTracker(): CostTracker {
+    return this.costTracker;
+  }
+}
+
+/**
+ * asCostTracker walks the Activation hierarchy and returns the first cost tracker found, if present.
+ */
+function asCostTracker(vars: Activation) {
+  if (vars && isFunction((vars as any)['asCostTracker'])) {
+    return (vars as unknown as costTrackerConverter).asCostTracker();
+  }
+  if (!isNil(vars.parent())) {
+    return asCostTracker(vars.parent()!);
+  }
+  return null;
+}
+
+/**
+ * costTrackerFactory holds a factory for producing new CostTracker instances on each Eval call.
+ */
+class _costTrackerFactory implements StatefulObserver {
+  constructor(public factory?: () => CostTracker) {}
+
+  initState(a: Activation): Activation {
+    if (isNil(this.factory)) {
+      throw new Error('cost tracker factory not configured');
+    }
+    const tracker = this.factory();
+    return new costTrackActivation(a, tracker);
+  }
+
+  getState(a: Activation) {
+    return asCostTracker(a);
+  }
+
+  observe(vars: Activation, id: bigint, programStep: any, value: RefVal): void {
+    const tracker = asCostTracker(vars);
+    if (isNil(tracker)) {
+      return;
+    }
     if (isConstantQualifier(programStep)) {
       // TODO: Push identifiers on to the stack before observing constant qualifiers that apply to them and enable the below pop. Once enabled this can case can be collapsed into the Qualifier case.
       tracker.cost++;
@@ -140,7 +319,7 @@ export function costObserver(tracker: CostTracker): EvalObserver {
       throw new Error('operation cancelled: actual cost limit exceeded');
       // TODO: panic(EvalCancelledError{Cause: CostLimitExceeded, Message: "operation cancelled: actual cost limit exceeded"})
     }
-  };
+  }
 }
 
 /**

@@ -39,11 +39,12 @@ import { TestAllTypesSchema } from '../protogen/cel/expr/conformance/proto3/test
 import { Activation, EmptyActivation, newActivation } from './activation.js';
 import { AttrFactory } from './attributes.js';
 import { DefaultDispatcher } from './dispatcher.js';
-import { ExprInterpreter, observe } from './interpreter.js';
+import { ExprInterpreter } from './interpreter.js';
 import {
   ActualCostEstimator,
   costObserver,
   CostTracker,
+  costTrackerFactory,
   costTrackerLimit,
   CostTrackerOption,
   presenceTestHasCost,
@@ -503,7 +504,7 @@ function computeCost(
     disp.add(...fn.bindings());
   }
   const interp = new ExprInterpreter(disp, cont, reg, reg, attrs);
-  const prg = interp.newInterpretable(checked, observe(costObserver(costTracker)));
+  const prg = interp.newInterpretable(checked, costObserver(costTrackerFactory(() => costTracker)));
   if (prg instanceof Error) {
     throw prg;
   }
