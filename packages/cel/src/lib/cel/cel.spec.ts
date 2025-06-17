@@ -6,7 +6,7 @@ import { BoolRefVal } from '../common/types/bool.js';
 import { IntRefVal } from '../common/types/int.js';
 import { Activation } from '../interpreter/activation.js';
 import { ExprSchema } from '../protogen/cel/expr/syntax_pb.js';
-import { astToString } from './cel.js';
+import { astToString, isUnknownRefVal } from './cel.js';
 import {
   BoolType,
   DynType,
@@ -201,14 +201,9 @@ describe('cel', () => {
       if (prg instanceof Error) {
         throw prg;
       }
-      const [, det] = prg.eval(unkVars);
-      // TODO: out is null and err is populated but everything still works. why?
-      // if !types.IsUnknown(out) {
-      // 	t.Fatalf("got %v, expected unknown", out)
-      // }
-      // if err != nil {
-      // 	t.Fatalf("prg.Eval() failed: %v", err)
-      // }
+      const [out, det, err] = prg.eval(unkVars);
+      expect(isUnknownRefVal(out)).toBeTruthy();
+      expect(err).toBeNull();
       const residual = env.residualAst(ast, det as EvalDetails);
       expect(residual).not.toBeInstanceOf(Error);
       if (residual instanceof Error) {
@@ -245,14 +240,9 @@ describe('cel', () => {
       if (prog instanceof Error) {
         throw prog;
       }
-      const [, det] = prog.eval(unkVars);
-      // TODO: out is null and err is populated but everything still works. why?
-      // if !types.IsUnknown(out) {
-      // 	t.Fatalf("got %v, expected unknown", out)
-      // }
-      // if err != nil {
-      // 	t.Fatalf("prg.Eval() failed: %v", err)
-      // }
+      const [out, det, err] = prog.eval(unkVars);
+      expect(isUnknownRefVal(out)).toBeTruthy();
+      expect(err).toBeNull();
       const residual = env.residualAst(ast, det as EvalDetails);
       if (residual instanceof Error) {
         throw residual;
@@ -299,14 +289,9 @@ describe('cel', () => {
         if (prg instanceof Error) {
           throw prg;
         }
-        const [, det] = prg.eval(unkVars);
-        // TODO: out is null and err is populated but everything still works. why?
-        // if !types.IsUnknown(out) {
-        // 	t.Fatalf("got %v, expected unknown", out)
-        // }
-        // if err != nil {
-        // 	t.Fatalf("prg.Eval() failed: %v", err)
-        // }
+        const [out, det, err] = prg.eval(unkVars);
+        expect(isUnknownRefVal(out)).toBeTruthy();
+        expect(err).toBeNull();
         const residual = env.residualAst(ast, det as EvalDetails);
         if (residual instanceof Error) {
           throw residual;
@@ -346,7 +331,7 @@ describe('cel', () => {
           expect(out?.value()).toEqual(tc.out.value());
         } else {
           expect(err).not.toBeNull();
-          expect(err?.message).toContain(tc.errorSubstr);
+          expect(err?.value().message).toContain(tc.errorSubstr);
         }
       });
     }

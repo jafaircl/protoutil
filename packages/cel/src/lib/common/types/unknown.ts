@@ -29,6 +29,10 @@ export class AttributeTrail {
     return this._qualifierPath;
   }
 
+  addQualifier(qualifier: AttributeQualifier) {
+    this._qualifierPath.push(qualifier);
+  }
+
   /**
    * Equal returns whether two attribute values have the same variable name and
    * qualifier paths.
@@ -99,7 +103,7 @@ export const unspecifiedAttribute = new AttributeTrail('');
  * type.
  */
 export function qualifyAttribute(attr: AttributeTrail, qualifier: AttributeQualifier) {
-  attr.qualifierPath().push(qualifier);
+  attr.addQualifier(qualifier);
   return attr;
 }
 

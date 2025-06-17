@@ -691,7 +691,7 @@ function getStdEnv() {
  */
 export class Env extends CustomEnv {
   constructor(...opts: EnvOption[]) {
-    super();
+    super(...opts);
     // Extend the statically configured standard environment, disabling eager
     // validation to ensure the cost of setup for the environment is still just
     // as cheap as it is in v0.11.x and earlier releases. The user provided

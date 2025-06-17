@@ -271,7 +271,7 @@ export class PartialAttributeFactory implements AttributeFactory {
     // Resolve the attribute qualifiers into a static set. This prevents more dynamic
     // Attribute resolutions than necessary when there are multiple unknown patterns
     // that traverse the same Attribute-based qualifier field.
-    const newQuals: Qualifier[] = new Array(qualifiers.length).fill(null);
+    const newQuals: Qualifier[] = [];
     for (let i = 0; i < qualifiers.length; i++) {
       let qual: Qualifier | Error = qualifiers[i];
       if (isAttribute(qual)) {
@@ -319,11 +319,19 @@ export class PartialAttributeFactory implements AttributeFactory {
             const v = qual.value().value();
             switch (typeof v) {
               case 'boolean':
-              case 'number':
-              case 'bigint':
-              case 'string':
-              default:
                 qualifyAttribute(attr, v);
+                break;
+              case 'number':
+                qualifyAttribute(attr, v);
+                break;
+              case 'bigint':
+                qualifyAttribute(attr, v);
+                break;
+              case 'string':
+                qualifyAttribute(attr, v);
+                break;
+              default:
+                qualifyAttribute(attr, v.toString());
                 break;
             }
           } else {

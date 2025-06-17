@@ -119,14 +119,14 @@ export class HierarchicalActivation implements Activation {
  * Values which are not represented as ref.Val types on input may be adapted to
  * a ref.Val using the ref.TypeAdapter configured in the environment.
  */
-export function newActivation(bindings: Map<string, any> | Record<string, any> | Activation) {
+export function newActivation(bindings: any) {
   if (isNil(bindings)) {
     throw new Error('activation input must not be nil');
   }
   if (isActivation(bindings)) {
     return bindings;
   }
-  if (!(bindings instanceof Map) && !isPlainObject(bindings) && !(bindings instanceof HashMap)) {
+  if (!isMap(bindings) && !isPlainObject(bindings) && !(bindings instanceof HashMap)) {
     throw new Error(
       `activation input must be an activation or map[string]interface: got ${typeof bindings}`
     );
@@ -198,6 +198,9 @@ export function isPartialActivation(value: any): value is PartialActivation {
 export function asPartialActivation(vars: Activation): PartialActivation | null {
   if (isPartialActivation(vars)) {
     return vars;
+  }
+  if (isPartialActivationConverter(vars)) {
+    return vars.asPartialActivation();
   }
   // Since Activations may be hierarchical, test whether a parent converts to a PartialActivation
   const parent = vars.parent();

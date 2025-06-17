@@ -143,14 +143,14 @@ export class Registry implements IRegistry {
   readonly #refTypeMap = new Map<string, Type>();
   readonly #pbdb: MutableRegistry;
 
-  constructor(typeMap: Map<string, Type> = new Map(), registry?: PbRegistry) {
+  constructor(typeMap?: Map<string, Type>, registry?: PbRegistry) {
     this.#pbdb = createMutableRegistry(...StandardProtoDescriptors);
     if (!isNil(registry)) {
       for (const r of registry) {
         this.registerDescriptor(r as DescMessage | DescEnum);
       }
     }
-    this.registerType(
+    const err = this.registerType(
       BoolType,
       BytesType,
       DoubleType,
@@ -164,6 +164,9 @@ export class Registry implements IRegistry {
       TypeType,
       UintType
     );
+    if (isErrorRefVal(err)) {
+      throw err.value();
+    }
     // This block ensures that the well-known protobuf types are registered by
     // default.
     for (const descriptor of StandardProtoDescriptors) {
@@ -175,13 +178,19 @@ export class Registry implements IRegistry {
       this.registerDescriptor(descriptor);
       this.registerType(newObjectType(descriptor.typeName));
     }
-    for (const [k, v] of typeMap) {
-      this.#refTypeMap.set(k, v);
+    if (typeMap) {
+      for (const [k, v] of typeMap) {
+        this.#refTypeMap.set(k, v);
+      }
     }
   }
 
   copy(): Registry {
-    return new Registry(this.#refTypeMap, this.#pbdb);
+    const copy = new Registry(undefined, createMutableRegistry(this.#pbdb));
+    for (const [name, type] of this.#refTypeMap) {
+      copy.#refTypeMap.set(name, type);
+    }
+    return copy;
   }
 
   register(t: RefType | DescEnum | DescMessage): ErrorRefVal | null {

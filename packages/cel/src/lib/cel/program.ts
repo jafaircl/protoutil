@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AST } from '../common/ast.js';
 import { RefVal } from '../common/ref/reference.js';
-import { isErrorRefVal } from '../common/types/error.js';
+import { ErrorRefVal, isErrorRefVal } from '../common/types/error.js';
 import { isNil } from '../common/utils.js';
 import {
   EmptyActivation as InterpreterEmptyActivation,
@@ -66,7 +66,7 @@ export interface Program {
    */
   eval(
     input: Activation | Record<string, any> | Map<string, any>
-  ): [RefVal | null, EvalDetails | null, Error | null];
+  ): [RefVal | null, EvalDetails | null, ErrorRefVal | null];
 }
 
 /**
@@ -115,7 +115,7 @@ export function noVars(): Activation {
  * The `vars` value may either be an Activation or any valid input to the NewActivation call.
  */
 export function partialVars(
-  vars: Map<string, any> | Record<string, any>,
+  vars: Map<string, any> | Record<string, any> | Activation,
   ...unknowns: AttributePatternType[]
 ): PartialActivation {
   return new InterpreterPartialActivation(newActivation(vars), unknowns);
@@ -150,7 +150,7 @@ export type AttributePatternType = AttributePattern;
 export class prog implements Program {
   env: Env;
   evalOpts: EvalOption[];
-  defaultVars: Activation;
+  defaultVars?: Activation;
   dispatcher: Dispatcher;
   interpreter: Interpreter | null;
   interruptCheckFrequency: number;
@@ -170,31 +170,30 @@ export class prog implements Program {
 
   constructor(
     env: Env,
-    evalOpts: EvalOption[],
-    defaultVars: Activation,
+    plannerOptions: PlannerOption[],
     dispatcher: Dispatcher,
+    costOptions: CostTrackerOption[],
+    defaultVars?: Activation,
     interpreter?: Interpreter | null,
     interruptCheckFrequency?: number | null,
-    plannerOptions?: PlannerOption[] | null,
     // regexOptimizations: []*interpreter.RegexOptimization,
     interpretable?: Interpretable | null,
     observable?: ObservableInterpretable | null,
     callCostEstimator?: ActualCostEstimator | null,
-    costOptions?: CostTrackerOption[] | null,
     costLimit?: bigint | null
   ) {
     this.env = env;
-    this.evalOpts = evalOpts || [];
-    this.defaultVars = defaultVars || new InterpreterEmptyActivation();
+    this.evalOpts = [];
+    this.defaultVars = defaultVars;
     this.dispatcher = dispatcher;
     this.interpreter = interpreter || null;
     this.interruptCheckFrequency = interruptCheckFrequency || 0;
-    this.plannerOptions = plannerOptions || [];
+    this.plannerOptions = plannerOptions;
     // this.regexOptimizations = regexOptimizations;
     this.interpretable = interpretable || null;
     this.observable = observable || null;
     this.callCostEstimator = callCostEstimator || null;
-    this.costOptions = costOptions || [];
+    this.costOptions = costOptions;
     this.costLimit = costLimit ?? null;
   }
 
@@ -217,9 +216,9 @@ export class prog implements Program {
 
   eval(
     input: Activation | Record<string, any> | Map<string, any>
-  ): [RefVal | null, EvalDetails | null, Error | null] {
+  ): [RefVal | null, EvalDetails | null, ErrorRefVal | null] {
     if (isNil(this.interpretable)) {
-      return [null, null, new Error('program not initialized')];
+      return [null, null, new ErrorRefVal('program not initialized')];
     }
     // Build a hierarchical activation if there are default vars set.
     let vars: Activation;
@@ -247,7 +246,7 @@ export class prog implements Program {
     }
     // The output of an internal Eval may have a value (`v`) that is a types.Err. This step translates the CEL value to a JS error response. This interface does not quite match the RPC signature which allows for multiple errors to be returned, but should be sufficient
     if (isErrorRefVal(out)) {
-      return [null, det, out.value()];
+      return [null, det, out];
     }
     return [out, det, null];
   }
@@ -266,7 +265,7 @@ export function newProgram(e: Env, a: AST, opts: ProgramOption[]): Program | Err
 
   // Ensure the default attribute factory is set after the adapter and provider
   // are configured.
-  const p = new prog(e, [], new InterpreterEmptyActivation(), disp);
+  const p = new prog(e, [], disp, []);
 
   // Configure the program via the ProgramOption values.
   for (const opt of opts) {
