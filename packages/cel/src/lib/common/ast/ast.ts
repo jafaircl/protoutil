@@ -1,26 +1,21 @@
-/* eslint-disable no-case-declarations */
-import { create } from '@bufbuild/protobuf';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { clone, create } from '@bufbuild/protobuf';
 import {
   Expr,
+  Expr_CreateStruct_Entry,
+  Expr_CreateStruct_EntrySchema,
+  ExprSchema,
   ParsedExpr,
   SourceInfo as ProtoSourceInfo,
   SourceInfoSchema,
-} from '../protogen/cel/expr/syntax_pb.js';
-import { toCheckedExprProto, toParsedExprProto } from './conversion.js';
-import { Location, NoLocation } from './location.js';
-import {
-  unwrapCallProtoExpr,
-  unwrapComprehensionProtoExpr,
-  unwrapConstantProtoExpr,
-  unwrapIdentProtoExpr,
-  unwrapListProtoExpr,
-  unwrapSelectProtoExpr,
-  unwrapStructProtoExpr,
-} from './pb/expressions.js';
-import { RefVal } from './ref/reference.js';
-import { Source, StringSource } from './source.js';
-import { DynType, Type } from './types/types.js';
-import { isNil, mapToObject } from './utils.js';
+} from '../../protogen/cel/expr/syntax_pb.js';
+import { toCheckedExprProto, toParsedExprProto } from '../conversion.js';
+import { Location, NoLocation } from '../location.js';
+import { RefVal } from '../ref/reference.js';
+import { InfoSource, Source, StringSource } from '../source.js';
+import { DynType, Type } from '../types/types.js';
+import { isNil, mapToObject } from '../utils.js';
+import { postOrderVisit, Visitor } from './navigable.js';
 
 /**
  * AST contains a protobuf expression and source info along with CEL-native
@@ -127,67 +122,6 @@ export class AST {
    */
   toProto<T extends ParsedExpr = ParsedExpr>(): T {
     return toParsedExprProto(this) as T;
-  }
-}
-
-/**
- * SetKindCase replaces the contents of the current expression with the
- * contents of the other.
- *
- * The SetKindCase takes ownership of any expression instances references
- * within the input Expr. A shallow copy is made of the Expr value itself,
- * but not a deep one.
- *
- * This method should only be used during AST rewrites using temporary Expr
- * values.
- */
-export function setExprKindCase(e: Expr, other: Expr) {
-  if (isNil(e)) {
-    return;
-  }
-  if (isNil(other)) {
-    e.exprKind = { case: undefined, value: undefined };
-  }
-
-  switch (other.exprKind.case) {
-    case 'callExpr':
-      const c = unwrapCallProtoExpr(other);
-      if (isNil(c)) return;
-      e.exprKind = { case: 'callExpr', value: c };
-      break;
-    case 'comprehensionExpr':
-      const comp = unwrapComprehensionProtoExpr(other);
-      if (isNil(comp)) return;
-      e.exprKind = { case: 'comprehensionExpr', value: comp };
-      break;
-    case 'constExpr':
-      const constant = unwrapConstantProtoExpr(other);
-      if (isNil(constant)) return;
-      e.exprKind = { case: 'constExpr', value: constant };
-      break;
-    case 'identExpr':
-      const ident = unwrapIdentProtoExpr(other);
-      if (isNil(ident)) return;
-      e.exprKind = { case: 'identExpr', value: ident };
-      break;
-    case 'listExpr':
-      const list = unwrapListProtoExpr(other);
-      if (isNil(list)) return;
-      e.exprKind = { case: 'listExpr', value: list };
-      break;
-    case 'selectExpr':
-      const select = unwrapSelectProtoExpr(other);
-      if (isNil(select)) return;
-      e.exprKind = { case: 'selectExpr', value: select };
-      break;
-    case 'structExpr':
-      const struct = unwrapStructProtoExpr(other);
-      if (isNil(struct)) return;
-      e.exprKind = { case: 'structExpr', value: struct };
-      break;
-    default:
-      e.exprKind = { case: undefined, value: undefined };
-      break;
   }
 }
 
@@ -416,6 +350,14 @@ export class SourceInfo {
       positions: mapToObject(positionsMap),
     });
   }
+
+  baseLine() {
+    return this._baseLine;
+  }
+
+  baseCol() {
+    return this._baseCol;
+  }
 }
 
 export class OffsetRange {
@@ -520,4 +462,94 @@ export function newIdentReference(name: string, value?: RefVal) {
  */
 export function newFunctionReference(...overloads: string[]) {
   return new ReferenceInfo('', overloads);
+}
+
+/**
+ * CopyExpr creates a deep copy of the input Expr value.
+ */
+export function copyExpr(expr: Expr): Expr {
+  return clone(ExprSchema, expr);
+}
+
+/**
+ * CopyEntryExpr creates a deep copy of the input EntryExpr value.
+ */
+export function copyEntryExpr(entry: Expr_CreateStruct_Entry): Expr_CreateStruct_Entry {
+  return clone(Expr_CreateStruct_EntrySchema, entry);
+}
+
+/**
+ * CopySourceInfo creates a deep copy of the MacroCalls within the input SourceInfo.
+ *
+ * Copies of macro Expr values are generated using an internal default ExprFactory.
+ */
+export function copySourceInfo(info: SourceInfo): SourceInfo {
+  const source = new InfoSource(info.toProto());
+  const srcInfo = new SourceInfo(
+    source,
+    info.syntaxVersion(),
+    info.description(),
+    [...info.lineOffsets()],
+    info.baseLine(),
+    info.baseCol()
+  );
+  for (const [macroId, macroExpr] of info.macroCalls()) {
+    srcInfo.setMacroCall(macroId, copyExpr(macroExpr));
+  }
+  for (const [id, range] of info.offsetRanges()) {
+    srcInfo.setOffsetRange(id, new OffsetRange(range.start, range.stop));
+  }
+  return srcInfo;
+}
+
+/**
+ * Copy creates a deep copy of the Expr and SourceInfo values in the input AST.
+ *
+ * Copies of the Expr value are generated using an internal default ExprFactory.
+ */
+export function copyAST(a: AST): AST {
+  const e = copyExpr(a.expr());
+  if (!a.isChecked()) {
+    return new AST(e, copySourceInfo(a.sourceInfo()));
+  }
+  const typesCopy = new Map<bigint, Type>();
+  for (const [id, t] of a.typeMap()) {
+    typesCopy.set(id, t);
+  }
+  const refsCopy = new Map<bigint, ReferenceInfo>();
+  for (const [id, ref] of a.referenceMap()) {
+    refsCopy.set(id, new ReferenceInfo(ref.name, [...(ref.overloadIds || [])], ref.value));
+  }
+  return new CheckedAST(new AST(e, copySourceInfo(a.sourceInfo())), typesCopy, refsCopy);
+}
+
+class maxIDVisitor implements Visitor {
+  constructor(public maxID: bigint) {}
+
+  visitExpr(e: Expr, depth?: number): void {
+    if (this.maxID < e.id) {
+      this.maxID = e.id;
+    }
+  }
+
+  visitEntryExpr(e: Expr_CreateStruct_Entry, depth?: number): void {
+    if (this.maxID < e.id) {
+      this.maxID = e.id;
+    }
+  }
+}
+
+/**
+ * MaxID returns the upper-bound, non-inclusive, of ids present within the AST's Expr value.
+ */
+export function maxID(a: AST) {
+  const visitor = new maxIDVisitor(1n);
+  postOrderVisit(a.expr(), visitor);
+  for (const [id, call] of a.sourceInfo().macroCalls()) {
+    postOrderVisit(call, visitor);
+    if (visitor.maxID < id) {
+      visitor.maxID = id;
+    }
+  }
+  return visitor.maxID + 1n;
 }

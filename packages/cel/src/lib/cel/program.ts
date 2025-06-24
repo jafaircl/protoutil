@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AST } from '../common/ast.js';
+import { AST } from '../common/ast/ast.js';
 import { RefVal } from '../common/ref/reference.js';
 import { ErrorRefVal, isErrorRefVal } from '../common/types/error.js';
 import { isNil } from '../common/utils.js';

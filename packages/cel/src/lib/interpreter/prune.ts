@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable no-case-declarations */
-import { AST, newSourceInfo } from '../common/ast.js';
+import { AST, newSourceInfo } from '../common/ast/ast.js';
 import {
   CONDITIONAL_OPERATOR,
   IN_OPERATOR,

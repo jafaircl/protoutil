@@ -15,7 +15,7 @@ import {
   SourceInfo as ProtoSourceInfo,
   SourceInfoSchema,
 } from '../protogen/cel/expr/syntax_pb.js';
-import { AST, CheckedAST, OffsetRange, ReferenceInfo, SourceInfo } from './ast.js';
+import { AST, CheckedAST, OffsetRange, ReferenceInfo, SourceInfo } from './ast/ast.js';
 import { protoConstantToRefVal, refValToProtoConstant } from './pb/constants.js';
 import { RefVal } from './ref/reference.js';
 import { InfoSource } from './source.js';

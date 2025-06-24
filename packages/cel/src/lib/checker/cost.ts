@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 // WARNING: Any changes to cost calculations in this file require a corresponding change in interpreter/runtimecost.go
 
-import { AST } from '../common/ast.js';
+import { AST } from '../common/ast/ast.js';
 import {
   ConstCost,
   ListCreateBaseCost,

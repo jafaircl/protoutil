@@ -4,7 +4,7 @@
 import { Checker } from '../checker/checker.js';
 import { Coster, CostEstimator, CostOption } from '../checker/cost.js';
 import { Env as CheckerEnv, CheckerEnvOptions } from '../checker/env.js';
-import { AST, SourceInfo, AST as œAST } from '../common/ast.js';
+import { AST, SourceInfo, AST as œAST } from '../common/ast/ast.js';
 import { Container } from '../common/container.js';
 import { sourceInfoToProto } from '../common/conversion.js';
 import { FunctionDecl, VariableDecl } from '../common/decls.js';

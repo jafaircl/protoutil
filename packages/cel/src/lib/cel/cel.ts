@@ -29,7 +29,22 @@ export {
   isValidTypeSubstitution,
   maybeUnwrapOptional,
 } from '../checker/types.js';
-export { ReferenceInfo, SourceInfo } from '../common/ast.js';
+export { ReferenceInfo, SourceInfo } from '../common/ast/ast.js';
+export {
+  NavigableExpr,
+  postOrderVisit,
+  postOrderVisitNavigable,
+  preOrderVisit,
+  preOrderVisitNavigable,
+  visit,
+  visitNavigable,
+} from '../common/ast/navigable.js';
+export type {
+  ExprMatcher,
+  NavigableExprMatcher,
+  NavigableExprVisitor,
+  Visitor,
+} from '../common/ast/navigable.js';
 export {
   ConstCost,
   ListCreateBaseCost,
@@ -264,6 +279,7 @@ export {
 export type { Declaration } from './decls.js';
 export { Ast, CustomEnv, Env, Issues, formatCELType } from './env.js';
 export type { Source } from './env.js';
+export { InlineVariable, InliningOptimizer } from './inlining.js';
 export {
   astToCheckedExpr,
   astToParsedExpr,
@@ -276,6 +292,8 @@ export {
 } from './io.js';
 export { Feature, StdLib, isLibrary, isSingletonLibrary, lib } from './library.js';
 export type { Library, SingletonLibrary } from './library.js';
+export { OptimizerContext, StaticOptimizer } from './optimizer.js';
+export type { ASTOptimizer } from './optimizer.js';
 export {
   EvalOption,
   abbrevs,

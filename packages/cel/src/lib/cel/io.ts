@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import { AST, SourceInfo } from '../common/ast.js';
+import { AST, SourceInfo } from '../common/ast/ast.js';
 import { protoToSourceInfo, toCheckedExprProto } from '../common/conversion.js';
 import { InfoSource } from '../common/source.js';
 import { isNil } from '../common/utils.js';

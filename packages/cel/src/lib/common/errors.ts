@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseErrorListener, RecognitionException, Recognizer, Token } from 'antlr4ng';
 import { Expr } from '../protogen/cel/expr/syntax_pb.js';
-import { ReferenceInfo } from './ast.js';
+import { ReferenceInfo } from './ast/ast.js';
 import { Container } from './container.js';
 import { CELError } from './error.js';
 import { formatCELType, formatFunctionDeclType } from './format.js';

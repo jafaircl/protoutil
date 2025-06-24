@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AST } from '../common/ast.js';
+import { AST } from '../common/ast/ast.js';
 import { Container } from '../common/container.js';
 import { Adapter, Provider } from '../common/ref/provider.js';
 import { RefVal } from '../common/ref/reference.js';

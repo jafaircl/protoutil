@@ -1,6 +1,6 @@
 /* eslint-disable no-case-declarations */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { AST, ReferenceInfo } from '../common/ast.js';
+import { AST, ReferenceInfo } from '../common/ast/ast.js';
 import { Container } from '../common/container.js';
 import { BinaryOp, FunctionOp, Overload, UnaryOp } from '../common/functions.js';
 import {

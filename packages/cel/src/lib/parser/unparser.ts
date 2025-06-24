@@ -1,6 +1,6 @@
 import { toJsonString } from '@bufbuild/protobuf';
 import { DurationSchema, TimestampSchema } from '@bufbuild/protobuf/wkt';
-import { AST } from '../common/ast.js';
+import { AST } from '../common/ast/ast.js';
 import {
   ADD_OPERATOR,
   arity,

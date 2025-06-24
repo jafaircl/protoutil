@@ -1,8 +1,8 @@
+import { Location } from '../location.js';
+import { ADD_BYTES_OVERLOAD, ADD_DOUBLE_OVERLOAD } from '../overloads.js';
+import { StringSource } from '../source.js';
+import { BytesRefVal } from '../types/bytes.js';
 import { newFunctionReference, newIdentReference, newSourceInfo, OffsetRange } from './ast.js';
-import { Location } from './location.js';
-import { ADD_BYTES_OVERLOAD, ADD_DOUBLE_OVERLOAD } from './overloads.js';
-import { StringSource } from './source.js';
-import { BytesRefVal } from './types/bytes.js';
 
 describe('ast', () => {
   it('SourceInfo', () => {
