@@ -84,6 +84,8 @@ export class Checker {
   check(ast: AST): CheckedAST {
     this.#ast = ast;
     this.#errors = new Errors(ast.sourceInfo().source());
+    this.#typeMap.clear();
+    this.#refMap.clear();
     this.checkExpr(this.#ast.expr());
 
     // Walk over the final type map substituting any type parameters either by

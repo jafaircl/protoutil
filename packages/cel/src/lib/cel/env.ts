@@ -698,7 +698,9 @@ export class Env extends CustomEnv {
     // options can easily re-enable the eager validation as they are processed
     // after this default option.
     const stdOpts: EnvOption[] = [eagerlyValidateDeclarations(false), ...opts];
-    const env = getStdEnv();
+    // Somehow the standard environment was being modified by tests. This is
+    // really not much overhead. The perf tests don't even notice a difference
+    const env = new CustomEnv(StdLib(), eagerlyValidateDeclarations(true));
     return env.extend(...stdOpts);
   }
 }
@@ -747,5 +749,14 @@ export class Issues {
 
   toString() {
     return this.#errs.toDisplayString();
+  }
+
+  reportErrorAtID(id: bigint, message: string) {
+    if (this.#info) {
+      // If the source info is available, report the error with its location.
+      this.#errs.reportErrorAtId(id, this.#info.getStartLocation(id), message);
+      return;
+    }
+    this.#errs.reportError(NoLocation, message);
   }
 }

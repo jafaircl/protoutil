@@ -337,6 +337,19 @@ describe('cel', () => {
     }
   });
 
+  it('should be able to compile multiple times', () => {
+    const env = new Env(variable('x', IntType));
+    const expr = `x < 10 && x > 0`;
+    const ast1 = env.compile(expr);
+    if (ast1 instanceof Issues) {
+      throw ast1.err();
+    }
+    expect(ast1).not.toBeInstanceOf(Issues);
+    const ast2 = env.compile(expr);
+    expect(ast2).not.toBeInstanceOf(Issues);
+    expect(ast1).toEqual(ast2);
+  });
+
   // TODO: more tests
 });
 
