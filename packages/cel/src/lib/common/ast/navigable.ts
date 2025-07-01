@@ -335,6 +335,37 @@ export function visitNavigable(
 export type NavigableExprMatcher = (e: NavigableExpr) => boolean;
 
 /**
+ * ConstantValueMatcher returns an ExprMatcher which will return true if the input NavigableExpr
+ * is comprised of all constant values, such as a simple literal or even list and map literal.
+ */
+export function constantValueMatcher(): NavigableExprMatcher {
+  return matchIsConstantValue;
+}
+
+function matchIsConstantValue(e: NavigableExpr): boolean {
+  if (e.kind() === 'constExpr') {
+    return true;
+  }
+  if (e.kind() === 'structExpr' || e.kind() === 'listExpr') {
+    for (const child of e.children()) {
+      if (!matchIsConstantValue(child)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * KindMatcher returns an ExprMatcher which will return true if the input NavigableExpr.Kind() matches
+ * the specified `kind`.
+ */
+export function kindMatcher(kind: Expr['exprKind']['case']): NavigableExprMatcher {
+  return (e) => e.kind() === kind;
+}
+
+/**
  * MatchDescendants takes a NavigableExpr and ExprMatcher and produces a list of NavigableExpr values
  * matching the input criteria in post-order (bottom up).
  */

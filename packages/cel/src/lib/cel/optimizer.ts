@@ -8,6 +8,7 @@ import {
   TYPE_CONVERT_DURATION_OVERLOAD,
   TYPE_CONVERT_TIMESTAMP_OVERLOAD,
 } from '../common/overloads.js';
+import { refValToProtoConstant } from '../common/pb/constants.js';
 import {
   newBoolProtoExpr,
   newComprehensionProtoExpr,
@@ -25,21 +26,33 @@ import {
   newTestOnlySelectProtoExpr,
   unwrapSelectProtoExpr,
 } from '../common/pb/expressions.js';
+import { RefVal } from '../common/ref/reference.js';
 import { BoolRefVal } from '../common/types/bool.js';
 import { BytesRefVal } from '../common/types/bytes.js';
 import { DoubleRefVal } from '../common/types/double.js';
 import { DurationRefVal } from '../common/types/duration.js';
 import { IntRefVal } from '../common/types/int.js';
+import {
+  ConcatList,
+  DynamicList,
+  MutableList,
+  ProtoList,
+  RefValList,
+  StringList,
+} from '../common/types/list.js';
+import { DynamicMap, MutableMap, RefValMap } from '../common/types/map.js';
 import { reflectNativeType } from '../common/types/native.js';
 import { NullRefVal } from '../common/types/null.js';
-import { OptionalRefVal } from '../common/types/optional.js';
+import { isObjectRefVal, ObjectRefVal } from '../common/types/object.js';
+import { isOptionalRefVal, OptionalRefVal } from '../common/types/optional.js';
 import { StringRefVal } from '../common/types/string.js';
 import { TimestampRefVal } from '../common/types/timestamp.js';
+import { isLister } from '../common/types/traits/lister.js';
+import { isMapper } from '../common/types/traits/mapper.js';
 import { UintRefVal } from '../common/types/uint.js';
 import { isNil } from '../common/utils.js';
 import { Expr, Expr_CreateStruct_Entry } from '../protogen-exports/index.js';
-import { RefVal, refValToProtoConstant } from './cel.js';
-import { StringType } from './decls.js';
+import { StringType, Type } from './decls.js';
 import { Ast, Env, Issues } from './env.js';
 import { EnvOption } from './options.js';
 
@@ -410,6 +423,77 @@ class optimizerExprFactory {
         return newGlobalCallProtoExpr(this.idGen.nextID(), TYPE_CONVERT_TIMESTAMP_OVERLOAD, [
           newStringProtoExpr(this.idGen.nextID(), timestampString.value()),
         ]);
+      case ConcatList:
+      case DynamicList:
+      case MutableList:
+      case ProtoList:
+      case RefValList:
+      case StringList:
+        if (!isLister(val)) {
+          throw new Error(`Expected lister value, got: ${val}`);
+        }
+        const listIterator = val.iterator();
+        const listElems: Expr[] = [];
+        const optionalIndicies: number[] = [];
+        let index = 0;
+        while (listIterator.hasNext().value()) {
+          const elem = listIterator.next();
+          if (isNil(elem)) {
+            continue;
+          }
+          if (isOptionalRefVal(elem)) {
+            optionalIndicies.push(index);
+          }
+          listElems.push(this.newLiteral(elem));
+          index += 1;
+        }
+        return this.newList(listElems, optionalIndicies);
+      case DynamicMap:
+      case MutableMap:
+      case RefValMap:
+        if (!isMapper(val)) {
+          throw new Error(`failed to adapt ${val.type().toString()} to literal`);
+        }
+        const entries: Expr_CreateStruct_Entry[] = [];
+        const it = val.iterator();
+        while (it.hasNext().value() === true) {
+          const keyVal = it.next();
+          const keyExpr = this.newLiteral(keyVal!);
+          if (keyExpr instanceof Error) {
+            throw keyExpr;
+          }
+          const valVal = val.get(keyVal!);
+          const valExpr = this.newLiteral(valVal);
+          if (valExpr instanceof Error) {
+            return valExpr;
+          }
+          entries.push(this.newMapEntry(keyExpr, valExpr, false));
+        }
+        return this.newMap(entries);
+      case ObjectRefVal:
+        if (!isObjectRefVal(val)) {
+          throw new Error(`Expected mapper value, got: ${val}`);
+        }
+        const fields = val.registry.findStructFieldNames(val.type().typeName());
+        if (!fields) {
+          throw new Error(`failed to adapt ${val.type().toString()} to literal`);
+        }
+        const fieldInits: Expr_CreateStruct_Entry[] = [];
+        for (const f of fields) {
+          const field = new StringRefVal(f);
+          if (val.isSet(field).value() !== true) {
+            continue;
+          }
+          const fieldVal = val.get(field);
+          const fieldExpr = this.newLiteral(fieldVal);
+          if (fieldExpr instanceof Error) {
+            return fieldExpr;
+          }
+          fieldInits.push(this.newStructField(f, fieldExpr, false));
+        }
+        return this.newStruct(val.type().typeName(), fieldInits);
+      case Type:
+        return this.newIdent((val as Type).typeName());
       default:
         throw new Error('Unsupported literal type: ' + val.type().typeName());
     }

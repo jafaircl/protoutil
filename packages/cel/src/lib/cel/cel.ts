@@ -279,6 +279,8 @@ export {
 export type { Declaration } from './decls.js';
 export { Ast, CustomEnv, Env, Issues, formatCELType } from './env.js';
 export type { Source } from './env.js';
+export { ConstantFoldingOptimizer, foldKnownValues, maxConstantFoldIterations } from './folding.js';
+export type { ConstantFoldingOption } from './folding.js';
 export { InlineVariable, InliningOptimizer } from './inlining.js';
 export {
   astToCheckedExpr,

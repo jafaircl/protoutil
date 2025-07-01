@@ -419,11 +419,12 @@ export function overload(
  */
 export function memberOverload(
   overloadID: string,
+  targetType: Type,
   args: Type[],
   resultType: Type,
   ...opts: OverloadOpt[]
 ) {
-  return œmemberOverload(overloadID, args, resultType, ...opts);
+  return œmemberOverload(overloadID, targetType, args, resultType, ...opts);
 }
 
 /**
@@ -467,7 +468,7 @@ export function exprDeclToDeclaration(decl: Decl) {
           return resultType;
         }
         if (o.isInstanceFunction === true) {
-          opts.push(memberOverload(o.overloadId, args, resultType));
+          opts.push(memberOverload(o.overloadId, args[0], args.slice(1), resultType));
         } else {
           opts.push(overload(o.overloadId, args, resultType));
         }

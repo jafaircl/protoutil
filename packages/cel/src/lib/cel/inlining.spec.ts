@@ -1,5 +1,6 @@
 import { BoolType, DynType, func, IntType, listType, overload, Type, variable } from './decls.js';
 import { Env, Issues } from './env.js';
+import { ConstantFoldingOptimizer } from './folding.js';
 import { InlineVariable, InliningOptimizer } from './inlining.js';
 import { astToString } from './io.js';
 import { StaticOptimizer } from './optimizer.js';
@@ -202,29 +203,21 @@ describe('inlining', () => {
         if (checked instanceof Issues) {
           throw checked.err();
         }
-        const opt = new StaticOptimizer(new InliningOptimizer(...inlinedVars));
-        const optimized = opt.optimize(e, checked);
+        let opt = new StaticOptimizer(new InliningOptimizer(...inlinedVars));
+        let optimized = opt.optimize(e, checked);
         if (optimized instanceof Issues) {
           throw optimized.err();
         }
         const inlined = astToString(optimized);
         expect(inlined).toEqual(tc.inlined);
-        // folder, err := cel.NewConstantFoldingOptimizer()
-        // if err != nil {
-        //     t.Fatalf("NewConstantFoldingOptimizer() failed: %v", err)
-        // }
-        // opt = cel.NewStaticOptimizer(folder)
-        // optimized, iss = opt.Optimize(e, optimized)
-        // if iss.Err() != nil {
-        //     t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
-        // }
-        // folded, err := cel.AstToString(optimized)
-        // if err != nil {
-        //     t.Fatalf("cel.AstToString() failed: %v", err)
-        // }
-        // if folded != tc.folded {
-        //     t.Errorf("folded got %q, wanted %q", folded, tc.folded)
-        // }
+        const folder = new ConstantFoldingOptimizer();
+        opt = new StaticOptimizer(folder);
+        optimized = opt.optimize(e, optimized);
+        if (optimized instanceof Issues) {
+          throw optimized.err();
+        }
+        const folded = astToString(optimized);
+        expect(folded).toEqual(tc.folded);
       });
     }
   });
