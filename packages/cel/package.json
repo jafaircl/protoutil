@@ -1,6 +1,6 @@
 {
   "name": "@protoutil/cel",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/cel",
   "repository": {
     "type": "git",
@@ -49,7 +49,7 @@
   ],
   "dependencies": {
     "@bufbuild/protobuf": "^2.2.5",
-    "@protoutil/core": "0.2.4",
+    "@protoutil/core": "0.2.5",
     "antlr4ng": "3.0.16",
     "dequal": "^2.0.3",
     "safe-stable-stringify": "^2.5.0"

@@ -1,3 +1,27 @@
+## 0.2.5 (2025-07-02)
+
+### 🚀 Features
+
+- **cel:** initial commit; moving from @bearclaw to ease development ([#1](https://github.com/jafaircl/protoutil/pull/1))
+- **cel:** add residual ast functionality ([5a42b4f](https://github.com/jafaircl/protoutil/commit/5a42b4f))
+- **cel:** add inlining ([92b85cd](https://github.com/jafaircl/protoutil/commit/92b85cd))
+- **cel:** add folding optimizer ([f6b0006](https://github.com/jafaircl/protoutil/commit/f6b0006))
+- **cel-policy-agent:** initial commit ([0901db8](https://github.com/jafaircl/protoutil/commit/0901db8))
+- **cel-policy-agent:** policy testing ([717d34c](https://github.com/jafaircl/protoutil/commit/717d34c))
+- **celql:** initial commit ([#2](https://github.com/jafaircl/protoutil/pull/2))
+- **celql:** support translation from compiled ASTs ([2c5e73d](https://github.com/jafaircl/protoutil/commit/2c5e73d))
+
+### 🩹 Fixes
+
+- **cel:** fix issue with extended environments; more exports to aid in development ([df5f92f](https://github.com/jafaircl/protoutil/commit/df5f92f))
+- **cel:** expose registry types and descriptors ([72068bd](https://github.com/jafaircl/protoutil/commit/72068bd))
+- **cel:** fix for unresolved unknown attributes ([c30fe02](https://github.com/jafaircl/protoutil/commit/c30fe02))
+- **cel:** various fixes for issues with inlining ([1d92256](https://github.com/jafaircl/protoutil/commit/1d92256))
+
+### ❤️ Thank You
+
+- jafaircl
+
 ## 0.2.4 (2025-05-02)
 
 This was a version bump only, there were no code changes.
