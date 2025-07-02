@@ -14,9 +14,6 @@
     },
     {
       "path": "./packages/celql"
-    },
-    {
-      "path": "./packages/cel-policy-agent"
     }
   ]
 }

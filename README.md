@@ -7,7 +7,6 @@ A set of utilities for working with [protobufs](https://protobuf.dev/). These ut
 - [AIP](packages/aip/README.md) - utilities for implementing [Google API Improvement Proposals](https://aip.dev/)
   (AIPs)
 - [CEL](packages/cel/README.md) - a TypeScript CEL (Common Expression Language) implementation
-- [CEL Policy Agent](packages/cel-policy-agent/README.md) - utilities for enforcing CEL authorization policies
 - [CELQL](packages/celql/README.md) - utilities for converting CEL expressions into SQL clauses
 - [Core](packages/core/README.md) - utilities for working with well-known types
 
