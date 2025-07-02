@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-empty-interface */
 import { Checker } from '../checker/checker.js';
 import { Coster, CostEstimator, CostOption } from '../checker/cost.js';
 import { Env as CheckerEnv, CheckerEnvOptions } from '../checker/env.js';
-import { AST, SourceInfo, AST as œAST } from '../common/ast.js';
+import { AST, SourceInfo, AST as œAST } from '../common/ast/ast.js';
 import { Container } from '../common/container.js';
 import { sourceInfoToProto } from '../common/conversion.js';
 import { FunctionDecl, VariableDecl } from '../common/decls.js';
@@ -14,6 +15,9 @@ import { Adapter, isRegistry, Provider } from '../common/ref/provider.js';
 import { TextSource, Source as œSource } from '../common/source.js';
 import { Registry } from '../common/types/provider.js';
 import { isNil } from '../common/utils.js';
+import { EmptyActivation } from '../interpreter/activation.js';
+import { AttributePattern } from '../interpreter/attribute-patterns.js';
+import { AstPruner } from '../interpreter/prune.js';
 import { Macro } from '../parser/macro.js';
 import {
   enableIdentEscapeSyntax,
@@ -24,9 +28,18 @@ import {
   populateMacroCalls,
 } from '../parser/parser.js';
 import { Type } from './decls.js';
+import { astToString } from './io.js';
 import { Feature, StdLib } from './library.js';
 import { eagerlyValidateDeclarations, EnvOption, ProgramOption } from './options.js';
-import { newProgram, Program } from './program.js';
+import {
+  Activation,
+  AttributePatternType,
+  EvalDetails,
+  newActivation,
+  newProgram,
+  partialVars,
+  Program,
+} from './program.js';
 
 /**
  * Source interface representing a user-provided expression.
@@ -352,16 +365,16 @@ export class EnvBase {
     // from the TypeAdapter, the possible configurations which could use a
     // TypeRegistry as the base implementation are captured below.
     if (isRegistry(adapter) && isRegistry(provider)) {
-      const reg = adapter.copy();
-      provider = reg;
+      const reg = provider.copy();
       // If the adapter and provider are the same object, set the adapter
       // to the same ref.TypeRegistry as the provider.
-      if (adapter == provider) {
+      if (adapter === provider) {
         adapter = reg;
       } else {
         // Otherwise, make a copy of the adapter.
         adapter = adapter.copy();
       }
+      provider = reg;
     } else if (isRegistry(provider)) {
       provider = provider.copy();
     } else if (isRegistry(adapter)) {
@@ -483,6 +496,79 @@ export class EnvBase {
   }
 
   /**
+   * UnknownVars returns a PartialActivation which marks all variables declared in the Env as
+   * unknown AttributePattern values.
+   *
+   * Note, the UnknownVars will behave the same as an cel.NoVars() unless the PartialAttributes
+   * option is provided as a ProgramOption.
+   */
+  unknownVars() {
+    const act = new EmptyActivation();
+    return partialVars(act, ...this._computeUnknownVars(act));
+  }
+
+  /**
+   * PartialVars returns a PartialActivation where all variables not in the input variable
+   * set, but which have been configured in the environment, are marked as unknown.
+   *
+   * The `vars` value may either be an Activation or any valid input to the cel.NewActivation call.
+   *
+   * Note, this is equivalent to calling cel.PartialVars and manually configuring the set of unknown
+   * variables. For more advanced use cases of partial state where portions of an object graph, rather
+   * than top-level variables, are missing the PartialVars() method may be a more suitable choice.
+   *
+   * Note, the PartialVars will behave the same as cel.NoVars() unless the PartialAttributes
+   * option is provided as a ProgramOption.
+   */
+  partialVars(vars: Map<string, any> | Record<string, any>) {
+    const act = newActivation(vars);
+    return partialVars(act, ...this._computeUnknownVars(act));
+  }
+
+  /**
+   * ResidualAst takes an Ast and its EvalDetails to produce a new Ast which only contains the
+   * attribute references which are unknown.
+   *
+   * Residual expressions are beneficial in a few scenarios:
+   *
+   * - Optimizing constant expression evaluations away.
+   * - Indexing and pruning expressions based on known input arguments.
+   * - Surfacing additional requirements that are needed in order to complete an evaluation.
+   * - Sharing the evaluation of an expression across multiple machines/nodes.
+   *
+   * For example, if an expression targets a 'resource' and 'request' attribute and the possible
+   * values for the resource are known, a PartialActivation could mark the 'request' as an unknown
+   * interpreter.AttributePattern and the resulting ResidualAst would be reduced to only the parts
+   * of the expression that reference the 'request'.
+   *
+   * Note, the expression ids within the residual AST generated through this method have no
+   * correlation to the expression ids of the original AST.
+   * See the PartialVars helper for how to construct a PartialActivation.
+   *
+   * TODO: Consider adding an option to generate a Program.Residual to avoid round-tripping to an
+   * Ast format and then Program again.
+   */
+  residualAst(a: Ast, details: EvalDetails): Ast | Error {
+    const ast = a.nativeRep();
+    const pruner = new AstPruner(ast.expr(), ast.sourceInfo().macroCalls(), details.state!);
+    const pruned = pruner.prune();
+    const newAst = new Ast(a.source(), pruned);
+    const expr = astToString(newAst);
+    const parsed = this.parse(expr);
+    if (parsed instanceof Issues) {
+      return parsed.err() as Error;
+    }
+    if (!a.isChecked()) {
+      return parsed;
+    }
+    const checked = this.check(parsed);
+    if (checked instanceof Issues) {
+      return checked.err() as Error;
+    }
+    return checked;
+  }
+
+  /**
    * EstimateCost estimates the cost of a type checked CEL expression using the
    * length estimates of input data and extension functions provided by
    * estimator.
@@ -526,6 +612,23 @@ export class EnvBase {
   private _setCheckerOrError(chk: CheckerEnv | null, err: Error | null) {
     this.chk = chk;
     this.chkErr = err;
+  }
+
+  /**
+   * computeUnknownVars determines a set of missing variables based on the input activation and the
+   * environment's configured declaration set.
+   */
+  private _computeUnknownVars(vars: Activation) {
+    const unknownPatterns: AttributePatternType[] = [];
+    for (const v of this.variables) {
+      const varName = v.name();
+      const found = vars.resolveName(varName);
+      if (!isNil(found)) {
+        continue;
+      }
+      unknownPatterns.push(new AttributePattern(varName));
+    }
+    return unknownPatterns;
   }
 }
 
@@ -588,14 +691,16 @@ function getStdEnv() {
  */
 export class Env extends CustomEnv {
   constructor(...opts: EnvOption[]) {
-    super();
+    super(...opts);
     // Extend the statically configured standard environment, disabling eager
     // validation to ensure the cost of setup for the environment is still just
     // as cheap as it is in v0.11.x and earlier releases. The user provided
     // options can easily re-enable the eager validation as they are processed
     // after this default option.
     const stdOpts: EnvOption[] = [eagerlyValidateDeclarations(false), ...opts];
-    const env = getStdEnv();
+    // Somehow the standard environment was being modified by tests. This is
+    // really not much overhead. The perf tests don't even notice a difference
+    const env = new CustomEnv(StdLib(), eagerlyValidateDeclarations(true));
     return env.extend(...stdOpts);
   }
 }
@@ -644,5 +749,14 @@ export class Issues {
 
   toString() {
     return this.#errs.toDisplayString();
+  }
+
+  reportErrorAtID(id: bigint, message: string) {
+    if (this.#info) {
+      // If the source info is available, report the error with its location.
+      this.#errs.reportErrorAtId(id, this.#info.getStartLocation(id), message);
+      return;
+    }
+    this.#errs.reportError(NoLocation, message);
   }
 }

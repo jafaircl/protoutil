@@ -1,6 +1,6 @@
 # @protoutil/celql
 
-A set of utilities for validating and converting CEL expressions to SQL WHERE clauses to be used in queries.
+A set of utilities for validating and converting CEL expressions to SQL WHERE clauses to be used in queries. The goal of this library is to assist in authoring filters which can be parsed, type-checked, stanitized, and translated to a database query both in the browser and on the web. It is not meant to be a full-featured SQL replacement. It is also not meant to provide an integration with any JavaScript framework (i.e. storing filter state in URL query parameters or providing UI components). It is a goal to eventually provide such utilities. But, they will be implemented in separate, framework-specific libraries.
 
 ## Install
 
@@ -43,7 +43,7 @@ const whereClause = translatePostgres('my_column == "foo"', env);
 // Will output { sql: 'my_column = $1', vars: ['foo'] }
 ```
 
-SQL output is separated into a query clause and an array of variables. This is done so user input can be sanitized using a parameterized query. The exception is that `Timestamp` values will be printed in 'yyyy-mm-dd hh:mi:ss.us' format with millisecond resolution. String parsing of `Timestamp` values will throw an error with invalid inputs which should disallow any unsanitized malicious user input.
+SQL output is separated into a query clause and an array of variables. This is done so user input can be sanitized. This can be done either by manual sanitization or using a parameterized query. Ideally, both. The exception is that `Timestamp` values will be printed in 'yyyy-mm-dd hh:mi:ss.us' format with millisecond resolution. String parsing of `Timestamp` values will throw an error with invalid inputs which should disallow any unsanitized malicious user input.
 
 If you want to validate your expression before sending it to the server to be converted, you can do that with the `compile` function:
 
@@ -58,13 +58,15 @@ try {
 }
 ```
 
+In addition to the defaults (`DefaultEnv`, `DefaultDialect`, `translateDefault`), this library also exports Postgres-specific functionality (`PostgresEnv`, `PostgresDialect`, `translatePostgres`). It is an eventual goal to provide environments, dialects, and translation functions for many different flavors of database.
+
 ### Notes
 
 - `Timestamp` values will be formatted in 'yyyy-mm-dd hh:mi:ss.us' format with millisecond resolution. Successful querying will depend on how your flavor of SQL handles those inputs. You may need to specify a fractional section resolution for `Timestamp` columns (i.e. `TIMESTAMP(3)`). You can override this behavior with a custom dialect.
 
 ### Expressions
 
-The `CelqlEnv` supports most default CEL expressions. But, the purpose of this library is to translate expressions to SQL clauses. As a result, some functionality is either not implemented or may have different signatures. There are also built-in SQL-specific functions.
+The `DefaultEnv` supports most default CEL expressions. But, the purpose of this library is to translate expressions to SQL clauses. As a result, some functionality is either not implemented or may have different signatures. There are also built-in SQL-specific functions.
 
 #### Not Implemented
 

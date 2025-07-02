@@ -20,8 +20,9 @@ import { isMapper } from '../common/types/traits/mapper.js';
 import { Kind, Type } from '../common/types/types.js';
 import { UintRefVal } from '../common/types/uint.js';
 import { isUnknownRefVal, UnknownRefVal } from '../common/types/unknown.js';
-import { isFunction, isNil, isString } from '../common/utils.js';
+import { HashMap, isFunction, isNil, isString } from '../common/utils.js';
 import { Activation } from './activation.js';
+import { numericValueEquals, QualifierValueEquator } from './attribute-patterns.js';
 import { Interpretable } from './interpretable.js';
 
 /**
@@ -183,7 +184,9 @@ export interface Attribute extends Qualifier {
 }
 
 export function isAttribute(value: any): value is Attribute {
-  return value && isFunction(value['addQualifier']) && isQualifier(value);
+  return (
+    value && isFunction(value['addQualifier']) && isFunction(value['resolve']) && isQualifier(value)
+  );
 }
 
 /**
@@ -250,6 +253,18 @@ export class AttrFactory implements AttributeFactory {
     }
   }
 
+  get container() {
+    return this.#container;
+  }
+
+  get adapter() {
+    return this.#adapter;
+  }
+
+  get provider() {
+    return this.#provider;
+  }
+
   absoluteAttribute(id: bigint, ...names: string[]): NamespacedAttribute {
     return new AbsoluteAttribute(
       id,
@@ -280,7 +295,7 @@ export class AttrFactory implements AttributeFactory {
     return new RelativeAttribute(id, operand, [], this.#adapter, this, this.errorOnBadPresenceTest);
   }
 
-  newQualifier(objType: Type, qualID: bigint, val: any, opt: boolean): Qualifier | Error {
+  newQualifier(objType: Type | null, qualID: bigint, val: any, opt: boolean): Qualifier | Error {
     // Before creating a new qualifier check to see if this is a protobuf
     // message field access. If so, use the precomputed GetFrom qualification
     // method rather than the standard stringQualifier.
@@ -417,7 +432,7 @@ class AbsoluteAttribute implements NamespacedAttribute {
   }
 }
 
-class ConditionalAttribute implements Attribute {
+export class ConditionalAttribute implements Attribute {
   #id: bigint;
   expr: Interpretable;
   truthy: Attribute;
@@ -510,24 +525,20 @@ class ConditionalAttribute implements Attribute {
 export function isConditionalAttribute(value: any): value is ConditionalAttribute {
   return value && isAttribute(value) && value instanceof ConditionalAttribute;
 }
-class MaybeAttribute implements Attribute {
+export class MaybeAttribute implements Attribute {
   #id: bigint;
   #attrs: NamespacedAttribute[];
-  // #adapter: Adapter;
-  // #provider: Provider;
   #fac: AttributeFactory;
 
   constructor(
     id: bigint,
     attrs: NamespacedAttribute[],
-    adapter: Adapter,
-    provider: Provider,
+    public readonly adapter: Adapter,
+    public readonly provider: Provider,
     fac: AttributeFactory
   ) {
     this.#id = id;
     this.#attrs = attrs;
-    // this.#adapter = adapter;
-    // this.#provider = provider;
     this.#fac = fac;
   }
 
@@ -603,7 +614,7 @@ class MaybeAttribute implements Attribute {
           return obj;
         }
         // If this was not a missing variable error, return it.
-        if (isNil(obj.missingAttribute)) {
+        if (!obj.isMissingAttribute()) {
           return obj;
         }
         // When the variable is missing in a maybe attribute we defer erroring.
@@ -849,7 +860,7 @@ class AttrQualifier implements Qualifier {
   }
 }
 
-class StringQualifier implements ConstantQualifier {
+class StringQualifier implements ConstantQualifier, QualifierValueEquator {
   #id: bigint;
   #value: string;
   #celValue: RefVal;
@@ -871,6 +882,10 @@ class StringQualifier implements ConstantQualifier {
     this.#adapter = adapter;
     this.#optional = optional;
     this.#errorOnBadPresenceTest = errorOnBadPresenceTest;
+  }
+
+  qualifierValueEquals(value: any): boolean {
+    return typeof value === 'string' && this.#value === value;
   }
 
   value(): RefVal {
@@ -910,6 +925,7 @@ class StringQualifier implements ConstantQualifier {
     const s = this.#value;
     switch (reflectNativeType(obj)) {
       case Map:
+      case HashMap:
         if ((obj as Map<any, any>).has(s)) {
           return [(obj as Map<any, any>).get(s), true, null];
         }
@@ -941,7 +957,7 @@ class StringQualifier implements ConstantQualifier {
   }
 }
 
-class IntQualifier implements ConstantQualifier {
+class IntQualifier implements ConstantQualifier, QualifierValueEquator {
   #id: bigint;
   #value: bigint;
   #celValue: RefVal;
@@ -963,6 +979,10 @@ class IntQualifier implements ConstantQualifier {
     this.#adapter = adapter;
     this.#optional = optional;
     this.#errorOnBadPresenceTest = errorOnBadPresenceTest;
+  }
+
+  qualifierValueEquals(value: any): boolean {
+    return numericValueEquals(value, this.#celValue);
   }
 
   value(): RefVal {
@@ -1050,7 +1070,7 @@ class IntQualifier implements ConstantQualifier {
   }
 }
 
-class UintQualifier implements ConstantQualifier {
+class UintQualifier implements ConstantQualifier, QualifierValueEquator {
   #id: bigint;
   #value: bigint;
   #celValue: RefVal;
@@ -1072,6 +1092,10 @@ class UintQualifier implements ConstantQualifier {
     this.#adapter = adapter;
     this.#optional = optional;
     this.#errorOnBadPresenceTest = errorOnBadPresenceTest;
+  }
+
+  qualifierValueEquals(value: any): boolean {
+    return numericValueEquals(value, this.#celValue);
   }
 
   value(): RefVal {
@@ -1159,7 +1183,7 @@ class UintQualifier implements ConstantQualifier {
   }
 }
 
-class BoolQualifier implements ConstantQualifier {
+class BoolQualifier implements ConstantQualifier, QualifierValueEquator {
   #id: bigint;
   #value: boolean;
   #celValue: RefVal;
@@ -1181,6 +1205,10 @@ class BoolQualifier implements ConstantQualifier {
     this.#adapter = adapter;
     this.#optional = optional;
     this.#errorOnBadPresenceTest = errorOnBadPresenceTest;
+  }
+
+  qualifierValueEquals(value: any): boolean {
+    return typeof value === 'boolean' && value === this.#value;
   }
 
   value(): RefVal {
@@ -1256,7 +1284,7 @@ class BoolQualifier implements ConstantQualifier {
  * a known field type. When the field type is known this can be used to improve
  * the speed and efficiency of field resolution.
  */
-class FieldQualifier implements ConstantQualifier {
+class FieldQualifier implements ConstantQualifier, QualifierValueEquator {
   #id: bigint;
   #name: string;
   #fieldType: FieldType;
@@ -1269,6 +1297,11 @@ class FieldQualifier implements ConstantQualifier {
     this.#fieldType = fieldType;
     // this.#adapter = adapter;
     this.#optional = optional;
+  }
+
+  qualifierValueEquals(value: any): boolean {
+    console.log({ value, name: this.#name });
+    return typeof value === 'string' && value === this.#name;
   }
 
   value(): RefVal {
@@ -1326,7 +1359,7 @@ class FieldQualifier implements ConstantQualifier {
  * Any where the value type may not be known ahead of time and may not conform
  * to the standard types supported as valid protobuf map key types.
  */
-class DoubleQualifier implements ConstantQualifier {
+class DoubleQualifier implements ConstantQualifier, QualifierValueEquator {
   #id: bigint;
   // #value: number;
   #celValue: RefVal;
@@ -1348,6 +1381,10 @@ class DoubleQualifier implements ConstantQualifier {
     this.#adapter = adapter;
     this.#optional = optional;
     this.#errorOnBadPresenceTest = errorOnBadPresenceTest;
+  }
+
+  qualifierValueEquals(value: any): boolean {
+    return numericValueEquals(value, this.#celValue);
   }
 
   value(): RefVal {
@@ -1478,7 +1515,7 @@ function applyQualifiers(
  * attrQualify performs a qualification using the result of an attribute
  * evaluation.
  */
-function attrQualify(
+export function attrQualify(
   fac: AttributeFactory,
   vars: Activation,
   obj: any,
@@ -1499,7 +1536,7 @@ function attrQualify(
  * attrQualifyIfPresent conditionally performs the qualification of the result
  * of attribute is present on the target object.
  */
-function attrQualifyIfPresent(
+export function attrQualifyIfPresent(
   fac: AttributeFactory,
   vars: Activation,
   obj: any,
@@ -1605,6 +1642,10 @@ export class ResolutionError extends Error {
       constructResolutionErrorMessage(missingAttribute, missingIndex?.value(), missingKey?.value())
     );
     this.name = 'ResolutionError';
+  }
+
+  isMissingAttribute() {
+    return !isNil(this.missingAttribute) && this.missingAttribute !== '';
   }
 }
 

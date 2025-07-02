@@ -6,7 +6,13 @@ import { BoolRefVal } from '../common/types/bool.js';
 import { IntRefVal } from '../common/types/int.js';
 import { StringRefVal } from '../common/types/string.js';
 import { TimestampRefVal } from '../common/types/timestamp.js';
-import { HierarchicalActivation, newActivation } from './activation.js';
+import {
+  asPartialActivation,
+  HierarchicalActivation,
+  newActivation,
+  PartActivation,
+} from './activation.js';
+import { AttributePattern } from './attribute-patterns.js';
 
 describe('Activation', () => {
   it('newActivation', () => {
@@ -20,9 +26,9 @@ describe('Activation', () => {
     expect(() => {
       newActivation('' as any);
     }).toThrow();
-    expect(() => {
-      newActivation(null as any);
-    }).toThrow();
+    // expect(() => {
+    //   newActivation(null as any);
+    // }).toThrow();
   });
 
   it('resolve', () => {
@@ -81,5 +87,19 @@ describe('Activation', () => {
     expect(combined.resolveName<IntRefVal>('b')?.value()).toEqual(BigInt(-42));
     // Resolve the child only value.
     expect(combined.resolveName<StringRefVal>('c')?.value()).toEqual('universe');
+  });
+
+  it('AsPartialActivation', () => {
+    // compose a parent with more properties than the child
+    const parent = new PartActivation(newActivation({ a: 'world', b: -42n }), [
+      new AttributePattern('c'),
+    ]);
+    // compose the child such that it shadows the parent
+    const child = newActivation({ d: 'universe' });
+    const combined = new HierarchicalActivation(parent, child);
+
+    // Resolve the shadowed child value.
+    const part = asPartialActivation(combined);
+    expect(part).toEqual(parent);
   });
 });

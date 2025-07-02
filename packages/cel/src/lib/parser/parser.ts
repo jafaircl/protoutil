@@ -11,7 +11,7 @@ import {
   Token,
   isToken,
 } from 'antlr4ng';
-import { AST, OffsetRange } from '../common/ast.js';
+import { AST, OffsetRange } from '../common/ast/ast.js';
 import { parseBytes, parseString } from '../common/constants.js';
 import { CELError } from '../common/error.js';
 import { Errors, LexerErrorListener, ParserErrorListener } from '../common/errors.js';

@@ -487,4 +487,14 @@ describe('Registry', () => {
       expect(out.value()).toStrictEqual(tc.out);
     }
   });
+
+  it('copy should copy types', () => {
+    const reg = new Registry();
+    reg.registerDescriptor(TestAllTypesSchema);
+    const copy = reg.copy();
+    expect(copy).not.toBe(reg);
+    expect(copy.findStructType(TestAllTypesSchema.typeName)).toEqual(
+      reg.findStructType(TestAllTypesSchema.typeName)
+    );
+  });
 });

@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { create, DescMessage, equals, isMessage, Message } from '@bufbuild/protobuf';
+import { create, DescMessage, equals, isMessage, Message, ScalarType } from '@bufbuild/protobuf';
 import { isReflectList, isReflectMap, isReflectMessage, reflect } from '@bufbuild/protobuf/reflect';
 import { anyPack, AnySchema } from '@bufbuild/protobuf/wkt';
 import { RefType, RefVal } from '../ref/reference.js';
 import { isNil } from '../utils.js';
 import { BoolRefVal } from './bool.js';
 import { ErrorRefVal } from './error.js';
+import { IntRefVal } from './int.js';
 import { NativeType } from './native.js';
 import { NullRefVal } from './null.js';
 import { Registry } from './provider.js';
@@ -27,6 +28,7 @@ export class ObjectRefVal implements RefVal, Zeroer {
 
   convertToNative(type: NativeType) {
     switch (type) {
+      case Object:
       case this.typeDesc:
         return this.value();
       case AnySchema:
@@ -104,10 +106,24 @@ export class ObjectRefVal implements RefVal, Zeroer {
     if (isReflectList(fieldValue)) {
       fieldValue = [...fieldValue.values()];
     }
+    // Certain scalar types are Ints in CEL but are represented by numbers in JavaScript.
+    // We need to make sure they return as IntRefVals.
+    if (fd.fieldKind === 'scalar') {
+      switch (fd.scalar) {
+        case ScalarType.INT32:
+        case ScalarType.SINT32:
+        case ScalarType.UINT32:
+          return new IntRefVal(BigInt(fieldValue));
+      }
+    }
     return this.registry.nativeToValue(fieldValue);
   }
 }
 
 export function isMessageZeroValue(desc: DescMessage, value: Message): boolean {
   return equals(desc, value, create(desc));
+}
+
+export function isObjectRefVal(val: RefVal): val is ObjectRefVal {
+  return val instanceof ObjectRefVal;
 }

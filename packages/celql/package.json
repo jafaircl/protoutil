@@ -1,6 +1,6 @@
 {
   "name": "@protoutil/celql",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/celql",
   "repository": {
     "type": "git",
@@ -24,7 +24,7 @@
   ],
   "dependencies": {
     "@bufbuild/protobuf": "^2.2.5",
-    "@protoutil/cel": "0.2.4",
-    "@protoutil/core": "0.2.4"
+    "@protoutil/cel": "0.2.5",
+    "@protoutil/core": "0.2.5"
   }
 }

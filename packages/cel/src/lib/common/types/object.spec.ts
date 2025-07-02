@@ -1,4 +1,5 @@
 import { create, createMutableRegistry } from '@bufbuild/protobuf';
+import { TestAllTypesSchema } from '../../protogen-exports/index_conformance_proto3.js';
 import { ParsedExprSchema } from '../../protogen/cel/expr/syntax_pb.js';
 import { BoolRefVal } from './bool.js';
 import { DoubleRefVal } from './double.js';
@@ -94,5 +95,19 @@ describe('object', () => {
     });
     const obj = registry.nativeToValue(msg) as ObjectRefVal;
     expect(obj.convertToNative(obj.typeDesc)).toStrictEqual(msg);
+    expect(obj.convertToNative(Object)).toStrictEqual(msg);
+  });
+
+  it('should handle different number types', () => {
+    const registry = new Registry(new Map(), createMutableRegistry(TestAllTypesSchema));
+    const msg = create(TestAllTypesSchema, {
+      singleDouble: 42,
+      singleInt32: 42,
+      singleInt64: 42n,
+    });
+    const obj = registry.nativeToValue(msg) as ObjectRefVal;
+    expect(obj.get(new StringRefVal('single_double'))).toStrictEqual(new DoubleRefVal(42));
+    expect(obj.get(new StringRefVal('single_int32'))).toStrictEqual(new IntRefVal(42n));
+    expect(obj.get(new StringRefVal('single_int64'))).toStrictEqual(new IntRefVal(42n));
   });
 });

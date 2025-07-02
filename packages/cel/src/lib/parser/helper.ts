@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from '@bufbuild/protobuf';
 import { isToken, ParserRuleContext, Token } from 'antlr4ng';
-import { newSourceInfo, SourceInfo } from '../common/ast.js';
+import { newSourceInfo, OffsetRange, SourceInfo } from '../common/ast/ast.js';
 import { CELError } from '../common/error.js';
 import { Location } from '../common/location.js';
 import { refValToProtoConstant } from '../common/pb/constants.js';
@@ -33,7 +33,6 @@ import { StringRefVal } from '../common/types/string.js';
 import { UintRefVal } from '../common/types/uint.js';
 import { isBigInt, isEmpty, isNil } from '../common/utils.js';
 import { Expr, Expr_CreateStruct_Entry, ExprSchema } from '../protogen/cel/expr/syntax_pb.js';
-import { OffsetRange } from './../common/ast.js';
 
 export class ParserHelper {
   // private _source: Source;

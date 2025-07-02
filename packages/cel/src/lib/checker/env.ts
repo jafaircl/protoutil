@@ -1,4 +1,3 @@
-import { dequal } from 'dequal';
 import { Container } from '../common/container.js';
 import { FunctionDecl, newConstantDecl, newVariableDecl, VariableDecl } from '../common/decls.js';
 import {
@@ -265,7 +264,7 @@ export class Env {
   addIdent(decl: VariableDecl): Error | null {
     const current = this.#declarations.findIdentInScope(decl.name());
     if (!isNil(current)) {
-      if (dequal(current, decl)) {
+      if (current.declarationIsEquivalent(decl)) {
         return null;
       }
       return new Error(`overlapping identifier for name '${decl.name()}'`);

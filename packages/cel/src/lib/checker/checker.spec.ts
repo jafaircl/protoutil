@@ -2382,7 +2382,7 @@ function getDefaultEnvironment(): TestEnv {
   return {
     functions: [
       newFunction('fg_s', overload('fg_s_0', [], StringType)) as FunctionDecl,
-      newFunction('fi_s_s', memberOverload('fi_s_s_0', [StringType], StringType)) as FunctionDecl,
+      newFunction('fi_s_s', memberOverload('fi_s_s_0', StringType, [], StringType)) as FunctionDecl,
     ],
     idents: [
       newVariableDecl('is', StringType),

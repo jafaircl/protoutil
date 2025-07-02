@@ -206,6 +206,11 @@ export class FunctionDecl {
           `overload redefinition in function. ${this.name()}: ${oID} has multiple definitions`
         );
       }
+      if (o.hasLateBinding() !== overload.hasLateBinding()) {
+        throw new Error(
+          `overload with late binding cannot be added to function ${this.name()}: cannot mix late and non-late bindings`
+        );
+      }
     }
     this.overloadOrdinals.push(overload.id());
     this.overloads.set(overload.id(), overload);
@@ -227,16 +232,33 @@ export class FunctionDecl {
   }
 
   /**
+   * HasLateBinding returns true if the function has late bindings. A function cannot mix late bindings with other bindings.
+   */
+  hasLateBinding() {
+    if (isNil(this)) {
+      return false;
+    }
+    for (const oID of this.overloadOrdinals) {
+      if (this.overloads.get(oID)?.hasLateBinding()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Bindings produces a set of function bindings, if any are defined.
    */
   bindings() {
     let overloads: Overload[] = [];
     let nonStrict = false;
+    let hasLateBinding = false;
     for (const id of this.overloadOrdinals) {
       const o = this.overloads.get(id);
       if (isNil(o)) {
         continue;
       }
+      hasLateBinding = hasLateBinding || o.hasLateBinding();
       if (o.hasBinding()) {
         const overload = new Overload({
           operator: o.id(),
@@ -255,6 +277,9 @@ export class FunctionDecl {
         throw new Error(
           `singleton function incompatible with specialized overloads: ${this.name()}`
         );
+      }
+      if (hasLateBinding) {
+        throw new Error(`singleton function incompatible with late bindings: ${this.name()}`);
       }
       overloads = [
         new Overload({
@@ -461,11 +486,12 @@ export function overload(
  */
 export function memberOverload(
   overloadID: string,
+  targetType: Type,
   args: Type[],
   resultType: Type,
   ...opts: OverloadOpt[]
 ) {
-  return newOverload(overloadID, true, args, resultType, ...opts);
+  return newOverload(overloadID, true, [targetType, ...args], resultType, ...opts);
 }
 
 function newOverload(
@@ -507,6 +533,11 @@ interface OverloadDeclInput {
   resultType: Type;
   isMemberFunction?: boolean;
   /**
+   * hasLateBinding indicates that the function has a binding which is not known at compile time.
+   * This is useful for functions which have side-effects or are not deterministically computable.
+   */
+  hasLateBinding?: boolean;
+  /**
    * nonStrict indicates that the function will accept error and unknown
    * arguments as inputs.
    */
@@ -545,6 +576,7 @@ export class OverloadDecl {
   private readonly _argTypes: Type[];
   private readonly _resultType: Type;
   private readonly _isMemberFunction: boolean;
+  _hasLateBinding: boolean;
   nonStrict: boolean;
   operandTraits: Trait[];
   unaryOp?: UnaryOp;
@@ -556,6 +588,7 @@ export class OverloadDecl {
     this._argTypes = input.argTypes;
     this._resultType = input.resultType;
     this._isMemberFunction = input.isMemberFunction ?? false;
+    this._hasLateBinding = input.hasLateBinding ?? false;
     this.nonStrict = input.nonStrict ?? true;
     this.operandTraits = input.operandTraits ?? [];
     this.unaryOp = input.unaryOp;
@@ -666,6 +699,13 @@ export class OverloadDecl {
    */
   hasBinding() {
     return !isNil(this.unaryOp) || !isNil(this.binaryOp) || !isNil(this.functionOp);
+  }
+
+  /**
+   * HasLateBinding returns whether the overload has a binding which is not known at compile time.
+   */
+  hasLateBinding() {
+    return this._hasLateBinding;
   }
 
   /**
@@ -805,6 +845,9 @@ export function unaryBinding(op: UnaryOp): OverloadOpt {
     if (o.argTypes().length !== 1) {
       throw new Error(`unary function bound to non-unary overload: ${o.id()}`);
     }
+    if (o.hasLateBinding()) {
+      throw new Error(`overload already has a late binding: ${o.id()}`);
+    }
     o.unaryOp = op;
     return o;
   };
@@ -823,6 +866,9 @@ export function binaryBinding(op: BinaryOp): OverloadOpt {
     if (o.argTypes().length !== 2) {
       throw new Error(`binary function bound to non-binary overload: ${o.id()}`);
     }
+    if (o.hasLateBinding()) {
+      throw new Error(`overload already has a late binding: ${o.id()}`);
+    }
     o.binaryOp = op;
     return o;
   };
@@ -838,7 +884,24 @@ export function functionBinding(op: FunctionOp): OverloadOpt {
     if (o.hasBinding()) {
       throw new Error(`overload already has a binding: ${o.id()}`);
     }
+    if (o.hasLateBinding()) {
+      throw new Error(`overload already has a late binding: ${o.id()}`);
+    }
     o.functionOp = op;
+    return o;
+  };
+}
+
+/**
+ * LateFunctionBinding indicates that the function has a binding which is not known at compile time.
+ * This is useful for functions which have side-effects or are not deterministically computable.
+ */
+export function lateFunctionBinding(): OverloadOpt {
+  return (o) => {
+    if (o.hasBinding()) {
+      throw new Error(`overload already has a binding: ${o.id()}`);
+    }
+    o._hasLateBinding = true;
     return o;
   };
 }

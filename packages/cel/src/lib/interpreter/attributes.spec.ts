@@ -575,7 +575,7 @@ describe('attributes', () => {
         vars: objectToMap({
           a: reg.nativeToValue(create(TestAllTypesSchema, { singleInt32: 1 })),
         }),
-        out: new OptionalRefVal(reg.nativeToValue(1)),
+        out: new OptionalRefVal(reg.nativeToValue(1n)),
       },
       {
         name: 'a.?single_int32 where the field is not set.',

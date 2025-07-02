@@ -1,5 +1,13 @@
 /* eslint-disable no-case-declarations */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import {
+  AST,
+  CheckedAST,
+  newFunctionReference,
+  newIdentReference,
+  ReferenceInfo,
+} from '../common/ast/ast.js';
+import { setExprKindCase } from '../common/ast/expr.js';
 import { FunctionDecl, VariableDecl } from '../common/decls.js';
 import { Errors } from '../common/errors.js';
 import {
@@ -26,14 +34,6 @@ import {
 } from '../common/pb/expressions.js';
 import { isNil, toQualifiedName } from '../common/utils.js';
 import { Expr } from '../protogen/cel/expr/syntax_pb.js';
-import {
-  AST,
-  CheckedAST,
-  newFunctionReference,
-  newIdentReference,
-  ReferenceInfo,
-  setExprKindCase,
-} from './../common/ast.js';
 import {
   BoolType,
   DynType,
@@ -84,6 +84,8 @@ export class Checker {
   check(ast: AST): CheckedAST {
     this.#ast = ast;
     this.#errors = new Errors(ast.sourceInfo().source());
+    this.#typeMap.clear();
+    this.#refMap.clear();
     this.checkExpr(this.#ast.expr());
 
     // Walk over the final type map substituting any type parameters either by

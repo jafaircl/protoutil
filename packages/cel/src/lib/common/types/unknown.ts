@@ -29,6 +29,10 @@ export class AttributeTrail {
     return this._qualifierPath;
   }
 
+  addQualifier(qualifier: AttributeQualifier) {
+    this._qualifierPath.push(qualifier);
+  }
+
   /**
    * Equal returns whether two attribute values have the same variable name and
    * qualifier paths.
@@ -99,7 +103,7 @@ export const unspecifiedAttribute = new AttributeTrail('');
  * type.
  */
 export function qualifyAttribute(attr: AttributeTrail, qualifier: AttributeQualifier) {
-  attr.qualifierPath().push(qualifier);
+  attr.addQualifier(qualifier);
   return attr;
 }
 
@@ -258,11 +262,17 @@ export function isUnknownRefVal(val: unknown): val is UnknownRefVal {
  * If both values are non-nil and unknown, then the return value will be a
  * merge of both unknowns.
  */
-export function maybeMergeUnknowns(val: RefVal | null, unk: UnknownRefVal | null): RefVal | null {
+export function maybeMergeUnknowns(
+  val: RefVal | null,
+  unk: UnknownRefVal | null
+): [RefVal | null, boolean] {
   if (!isUnknownRefVal(val)) {
-    return unk;
+    if (!isNil(unk)) {
+      return [unk, true];
+    }
+    return [unk, false];
   }
-  return mergeUnknowns(val, unk);
+  return [mergeUnknowns(val, unk), true];
 }
 
 /**

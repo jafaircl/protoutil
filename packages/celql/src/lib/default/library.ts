@@ -428,11 +428,11 @@ export const defaultLibraryFunctions = new Map([
     func(
       SIZE_OVERLOAD,
       overload(SIZE_BYTES_OVERLOAD, [BytesType], IntType),
-      memberOverload(SIZE_BYTES_INST_OVERLOAD, [BytesType], IntType),
+      memberOverload(SIZE_BYTES_INST_OVERLOAD, BytesType, [], IntType),
       overload(SIZE_LIST_OVERLOAD, [listOfA], IntType),
-      memberOverload(SIZE_LIST_INST_OVERLOAD, [listOfA], IntType),
+      memberOverload(SIZE_LIST_INST_OVERLOAD, listOfA, [], IntType),
       overload(SIZE_STRING_OVERLOAD, [StringType], IntType),
-      memberOverload(SIZE_STRING_INST_OVERLOAD, [StringType], IntType)
+      memberOverload(SIZE_STRING_INST_OVERLOAD, StringType, [], IntType)
     ),
   ],
 
@@ -536,24 +536,24 @@ export const defaultLibraryFunctions = new Map([
     CONTAINS_OVERLOAD,
     func(
       CONTAINS_OVERLOAD,
-      memberOverload(CONTAINS_STRING_OVERLOAD, [StringType, StringType], BoolType),
-      memberOverload(CONTAINS_STRING_FLAG_OVERLOAD, [StringType, StringType, BoolType], BoolType)
+      memberOverload(CONTAINS_STRING_OVERLOAD, StringType, [StringType], BoolType),
+      memberOverload(CONTAINS_STRING_FLAG_OVERLOAD, StringType, [StringType, BoolType], BoolType)
     ),
   ],
   [
     ENDS_WITH_OVERLOAD,
     func(
       ENDS_WITH_OVERLOAD,
-      memberOverload(ENDS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType),
-      memberOverload(ENDS_WITH_STRING_FLAG_OVERLOAD, [StringType, StringType, BoolType], BoolType)
+      memberOverload(ENDS_WITH_STRING_OVERLOAD, StringType, [StringType], BoolType),
+      memberOverload(ENDS_WITH_STRING_FLAG_OVERLOAD, StringType, [StringType, BoolType], BoolType)
     ),
   ],
   [
     STARTS_WITH_OVERLOAD,
     func(
       STARTS_WITH_OVERLOAD,
-      memberOverload(STARTS_WITH_STRING_OVERLOAD, [StringType, StringType], BoolType),
-      memberOverload(STARTS_WITH_STRING_FLAG_OVERLOAD, [StringType, StringType, BoolType], BoolType)
+      memberOverload(STARTS_WITH_STRING_OVERLOAD, StringType, [StringType], BoolType),
+      memberOverload(STARTS_WITH_STRING_FLAG_OVERLOAD, StringType, [StringType, BoolType], BoolType)
     ),
   ],
 
@@ -570,32 +570,33 @@ export const defaultLibraryFunctions = new Map([
     TIME_GET_FULL_YEAR_OVERLOAD,
     func(
       TIME_GET_FULL_YEAR_OVERLOAD,
-      memberOverload(DATE_TO_YEAR_OVERLOAD, [DateType], IntType),
-      memberOverload(DATE_TO_YEAR_WITH_TZ_OVERLOAD, [DateType, StringType], IntType),
-      memberOverload(TIMESTAMP_TO_YEAR_OVERLOAD, [TimestampType], IntType),
-      memberOverload(TIMESTAMP_TO_YEAR_WITH_TZ_OVERLOAD, [TimestampType, StringType], IntType)
+      memberOverload(DATE_TO_YEAR_OVERLOAD, DateType, [], IntType),
+      memberOverload(DATE_TO_YEAR_WITH_TZ_OVERLOAD, DateType, [StringType], IntType),
+      memberOverload(TIMESTAMP_TO_YEAR_OVERLOAD, TimestampType, [], IntType),
+      memberOverload(TIMESTAMP_TO_YEAR_WITH_TZ_OVERLOAD, TimestampType, [StringType], IntType)
     ),
   ],
   [
     TIME_GET_MONTH_OVERLOAD,
     func(
       TIME_GET_MONTH_OVERLOAD,
-      memberOverload(DATE_TO_MONTH_OVERLOAD, [DateType], IntType),
-      memberOverload(DATE_TO_MONTH_WITH_TZ_OVERLOAD, [DateType, StringType], IntType),
-      memberOverload(TIMESTAMP_TO_MONTH_OVERLOAD, [TimestampType], IntType),
-      memberOverload(TIMESTAMP_TO_MONTH_WITH_TZ_OVERLOAD, [TimestampType, StringType], IntType)
+      memberOverload(DATE_TO_MONTH_OVERLOAD, DateType, [], IntType),
+      memberOverload(DATE_TO_MONTH_WITH_TZ_OVERLOAD, DateType, [StringType], IntType),
+      memberOverload(TIMESTAMP_TO_MONTH_OVERLOAD, TimestampType, [], IntType),
+      memberOverload(TIMESTAMP_TO_MONTH_WITH_TZ_OVERLOAD, TimestampType, [StringType], IntType)
     ),
   ],
   [
     TIME_GET_DAY_OF_YEAR_OVERLOAD,
     func(
       TIME_GET_DAY_OF_YEAR_OVERLOAD,
-      memberOverload(DATE_TO_DAY_OF_YEAR_OVERLOAD, [DateType], IntType),
-      memberOverload(DATE_TO_DAY_OF_YEAR_WITH_TZ_OVERLOAD, [DateType, StringType], IntType),
-      memberOverload(TIMESTAMP_TO_DAY_OF_YEAR_OVERLOAD, [TimestampType], IntType),
+      memberOverload(DATE_TO_DAY_OF_YEAR_OVERLOAD, DateType, [], IntType),
+      memberOverload(DATE_TO_DAY_OF_YEAR_WITH_TZ_OVERLOAD, DateType, [StringType], IntType),
+      memberOverload(TIMESTAMP_TO_DAY_OF_YEAR_OVERLOAD, TimestampType, [], IntType),
       memberOverload(
         TIMESTAMP_TO_DAY_OF_YEAR_WITH_TZ_OVERLOAD,
-        [TimestampType, StringType],
+        TimestampType,
+        [StringType],
         IntType
       )
     ),
@@ -604,16 +605,18 @@ export const defaultLibraryFunctions = new Map([
     TIME_GET_DATE_OVERLOAD,
     func(
       TIME_GET_DATE_OVERLOAD,
-      memberOverload(DATE_TO_DAY_OF_MONTH_ONE_BASED_OVERLOAD, [DateType], IntType),
+      memberOverload(DATE_TO_DAY_OF_MONTH_ONE_BASED_OVERLOAD, DateType, [], IntType),
       memberOverload(
         DATE_TO_DAY_OF_MONTH_ONE_BASED_WITH_TZ_OVERLOAD,
-        [DateType, StringType],
+        DateType,
+        [StringType],
         IntType
       ),
-      memberOverload(TIMESTAMP_TO_DAY_OF_MONTH_ONE_BASED_OVERLOAD, [TimestampType], IntType),
+      memberOverload(TIMESTAMP_TO_DAY_OF_MONTH_ONE_BASED_OVERLOAD, TimestampType, [], IntType),
       memberOverload(
         TIMESTAMP_TO_DAY_OF_MONTH_ONE_BASED_WITH_TZ_OVERLOAD,
-        [TimestampType, StringType],
+        TimestampType,
+        [StringType],
         IntType
       )
     ),
@@ -622,12 +625,13 @@ export const defaultLibraryFunctions = new Map([
     TIME_GET_DAY_OF_WEEK_OVERLOAD,
     func(
       TIME_GET_DAY_OF_WEEK_OVERLOAD,
-      memberOverload(DATE_TO_DAY_OF_WEEK_OVERLOAD, [DateType], IntType),
-      memberOverload(DATE_TO_DAY_OF_WEEK_WITH_TZ_OVERLOAD, [DateType, StringType], IntType),
-      memberOverload(TIMESTAMP_TO_DAY_OF_WEEK_OVERLOAD, [TimestampType], IntType),
+      memberOverload(DATE_TO_DAY_OF_WEEK_OVERLOAD, DateType, [], IntType),
+      memberOverload(DATE_TO_DAY_OF_WEEK_WITH_TZ_OVERLOAD, DateType, [StringType], IntType),
+      memberOverload(TIMESTAMP_TO_DAY_OF_WEEK_OVERLOAD, TimestampType, [], IntType),
       memberOverload(
         TIMESTAMP_TO_DAY_OF_WEEK_WITH_TZ_OVERLOAD,
-        [TimestampType, StringType],
+        TimestampType,
+        [StringType],
         IntType
       )
     ),
@@ -636,42 +640,43 @@ export const defaultLibraryFunctions = new Map([
     TIME_GET_HOURS_OVERLOAD,
     func(
       TIME_GET_HOURS_OVERLOAD,
-      memberOverload(TIME_TO_HOURS_OVERLOAD, [TimeType], IntType),
-      memberOverload(TIME_TO_HOURS_WITH_TZ_OVERLOAD, [TimeType, StringType], IntType),
-      memberOverload(TIMESTAMP_TO_HOURS_OVERLOAD, [TimestampType], IntType),
-      memberOverload(TIMESTAMP_TO_HOURS_WITH_TZ_OVERLOAD, [TimestampType, StringType], IntType)
+      memberOverload(TIME_TO_HOURS_OVERLOAD, TimeType, [], IntType),
+      memberOverload(TIME_TO_HOURS_WITH_TZ_OVERLOAD, TimeType, [StringType], IntType),
+      memberOverload(TIMESTAMP_TO_HOURS_OVERLOAD, TimestampType, [], IntType),
+      memberOverload(TIMESTAMP_TO_HOURS_WITH_TZ_OVERLOAD, TimestampType, [StringType], IntType)
     ),
   ],
   [
     TIME_GET_MINUTES_OVERLOAD,
     func(
       TIME_GET_MINUTES_OVERLOAD,
-      memberOverload(TIME_TO_MINUTES_OVERLOAD, [TimeType], IntType),
-      memberOverload(TIME_TO_MINUTES_WITH_TZ_OVERLOAD, [TimeType, StringType], IntType),
-      memberOverload(TIMESTAMP_TO_MINUTES_OVERLOAD, [TimestampType], IntType),
-      memberOverload(TIMESTAMP_TO_MINUTES_WITH_TZ_OVERLOAD, [TimestampType, StringType], IntType)
+      memberOverload(TIME_TO_MINUTES_OVERLOAD, TimeType, [], IntType),
+      memberOverload(TIME_TO_MINUTES_WITH_TZ_OVERLOAD, TimeType, [StringType], IntType),
+      memberOverload(TIMESTAMP_TO_MINUTES_OVERLOAD, TimestampType, [], IntType),
+      memberOverload(TIMESTAMP_TO_MINUTES_WITH_TZ_OVERLOAD, TimestampType, [StringType], IntType)
     ),
   ],
   [
     TIME_GET_SECONDS_OVERLOAD,
     func(
       TIME_GET_SECONDS_OVERLOAD,
-      memberOverload(TIME_TO_SECONDS_OVERLOAD, [TimeType], IntType),
-      memberOverload(TIME_TO_SECONDS_WITH_TZ_OVERLOAD, [TimeType, StringType], IntType),
-      memberOverload(TIMESTAMP_TO_SECONDS_OVERLOAD, [TimestampType], IntType),
-      memberOverload(TIMESTAMP_TO_SECONDS_WITH_TZ_OVERLOAD, [TimestampType, StringType], IntType)
+      memberOverload(TIME_TO_SECONDS_OVERLOAD, TimeType, [], IntType),
+      memberOverload(TIME_TO_SECONDS_WITH_TZ_OVERLOAD, TimeType, [StringType], IntType),
+      memberOverload(TIMESTAMP_TO_SECONDS_OVERLOAD, TimestampType, [], IntType),
+      memberOverload(TIMESTAMP_TO_SECONDS_WITH_TZ_OVERLOAD, TimestampType, [StringType], IntType)
     ),
   ],
   [
     TIME_GET_MILLISECONDS_OVERLOAD,
     func(
       TIME_GET_MILLISECONDS_OVERLOAD,
-      memberOverload(TIME_TO_MILLISECONDS_OVERLOAD, [TimeType], IntType),
-      memberOverload(TIME_TO_MILLISECONDS_WITH_TZ_OVERLOAD, [TimeType, StringType], IntType),
-      memberOverload(TIMESTAMP_TO_MILLISECONDS_OVERLOAD, [TimestampType], IntType),
+      memberOverload(TIME_TO_MILLISECONDS_OVERLOAD, TimeType, [], IntType),
+      memberOverload(TIME_TO_MILLISECONDS_WITH_TZ_OVERLOAD, TimeType, [StringType], IntType),
+      memberOverload(TIMESTAMP_TO_MILLISECONDS_OVERLOAD, TimestampType, [], IntType),
       memberOverload(
         TIMESTAMP_TO_MILLISECONDS_WITH_TZ_OVERLOAD,
-        [TimestampType, StringType],
+        TimestampType,
+        [StringType],
         IntType
       )
     ),
@@ -684,8 +689,8 @@ export const defaultLibraryFunctions = new Map([
     AT_TIMEZONE_OVERLOAD,
     func(
       AT_TIMEZONE_OVERLOAD,
-      memberOverload(TIME_AT_TIMEZONE_OVERLOAD, [TimeType, StringType], TimeType),
-      memberOverload(TIMESTAMP_AT_TIMEZONE_OVERLOAD, [TimestampType, StringType], TimestampType)
+      memberOverload(TIME_AT_TIMEZONE_OVERLOAD, TimeType, [StringType], TimeType),
+      memberOverload(TIMESTAMP_AT_TIMEZONE_OVERLOAD, TimestampType, [StringType], TimestampType)
     ),
   ],
 
@@ -714,15 +719,15 @@ export const defaultLibraryFunctions = new Map([
   // String formatting
   [
     STRING_LOWER_OVERLOAD,
-    func(STRING_LOWER_OVERLOAD, memberOverload(STRING_LOWER_OVERLOAD, [StringType], StringType)),
+    func(STRING_LOWER_OVERLOAD, memberOverload(STRING_LOWER_OVERLOAD, StringType, [], StringType)),
   ],
   [
     STRING_UPPER_OVERLOAD,
-    func(STRING_UPPER_OVERLOAD, memberOverload(STRING_UPPER_OVERLOAD, [StringType], StringType)),
+    func(STRING_UPPER_OVERLOAD, memberOverload(STRING_UPPER_OVERLOAD, StringType, [], StringType)),
   ],
   [
     STRING_TRIM_OVERLOAD,
-    func(STRING_TRIM_OVERLOAD, memberOverload(STRING_TRIM_OVERLOAD, [StringType], StringType)),
+    func(STRING_TRIM_OVERLOAD, memberOverload(STRING_TRIM_OVERLOAD, StringType, [], StringType)),
   ],
 
   // String functions
@@ -730,8 +735,8 @@ export const defaultLibraryFunctions = new Map([
     LIKE_OVERLOAD,
     func(
       LIKE_OVERLOAD,
-      memberOverload(LIKE_STRING_OVERLOAD, [StringType, StringType], BoolType),
-      memberOverload(LIKE_STRING_FLAG_OVERLOAD, [StringType, StringType, BoolType], BoolType)
+      memberOverload(LIKE_STRING_OVERLOAD, StringType, [StringType], BoolType),
+      memberOverload(LIKE_STRING_FLAG_OVERLOAD, StringType, [StringType, BoolType], BoolType)
     ),
   ],
 ]);

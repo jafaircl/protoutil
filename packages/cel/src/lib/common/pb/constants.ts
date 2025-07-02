@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf';
 import { NullValue } from '@bufbuild/protobuf/wkt';
-import { Constant, ConstantSchema } from '../../protogen/cel/expr/syntax_pb.js';
+import { Constant, ConstantSchema, Expr } from '../../protogen/cel/expr/syntax_pb.js';
 import { RefVal } from '../ref/reference.js';
 import { BoolRefVal } from '../types/bool.js';
 import { BytesRefVal } from '../types/bytes.js';
@@ -23,6 +23,7 @@ import {
   UintType,
 } from '../types/types.js';
 import { UintRefVal } from '../types/uint.js';
+import { isConstantProtoExpr } from './expressions.js';
 
 /**
  * NewBoolProtoConstant creates a new protobuf boolean constant.
@@ -217,6 +218,13 @@ export function protoConstantToRefVal(value: Constant): RefVal {
     default:
       throw new Error(`unsupported constant kind: ${value.constantKind.case}`);
   }
+}
+
+export function protoConstantExprToRefVal(value: Expr): RefVal {
+  if (!isConstantProtoExpr(value)) {
+    throw new Error(`expected constant expression, got: ${value.exprKind.case}`);
+  }
+  return protoConstantToRefVal(value.exprKind.value);
 }
 
 /**

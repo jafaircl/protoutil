@@ -1,7 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import { CheckedExprSchema } from '../protogen/cel/expr/checked_pb.js';
 import { ExprSchema } from '../protogen/cel/expr/syntax_pb.js';
-import { AST, CheckedAST, newFunctionReference, newIdentReference, SourceInfo } from './ast.js';
+import { AST, CheckedAST, newFunctionReference, newIdentReference, SourceInfo } from './ast/ast.js';
 import { checkedExprToAST, toCheckedExprProto } from './conversion.js';
 import { LOGICAL_NOT_OVERLOAD } from './overloads.js';
 import { BoolProtoType, DynProtoType } from './pb/types.js';

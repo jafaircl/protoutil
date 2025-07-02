@@ -1,37 +1,43 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AST } from '../common/ast.js';
+import { AST } from '../common/ast/ast.js';
 import { RefVal } from '../common/ref/reference.js';
-import { isErrorRefVal } from '../common/types/error.js';
-import { reflectNativeType } from '../common/types/native.js';
+import { ErrorRefVal, isErrorRefVal } from '../common/types/error.js';
 import { isNil } from '../common/utils.js';
-import { EmptyActivation } from '../interpreter/activation.js';
+import {
+  EmptyActivation as InterpreterEmptyActivation,
+  newActivation as interpreterNewActivation,
+  PartActivation as InterpreterPartialActivation,
+  isActivation,
+} from '../interpreter/activation.js';
+import { AttributePattern, PartialAttributeFactory } from '../interpreter/attribute-patterns.js';
 import {
   AttrFactory,
+  AttrFactoryOption,
   AttributeFactory,
   enableErrorOnBadPresenceTest,
 } from '../interpreter/attributes.js';
-import { InterpretableDecorator } from '../interpreter/decorators.js';
 import { DefaultDispatcher, Dispatcher } from '../interpreter/dispatcher.js';
 import { EvalState } from '../interpreter/evalstate.js';
-import { Interpretable } from '../interpreter/interpretable.js';
+import { Interpretable, ObservableInterpretable } from '../interpreter/interpretable.js';
 import {
   ActualCostEstimator,
   costObserver,
   CostTracker,
+  costTrackerFactory,
+  costTrackerLimit,
   CostTrackerOption,
 } from '../interpreter/runtimecost.js';
 import {
-  Activation,
   HierarchicalActivation,
-  MapActivation,
-  PartialActivation,
+  Activation as InterpreterActivation,
 } from './../interpreter/activation.js';
 import {
-  EvalObserver,
+  evalStateObserver,
+  exhaustiveEval,
   ExprInterpreter,
   Interpreter,
-  observe,
+  PlannerOption,
 } from './../interpreter/interpreter.js';
 import { Env } from './env.js';
 import { Feature } from './library.js';
@@ -60,8 +66,83 @@ export interface Program {
    */
   eval(
     input: Activation | Record<string, any> | Map<string, any>
-  ): [RefVal | null, EvalDetails | null, Error | null];
+  ): [RefVal | null, EvalDetails | null, ErrorRefVal | null];
 }
+
+/**
+ * Activation used to resolve identifiers by name and references by id.
+ *
+ * An Activation is the primary mechanism by which a caller supplies input into a CEL program.
+ */
+export type Activation = InterpreterActivation;
+
+/**
+ * NewActivation returns an activation based on a map-based binding where the map keys are
+ * expected to be qualified names used with ResolveName calls.
+ *
+ * The input `bindings` may either be of type `Activation` or `map[string]any`.
+ * Lazy bindings may be supplied within the map-based input in either of the following forms:
+ * - func() any
+ * - func() ref.Val
+ * The output of the lazy binding will overwrite the variable reference in the internal map.
+ *
+ * Values which are not represented as ref.Val types on input may be adapted to a ref.Val using
+ * the types.Adapter configured in the environment.
+ */
+export function newActivation(bindings: Map<string, any> | Record<string, any>): Activation {
+  return interpreterNewActivation(bindings);
+}
+
+/**
+ * PartialActivation extends the Activation interface with a set of unknown AttributePatterns.
+ */
+export type PartialActivation = InterpreterPartialActivation;
+
+/**
+ * NoVars returns an empty Activation.
+ */
+export function noVars(): Activation {
+  return new InterpreterEmptyActivation();
+}
+
+/**
+ * PartialVars returns a PartialActivation which contains variables and a set of AttributePattern
+ * values that indicate variables or parts of variables whose value are not yet known.
+ *
+ * This method relies on manually configured sets of missing attribute patterns. For a method which
+ * infers the missing variables from the input and the configured environment, use Env.PartialVars().
+ *
+ * The `vars` value may either be an Activation or any valid input to the NewActivation call.
+ */
+export function partialVars(
+  vars: Map<string, any> | Record<string, any> | Activation,
+  ...unknowns: AttributePatternType[]
+): PartialActivation {
+  return new InterpreterPartialActivation(newActivation(vars), unknowns);
+}
+
+// AttributePattern returns an AttributePattern that matches a top-level variable. The pattern is
+// mutable, and its methods support the specification of one or more qualifier patterns.
+//
+// For example, the AttributePattern(`a`).QualString(`b`) represents a variable access `a` with a
+// string field or index qualification `b`. This pattern will match Attributes `a`, and `a.b`,
+// but not `a.c`.
+//
+// When using a CEL expression within a container, e.g. a package or namespace, the variable name
+// in the pattern must match the qualified name produced during the variable namespace resolution.
+// For example, when variable `a` is declared within an expression whose container is `ns.app`, the
+// fully qualified variable name may be `ns.app.a`, `ns.a`, or `a` per the CEL namespace resolution
+// rules. Pick the fully qualified variable name that makes sense within the container as the
+// AttributePattern `varName` argument.
+export function attributePattern(varName: string): AttributePatternType {
+  return new AttributePattern(varName);
+}
+
+// AttributePatternType represents a top-level variable with an optional set of qualifier patterns.
+//
+// See the interpreter.AttributePattern and interpreter.AttributeQualifierPattern for more info
+// about how to create and manipulate AttributePattern values.
+export type AttributePatternType = AttributePattern;
 
 /**
  * prog is the internal implementation of the Program interface.
@@ -69,72 +150,57 @@ export interface Program {
 export class prog implements Program {
   env: Env;
   evalOpts: EvalOption[];
-  defaultVars: Activation;
+  defaultVars?: Activation;
   dispatcher: Dispatcher;
   interpreter: Interpreter | null;
   interruptCheckFrequency: number;
 
   // Intermediate state used to configure the InterpretableDecorator set provided
   // to the initInterpretable call.
-  decorators: InterpretableDecorator[];
+  plannerOptions: PlannerOption[];
   // TODO: regex optimizations
   // regexOptimizations []*interpreter.RegexOptimization
 
   // Interpretable configured from an Ast and aggregate decorator set based on program options.
   interpretable: Interpretable | null;
+  observable: ObservableInterpretable | null;
   callCostEstimator: ActualCostEstimator | null;
   costOptions: CostTrackerOption[];
   costLimit: bigint | null;
 
   constructor(
     env: Env,
-    evalOpts: EvalOption[],
-    defaultVars: Activation,
+    plannerOptions: PlannerOption[],
     dispatcher: Dispatcher,
+    costOptions: CostTrackerOption[],
+    defaultVars?: Activation,
     interpreter?: Interpreter | null,
     interruptCheckFrequency?: number | null,
-    decorators?: InterpretableDecorator[] | null,
     // regexOptimizations: []*interpreter.RegexOptimization,
     interpretable?: Interpretable | null,
+    observable?: ObservableInterpretable | null,
     callCostEstimator?: ActualCostEstimator | null,
-    costOptions?: CostTrackerOption[] | null,
     costLimit?: bigint | null
   ) {
     this.env = env;
-    this.evalOpts = evalOpts || [];
-    this.defaultVars = defaultVars || new EmptyActivation();
+    this.evalOpts = [];
+    this.defaultVars = defaultVars;
     this.dispatcher = dispatcher;
     this.interpreter = interpreter || null;
     this.interruptCheckFrequency = interruptCheckFrequency || 0;
-    this.decorators = decorators || [];
+    this.plannerOptions = plannerOptions;
     // this.regexOptimizations = regexOptimizations;
     this.interpretable = interpretable || null;
+    this.observable = observable || null;
     this.callCostEstimator = callCostEstimator || null;
-    this.costOptions = costOptions || [];
+    this.costOptions = costOptions;
     this.costLimit = costLimit ?? null;
   }
 
-  clone() {
-    const costOptsCopy = [...(this.costOptions ?? [])];
-
-    return new prog(
-      this.env,
-      this.evalOpts,
-      this.defaultVars,
-      this.dispatcher,
-      this.interpreter,
-      this.interruptCheckFrequency,
-      null,
-      null,
-      null,
-      costOptsCopy
-    );
-  }
-
-  initInterpretable(a: AST, decs: InterpretableDecorator[]): prog | Error {
+  initInterpretable(a: AST, plannerOptions: PlannerOption[]): prog | Error {
     // When the AST has been exprAST it contains metadata that can be used to
     // speed up program execution.
-    const interpretable = this.interpreter?.newInterpretable(a, ...decs);
+    const interpretable = this.interpreter?.newInterpretable(a, ...plannerOptions);
     if (isNil(interpretable)) {
       return new Error('failed to create interpretable');
     }
@@ -142,44 +208,47 @@ export class prog implements Program {
       return interpretable;
     }
     this.interpretable = interpretable;
+    if (interpretable instanceof ObservableInterpretable) {
+      this.observable = interpretable;
+    }
     return this;
   }
 
   eval(
     input: Activation | Record<string, any> | Map<string, any>
-  ): [RefVal | null, EvalDetails | null, Error | null] {
+  ): [RefVal | null, EvalDetails | null, ErrorRefVal | null] {
     if (isNil(this.interpretable)) {
-      return [null, null, new Error('program not initialized')];
+      return [null, null, new ErrorRefVal('program not initialized')];
     }
     // Build a hierarchical activation if there are default vars set.
     let vars: Activation;
-    switch (reflectNativeType(input)) {
-      case EmptyActivation:
-      case MapActivation:
-      case HierarchicalActivation:
-      case PartialActivation:
-        vars = input as Activation;
-        break;
-      case Object:
-      case Map:
-        vars = new MapActivation(input as Map<string, any> | Record<string, any>);
-        break;
-      default:
-        return [
-          null,
-          null,
-          new Error(`invalid input, wanted Activation or map[string]any, got: (${input})${input}`),
-        ];
+    if (isActivation(input)) {
+      vars = input;
+    } else {
+      vars = newActivation(input);
     }
     if (!isNil(this.defaultVars)) {
       vars = new HierarchicalActivation(this.defaultVars, vars);
     }
-    const v = this.interpretable.eval(vars);
-    // The output of an internal Eval may have a value (`v`) that is a types.Err. This step translates the CEL value to a JS error response. This interface does not quite match the RPC signature which allows for multiple errors to be returned, but should be sufficient
-    if (isErrorRefVal(v)) {
-      return [null, null, v.value()];
+    let out: RefVal;
+    let det: EvalDetails | null = null;
+    if (!isNil(this.observable)) {
+      det = new EvalDetails();
+      out = this.observable.observeEval(vars, (observed) => {
+        if (observed instanceof EvalState) {
+          (det as EvalDetails).state = observed;
+        } else if (observed instanceof CostTracker) {
+          (det as EvalDetails).costTracker = observed;
+        }
+      });
+    } else {
+      out = this.interpretable.eval(vars);
     }
-    return [v, null, null];
+    // The output of an internal Eval may have a value (`v`) that is a types.Err. This step translates the CEL value to a JS error response. This interface does not quite match the RPC signature which allows for multiple errors to be returned, but should be sufficient
+    if (isErrorRefVal(out)) {
+      return [null, det, out];
+    }
+    return [out, det, null];
   }
 }
 
@@ -196,7 +265,7 @@ export function newProgram(e: Env, a: AST, opts: ProgramOption[]): Program | Err
 
   // Ensure the default attribute factory is set after the adapter and provider
   // are configured.
-  const p = new prog(e, [], new EmptyActivation(), disp);
+  const p = new prog(e, [], disp, []);
 
   // Configure the program via the ProgramOption values.
   for (const opt of opts) {
@@ -217,24 +286,24 @@ export function newProgram(e: Env, a: AST, opts: ProgramOption[]): Program | Err
 
   // Set the attribute factory after the options have been set.
   let attrFactory: AttributeFactory;
-  // TODO: partial eval
-  // if p.evalOpts&OptPartialEval == OptPartialEval {
-  // 	attrFactory = interpreter.NewPartialAttributeFactory(e.Container, e.adapter, e.provider, attrFactorOpts...)
-  // } else {
-  // 	attrFactory = interpreter.NewAttributeFactory(e.Container, e.adapter, e.provider, attrFactorOpts...)
-  // }
-  // eslint-disable-next-line prefer-const
-  attrFactory = new AttrFactory(
-    e.container,
-    e.adapter,
-    e.provider,
-    enableErrorOnBadPresenceTest(p.env.hasFeature(Feature.EnableErrorOnBadPresenceTest))
-  );
+  const attrFactorOpts: AttrFactoryOption[] = [
+    enableErrorOnBadPresenceTest(p.env.hasFeature(Feature.EnableErrorOnBadPresenceTest)),
+  ];
+  if (p.evalOpts.includes(EvalOption.PartialEval)) {
+    attrFactory = new PartialAttributeFactory(
+      e.container,
+      e.adapter,
+      e.provider,
+      ...attrFactorOpts
+    );
+  } else {
+    attrFactory = new AttrFactory(e.container, e.adapter, e.provider, ...attrFactorOpts);
+  }
   const interp = new ExprInterpreter(disp, e.container, e.provider, e.adapter, attrFactory);
   p.interpreter = interp;
 
   // Translate the EvalOption flags into InterpretableDecorator instances.
-  const decorators: InterpretableDecorator[] = [...p.decorators];
+  const plannerOptions: PlannerOption[] = [...p.plannerOptions];
 
   // TODO: observers and regex optimization
   //   // Enable interrupt checking if there's a non-zero check frequency
@@ -251,7 +320,6 @@ export function newProgram(e: Env, a: AST, opts: ProgramOption[]): Program | Err
   // 		decorators = append(decorators, interpreter.CompileRegexConstants(p.regexOptimizations...))
   // 	}
 
-  // TODO: exhaustive eval
   // Enable exhaustive eval, state tracking and cost tracking last since they
   // require a factory.
   if (
@@ -259,110 +327,52 @@ export function newProgram(e: Env, a: AST, opts: ProgramOption[]): Program | Err
     p.evalOpts.includes(EvalOption.TrackState) ||
     p.evalOpts.includes(EvalOption.TrackCost)
   ) {
-    const factory = (state: EvalState, costTracker: CostTracker) => {
-      costTracker.estimator = p.callCostEstimator;
-      costTracker.limit = p.costLimit;
-      for (const costOpt of p.costOptions) {
-        costOpt(costTracker);
-      }
-      // Limit capacity to guarantee a reallocation when calling 'append(decs, ...)' below. This
-      // prevents the underlying memory from being shared between factory function calls causing
-      // undesired mutations.
-      const decs = decorators.slice(0, decorators.length);
-      const observers: EvalObserver[] = [];
-
-      if (
-        p.evalOpts.includes(EvalOption.ExhaustiveEval) ||
-        p.evalOpts.includes(EvalOption.TrackState)
-      ) {
-        // TODO: evalStateObserver
-        // // EvalStateObserver is required for OptExhaustiveEval.
-        // observers.push(evalStateObserver(state))
-      }
-      if (p.evalOpts.includes(EvalOption.TrackCost)) {
-        observers.push(costObserver(costTracker));
-      }
-
-      // Enable exhaustive eval over a basic observer since it offers a superset of features.
-      if (p.evalOpts.includes(EvalOption.ExhaustiveEval)) {
-        // TODO: exhaustive eval
-        // decs = append(decs, interpreter.ExhaustiveEval(), interpreter.Observe(observers...))
-      } else if (observers.length > 0) {
-        decs.push(observe(...observers));
-      }
-
-      return p.clone().initInterpretable(a, decs);
-    };
-    return new progGen(factory);
-  }
-  return p.initInterpretable(a, decorators);
-}
-
-// progFactory is a helper alias for marking a program creation factory function.
-type progFactory = (state: EvalState, tracker: CostTracker) => prog | Error;
-
-/**
- * progGen holds a reference to a progFactory instance and implements the
- * Program interface.
- */
-class progGen implements Program {
-  factory: progFactory;
-
-  constructor(factory: progFactory) {
-    // Test the factory to make sure that configuration errors are spotted at config
-    const tracker = new CostTracker(null);
-    const maybeErr = factory(new EvalState(), tracker);
-    if (maybeErr instanceof Error) {
-      throw maybeErr;
+    let costOptCount = p.costOptions.length;
+    if (!isNil(p.costLimit)) {
+      costOptCount++;
     }
-    this.factory = factory;
-  }
-
-  eval(
-    input: Activation | Record<string, any> | Map<string, any>
-  ): [RefVal | null, EvalDetails | null, Error | null] {
-    // The factory based Eval() differs from the standard evaluation model in
-    // that it generates a new EvalState instance for each call to ensure that
-    // unique evaluations yield unique stateful results.
-    const state = new EvalState();
-    const costTracker = new CostTracker(null);
-
-    const det = new EvalDetails(state, costTracker);
-
-    // Generate a new instance of the interpretable using the factory
-    // configured during the call to newProgram(). It is incredibly unlikely
-    // that the factory call will generate an error given the factory test
-    // performed within the Program() call.
-    const p = this.factory(state, costTracker);
-    if (p instanceof Error) {
-      return [null, det, p];
+    const costOpts: CostTrackerOption[] = [...p.costOptions];
+    if (!isNil(p.costLimit)) {
+      costOpts.push(costTrackerLimit(p.costLimit));
     }
-
-    // Evaluate the input, returning the result and the 'state' within
-    // EvalDetails.
-    const [v, _, err] = p.eval(input);
-    return [v, det, err];
+    const trackerFactory = () => new CostTracker(p.callCostEstimator, ...costOpts);
+    const observers: PlannerOption[] = [];
+    if (
+      p.evalOpts.includes(EvalOption.ExhaustiveEval) ||
+      p.evalOpts.includes(EvalOption.TrackState)
+    ) {
+      // EvalStateObserver is required for OptExhaustiveEval.
+      observers.push(evalStateObserver());
+    }
+    if (p.evalOpts.includes(EvalOption.TrackCost)) {
+      observers.push(costObserver(costTrackerFactory(trackerFactory)));
+    }
+    // Enable exhaustive eval over a basic observer since it offers a superset of features.
+    if (p.evalOpts.includes(EvalOption.ExhaustiveEval)) {
+      plannerOptions.push(exhaustiveEval());
+    }
+    for (const obs of observers) {
+      plannerOptions.push(obs);
+    }
   }
+  return p.initInterpretable(a, plannerOptions);
 }
 
 /**
  * EvalDetails holds additional information observed during the Eval() call.
  */
 export class EvalDetails {
-  #state: EvalState;
-  #costTracker: CostTracker;
-
-  constructor(state: EvalState, costTracker: CostTracker) {
-    this.#state = state;
-    this.#costTracker = costTracker;
-  }
-
-  /**
-   * State of the evaluation, non-nil if the OptTrackState or OptExhaustiveEval
-   * is specified within EvalOptions.
-   */
-  state() {
-    return this.#state;
+  constructor(
+    /**
+     * State of the evaluation, non-nil if the OptTrackState or OptExhaustiveEval
+     * is specified within EvalOptions.
+     */
+    public state?: EvalState,
+    public costTracker?: CostTracker
+  ) {
+    if (isNil(state)) {
+      this.state = new EvalState();
+    }
   }
 
   /**
@@ -371,6 +381,6 @@ export class EvalDetails {
    * enabled.
    */
   actualCost() {
-    return this.#costTracker.actualCost();
+    return this.costTracker?.actualCost();
   }
 }

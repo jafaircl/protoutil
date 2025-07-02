@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { isRefVal, RefType, RefVal } from '../ref/reference.js';
 import { isNil } from '../utils.js';
@@ -11,10 +12,12 @@ export class ErrorRefVal implements RefVal {
   // TODO: do we want to alter the tests to use the getter instead?
   private readonly _value: Error;
   private readonly _id: bigint;
+  private readonly _parent: ErrorRefVal | undefined;
 
-  constructor(message: string, id?: bigint) {
+  constructor(message: string, id?: bigint, parent?: ErrorRefVal) {
     this._value = new Error(message);
     this._id = id || BigInt(0);
+    this._parent = parent;
   }
 
   static errDivideByZero = new ErrorRefVal('division by zero');
@@ -134,6 +137,10 @@ export class ErrorRefVal implements RefVal {
   id(): bigint {
     return this._id;
   }
+
+  parent(): ErrorRefVal | undefined {
+    return this._parent;
+  }
 }
 
 export function isErrorRefVal(value: any): value is ErrorRefVal {
@@ -157,7 +164,7 @@ export function labelErrorNode(id: bigint, val: RefVal): RefVal {
   if (!isErrorRefVal(val)) {
     return val;
   }
-  return new ErrorRefVal(val.value().message, id);
+  return new ErrorRefVal(val.value().message, id, val);
 }
 
 /**
@@ -165,4 +172,21 @@ export function labelErrorNode(id: bigint, val: RefVal): RefVal {
  */
 export function wrapError(err: Error, id?: bigint): RefVal {
   return new ErrorRefVal(err.message, id);
+}
+
+/**
+ * UnwrapErr returns the underlying Error value from a CEL Err value.
+ * If the ErrorRefVal has a parent, it will traverse the parent chain
+ * to find the root error.
+ */
+export function unwrapError(val: ErrorRefVal): Error {
+  if (!isErrorRefVal(val)) {
+    throw new TypeError('Expected an ErrorRefVal');
+  }
+  // If the error has a parent, traverse the chain to find the root error.
+  let current: ErrorRefVal | undefined = val;
+  while (current?.parent()) {
+    current = current.parent();
+  }
+  return current!.value();
 }

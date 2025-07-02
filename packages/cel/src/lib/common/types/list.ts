@@ -265,7 +265,7 @@ export class ProtoList extends BaseList<Value> {
  * concatList combines two list implementations together into a view.
  * The `Adapter` enables native type to CEL type conversions.
  */
-class ConcatList<T = any> extends BaseList<T> {
+export class ConcatList<T = any> extends BaseList<T> {
   constructor(public override adapter: Adapter, prevList: Lister, nextList: Lister) {
     super(adapter, []);
     for (let i = 0; i < prevList.size().value(); i++) {
