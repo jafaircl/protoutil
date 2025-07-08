@@ -58,9 +58,12 @@ export {
   FunctionDecl,
   OverloadDecl,
   VariableDecl,
+  newConstantDecl as constantDecl,
+  newFunction as functionDecl,
   binaryBinding as overloadBinaryBinding,
   functionBinding as overloadFunctionBinding,
   unaryBinding as overloadUnaryBinding,
+  newVariableDecl as variableDecl,
 } from '../common/decls.js';
 export { CELError } from '../common/error.js';
 export { Location, NoLocation } from '../common/location.js';
@@ -162,6 +165,7 @@ export { NullRefVal as NullVal, isNullRefVal } from '../common/types/null.js';
 export { isNumberProtoValue, isNumberRefVal } from '../common/types/number.js';
 export { ObjectRefVal as ObjectVal, isMessageZeroValue } from '../common/types/object.js';
 export { OptionalRefVal as OptionalVal, isOptionalRefVal } from '../common/types/optional.js';
+export { fieldDescToCELType } from '../common/types/provider.js';
 export { StringRefVal as StringVal, isStringRefVal } from '../common/types/string.js';
 export { TimestampRefVal as TimestampVal } from '../common/types/timestamp.js';
 export { isComparer } from '../common/types/traits/comparer.js';
@@ -193,7 +197,7 @@ export {
 export { isUnknownOrError } from '../common/types/utils.js';
 export { isWrapperType } from '../common/types/wrapper.js';
 export { isHexString, isOctalString, isScientificNotationString } from '../common/utils.js';
-export { isQualifierValueEquator } from '../interpreter/attribute-patterns.js';
+export { AttributePattern, isQualifierValueEquator } from '../interpreter/attribute-patterns.js';
 export {
   isAttribute,
   isAttributeFactory,
@@ -324,3 +328,4 @@ export {
 export type { EnvOption, ProgramOption } from './options.js';
 export { EvalDetails, attributePattern, newActivation, noVars, partialVars } from './program.js';
 export type { Activation, AttributePatternType, PartialActivation, Program } from './program.js';
+export { normalizeMessageKeys } from './utils.js';
