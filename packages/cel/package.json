@@ -18,6 +18,24 @@
       "require": "./dist/index.cjs",
       "default": "./dist/index.js"
     },
+    "./checker": {
+      "types": "./dist/lib/checker/index.d.ts",
+      "import": "./dist/lib/checker/index.js",
+      "require": "./dist/lib/checker/index.cjs",
+      "default": "./dist/lib/checker/index.js"
+    },
+    "./interpreter": {
+      "types": "./dist/lib/interpreter/index.d.ts",
+      "import": "./dist/lib/interpreter/index.js",
+      "require": "./dist/lib/interpreter/index.cjs",
+      "default": "./dist/lib/interpreter/index.js"
+    },
+    "./parser": {
+      "types": "./dist/lib/parser/index.d.ts",
+      "import": "./dist/lib/parser/index.js",
+      "require": "./dist/lib/parser/index.cjs",
+      "default": "./dist/lib/parser/index.js"
+    },
     "./proto": {
       "types": "./dist/lib/protogen-exports/index.d.ts",
       "import": "./dist/lib/protogen-exports/index.js",

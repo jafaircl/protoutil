@@ -4,9 +4,10 @@ import { create } from '@bufbuild/protobuf';
 import { RefVal } from '../common/ref/reference.js';
 import { BoolRefVal } from '../common/types/bool.js';
 import { IntRefVal } from '../common/types/int.js';
+import { isUnknownRefVal } from '../common/types/unknown.js';
 import { Activation } from '../interpreter/activation.js';
 import { ExprSchema } from '../protogen/cel/expr/syntax_pb.js';
-import { astToString, isUnknownRefVal } from './cel.js';
+import { astToString } from './cel.js';
 import {
   BoolType,
   DynType,

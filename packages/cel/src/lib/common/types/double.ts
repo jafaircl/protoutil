@@ -56,28 +56,32 @@ export class DoubleRefVal
       case DoubleType:
         return new DoubleRefVal(this._value);
       case IntType:
+        let intValue = this.value();
+        if (intValue % 1 !== 0) {
+          intValue = intValue < 0 ? Math.ceil(intValue) : Math.floor(intValue);
+        }
         if (
-          Number.isNaN(this._value) ||
-          this._value >= Infinity ||
-          this._value <= -Infinity ||
-          !isValidInt64(BigInt(this._value))
+          Number.isNaN(intValue) ||
+          intValue >= Infinity ||
+          intValue <= -Infinity ||
+          !isValidInt64(BigInt(intValue))
         ) {
           return ErrorRefVal.errIntOverflow;
         }
-        return new IntRefVal(BigInt(this._value));
+        return new IntRefVal(BigInt(intValue));
       case StringType:
         return new StringRefVal(this._value.toString());
       case TypeType:
         return DoubleType;
       case UintType:
-        if (
-          Number.isNaN(this.value()) ||
-          this.value() >= Infinity ||
-          !isValidUint64(BigInt(this.value()))
-        ) {
+        let uintValue = this.value();
+        if (uintValue % 1 !== 0) {
+          uintValue = uintValue < 0 ? Math.ceil(uintValue) : Math.floor(uintValue);
+        }
+        if (Number.isNaN(uintValue) || uintValue >= Infinity || !isValidUint64(BigInt(uintValue))) {
           return ErrorRefVal.errUintOverflow;
         }
-        return new UintRefVal(BigInt(this.value()));
+        return new UintRefVal(BigInt(uintValue));
       default:
         return ErrorRefVal.typeConversionError(this, type);
     }

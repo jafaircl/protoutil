@@ -1,10 +1,7 @@
 import {
-  AllMacro,
   crossTypeNumericComparisons,
   enableMacroCallTracking,
   EnvOption,
-  ExistsMacro,
-  ExistsOneMacro,
   func,
   lib,
   macros,
@@ -12,6 +9,7 @@ import {
   SingletonLibrary,
   StringType,
 } from '@protoutil/cel';
+import { AllMacro, ExistsMacro, ExistsOneMacro } from '@protoutil/cel/parser';
 import { defaultLibraryFunctions } from '../default/library.js';
 import {
   LIST_TO_LIST_OVERLOAD,

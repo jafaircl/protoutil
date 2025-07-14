@@ -1,5 +1,4 @@
 import {
-  AllMacro,
   BoolType,
   BytesType,
   crossTypeNumericComparisons,
@@ -7,8 +6,6 @@ import {
   DurationType,
   enableMacroCallTracking,
   EnvOption,
-  ExistsMacro,
-  ExistsOneMacro,
   func,
   IntType,
   lib,
@@ -20,6 +17,7 @@ import {
   TimestampType,
   UintType,
 } from '@protoutil/cel';
+import { AllMacro, ExistsMacro, ExistsOneMacro } from '@protoutil/cel/parser';
 import {
   ADD_OPERATOR,
   CONDITIONAL_OPERATOR,

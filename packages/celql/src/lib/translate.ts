@@ -1,4 +1,5 @@
-import { Ast, CostEstimate, CostEstimator, Env } from '@protoutil/cel';
+import { Ast, Env } from '@protoutil/cel';
+import { CostEstimate, CostEstimator } from '@protoutil/cel/checker';
 import { compile } from './compile.js';
 import { Dialect } from './dialect.js';
 import { unparse } from './unparse.js';

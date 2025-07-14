@@ -12,6 +12,9 @@
         "outputPath": "packages/cel/dist",
         "main": "packages/cel/src/index.ts",
         "additionalEntryPoints": [
+          "packages/cel/src/lib/checker/index.ts",
+          "packages/cel/src/lib/interpreter/index.ts",
+          "packages/cel/src/lib/parser/index.ts",
           "packages/cel/src/lib/protogen-exports/index.ts",
           "packages/cel/src/lib/protogen-exports/index_conformance_test.ts",
           "packages/cel/src/lib/protogen-exports/index_conformance_proto2.ts",

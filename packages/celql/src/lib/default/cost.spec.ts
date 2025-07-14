@@ -1,4 +1,5 @@
-import { CostEstimate, declareContextProto } from '@protoutil/cel';
+import { declareContextProto } from '@protoutil/cel';
+import { CostEstimate } from '@protoutil/cel/checker';
 import { TestAllTypesSchema } from '@protoutil/cel/conformance-proto3';
 import { protoTable } from '../options.js';
 import { DefaultEnv } from './env.js';

@@ -1,5 +1,6 @@
 import { DescMessage } from '@bufbuild/protobuf';
-import { CostOption, EnvOption, listType, objectType, types, variable } from '@protoutil/cel';
+import { EnvOption, listType, objectType, types, variable } from '@protoutil/cel';
+import { CostOption } from '@protoutil/cel/checker';
 
 /**
  * Creates an environment option that registers a variable with the given name as a list of Protobuf

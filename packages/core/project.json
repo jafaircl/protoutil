@@ -23,7 +23,8 @@
         "tsConfig": "packages/core/tsconfig.lib.json",
         "format": ["esm", "cjs"],
         "declarationRootDir": "packages/core/src",
-        "minify": false
+        "minify": false,
+        "external": ["@bufbuild/protobuf", "temporal-polyfill", "crc"]
       }
     },
     "genproto": {

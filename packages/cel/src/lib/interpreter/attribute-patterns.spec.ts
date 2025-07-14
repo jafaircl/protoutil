@@ -1,6 +1,6 @@
-import { isUnknownRefVal } from '../cel/cel.js';
 import { Container, name } from '../common/container.js';
 import { Registry } from '../common/types/provider.js';
+import { isUnknownRefVal } from '../common/types/unknown.js';
 import { EmptyActivation, PartActivation } from './activation.js';
 import { AttributePattern, PartialAttributeFactory } from './attribute-patterns.js';
 import { Attribute, AttributeFactory } from './attributes.js';

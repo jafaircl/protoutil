@@ -127,8 +127,267 @@
           }
         },
         {
+          "name":  "map_no_such_key_or_false",
+          "expr":  "dyn({0:1,2:2,5:3}[1]) || false",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "no such key"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "map_no_such_key_or_true",
+          "expr":  "dyn({0:1,2:2,5:3}[1]) || true",
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "map_no_such_key_and_false",
+          "expr":  "dyn({0:1,2:2,5:3}[1]) && false",
+          "value":  {
+            "boolValue":  false
+          }
+        },
+        {
+          "name":  "map_no_such_key_and_true",
+          "expr":  "dyn({0:1,2:2,5:3}[1]) && true",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "no such key"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "map_bad_key_type",
+          "expr":  "{0:1,2:2,5:3}[dyn(b'')]",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "no such key"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "map_bad_key_type_or_false",
+          "expr":  "dyn({0:1,2:2,5:3}[dyn(b'')]) || false",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "no such key"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "map_bad_key_type_or_true",
+          "expr":  "dyn({0:1,2:2,5:3}[dyn(b'')]) || true",
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "map_bad_key_type_and_false",
+          "expr":  "dyn({0:1,2:2,5:3}[dyn(b'')]) && false",
+          "value":  {
+            "boolValue":  false
+          }
+        },
+        {
+          "name":  "map_bad_key_type_and_true",
+          "expr":  "dyn({0:1,2:2,5:3}[dyn(b'')]) && true",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "no such key"
+              }
+            ]
+          }
+        },
+        {
           "name":  "map_field_select_no_such_key",
           "expr":  "x.name",
+          "typeEnv":  [
+            {
+              "name":  "x",
+              "ident":  {
+                "type":  {
+                  "mapType":  {
+                    "keyType":  {
+                      "primitive":  "STRING"
+                    },
+                    "valueType":  {
+                      "primitive":  "STRING"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "bindings":  {
+            "x":  {
+              "value":  {
+                "mapValue":  {
+                  "entries":  [
+                    {
+                      "key":  {
+                        "stringValue":  "holiday"
+                      },
+                      "value":  {
+                        "stringValue":  "field"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "no such key: 'name'"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "map_field_select_no_such_key_or_false",
+          "expr":  "dyn(x.name) || false",
+          "typeEnv":  [
+            {
+              "name":  "x",
+              "ident":  {
+                "type":  {
+                  "mapType":  {
+                    "keyType":  {
+                      "primitive":  "STRING"
+                    },
+                    "valueType":  {
+                      "primitive":  "STRING"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "bindings":  {
+            "x":  {
+              "value":  {
+                "mapValue":  {
+                  "entries":  [
+                    {
+                      "key":  {
+                        "stringValue":  "holiday"
+                      },
+                      "value":  {
+                        "stringValue":  "field"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "no such key: 'name'"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "map_field_select_no_such_key_or_true",
+          "expr":  "dyn(x.name) || true",
+          "typeEnv":  [
+            {
+              "name":  "x",
+              "ident":  {
+                "type":  {
+                  "mapType":  {
+                    "keyType":  {
+                      "primitive":  "STRING"
+                    },
+                    "valueType":  {
+                      "primitive":  "STRING"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "bindings":  {
+            "x":  {
+              "value":  {
+                "mapValue":  {
+                  "entries":  [
+                    {
+                      "key":  {
+                        "stringValue":  "holiday"
+                      },
+                      "value":  {
+                        "stringValue":  "field"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "map_field_select_no_such_key_and_false",
+          "expr":  "dyn(x.name) && false",
+          "typeEnv":  [
+            {
+              "name":  "x",
+              "ident":  {
+                "type":  {
+                  "mapType":  {
+                    "keyType":  {
+                      "primitive":  "STRING"
+                    },
+                    "valueType":  {
+                      "primitive":  "STRING"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "bindings":  {
+            "x":  {
+              "value":  {
+                "mapValue":  {
+                  "entries":  [
+                    {
+                      "key":  {
+                        "stringValue":  "holiday"
+                      },
+                      "value":  {
+                        "stringValue":  "field"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "value":  {
+            "boolValue":  false
+          }
+        },
+        {
+          "name":  "map_field_select_no_such_key_and_true",
+          "expr":  "dyn(x.name) && true",
           "typeEnv":  [
             {
               "name":  "x",
@@ -216,7 +475,7 @@
         },
         {
           "name":  "map_value_bytes",
-          "expr":  "{0:b\"\"}[0]",
+          "expr":  "{0:b''}[0]",
           "value":  {
             "bytesValue":  ""
           }
@@ -236,7 +495,7 @@
         },
         {
           "name":  "map_value_map",
-          "expr":  "{\"map\": {\"k\": \"v\"}}[\"map\"]",
+          "expr":  "{'map': {'k': 'v'}}['map']",
           "value":  {
             "mapValue":  {
               "entries":  [
@@ -254,7 +513,7 @@
         },
         {
           "name":  "map_value_mix_type",
-          "expr":  "{\"map\": {\"k\": \"v\"}, \"list\": [1]}[\"map\"]",
+          "expr":  "{'map': {'k': 'v'}, 'list': [1]}['map']",
           "value":  {
             "mapValue":  {
               "entries":  [
@@ -295,6 +554,54 @@
           "expr":  "has({}.a)",
           "value":  {
             "boolValue":  false
+          }
+        }
+      ]
+    },
+    {
+      "name":  "quoted_map_fields",
+      "description":  "Field accesses using the quote syntax",
+      "test":  [
+        {
+          "name":  "field_access_slash",
+          "expr":  "{'/api/v1': true, '/api/v2': false}.`/api/v1`",
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "field_access_dash",
+          "expr":  "{'content-type': 'application/json', 'content-length': 145}.`content-type` == 'application/json'",
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "field_access_dot",
+          "expr":  "{'foo.txt': 32, 'bar.csv': 1024}.`foo.txt`",
+          "value":  {
+            "int64Value":  "32"
+          }
+        },
+        {
+          "name":  "has_field_slash",
+          "expr":  "has({'/api/v1': true, '/api/v2': false}.`/api/v3`)",
+          "value":  {
+            "boolValue":  false
+          }
+        },
+        {
+          "name":  "has_field_dash",
+          "expr":  "has({'content-type': 'application/json', 'content-length': 145}.`content-type`)",
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "has_field_dot",
+          "expr":  "has({'foo.txt': 32, 'bar.csv': 1024}.`foo.txt`)",
+          "value":  {
+            "boolValue":  true
           }
         }
       ]

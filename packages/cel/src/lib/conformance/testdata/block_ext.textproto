@@ -1,5 +1,8 @@
+# proto-file: ../../../proto/cel/expr/conformance/test/simple.proto
+# proto-message: cel.expr.conformance.test.SimpleTestFile
+
 # This conformance test relies on the test-only macros cel.block, cel.index,
-# cel.iterVar, and cel.accuVar. These test-only macros allow excercising
+# cel.iterVar, and cel.accuVar. These test-only macros allow exercising
 # cel.block without the optimizers being present.
 # `cel.block(l, e)` must rewrite itself to be `cel.block(l, e)`
 # `cel.index(N)` must rewrite itself to `@indexN`
@@ -267,12 +270,16 @@ section: {
     value: {
       int64_value: 6
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -309,12 +316,16 @@ section: {
     value: {
       int64_value: 31
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -351,12 +362,16 @@ section: {
     value: {
       bool_value: true
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -393,12 +408,16 @@ section: {
     value: {
       int64_value: 15
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -435,12 +454,16 @@ section: {
     value: {
       int64_value: 8
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -477,12 +500,16 @@ section: {
     value: {
       int64_value: 3
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -519,12 +546,16 @@ section: {
     value: {
       int64_value: 8
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -671,6 +702,10 @@ section: {
     value: {
       bool_value: true
     }
+    type_env: {
+      name: "x"
+      ident: { type: { primitive: INT64 }}
+    }
     bindings: {
       key: "x"
       value: {
@@ -759,6 +794,10 @@ section: {
         }
       }
     }
+    type_env: {
+      name: "x"
+      ident: { type: { primitive: INT64 }}
+    }
     bindings: {
       key: "x"
       value: {
@@ -802,12 +841,16 @@ section: {
     value: {
       int64_value: 10
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -844,12 +887,16 @@ section: {
     value: {
       int64_value: 10
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -886,12 +933,16 @@ section: {
     value: {
       int64_value: 10
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -928,12 +979,16 @@ section: {
     value: {
       bool_value: true
     }
+    type_env: {
+      name: "msg"
+      ident: { type: { message_type: "cel.expr.conformance.proto3.TestAllTypes" }}
+    }
     bindings: {
       key: "msg"
       value: {
         value: {
           object_value: {
-            [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes] {
+            [type.googleapis.com/cel.expr.conformance.proto3.TestAllTypes] {
               single_int64: 3
               single_int32: 5
               oneof_type: {
@@ -970,6 +1025,10 @@ section: {
     value: {
       bool_value: true
     }
+    type_env: {
+      name: "opt_x"
+      ident: { type: { primitive: INT64 }}
+    }
     bindings: {
       key: "opt_x",
       value: {
@@ -995,7 +1054,7 @@ section: {
   }
   test: {
     name: "optional_message"
-    container: "google.api.expr.test.v1.proto3"
+    container: "cel.expr.conformance.proto3"
     expr: "cel.block([optional.ofNonZeroValue(1), optional.of(4), TestAllTypes{?single_int64: cel.index(0), ?single_int32: cel.index(1)}, cel.index(2).single_int32, cel.index(2).single_int64, cel.index(3) + cel.index(4)], cel.index(5))"
     value: {
       int64_value: 5

@@ -282,7 +282,7 @@
         },
         {
           "name":  "double_big_precision",
-          "description":  "Beyond exact range (2^53), but loses precisons (2^55 + 1).",
+          "description":  "Beyond exact range (2^53), but loses precision (2^55 + 1).",
           "expr":  "int(double(36028797018963969))",
           "value":  {
             "int64Value":  "36028797018963968"
@@ -430,7 +430,7 @@
           "evalError":  {
             "errors":  [
               {
-                "message":  "unknown varaible"
+                "message":  "unknown variable"
               }
             ]
           }
@@ -679,7 +679,7 @@
         },
         {
           "name":  "double_big_precision",
-          "description":  "Beyond exact range (2^53), but loses precisons (2^55 + 1).",
+          "description":  "Beyond exact range (2^53), but loses precision (2^55 + 1).",
           "expr":  "uint(double(36028797018963969u))",
           "value":  {
             "uint64Value":  "36028797018963968"

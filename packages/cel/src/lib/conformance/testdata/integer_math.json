@@ -168,7 +168,7 @@
           }
         },
         {
-          "name":  "negtive_zero",
+          "name":  "negative_zero",
           "expr":  "-(0)",
           "value":  {
             "int64Value":  "0"
@@ -448,7 +448,7 @@
           }
         },
         {
-          "name":  "negtive_no_overload",
+          "name":  "negative_no_overload",
           "expr":  "-(5u)",
           "disableCheck":  true,
           "evalError":  {

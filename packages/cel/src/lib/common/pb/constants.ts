@@ -172,20 +172,20 @@ export function isUintProtoConstant(value: Constant): value is Constant & {
  * RefValToProtoConstant converts a ref.Val to a protobuf constant.
  */
 export function refValToProtoConstant(value: RefVal): Constant {
-  switch (value.type()) {
-    case BoolType:
+  switch (value.type().typeName()) {
+    case BoolType.typeName():
       return newBoolProtoConstant(value.value() as boolean);
-    case BytesType:
+    case BytesType.typeName():
       return newBytesProtoConstant(value.value() as Uint8Array);
-    case DoubleType:
+    case DoubleType.typeName():
       return newDoubleProtoConstant(value.value() as number);
-    case IntType:
+    case IntType.typeName():
       return newIntProtoConstant(value.value() as bigint);
-    case NullType:
+    case NullType.typeName():
       return NullProtoConstant;
-    case StringType:
+    case StringType.typeName():
       return newStringProtoConstant(value.value() as string);
-    case UintType:
+    case UintType.typeName():
       return newUintProtoConstant(value.value() as bigint);
     default:
       throw new Error(`unsupported ref.Val type: ${value.type()}`);

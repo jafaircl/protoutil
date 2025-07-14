@@ -1300,7 +1300,6 @@ class FieldQualifier implements ConstantQualifier, QualifierValueEquator {
   }
 
   qualifierValueEquals(value: any): boolean {
-    console.log({ value, name: this.#name });
     return typeof value === 'string' && value === this.#name;
   }
 

@@ -3,7 +3,7 @@
   "description":  "Tests for list operations.",
   "section":  [
     {
-      "name":  "concatentation",
+      "name":  "concatenation",
       "description":  "Tests for list concatenation.",
       "test":  [
         {
@@ -135,8 +135,91 @@
           }
         },
         {
-          "name":  "range",
+          "name":  "index_out_of_bounds",
           "expr":  "[1, 2, 3][3]",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "invalid_argument"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "index_out_of_bounds_or_false",
+          "expr":  "dyn([1, 2, 3][3]) || false",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "invalid_argument"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "index_out_of_bounds_or_true",
+          "expr":  "dyn([1, 2, 3][3]) || true",
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "index_out_of_bounds_and_false",
+          "expr":  "dyn([1, 2, 3][3]) && false",
+          "value":  {
+            "boolValue":  false
+          }
+        },
+        {
+          "name":  "index_out_of_bounds_and_true",
+          "expr":  "dyn([1, 2, 3][3]) && true",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "invalid_argument"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "bad_index_type",
+          "expr":  "[1, 2, 3][dyn('')]",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "invalid_argument"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "bad_index_type_or_false",
+          "expr":  "dyn([1, 2, 3][dyn('')]) || false",
+          "evalError":  {
+            "errors":  [
+              {
+                "message":  "invalid_argument"
+              }
+            ]
+          }
+        },
+        {
+          "name":  "bad_index_type_or_true",
+          "expr":  "dyn([1, 2, 3][dyn('')]) || true",
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "bad_index_type_and_false",
+          "expr":  "dyn([1, 2, 3][dyn('')]) && false",
+          "value":  {
+            "boolValue":  false
+          }
+        },
+        {
+          "name":  "bad_index_type_and_true",
+          "expr":  "dyn([1, 2, 3][dyn('')]) && true",
           "evalError":  {
             "errors":  [
               {

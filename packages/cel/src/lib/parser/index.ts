@@ -1,0 +1,43 @@
+export { ExprHelper, LogicManager, ParserHelper } from './helper.js';
+export {
+  AccumulatorName,
+  AllMacro,
+  AllMacros,
+  ExistsMacro,
+  ExistsOneMacroNew as ExistsOneMacro,
+  FilterMacro,
+  GlobalMacro,
+  GlobalVarArgMacro,
+  HasMacro,
+  makeMacroKey,
+  makeVarArgMacroKey,
+  MapFilterMacro,
+  MapMacro,
+  QuantifierKind,
+  ReceiverMacro,
+  ReceiverVarArgMacro,
+  type Macro,
+  type MacroExpander,
+} from './macro.js';
+export {
+  enableIdentEscapeSyntax,
+  enableOptionalSyntax,
+  enableVariadicOperatorASTs,
+  errorRecoveryLimit,
+  errorRecoveryLookaheadTokenLimit,
+  errorReportingLimit,
+  expressionSizeCodePointLimit,
+  macros,
+  maxRecursionDepth,
+  Parser,
+  populateMacroCalls,
+  reservedIds,
+  type ParserOption,
+} from './parser.js';
+export {
+  unparse,
+  wrapAfterColumnLimit,
+  wrapOnColumn,
+  wrapOnOperators,
+  type UnparserOption,
+} from './unparser.js';

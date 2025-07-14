@@ -1,3 +1,6 @@
+# proto-file: ../../../proto/cel/expr/conformance/test/simple.proto
+# proto-message: google.api.expr.test.v1.SimpleTestFile
+
 name: "string"
 description: "Tests for string and bytes operations."
 section {
@@ -167,7 +170,7 @@ section {
   }
 }
 section {
-  name: "concatentation"
+  name: "concatenation"
   description: "Tests for string concatenation."
   test {
     name: "concat_true"

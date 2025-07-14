@@ -1,4 +1,9 @@
-import { durationFromString, timestampFromDateString } from '@protoutil/core';
+import {
+  assertValidDuration,
+  assertValidTimestamp,
+  durationFromString,
+  timestampFromDateString,
+} from '@protoutil/core';
 /* eslint-disable no-case-declarations */
 import { create } from '@bufbuild/protobuf';
 import { AnySchema, StringValueSchema, ValueSchema, anyPack } from '@bufbuild/protobuf/wkt';
@@ -98,27 +103,48 @@ export class StringRefVal implements RefVal, Adder, Comparer, Matcher, Receiver,
   convertToType(type: RefType): RefVal {
     switch (type) {
       case BoolType:
-        return new BoolRefVal(this._value === 'true');
+        switch (this._value.toLocaleLowerCase()) {
+          case 'true':
+          case 't':
+          case '1':
+            return BoolRefVal.True;
+          case 'false':
+          case 'f':
+          case '0':
+            return BoolRefVal.False;
+          default:
+            return ErrorRefVal.typeConversionError(this, type);
+        }
       case BytesType:
         return new BytesRefVal(parseBytes(`b"${this._value}"`));
       case DoubleType:
         return new DoubleRefVal(parseFloat(this._value));
       case DurationType:
-        const duration = durationFromString(this._value);
-        if (duration instanceof Error) {
+        try {
+          const duration = durationFromString(this._value);
+          if (duration instanceof Error) {
+            return ErrorRefVal.errDurationOutOfRange;
+          }
+          assertValidDuration(duration);
+          return new DurationRefVal(duration);
+        } catch {
           return ErrorRefVal.errDurationOutOfRange;
         }
-        return new DurationRefVal(duration);
       case IntType:
         return new IntRefVal(BigInt(parseInt(this._value, 10)));
       case StringType:
         return new StringRefVal(this._value);
       case TimestampType:
-        const ts = timestampFromDateString(this._value);
-        if (isNil(ts)) {
+        try {
+          const ts = timestampFromDateString(this._value);
+          if (isNil(ts)) {
+            return ErrorRefVal.errTimestampOutOfRange;
+          }
+          assertValidTimestamp(ts);
+          return new TimestampRefVal(ts);
+        } catch {
           return ErrorRefVal.errTimestampOutOfRange;
         }
-        return new TimestampRefVal(ts);
       case TypeType:
         return StringType;
       case UintType:

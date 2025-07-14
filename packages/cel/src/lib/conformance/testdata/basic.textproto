@@ -1,3 +1,6 @@
+# proto-file: ../../../proto/cel/expr/conformance/test/simple.proto
+# proto-message: cel.expr.conformance.test.SimpleTestFile
+
 name: "basic"
 description: "Basic conformance tests that all implementations should pass."
 section {

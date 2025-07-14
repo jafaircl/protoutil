@@ -1,19 +1,19 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-/* eslint-disable no-case-declarations */
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import {
+  DurationType,
+  isIdentProtoExpr,
+  ListCreateBaseCost,
+  ListType,
+  StringType,
+  TimestampType,
+} from '@protoutil/cel';
 import {
   AstNode,
   CallEstimate,
   CostEstimate,
   CostEstimator,
-  DurationType,
-  isIdentProtoExpr,
-  ListCreateBaseCost,
-  ListType,
   SizeEstimate,
-  StringType,
-  TimestampType,
-} from '@protoutil/cel';
+} from '@protoutil/cel/checker';
 import {
   ADD_OPERATOR,
   ALL_MACRO,

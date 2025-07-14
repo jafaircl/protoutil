@@ -329,7 +329,7 @@
         {
           "name":  "has_optional_ofNonZeroValue_struct_optional_ofNonZeroValue_map_optindex_field",
           "expr":  "has(TestAllTypes{?single_double_wrapper: optional.ofNonZeroValue(0.0)}.single_double_wrapper)",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "boolValue":  false
           }
@@ -337,7 +337,7 @@
         {
           "name":  "optional_ofNonZeroValue_struct_optional_ofNonZeroValue_map_optindex_field",
           "expr":  "optional.ofNonZeroValue(TestAllTypes{?single_double_wrapper: optional.ofNonZeroValue(0.0)}).hasValue()",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "boolValue":  false
           }
@@ -345,7 +345,7 @@
         {
           "name":  "struct_map_optindex_field",
           "expr":  "TestAllTypes{?map_string_string: {'nested': {}}[?'nested']}.map_string_string",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "mapValue":  {}
           }
@@ -353,7 +353,7 @@
         {
           "name":  "struct_optional_ofNonZeroValue_map_optindex_field",
           "expr":  "TestAllTypes{?map_string_string: optional.ofNonZeroValue({'nested': {}}[?'nested'].orValue({}))}.map_string_string",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "mapValue":  {}
           }
@@ -361,7 +361,7 @@
         {
           "name":  "struct_map_optindex_field_nested",
           "expr":  "TestAllTypes{?map_string_string: {'nested': {'hello': 'world'}}[?'nested']}.map_string_string",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "mapValue":  {
               "entries":  [
@@ -380,7 +380,7 @@
         {
           "name":  "struct_list_optindex_field",
           "expr":  "TestAllTypes{repeated_string: ['greetings', ?{'nested': {'hello': 'world'}}.nested.?hello]}.repeated_string",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "listValue":  {
               "values":  [
@@ -404,7 +404,7 @@
         {
           "name":  "empty_struct_optindex_hasValue",
           "expr":  "TestAllTypes{}.?repeated_string.hasValue()",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "boolValue":  false
           }
@@ -412,7 +412,7 @@
         {
           "name":  "optional_empty_struct_optindex_hasValue",
           "expr":  "optional.of(TestAllTypes{}).?repeated_string.hasValue()",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "boolValue":  false
           }
@@ -427,7 +427,7 @@
         {
           "name":  "struct_optindex_value",
           "expr":  "TestAllTypes{repeated_string: ['foo']}.?repeated_string.value()",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "listValue":  {
               "values":  [
@@ -441,7 +441,7 @@
         {
           "name":  "optional_struct_optindex_value",
           "expr":  "optional.of(TestAllTypes{repeated_string: ['foo']}).?repeated_string.value()",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "listValue":  {
               "values":  [
@@ -455,7 +455,7 @@
         {
           "name":  "optional_struct_optindex_index_value",
           "expr":  "optional.of(TestAllTypes{repeated_string: ['foo']}).?repeated_string[0].value()",
-          "container":  "google.api.expr.test.v1.proto2",
+          "container":  "cel.expr.conformance.proto2",
           "value":  {
             "stringValue":  "foo"
           }
@@ -575,6 +575,27 @@
         {
           "name":  "optional_ne_int_int",
           "expr":  "optional.of(1) != optional.of(1)",
+          "value":  {
+            "boolValue":  false
+          }
+        },
+        {
+          "name":  "map_optional_has",
+          "expr":  "has({'foo': optional.none()}.foo)",
+          "value":  {
+            "boolValue":  true
+          }
+        },
+        {
+          "name":  "map_optional_select_has",
+          "expr":  "has({'foo': optional.none()}.foo.bar)",
+          "value":  {
+            "boolValue":  false
+          }
+        },
+        {
+          "name":  "map_optional_entry_has",
+          "expr":  "has({?'foo': optional.none()}.foo)",
           "value":  {
             "boolValue":  false
           }

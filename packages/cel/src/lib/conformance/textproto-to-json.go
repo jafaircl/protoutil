@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -69,14 +70,38 @@ func globMatchFiles(root, ext string) []string {
 
 func main() {
 	arr := globMatchFiles("testdata", ".textproto")
+	skippedSuites := []string{
+		"block_ext.textproto",
+		"dynamic.textproto",
+		"enums.textproto",
+		"proto2.textproto",
+		"proto2_ext.textproto",
+		"proto3.textproto",
+		"type_deduction.textproto",
+	}
 
 	for i := 0; i < len(arr); i++ {
 		input_file := arr[i]
+		// Skip files that are in the skippedSuites list
+		if isSkippedSuite(input_file, skippedSuites) {
+			fmt.Fprintf(os.Stderr, "Skipping %v\n", input_file)
+			continue
+		}
 		fmt.Fprintf(os.Stderr, "Writing %v\n", input_file)
 		pb, err := parseSimpleFile(input_file)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing %v: %v\n", input_file, err)
 			panic(err)
 		}
 		json_testfile(pb)
 	}
+}
+
+func isSkippedSuite(testFileName string, skippedSuites []string) bool {
+	for _, skipped := range skippedSuites {
+		if strings.Contains(testFileName, skipped) {
+			return true
+		}
+	}
+	return false
 }

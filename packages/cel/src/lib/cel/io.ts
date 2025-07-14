@@ -1,10 +1,57 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+/* eslint-disable no-case-declarations */
 import { create } from '@bufbuild/protobuf';
+import { AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
 import { AST, SourceInfo } from '../common/ast/ast.js';
 import { protoToSourceInfo, toCheckedExprProto } from '../common/conversion.js';
+import {
+  newBoolProtoValue,
+  newBytesProtoValue,
+  newDoubleProtoValue,
+  newIntProtoValue,
+  newStringProtoValue,
+  newUintProtoValue,
+  NullProtoValue,
+} from '../common/pb/values.js';
+import { Adapter, isRegistry } from '../common/ref/provider.js';
+import { RefVal } from '../common/ref/reference.js';
 import { InfoSource } from '../common/source.js';
+import { BoolRefVal } from '../common/types/bool.js';
+import { BytesRefVal } from '../common/types/bytes.js';
+import { DoubleRefVal } from '../common/types/double.js';
+import { IntRefVal } from '../common/types/int.js';
+import { NullRefVal } from '../common/types/null.js';
+import { isObjectRefVal } from '../common/types/object.js';
+import { StringRefVal } from '../common/types/string.js';
+import { Lister } from '../common/types/traits/lister.js';
+import { Mapper } from '../common/types/traits/mapper.js';
+import {
+  BoolType,
+  BytesType,
+  DoubleType,
+  IntType,
+  ListType,
+  MapType,
+  newObjectType,
+  NullType,
+  StringType,
+  Type,
+  TypeType,
+  UintType,
+} from '../common/types/types.js';
 import { isNil } from '../common/utils.js';
 import { unparse } from '../parser/unparser.js';
-import { CheckedExpr, Expr, ParsedExpr, ParsedExprSchema } from '../protogen-exports/index.js';
+import {
+  CheckedExpr,
+  Expr,
+  MapValue_Entry,
+  MapValue_EntrySchema,
+  ParsedExpr,
+  ParsedExprSchema,
+  Value,
+  ValueSchema,
+} from '../protogen-exports/index.js';
 import { Ast, Source } from './env.js';
 
 /**
@@ -105,4 +152,166 @@ export function astToString(a: Ast): string {
 export function exprToString(e: Expr, info: SourceInfo) {
   const ast = new AST(e, info);
   return unparse(ast);
+}
+
+/**
+ * ValueAsProto converts between ref.Val and cel.expr.Value.
+ * The result Value is the serialized proto form. The ref.Val must not be error or unknown.
+ */
+export function valueAsProto(res: RefVal): Value | null {
+  switch (res.type()) {
+    case BoolType:
+      return newBoolProtoValue(res.value());
+    case BytesType:
+      return newBytesProtoValue(res.value());
+    case DoubleType:
+      return newDoubleProtoValue(res.value());
+    case IntType:
+      return newIntProtoValue(res.value());
+    case NullType:
+      return NullProtoValue;
+    case StringType:
+      return newStringProtoValue(res.value());
+    case TypeType:
+      return create(ValueSchema, { kind: { case: 'typeValue', value: (res as Type).typeName() } });
+    case UintType:
+      return newUintProtoValue(res.value());
+    case ListType:
+      const list = res as Lister;
+      const _sz = list.size().value();
+      const elts: Value[] = [];
+      for (let i = 0; i < _sz; i++) {
+        const v = list.get(new IntRefVal(BigInt(i)));
+        const protoVal = valueAsProto(v);
+        if (!protoVal) {
+          throw new Error(`valueAsProto failed for list element at index ${i}`);
+        }
+        elts.push(protoVal);
+      }
+      return create(ValueSchema, {
+        kind: { case: 'listValue', value: { values: elts } },
+      });
+    case MapType:
+      const mapper = res as Mapper;
+      const entries: MapValue_Entry[] = [];
+      for (const it = mapper.iterator(); it.hasNext().value(); ) {
+        const k = it.next()!;
+        const v = mapper.get(k);
+        const keyProto = valueAsProto(k);
+        const valProto = valueAsProto(v);
+        if (!keyProto || !valProto) {
+          throw new Error(`valueAsProto failed for map entry with key ${k.value()}`);
+        }
+        entries.push(
+          create(MapValue_EntrySchema, {
+            key: keyProto,
+            value: valProto,
+          })
+        );
+      }
+      return create(ValueSchema, {
+        kind: { case: 'mapValue', value: { entries } },
+      });
+    default:
+      if (isObjectRefVal(res)) {
+        switch (res.typeDesc.typeName) {
+          case 'google.protobuf.Value':
+            return create(ValueSchema, res.value() as Value);
+          case 'google.protobuf.BoolValue':
+            return newBoolProtoValue((res.value() as any).value);
+          case 'google.protobuf.BytesValue':
+            return newBytesProtoValue((res.value() as any).value);
+          case 'google.protobuf.DoubleValue':
+            return newDoubleProtoValue((res.value() as any).value);
+          case 'google.protobuf.Int64Value':
+          case 'google.protobuf.Int32Value':
+            return newIntProtoValue((res.value() as any).value);
+          case 'google.protobuf.NullValue':
+            return NullProtoValue;
+          case 'google.protobuf.StringValue':
+            return newStringProtoValue((res.value() as any).value);
+          case 'google.protobuf.UInt64Value':
+          case 'google.protobuf.UInt32Value':
+            return newUintProtoValue((res.value() as any).value);
+          default:
+            break;
+        }
+      }
+      const any = res.convertToNative(AnySchema);
+      return create(ValueSchema, {
+        kind: { case: 'objectValue', value: any },
+      });
+  }
+}
+
+const typeNameToTypeValue: Record<string, Type> = {
+  bool: BoolType,
+  bytes: BytesType,
+  double: DoubleType,
+  null_type: NullType,
+  int: IntType,
+  list: ListType,
+  map: MapType,
+  string: StringType,
+  type: TypeType,
+  uint: UintType,
+};
+
+/**
+ * ProtoAsValue converts between cel.expr.Value and ref.Val.
+ */
+export function protoAsValue(adapter: Adapter, v: Value): RefVal {
+  switch (v.kind.case) {
+    case 'nullValue':
+      return new NullRefVal();
+    case 'boolValue':
+      return new BoolRefVal(v.kind.value);
+    case 'int64Value':
+      return new IntRefVal(v.kind.value);
+    case 'uint64Value':
+      return new IntRefVal(v.kind.value);
+    case 'doubleValue':
+      return new DoubleRefVal(v.kind.value);
+    case 'stringValue':
+      return new StringRefVal(v.kind.value);
+    case 'bytesValue':
+      return new BytesRefVal(v.kind.value);
+    case 'objectValue':
+      const any = v.kind.value;
+      if (!isRegistry(adapter)) {
+        throw new Error('adapter must be a registry to convert object values');
+      }
+      const schema = adapter.findStructProtoType(any.typeUrl.split('/').pop()!);
+      if (!schema) {
+        throw new Error(`unknown type: ${any.typeUrl}`);
+      }
+      return adapter.nativeToValue(anyUnpack(any, schema));
+    case 'mapValue':
+      const m = v.kind.value;
+      const entries: Record<string, RefVal> = {};
+      for (const entry of m.entries) {
+        const key = protoAsValue(adapter, entry.key!);
+        const value = protoAsValue(adapter, entry.value!);
+        entries[key.value()] = value;
+      }
+      return adapter.nativeToValue(entries);
+    case 'listValue':
+      const l = v.kind.value;
+      const elts: RefVal[] = [];
+      for (const e of l.values) {
+        const rv = protoAsValue(adapter, e);
+        if (rv === null) {
+          throw new Error('null value in list');
+        }
+        elts.push(rv);
+      }
+      return adapter.nativeToValue(elts);
+    case 'typeValue':
+      const typeName = v.kind.value;
+      if (typeName in typeNameToTypeValue) {
+        return typeNameToTypeValue[typeName] as RefVal;
+      }
+      return newObjectType(typeName);
+  }
+  throw new Error('unknown value');
 }

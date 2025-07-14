@@ -33,6 +33,13 @@
           "value":  {
             "typeValue":  "google.protobuf.Timestamp"
           }
+        },
+        {
+          "name":  "type_comparison",
+          "expr":  "google.protobuf.Timestamp == type(timestamp('2009-02-13T23:31:30Z'))",
+          "value":  {
+            "boolValue":  true
+          }
         }
       ]
     },
@@ -52,6 +59,13 @@
           "expr":  "type(duration('1000000s'))",
           "value":  {
             "typeValue":  "google.protobuf.Duration"
+          }
+        },
+        {
+          "name":  "type_comparison",
+          "expr":  "google.protobuf.Duration == type(duration('1000000s'))",
+          "value":  {
+            "boolValue":  true
           }
         }
       ]
