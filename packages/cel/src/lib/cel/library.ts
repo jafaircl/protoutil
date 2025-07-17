@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { LibrarySubset } from '../common/env/env.js';
 import { stdFunctions, stdTypes } from '../common/stdlib.js';
 import { isFunction, isNil } from '../common/utils.js';
-import { AllMacros } from '../parser/macro.js';
+import { AllMacros, Macro } from '../parser/macro.js';
+import { FunctionDecl } from './cel.js';
 import { EnvOption, macros } from './options.js';
 
 /**
@@ -53,6 +55,25 @@ export enum Feature {
   IdentEscapeSyntax,
 }
 
+const featureIDsToNames = new Map([
+  [Feature.EnableMacroCallTracking, 'cel.feature.macro_call_tracking'],
+  [Feature.CrossTypeNumericComparisions, 'cel.feature.cross_type_numeric_comparisons'],
+  [Feature.IdentEscapeSyntax, 'cel.feature.backtick_escape_syntax'],
+]);
+
+export function featureNameByID(id: Feature): string | undefined {
+  return featureIDsToNames.get(id);
+}
+
+export function featureIDByName(name: string): Feature | undefined {
+  for (const [id, n] of featureIDsToNames.entries()) {
+    if (n === name) {
+      return id;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Library provides a collection of EnvOption and ProgramOption values used to
  * configure a CEL environment for a particular use case or with a related set
@@ -98,6 +119,41 @@ export function isSingletonLibrary(value: any): value is SingletonLibrary {
 }
 
 /**
+ * LibraryAliaser generates a simple named alias for the library, for use during environment serialization.
+ */
+export interface LibraryAliaser {
+  libraryAlias(): string;
+}
+
+export function isLibraryAliaser(value: any): value is LibraryAliaser {
+  return value && isFunction(value['libraryAlias']);
+}
+
+/**
+ * LibrarySubsetter provides the subset description associated with the library, nil if not subset.
+ */
+export interface LibrarySubsetter {
+  librarySubset(): LibrarySubset;
+}
+
+export function isLibrarySubsetter(value: any): value is LibrarySubsetter {
+  return value && isFunction(value['librarySubset']);
+}
+
+/**
+ * LibraryVersioner provides a version number for the library.
+ *
+ * If not implemented, the library version will be flagged as 'latest' during environment serialization.
+ */
+export interface LibraryVersioner {
+  libraryVersion(): number;
+}
+
+export function isLibraryVersioner(value: any): value is LibraryVersioner {
+  return value && isFunction(value['libraryVersion']);
+}
+
+/**
  * Lib creates an EnvOption out of a Library, allowing libraries to be provided
  * as functional args, and to be linked to each other.
  */
@@ -107,7 +163,7 @@ export function lib(l: Library): EnvOption {
       if (e.hasLibrary(l.libraryName())) {
         return e;
       }
-      e.libraries.set(l.libraryName(), true);
+      e.libraries.set(l.libraryName(), l);
     }
     for (const opt of l.compileOptions()) {
       e = opt(e);
@@ -118,11 +174,34 @@ export function lib(l: Library): EnvOption {
 }
 
 /**
+ * StdLibOption specifies a functional option for configuring the standard CEL library.
+ */
+export type StdLibOption = (lib: stdLibrary) => stdLibrary;
+
+/**
+ * StdLibSubset configures the standard library to use a subset of its functions and macros.
+ *
+ * Since the StdLib is a singleton library, only the first instance of the StdLib() environment options
+ * will be configured on the environment which means only the StdLibSubset() initially configured with
+ * the library will be used.
+ */
+export function stdLibSubset(subset: LibrarySubset): StdLibOption {
+  return (lib) => {
+    lib.subset = subset;
+    return lib;
+  };
+}
+
+/**
  * StdLib returns an EnvOption for the standard library of CEL functions and
  * macros.
  */
-export function StdLib() {
-  return lib(new stdLibrary());
+export function StdLib(...opts: StdLibOption[]): EnvOption {
+  const l = new stdLibrary();
+  for (const opt of opts) {
+    opt(l);
+  }
+  return lib(l);
 }
 
 /**
@@ -130,15 +209,59 @@ export function StdLib() {
  * for the core CEL features documented in the specification.
  */
 export class stdLibrary implements SingletonLibrary {
+  subset?: LibrarySubset;
+
   libraryName() {
     return 'cel.lib.std';
   }
 
+  /**
+   * LibraryAlias returns the simple name of the library.
+   */
+  libraryAlias(): string {
+    return 'stdlib';
+  }
+
+  /**
+   * LibrarySubset returns the env.LibrarySubset definition associated with the CEL Library.
+   */
+  librarySubset(): LibrarySubset | undefined {
+    return this.subset;
+  }
+
   compileOptions(): EnvOption[] {
+    let funcs = stdFunctions;
+    let _macros = AllMacros;
+    if (this.subset) {
+      const subMacros = new Set<Macro>();
+      for (const m of _macros) {
+        if (this.subset.subsetMacro(m.function())) {
+          subMacros.add(m);
+        }
+      }
+      _macros = subMacros;
+      const subFuncs: FunctionDecl[] = [];
+      for (const fn of funcs) {
+        if (this.subset.subsetFunction(fn)) {
+          subFuncs.push(fn);
+        }
+      }
+      funcs = subFuncs;
+    }
     return [
-      // Set standard functions
       (e) => {
-        for (const fn of stdFunctions) {
+        if (this.subset) {
+          const err = this.subset.validate();
+          if (err) {
+            throw err;
+          }
+        }
+        // Set standard types
+        for (const t of stdTypes) {
+          e.variables.push(t);
+        }
+        // Set standard functions
+        for (const fn of funcs) {
           const existing = e.functions.get(fn.name());
           if (!isNil(existing)) {
             existing.merge(fn);
@@ -147,15 +270,8 @@ export class stdLibrary implements SingletonLibrary {
         }
         return e;
       },
-      // Set standard types
-      (e) => {
-        for (const t of stdTypes) {
-          e.variables.push(t);
-        }
-        return e;
-      },
       // Set standard macros
-      macros(...AllMacros),
+      macros(..._macros),
     ];
   }
 

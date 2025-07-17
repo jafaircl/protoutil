@@ -9,10 +9,15 @@ import {
   newVariableDecl,
   OverloadDecl,
   OverloadOpt,
+  OverloadSelector,
   VariableDecl,
   disableDeclaration as œdisableDeclaration,
+  excludeOverloads as œexcludeOverloads,
+  functionDocs as œfunctionDocs,
+  includeOverloads as œincludeOverloads,
   memberOverload as œmemberOverload,
   overload as œoverload,
+  overloadExamples as œoverloadExamples,
   singletonBinaryBinding as œsingletonBinaryBinding,
   singletonFunctionBinding as œsingletonFunctionBinding,
   singletonUnaryBinding as œsingletonUnaryBinding,
@@ -351,6 +356,29 @@ export function func(name: string, ...opts: FunctionOpt[]): EnvOption {
 }
 
 /**
+ * IncludeOverloads defines an OverloadSelector which allow-lists a set of overloads by their ids.
+ */
+export function includeOverloads(...overloadIDs: string[]): OverloadSelector {
+  return œincludeOverloads(...overloadIDs);
+}
+
+/**
+ * ExcludeOverloads defines an OverloadSelector which deny-lists a set of overloads by their ids.
+ */
+export function excludeOverloads(...overloadIDs: string[]): OverloadSelector {
+  return œexcludeOverloads(...overloadIDs);
+}
+
+/**
+ * FunctionDocs provides a general usage documentation for the function.
+ *
+ * Use OverloadExamples to provide example usage instructions for specific overloads.
+ */
+export function functionDocs(...docs: string[]): FunctionOpt {
+  return œfunctionDocs(...docs);
+}
+
+/**
  * SingletonUnaryBinding creates a singleton function definition to be used for
  * all function overloads.
  *
@@ -392,6 +420,13 @@ export function singletonFunctionBinding(fn: FunctionOp, ...traits: Trait[]) {
  */
 export function disableDeclaration(value: boolean) {
   return œdisableDeclaration(value);
+}
+
+/**
+ * OverloadExamples configures an example of how to invoke the overload.
+ */
+export function overloadExamples(...docs: string[]): OverloadOpt {
+  return œoverloadExamples(...docs);
 }
 
 /**
@@ -584,3 +619,5 @@ export function maybeUnwrapDeclaration(decl: Declaration): VariableDecl | Functi
   }
   throw new Error(`unsupported declaration type: ${decl}`);
 }
+
+export { type FunctionOpt, type OverloadOpt, type OverloadSelector };

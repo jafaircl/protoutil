@@ -44,7 +44,7 @@ describe('decls', () => {
     });
     const sizeMerged = sizeFunc.merge(sizeFuncDef);
     bindings = sizeMerged.bindings();
-    expect(bindings.length).toEqual(3);
+    expect(bindings.length).toEqual(2);
   });
 
   describe('TestSingletonOverloadLateBindingCollision', () => {

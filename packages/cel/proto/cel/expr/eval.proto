@@ -1,10 +1,10 @@
-// Copyright 2024-2025 Buf Technologies, Inc.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,7 @@ syntax = "proto3";
 package cel.expr;
 
 import "cel/expr/value.proto";
-import "google/rpc/status.proto";
+import "google/protobuf/any.proto";
 
 option cc_enable_arenas = true;
 option go_package = "cel.dev/expr";
@@ -104,7 +104,29 @@ message ExprValue {
 //
 // The errors included depend on the context. See `ExprValue.error`.
 message ErrorSet {
-  repeated google.rpc.Status errors = 1;
+  // Errors that could come up during evaluation phase.
+  repeated Status errors = 1;
+}
+
+// Each `Status` message contains three pieces of data: error code, error message,
+// and error details.
+//
+// You can find out more about this error model and how to work with it in the
+// [API Design Guide](https://cloud.google.com/apis/design/errors).
+//
+// Status value is intended to be wire and field compatible with `google.rpc.Status`.
+message Status {
+  // The status code, which should be an enum value of [google.rpc.Code][].
+  int32 code = 1;
+
+  // A developer-facing error message, which should be in English. Any
+  // user-facing error message should be localized and sent in the
+  // [Status.details][] field, or localized by the client.
+  string message = 2;
+
+  // A list of messages that carry the error details.  There is a common set of
+  // message types for APIs to use.
+  repeated google.protobuf.Any details = 3;
 }
 
 // A set of expressions for which the value is unknown.

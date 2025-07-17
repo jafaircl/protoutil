@@ -1,10 +1,10 @@
-// Copyright 2024-2025 Buf Technologies, Inc.
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,18 +34,15 @@ option java_package = "dev.cel.expr.conformance";
 // and other utilities.
 service ConformanceService {
   // Transforms CEL source text into a parsed representation.
-  rpc Parse(ParseRequest) returns (ParseResponse) {
-  }
+  rpc Parse(ParseRequest) returns (ParseResponse) {}
 
   // Runs static checks on a parsed CEL representation and return
   // an annotated representation, or a set of issues.
-  rpc Check(CheckRequest) returns (CheckResponse) {
-  }
+  rpc Check(CheckRequest) returns (CheckResponse) {}
 
   // Evaluates a parsed or annotation CEL representation given
   // values of external bindings.
-  rpc Eval(EvalRequest) returns (EvalResponse) {
-  }
+  rpc Eval(EvalRequest) returns (EvalResponse) {}
 }
 
 // Request message for the Parse method.

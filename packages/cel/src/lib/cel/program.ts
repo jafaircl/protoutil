@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isMessage } from '@bufbuild/protobuf';
 import { AST } from '../common/ast/ast.js';
 import { RefVal } from '../common/ref/reference.js';
 import { ErrorRefVal, isErrorRefVal } from '../common/types/error.js';
@@ -41,7 +42,7 @@ import {
 } from './../interpreter/interpreter.js';
 import { Env } from './env.js';
 import { Feature } from './library.js';
-import { EvalOption, ProgramOption } from './options.js';
+import { contextProtoVars, EvalOption, ProgramOption } from './options.js';
 
 /**
  * Program is an evaluable view of an Ast.
@@ -224,6 +225,16 @@ export class prog implements Program {
     let vars: Activation;
     if (isActivation(input)) {
       vars = input;
+    } else if (isMessage(input)) {
+      const schema = this.env.CELTypeProvider().findStructProtoType(input.$typeName);
+      if (!schema) {
+        return [
+          null,
+          null,
+          new ErrorRefVal(`unknown message type passed to activation: ${input.$typeName}`),
+        ];
+      }
+      vars = contextProtoVars(schema, input);
     } else {
       vars = newActivation(input);
     }

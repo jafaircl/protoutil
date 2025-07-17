@@ -176,9 +176,12 @@ export {
   DoubleType,
   DurationType,
   DynType,
+  excludeOverloads,
   exprDeclToDeclaration,
   exprTypeToType,
   func,
+  functionDocs,
+  includeOverloads,
   IntType,
   Kind,
   ListType,
@@ -193,6 +196,7 @@ export {
   opaqueType,
   optionalType,
   overload,
+  overloadExamples,
   protoDeclToDecl,
   singletonBinaryBinding,
   singletonFunctionBinding,
@@ -206,7 +210,7 @@ export {
   UintType,
   variable,
 } from './decls.js';
-export type { Declaration } from './decls.js';
+export type { Declaration, FunctionOpt, OverloadOpt, OverloadSelector } from './decls.js';
 export { Ast, CustomEnv, Env, formatCELType, Issues } from './env.js';
 export type { Source } from './env.js';
 export { ConstantFoldingOptimizer, foldKnownValues, maxConstantFoldIterations } from './folding.js';

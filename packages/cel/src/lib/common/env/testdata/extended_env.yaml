@@ -1,0 +1,61 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "extended-env"
+container: "google.expr"
+extensions:
+  - name: "optional"
+    version: "2"
+  - name: "math"
+    version: "latest"
+variables:
+  - name: "msg"
+    type_name: "google.expr.proto3.test.TestAllTypes"
+    description: >-
+      msg represents all possible type permutation which
+      CEL understands from a proto perspective
+functions:
+  - name: "isEmpty"
+    description: |-
+      determines whether a list is empty,
+      or a string has no characters
+    overloads:
+      - id: "wrapper_string_isEmpty"
+        examples:
+          - "''.isEmpty() // true"
+        target:
+          type_name: "google.protobuf.StringValue"
+        return:
+          type_name: "bool"
+      - id: "list_isEmpty"
+        examples:
+          - "[].isEmpty() // true"
+          - "[1].isEmpty() // false"
+        target:
+          type_name: "list"
+          params:
+            - type_name: "T"
+              is_type_param: true
+        return:
+          type_name: "bool"
+validators:
+  - name: cel.validator.duration
+  - name: cel.validator.matches
+  - name: cel.validator.timestamp
+  - name: cel.validator.nesting_comprehension_limit
+    config:
+      limit: 2
+features:
+  - name: cel.feature.macro_call_tracking
+    enabled: true

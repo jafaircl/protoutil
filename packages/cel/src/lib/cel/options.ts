@@ -4,7 +4,9 @@ import { reflect } from '@bufbuild/protobuf/reflect';
 import { CostOption } from '../checker/cost.js';
 import { abbrevs as containerAbbrevs, name as containerName } from '../common/container.js';
 import { FunctionDecl, VariableDecl } from '../common/decls.js';
+import { Config } from '../common/env/env.js';
 import { Adapter, isRegistry, Provider } from '../common/ref/provider.js';
+import { isObjectRefVal } from '../common/types/object.js';
 import { fieldDescToCELType } from '../common/types/provider.js';
 import { isType } from '../common/types/types.js';
 import { isNil } from '../common/utils.js';
@@ -21,7 +23,7 @@ import { Macro } from '../parser/macro.js';
 import { enableOptionalSyntax as parserEnableOptionalSyntax } from '../parser/parser.js';
 import { Declaration, maybeUnwrapDeclaration, Type, variable } from './decls.js';
 import { EnvBase } from './env.js';
-import { Feature } from './library.js';
+import { Feature, featureIDByName, StdLib, stdLibSubset } from './library.js';
 import { prog } from './program.js';
 
 export type EnvOption = (e: EnvBase) => EnvBase;
@@ -374,6 +376,7 @@ export function costEstimatorOptions(...costOpts: CostOption[]): EnvOption {
  */
 export function declareContextProto(proto: DescMessage): EnvOption {
   return (e) => {
+    e.contextProto = proto;
     for (const field of proto.fields) {
       const _variable = fieldToVariable(field);
       e = _variable(e);
@@ -454,6 +457,187 @@ function features(flag: Feature, enabled: boolean): EnvOption {
     e.features.set(flag, enabled);
     return e;
   };
+}
+
+/**
+ * ConfigOptionFactory declares a signature which accepts a configuration element, e.g. env.Extension
+ * and optionally produces an EnvOption in response.
+ *
+ * If there are multiple ConfigOptionFactory values which could apply to the same configuration node
+ * the first one that returns an EnvOption and a `true` response will be used, and the config node
+ * will not be passed along to any other option factory.
+ *
+ * Only the *env.Extension type is provided at this time, but validators, optimizers, and other tuning
+ * parameters may be supported in the future.
+ */
+export type ConfigOptionFactory = (...args: any[]) => EnvOption | null;
+
+/**
+ * FromConfig produces and applies a set of EnvOption values derived from an env.Config object.
+ *
+ * For configuration elements which refer to features outside of the `cel` package, an optional set of
+ * ConfigOptionFactory values may be passed in to support the conversion from static configuration to
+ * configured cel.Env value.
+ *
+ * Note: disabling the standard library will clear the EnvOptions values previously set for the
+ * environment with the exception of propagating types and adapters over to the new environment.
+ *
+ * Note: to support custom types referenced in the configuration file, you must ensure that one of
+ * the following options appears before the FromConfig option: Types, TypeDescs, or CustomTypeProvider
+ * as the type provider configured at the time when the config is processed is the one used to derive
+ * type references from the configuration.
+ */
+export function fromConfig(config: Config, ...optFactories: ConfigOptionFactory[]): EnvOption {
+  return (e) => {
+    const err = config.validate();
+    if (err) {
+      throw new Error(`invalid config: ${err.message}`);
+    }
+    const opts = configToEnvOptions(config, e.CELTypeProvider(), optFactories);
+    for (const o of opts) {
+      e = o(e);
+    }
+    return e;
+  };
+}
+
+/**
+ * configToEnvOptions generates a set of EnvOption values (or error) based on a config, a type provider,
+ * and an optional set of environment options.
+ */
+function configToEnvOptions(
+  config: Config,
+  provider: Provider,
+  optFactories: ConfigOptionFactory[]
+): EnvOption[] {
+  const envOpts: EnvOption[] = [];
+  // Configure the standard lib subset.
+  if (config.stdLib) {
+    envOpts.push((e) => {
+      if (e.hasLibrary('cel.lib.std')) {
+        throw new Error('invalid subset of stdlib: create a custom env');
+      }
+      return e;
+    });
+    if (!config.stdLib.disabled) {
+      envOpts.push(StdLib(stdLibSubset(config.stdLib)));
+    }
+  } else {
+    envOpts.push(StdLib());
+  }
+
+  // Configure the container
+  if (config.container) {
+    envOpts.push(container(config.container));
+  }
+
+  // Configure abbreviations
+  for (const imp of config.imports) {
+    envOpts.push(abbrevs(imp.name));
+  }
+
+  // Configure the context variable declaration
+  if (config.contextVariable) {
+    const typeName = config.contextVariable.typeName;
+    const found = provider.findStructType(typeName);
+    if (!found) {
+      throw new Error(`invalid context proto type: ${typeName}`);
+    }
+    // Attempt to instantiate the proto in order to reflect to its descriptor
+    const msg = provider.newValue(typeName, new Map());
+    if (!isObjectRefVal(msg) || !msg.value()) {
+      throw new Error(`unsupported context type: ${typeName}`);
+    }
+    envOpts.push(declareContextProto(msg.typeDesc));
+  }
+
+  // Configure variables
+  if (config.variables.length !== 0) {
+    const vars: VariableDecl[] = [];
+    for (const v of config.variables) {
+      const vDef = v.asCELVariable(provider);
+      if (vDef instanceof Error) {
+        throw vDef;
+      }
+      vars.push(vDef);
+    }
+    envOpts.push(declarations(...vars));
+  }
+
+  // Configure functions
+  if (config.functions.length !== 0) {
+    const funcs: FunctionDecl[] = [];
+    for (const f of config.functions) {
+      const fnDef = f.asCELFunction(provider);
+      if (fnDef instanceof Error) {
+        throw fnDef;
+      }
+      funcs.push(fnDef);
+    }
+    envOpts.push(declarations(...funcs));
+  }
+
+  // Configure features
+  for (const feat of config.features) {
+    // Note, if a feature is not found, it is skipped as it is possible the feature
+    // is not intended to be supported publicly. In the future, a refinement of
+    // to this strategy to report unrecognized features and validators should probably
+    // be covered as a standard ConfigOptionFactory
+    const id = featureIDByName(feat.name);
+    if (id) {
+      envOpts.push(features(id, feat.enabled));
+    }
+  }
+
+  // TODO: validators
+  // // Configure validators
+  // for _, val := range config.Validators {
+  // 	if fac, found := astValidatorFactories[val.Name]; found {
+  // 		envOpts = append(envOpts, func(e *Env) (*Env, error) {
+  // 			validator, err := fac(val)
+  // 			if err != nil {
+  // 				return nil, fmt.Errorf("%w", err)
+  // 			}
+  // 			return ASTValidators(validator)(e)
+  // 		})
+  // 	} else if opt, handled := handleExtendedConfigOption(val, optFactories); handled {
+  // 		envOpts = append(envOpts, opt)
+  // 	}
+  // 	// we don't error when the validator isn't found as it may be part
+  // 	// of an extension library and enabled implicitly.
+  // }
+
+  // Configure extensions
+  for (const ext of config.extensions) {
+    // version number has been validated by the call to `Validate`
+    const ver = ext.versionNumber();
+    if (ext.name === 'optional') {
+      envOpts.push(enableOptionalSyntax(true));
+      // TODO: OptionalTypes
+      // envOpts = append(envOpts, OptionalTypes(OptionalTypesVersion(ver)))
+    } else {
+      const opt = handleExtendedConfigOption(ext, optFactories);
+      if (isNil(opt)) {
+        throw new Error('unrecognized extension: ' + ext.name);
+      }
+      envOpts.push(opt);
+    }
+  }
+
+  return envOpts;
+}
+
+function handleExtendedConfigOption(
+  conf: any,
+  optFactories: ConfigOptionFactory[]
+): EnvOption | null {
+  for (const optFac of optFactories) {
+    const opt = optFac(conf);
+    if (opt) {
+      return opt;
+    }
+  }
+  return null;
 }
 
 // TODO: make parser options functional so we can add ParserExpressionSizeLimit & ParserRecursionLimit

@@ -26,7 +26,6 @@ export function newFunction(name: string, ...opts: FunctionOpt[]): FunctionDecl 
   let fn = new FunctionDecl({
     name,
     overloads: [],
-    overloadOrdinals: [],
   });
   for (const opt of opts) {
     fn = opt(fn);
@@ -43,8 +42,50 @@ export enum DeclarationState {
   ENABLED,
 }
 
+/**
+ * FunctionSubsetter subsets a function declaration or returns nil and false if the function
+ * subset was empty.
+ */
+export type FunctionSubsetter = (fn: FunctionDecl) => FunctionDecl | null;
+
+/**
+ * OverloadSelector selects an overload associated with a given function when it returns true.
+ *
+ * Used in combination with the Subset method.
+ */
+export type OverloadSelector = (overload: OverloadDecl) => boolean;
+
+/**
+ * IncludeOverloads defines an OverloadSelector which allow-lists a set of overloads by their ids.
+ */
+export function includeOverloads(...overloadIDs: string[]): OverloadSelector {
+  return (overload: OverloadDecl) => {
+    for (const oID of overloadIDs) {
+      if (overload.id() === oID) {
+        return true;
+      }
+    }
+    return false;
+  };
+}
+
+/**
+ * ExcludeOverloads defines an OverloadSelector which deny-lists a set of overloads by their ids.
+ */
+export function excludeOverloads(...overloadIDs: string[]): OverloadSelector {
+  return (overload: OverloadDecl) => {
+    for (const oID of overloadIDs) {
+      if (overload.id() === oID) {
+        return false;
+      }
+    }
+    return true;
+  };
+}
+
 interface FunctionDeclInput {
   name: string;
+  doc?: string;
 
   /**
    * overloads associated with the function name.
@@ -76,7 +117,7 @@ interface FunctionDeclInput {
   /**
    * overloadOrdinals indicates the order in which the overload was declared.
    */
-  overloadOrdinals?: string[];
+  overloadOrdinals?: Set<string>;
 }
 
 /**
@@ -85,21 +126,23 @@ interface FunctionDeclInput {
  */
 export class FunctionDecl {
   private readonly _name: string;
+  doc?: string;
   overloads: Map<string, OverloadDecl> = new Map();
   singleton?: Overload;
   disableTypeGuards: boolean;
   state: DeclarationState;
-  overloadOrdinals: string[];
+  overloadOrdinals: Set<string>;
 
   constructor(input: FunctionDeclInput) {
     this._name = input.name;
-    this.overloadOrdinals = input.overloadOrdinals ?? [];
+    this.doc = input.doc;
+    this.overloadOrdinals = input.overloadOrdinals ?? new Set();
     for (const overload of input.overloads) {
       this.addOverload(overload);
     }
     for (const oID of this.overloads.keys()) {
-      if (this.overloadOrdinals.indexOf(oID) === -1) {
-        this.overloadOrdinals.push(oID);
+      if (!this.overloadOrdinals.has(oID)) {
+        this.overloadOrdinals.add(oID);
       }
     }
     this.singleton = input.singleton;
@@ -113,6 +156,36 @@ export class FunctionDecl {
    */
   name() {
     return this._name;
+  }
+
+  /**
+   * Documentation generates documentation about the Function and its overloads as a common.Doc object.
+   */
+  documentation() {
+    // TODO:
+    // children := make([]*common.Doc, len(f.OverloadDecls()))
+    // for i, o := range f.OverloadDecls() {
+    // 	var examples []*common.Doc
+    // 	for _, ex := range o.Examples() {
+    // 		examples = append(examples, common.NewExampleDoc(ex))
+    // 	}
+    // 	od := common.NewOverloadDoc(o.ID(), formatSignature(f.Name(), o), examples...)
+    // 	children[i] = od
+    // }
+    // return common.NewFunctionDoc(
+    // 	f.Name(),
+    // 	f.Description(),
+    // 	children...)
+    return this.doc ?? '';
+  }
+
+  /**
+   * Description provides an overview of the function's purpose.
+   *
+   * Usage examples should be included on specific overloads.
+   */
+  description() {
+    return this.doc ?? '';
   }
 
   /**
@@ -179,6 +252,34 @@ export class FunctionDecl {
   }
 
   /**
+   * Subset returns a new function declaration which contains only the overloads with the specified IDs.
+   * If the subset function contains no overloads, then nil is returned to indicate the function is not
+   * functional.
+   */
+  subset(selector: OverloadSelector): FunctionDecl | null {
+    const overloads: OverloadDecl[] = [];
+    for (const oID of this.overloadOrdinals) {
+      const overload = this.overloads.get(oID) as OverloadDecl;
+      if (selector(overload)) {
+        overloads.push(overload);
+      }
+    }
+    if (overloads.length === 0) {
+      return null;
+    }
+    const subset = new FunctionDecl({
+      name: this.name(),
+      doc: this.doc,
+      overloads,
+      singleton: this.singleton,
+      disableTypeGuards: this.disableTypeGuards,
+      state: this.state,
+      overloadOrdinals: new Set(overloads.map((o) => o.id())),
+    });
+    return subset;
+  }
+
+  /**
    * AddOverload ensures that the new overload does not collide with an
    * existing overload signature; however, if the function signatures are
    * identical, the implementation may be rewritten as its difficult to compare
@@ -212,7 +313,7 @@ export class FunctionDecl {
         );
       }
     }
-    this.overloadOrdinals.push(overload.id());
+    this.overloadOrdinals.add(overload.id());
     this.overloads.set(overload.id(), overload);
   }
 
@@ -222,8 +323,7 @@ export class FunctionDecl {
    */
   overloadDecls() {
     const overloads: OverloadDecl[] = [];
-    for (const id of this.overloadOrdinals) {
-      const o = this.overloads.get(id);
+    for (const o of this.overloads.values()) {
       if (!isNil(o)) {
         overloads.push(o);
       }
@@ -253,8 +353,8 @@ export class FunctionDecl {
     let overloads: Overload[] = [];
     let nonStrict = false;
     let hasLateBinding = false;
-    for (const id of this.overloadOrdinals) {
-      const o = this.overloads.get(id);
+    for (const decl of this.overloadDecls()) {
+      const o = this.overloads.get(decl.id());
       if (isNil(o)) {
         continue;
       }
@@ -365,6 +465,17 @@ export class FunctionDecl {
  * FunctionOpt defines a functional option for mutating a function declaration.
  */
 export type FunctionOpt = (f: FunctionDecl) => FunctionDecl;
+
+/**
+ * FunctionDocs configures documentation from a list of strings separated by newlines.
+ */
+export function functionDocs(...docs: string[]): FunctionOpt {
+  return (fn: FunctionDecl) => {
+    // TODO: fn.doc = multilineDescription(...docs);
+    fn.doc = docs.join('\n');
+    return fn;
+  };
+}
 
 /**
  * DisableTypeGuards disables automatically generated function invocation
@@ -529,6 +640,7 @@ function newOverloadInternal(
 
 interface OverloadDeclInput {
   id: string;
+  doc?: string;
   argTypes: Type[];
   resultType: Type;
   isMemberFunction?: boolean;
@@ -582,9 +694,11 @@ export class OverloadDecl {
   unaryOp?: UnaryOp;
   binaryOp?: BinaryOp;
   functionOp?: FunctionOp;
+  doc?: string;
 
   constructor(input: OverloadDeclInput) {
     this._id = input.id;
+    this.doc = input.doc;
     this._argTypes = input.argTypes;
     this._resultType = input.resultType;
     this._isMemberFunction = input.isMemberFunction ?? false;
@@ -606,6 +720,18 @@ export class OverloadDecl {
    */
   id() {
     return this._id;
+  }
+
+  /**
+   * Examples returns a list of string examples for the overload.
+   */
+  examples(): string[] {
+    if (!this.doc) {
+      return [];
+    }
+    // TODO: parse documentation for examples
+    // return parseDocumentation(this.doc)
+    return [this.doc];
   }
 
   /**
@@ -833,6 +959,17 @@ function matchOperandTraits(traits: Trait[], arg: RefVal) {
 export type OverloadOpt = (o: OverloadDecl) => OverloadDecl;
 
 /**
+ * OverloadExamples configures example expressions for the overload.
+ */
+export function overloadExamples(...examples: string[]): OverloadOpt {
+  return (o: OverloadDecl) => {
+    // TODO: o.doc = multilineDescription(...examples)
+    o.doc = examples.join('\n');
+    return o;
+  };
+}
+
+/**
  * UnaryBinding provides the implementation of a unary overload. The provided
  * function is protected by a runtime type-guard which ensures runtime type
  * agreement between the overload signature and runtime argument types.
@@ -953,11 +1090,13 @@ export class VariableDecl {
   private readonly _name: string;
   private readonly _type: Type;
   private readonly _value?: RefVal;
+  doc: string;
 
-  constructor(name: string, type: Type, value?: RefVal) {
+  constructor(name: string, type: Type, value?: RefVal, doc?: string) {
     this._name = name;
     this._type = type;
     this._value = value;
+    this.doc = doc ?? '';
   }
 
   /**
@@ -965,6 +1104,23 @@ export class VariableDecl {
    */
   name() {
     return this._name;
+  }
+
+  /**
+   * Documentation returns name, type, and description for the variable.
+   */
+  documentation() {
+    // TODO: return common.NewVariableDoc(v.Name(), describeCELType(v.Type()), v.Description())
+    return this.doc ?? '';
+  }
+
+  /**
+   * Description returns the usage documentation for the variable, if set.
+   *
+   * Good usage instructions provide information about the valid formats, ranges, sizes for the variable type.
+   */
+  description() {
+    return this.doc ?? '';
   }
 
   /**

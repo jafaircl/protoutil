@@ -1,19 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-empty-interface */
+import { DescMessage } from '@bufbuild/protobuf';
+import { MAX_UINT32 } from '@protoutil/core';
+import { dequal } from 'dequal';
 import { Checker } from '../checker/checker.js';
 import { Coster, CostEstimator, CostOption } from '../checker/cost.js';
 import { Env as CheckerEnv, CheckerEnvOptions } from '../checker/env.js';
 import { AST, SourceInfo, AST as œAST } from '../common/ast/ast.js';
 import { Container } from '../common/container.js';
 import { sourceInfoToProto } from '../common/conversion.js';
-import { FunctionDecl, VariableDecl } from '../common/decls.js';
+import { excludeOverloads, FunctionDecl, VariableDecl } from '../common/decls.js';
+import {
+  Config,
+  Feature as ConfigFeature,
+  ContextVariable,
+  Extension,
+  Import,
+  LibrarySubset,
+} from '../common/env/env.js';
 import { Errors } from '../common/errors.js';
 import { formatCELType as œformatCELType } from '../common/format.js';
 import { NoLocation } from '../common/location.js';
 import { Adapter, isRegistry, Provider } from '../common/ref/provider.js';
 import { TextSource, Source as œSource } from '../common/source.js';
-import { Registry } from '../common/types/provider.js';
+import { stdTypes } from '../common/stdlib.js';
+import { fieldDescToCELType, Registry } from '../common/types/provider.js';
 import { isNil } from '../common/utils.js';
 import { EmptyActivation } from '../interpreter/activation.js';
 import { AttributePattern } from '../interpreter/attribute-patterns.js';
@@ -29,7 +41,16 @@ import {
 } from '../parser/parser.js';
 import { Type } from './decls.js';
 import { astToString } from './io.js';
-import { Feature, StdLib } from './library.js';
+import {
+  Feature,
+  featureNameByID,
+  isLibraryAliaser,
+  isLibrarySubsetter,
+  isLibraryVersioner,
+  lib,
+  SingletonLibrary,
+  StdLib,
+} from './library.js';
 import { eagerlyValidateDeclarations, EnvOption, ProgramOption } from './options.js';
 import {
   Activation,
@@ -118,7 +139,7 @@ interface EnvBaseOptions {
   provider?: Provider;
   features?: Map<number, boolean>;
   appliedFeatures?: Map<number, boolean>;
-  libraries?: Map<string, boolean>;
+  libraries?: Map<string, SingletonLibrary>;
   // validators?      []ASTValidator
   costOptions?: CostOption[];
 
@@ -143,6 +164,7 @@ export class EnvBase {
    */
   functions: Map<string, FunctionDecl>;
   macros: Macro[];
+  contextProto: DescMessage | null = null;
   adapter: Adapter;
   provider: Provider;
   features: Map<Feature, boolean>;
@@ -151,7 +173,7 @@ export class EnvBase {
    * Libraries returns a map of SingletonLibrary that have been configured in
    * the environment.
    */
-  libraries: Map<string, boolean>;
+  libraries: Map<string, SingletonLibrary>;
   // validators      []ASTValidator
   costOptions: CostOption[];
 
@@ -629,6 +651,141 @@ export class EnvBase {
       unknownPatterns.push(new AttributePattern(varName));
     }
     return unknownPatterns;
+  }
+
+  /**
+   * ToConfig produces a YAML-serializable env.Config object from the given environment.
+   *
+   * The serialized configuration value is intended to represent a baseline set of config
+   * options which could be used as input to an EnvOption to configure the majority of the
+   * environment from a file.
+   *
+   * Note: validators, features, flags, and safe-guard settings are not yet supported by
+   * the serialize method. Since optimizers are a separate construct from the environment
+   * and the standard expression components (parse, check, evalute), they are also not
+   * supported by the serialize method.
+   */
+  toConfig(name: string): Config {
+    const conf = new Config(name);
+
+    // Container settings
+    if (!dequal(this.container, new Container())) {
+      conf.setContainer(this.container.name);
+    }
+    for (const typeName of this.container.aliasSet().values()) {
+      conf.addImports(new Import(typeName));
+    }
+
+    const libOverloads: Record<string, string[]> = {};
+    // eslint-disable-next-line prefer-const
+    for (let [libName, _lib] of this.libraries.entries()) {
+      // Track the options which have been configured by a library and
+      // then diff the library version against the configured function
+      // to detect incremental overloads or rewrites.
+      let libEnv = new CustomEnv();
+      libEnv = lib(_lib)(libEnv);
+      for (const [fnName, fnDecl] of libEnv.functions.entries()) {
+        if (fnDecl.overloadDecls().length === 0) {
+          continue;
+        }
+        let overloads = libOverloads[fnName];
+        if (!overloads) {
+          overloads = [];
+        }
+        for (const o of fnDecl.overloadDecls()) {
+          overloads.push(o.id());
+        }
+        libOverloads[fnName] = overloads;
+      }
+      let alias = '';
+      if (isLibraryAliaser(_lib)) {
+        alias = _lib.libraryAlias();
+        libName = alias;
+      }
+      if (libName === 'stdlib' && isLibrarySubsetter(_lib)) {
+        conf.setStdLib(_lib.librarySubset());
+        continue;
+      }
+      let version = MAX_UINT32;
+      if (isLibraryVersioner(_lib)) {
+        version = _lib.libraryVersion();
+      }
+      conf.addExtensions(
+        new Extension(libName, version === MAX_UINT32 ? 'latest' : String(version))
+      );
+    }
+
+    // If this is a custom environment without the standard env, mark the stdlib as disabled.
+    if (!conf.stdLib && !this.hasLibrary('cel.lib.std')) {
+      conf.setStdLib(new LibrarySubset().setDisabled(true));
+    }
+
+    // Serialize the variables
+    const vars: VariableDecl[] = [];
+    const stdTypeVars: Record<string, VariableDecl> = {};
+    for (const v of stdTypes) {
+      stdTypeVars[v.name()] = v;
+    }
+    for (const v of this.variables) {
+      if (!isNil(stdTypeVars[v.name()])) {
+        continue;
+      }
+      vars.push(v);
+    }
+    if (!isNil(this.contextProto)) {
+      conf.setContextVariable(new ContextVariable(this.contextProto.typeName));
+      const skipVariables: Record<string, boolean> = {};
+      const fields = this.contextProto.fields;
+      for (const field of fields) {
+        const variable = fieldDescToCELType(field);
+        if (isNil(variable)) {
+          throw new Error(`could not serialize context field variable ${field.name}`);
+        }
+        skipVariables[field.name] = true;
+      }
+      for (const v of vars) {
+        if (isNil(skipVariables[v.name()])) {
+          conf.addVariableDecls(v);
+        }
+      }
+    } else {
+      conf.addVariableDecls(...vars);
+    }
+
+    // Serialize functions which are distinct from the ones configured by libraries.
+    for (const [fnName, fnDecl] of this.functions.entries()) {
+      const excludedOverloads = libOverloads[fnName];
+      if (excludedOverloads) {
+        const newDecl = fnDecl.subset(excludeOverloads(...excludedOverloads));
+        if (!isNil(newDecl)) {
+          conf.addFunctionDecls(newDecl);
+        }
+      } else {
+        conf.addFunctionDecls(fnDecl);
+      }
+    }
+
+    // TODO; validators
+    // // Serialize validators
+    // for _, val := range e.Validators() {
+    // 	// Only add configurable validators to the env.Config as all others are
+    // 	// expected to be implicitly enabled via extension libraries.
+    // 	if confVal, ok := val.(ConfigurableASTValidator); ok {
+    // 		conf.AddValidators(confVal.ToConfig())
+    // 	}
+    // }
+
+    // Serialize features
+    for (const [featID, enabled] of this.features.entries()) {
+      const featName = featureNameByID(featID);
+      if (!featName) {
+        // If the feature isn't named, it isn't intended to be publicly exposed
+        continue;
+      }
+      conf.addFeatures(new ConfigFeature(featName, enabled));
+    }
+
+    return conf;
   }
 }
 
