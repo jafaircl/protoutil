@@ -34,12 +34,12 @@ option (fileopt) = {
   /* of both types */
   i: 100
 
-  sub {s: 'NestedFileAnnotation'}
+  sub: {s: 'NestedFileAnnotation'}
 
   // Include a google.protobuf.FileOptions and recursively extend it with
   // another fileopt.
-  file {
-    [proto2_unittest.fileopt] {s: 'FileExtensionAnnotation'}
+  file: {
+    [proto2_unittest.fileopt]: {s: 'FileExtensionAnnotation'}
   }
 
   // field "proto2_unittest.AggregateMessageSetElement.message_set_extension" may not be used in an option: it uses 'message set wire format' legacy proto1 feature which is not supported
@@ -50,8 +50,8 @@ option (fileopt) = {
   //   }
   // }
 
-  any {
-    [type.googleapis.com/proto2_unittest.AggregateMessageSetElement] {s: 'EmbeddedMessageSetElement'}
+  any: {
+    [type.googleapis.com/proto2_unittest.AggregateMessageSetElement]: {s: 'EmbeddedMessageSetElement'}
   }
 };
 

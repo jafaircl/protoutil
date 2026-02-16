@@ -1,0 +1,31 @@
+language: 'javascript'
+
+tasks:
+  protogen:
+    command:
+    - '../../node_modules/.bin/buf'
+    - 'generate'
+  typecheck:
+    command:
+    - '../../node_modules/.bin/tsc'
+    - '--noEmit'
+    dependsOn:
+    - protogen
+  test:
+    command:
+    - '../../node_modules/.bin/vitest'
+    - 'run'
+    dependsOn:
+    - typecheck
+  build:
+    command:
+    - '../../node_modules/.bin/tsdown'
+    dependsOn:
+    - test
+    - check
+  pack:
+    command:
+    - 'pnpm'
+    - 'pack'
+    dependsOn:
+    - build

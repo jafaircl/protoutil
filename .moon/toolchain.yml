@@ -1,0 +1,14 @@
+javascript:
+  packageManager: 'pnpm'
+
+node:
+  version: '22.15.0'
+
+pnpm:
+  version: '10.29.3'
+
+typescript:
+  syncProjectReferences: true
+  syncProjectReferencesToPaths: true
+  includeProjectReferenceSources: true
+  includeSharedTypes: true

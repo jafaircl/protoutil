@@ -1,6 +1,5 @@
 version: v2
 modules:
-  # Our .proto files live within the proto directory.
   - path: proto
 deps:
   - buf.build/googleapis/googleapis

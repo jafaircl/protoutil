@@ -1,0 +1,48 @@
+{
+  "name": "@protoutil/aip",
+  "type": "module",
+  "version": "0.2.5",
+  "description": "A starter for creating a TypeScript package.",
+  "author": "Author Name <author.name@mail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/aip#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jafaircl/protoutil.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jafaircl/protoutil/issues"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@buf/googleapis_googleapis.bufbuild_es": "2.11.0-20251126203132-004180b77378.1",
+    "@bufbuild/protocompile": "^0.0.1",
+    "@types/node": "^25.0.3",
+    "bumpp": "^10.3.2",
+    "tsdown": "^0.18.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0",
+    "@protoutil/core": "0.2.5"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  }
+}

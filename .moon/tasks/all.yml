@@ -1,0 +1,16 @@
+tasks:
+  format:
+    command:
+    - '../../node_modules/.bin/biome'
+    - 'format'
+    - '--write'
+  lint:
+    command:
+    - '../../node_modules/.bin/biome'
+    - 'lint'
+    - '--write'
+  check:
+    command:
+    - '../../node_modules/.bin/biome'
+    - 'check'
+    - '--write'

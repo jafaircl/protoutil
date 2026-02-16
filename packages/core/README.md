@@ -331,12 +331,16 @@ assertValidUInt64(num); // throws if `num` is not a 64 bit unsigned integer
 isValidUInt64(num); // return true if `num` is a 64-bit unsinged integer or false otherwise
 ```
 
+### Unit Testing
+
+This library also exports the google/protobuf unit testing schemas compiled from [the protocolbuffers repository](https://github.com/protocolbuffers/protobuf/tree/27421b97a0daa29e91460d377b0213f9e7be5d3f/src/google/protobuf). These schemas can be helpful in testing for protobuf-dependent libraries. For instance, the `TestAllTypes` type and schema found in `@protoutil/core/unittest` contains a field for most basic protobuf types. A proto3-specific type and schema can be found in `@protoutil/core/unittest/proto3`. There are many helpful types and schemas exported from this portion of the library. Please explore the repository if you're looking for something specific. If there is a schema or type we don't export, please file an issue and it can be added.
+
 ## Contributing
 
 ### Building
 
-Run `nx build core` to build the library.
+Run `moon run core:build` to build the library.
 
 ### Running unit tests
 
-Run `nx test core` to execute the unit tests via [Vitest](https://vitest.dev/).
+Run `moon run core:test` to execute the unit tests via [Vitest](https://vitest.dev/).
