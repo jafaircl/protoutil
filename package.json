@@ -3,19 +3,29 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "all": "moon run :protogen && moon run :format :lint :organize :test :build"
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.29.3",
+  "workspaces": [
+    "examples/*",
+    "packages/*"
+  ],
   "devDependencies": {
+    "@angular/build": "^21.1.4",
+    "@angular/cli": "^21.1.4",
+    "@angular/compiler-cli": "^21.1.0",
     "@biomejs/biome": "2.4.0",
     "@bufbuild/buf": "^1.65.0",
     "@bufbuild/protoc-gen-es": "^2.11.0",
+    "jsdom": "^27.1.0",
+    "ng-packagr": "^21.1.0",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
   }
 }

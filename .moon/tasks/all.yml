@@ -1,16 +1,38 @@
+fileGroups:
+  configs:
+    - '*.{js,json,yml,yaml}'
+  sources:
+    - 'src/**/*'
+    - 'types/**/*'
+  tests:
+    - 'tests/**/*.test.*'
+    - '**/__tests__/**/*'
+
 tasks:
   format:
     command:
     - '../../node_modules/.bin/biome'
     - 'format'
     - '--write'
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+    - '@globs(configs)'
   lint:
     command:
     - '../../node_modules/.bin/biome'
     - 'lint'
     - '--write'
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+    - '@globs(configs)'
   check:
     command:
     - '../../node_modules/.bin/biome'
     - 'check'
     - '--write'
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+    - '@globs(configs)'

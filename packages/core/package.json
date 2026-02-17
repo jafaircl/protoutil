@@ -15,176 +15,176 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.mjs"
     },
     "./unittest": {
-      "import": "./dist/unittest/index.mjs",
-      "require": "./dist/unittest/index.cjs"
+      "require": "./dist/unittest/index.cjs",
+      "import": "./dist/unittest/index.mjs"
     },
     "./unittest/arena": {
-      "import": "./dist/unittest/arena.mjs",
-      "require": "./dist/unittest/arena.cjs"
+      "require": "./dist/unittest/arena.cjs",
+      "import": "./dist/unittest/arena.mjs"
     },
     "./unittest/custom-options": {
-      "import": "./dist/unittest/custom-options.mjs",
-      "require": "./dist/unittest/custom-options.cjs"
+      "require": "./dist/unittest/custom-options.cjs",
+      "import": "./dist/unittest/custom-options.mjs"
     },
     "./unittest/delimited": {
-      "import": "./dist/unittest/delimited.mjs",
-      "require": "./dist/unittest/delimited.cjs"
+      "require": "./dist/unittest/delimited.cjs",
+      "import": "./dist/unittest/delimited.mjs"
     },
     "./unittest/delimited-import": {
-      "import": "./dist/unittest/delimited-import.mjs",
-      "require": "./dist/unittest/delimited-import.cjs"
+      "require": "./dist/unittest/delimited-import.cjs",
+      "import": "./dist/unittest/delimited-import.mjs"
     },
     "./unittest/drop-unknown-fields": {
-      "import": "./dist/unittest/drop-unknown-fields.mjs",
-      "require": "./dist/unittest/drop-unknown-fields.cjs"
+      "require": "./dist/unittest/drop-unknown-fields.cjs",
+      "import": "./dist/unittest/drop-unknown-fields.mjs"
     },
     "./unittest/embed-optimize-for": {
-      "import": "./dist/unittest/embed-optimize-for.mjs",
-      "require": "./dist/unittest/embed-optimize-for.cjs"
+      "require": "./dist/unittest/embed-optimize-for.cjs",
+      "import": "./dist/unittest/embed-optimize-for.mjs"
     },
     "./unittest/empty": {
-      "import": "./dist/unittest/empty.mjs",
-      "require": "./dist/unittest/empty.cjs"
+      "require": "./dist/unittest/empty.cjs",
+      "import": "./dist/unittest/empty.mjs"
     },
     "./unittest/enormous-descriptor": {
-      "import": "./dist/unittest/enormous-descriptor.mjs",
-      "require": "./dist/unittest/enormous-descriptor.cjs"
+      "require": "./dist/unittest/enormous-descriptor.cjs",
+      "import": "./dist/unittest/enormous-descriptor.mjs"
     },
     "./unittest/extension-set": {
-      "import": "./dist/unittest/extension-set.mjs",
-      "require": "./dist/unittest/extension-set.cjs"
+      "require": "./dist/unittest/extension-set.cjs",
+      "import": "./dist/unittest/extension-set.mjs"
     },
     "./unittest/features": {
-      "import": "./dist/unittest/features.mjs",
-      "require": "./dist/unittest/features.cjs"
+      "require": "./dist/unittest/features.cjs",
+      "import": "./dist/unittest/features.mjs"
     },
     "./unittest/import": {
-      "import": "./dist/unittest/import.mjs",
-      "require": "./dist/unittest/import.cjs"
+      "require": "./dist/unittest/import.cjs",
+      "import": "./dist/unittest/import.mjs"
     },
     "./unittest/import-lite": {
-      "import": "./dist/unittest/import-lite.mjs",
-      "require": "./dist/unittest/import-lite.cjs"
+      "require": "./dist/unittest/import-lite.cjs",
+      "import": "./dist/unittest/import-lite.mjs"
     },
     "./unittest/import-public": {
-      "import": "./dist/unittest/import-public.mjs",
-      "require": "./dist/unittest/import-public.cjs"
+      "require": "./dist/unittest/import-public.cjs",
+      "import": "./dist/unittest/import-public.mjs"
     },
     "./unittest/import-public-lite": {
-      "import": "./dist/unittest/import-public-lite.mjs",
-      "require": "./dist/unittest/import-public-lite.cjs"
+      "require": "./dist/unittest/import-public-lite.cjs",
+      "import": "./dist/unittest/import-public-lite.mjs"
     },
     "./unittest/invalid-features": {
-      "import": "./dist/unittest/invalid-features.mjs",
-      "require": "./dist/unittest/invalid-features.cjs"
+      "require": "./dist/unittest/invalid-features.cjs",
+      "import": "./dist/unittest/invalid-features.mjs"
     },
     "./unittest/lazy-dependencies": {
-      "import": "./dist/unittest/lazy-dependencies.mjs",
-      "require": "./dist/unittest/lazy-dependencies.cjs"
+      "require": "./dist/unittest/lazy-dependencies.cjs",
+      "import": "./dist/unittest/lazy-dependencies.mjs"
     },
     "./unittest/lazy-dependencies-custom-option": {
-      "import": "./dist/unittest/lazy-dependencies-custom-option.mjs",
-      "require": "./dist/unittest/lazy-dependencies-custom-option.cjs"
+      "require": "./dist/unittest/lazy-dependencies-custom-option.cjs",
+      "import": "./dist/unittest/lazy-dependencies-custom-option.mjs"
     },
     "./unittest/lazy-dependencies-enum": {
-      "import": "./dist/unittest/lazy-dependencies-enum.mjs",
-      "require": "./dist/unittest/lazy-dependencies-enum.cjs"
+      "require": "./dist/unittest/lazy-dependencies-enum.cjs",
+      "import": "./dist/unittest/lazy-dependencies-enum.mjs"
     },
     "./unittest/legacy-features": {
-      "import": "./dist/unittest/legacy-features.mjs",
-      "require": "./dist/unittest/legacy-features.cjs"
+      "require": "./dist/unittest/legacy-features.cjs",
+      "import": "./dist/unittest/legacy-features.mjs"
     },
     "./unittest/lite": {
-      "import": "./dist/unittest/lite.mjs",
-      "require": "./dist/unittest/lite.cjs"
+      "require": "./dist/unittest/lite.cjs",
+      "import": "./dist/unittest/lite.mjs"
     },
     "./unittest/lite-edition-2024": {
-      "import": "./dist/unittest/lite-edition-2024.mjs",
-      "require": "./dist/unittest/lite-edition-2024.cjs"
+      "require": "./dist/unittest/lite-edition-2024.cjs",
+      "import": "./dist/unittest/lite-edition-2024.mjs"
     },
     "./unittest/mset": {
-      "import": "./dist/unittest/mset.mjs",
-      "require": "./dist/unittest/mset.cjs"
+      "require": "./dist/unittest/mset.cjs",
+      "import": "./dist/unittest/mset.mjs"
     },
     "./unittest/mset-wire-format": {
-      "import": "./dist/unittest/mset-wire-format.mjs",
-      "require": "./dist/unittest/mset-wire-format.cjs"
+      "require": "./dist/unittest/mset-wire-format.cjs",
+      "import": "./dist/unittest/mset-wire-format.mjs"
     },
     "./unittest/no-field-presence": {
-      "import": "./dist/unittest/no-field-presence.mjs",
-      "require": "./dist/unittest/no-field-presence.cjs"
+      "require": "./dist/unittest/no-field-presence.cjs",
+      "import": "./dist/unittest/no-field-presence.mjs"
     },
     "./unittest/no-generic-services": {
-      "import": "./dist/unittest/no-generic-services.mjs",
-      "require": "./dist/unittest/no-generic-services.cjs"
+      "require": "./dist/unittest/no-generic-services.cjs",
+      "import": "./dist/unittest/no-generic-services.mjs"
     },
     "./unittest/optimize-for": {
-      "import": "./dist/unittest/optimize-for.mjs",
-      "require": "./dist/unittest/optimize-for.cjs"
+      "require": "./dist/unittest/optimize-for.cjs",
+      "import": "./dist/unittest/optimize-for.mjs"
     },
     "./unittest/preserve-unknown-enum": {
-      "import": "./dist/unittest/preserve-unknown-enum.mjs",
-      "require": "./dist/unittest/preserve-unknown-enum.cjs"
+      "require": "./dist/unittest/preserve-unknown-enum.cjs",
+      "import": "./dist/unittest/preserve-unknown-enum.mjs"
     },
     "./unittest/preserve-unknown-enum2": {
-      "import": "./dist/unittest/preserve-unknown-enum2.mjs",
-      "require": "./dist/unittest/preserve-unknown-enum2.cjs"
+      "require": "./dist/unittest/preserve-unknown-enum2.cjs",
+      "import": "./dist/unittest/preserve-unknown-enum2.mjs"
     },
     "./unittest/proto3": {
-      "import": "./dist/unittest/proto3.mjs",
-      "require": "./dist/unittest/proto3.cjs"
+      "require": "./dist/unittest/proto3.cjs",
+      "import": "./dist/unittest/proto3.mjs"
     },
     "./unittest/proto3-arena": {
-      "import": "./dist/unittest/proto3-arena.mjs",
-      "require": "./dist/unittest/proto3-arena.cjs"
+      "require": "./dist/unittest/proto3-arena.cjs",
+      "import": "./dist/unittest/proto3-arena.mjs"
     },
     "./unittest/proto3-arena-lite": {
-      "import": "./dist/unittest/proto3-arena-lite.mjs",
-      "require": "./dist/unittest/proto3-arena-lite.cjs"
+      "require": "./dist/unittest/proto3-arena-lite.cjs",
+      "import": "./dist/unittest/proto3-arena-lite.mjs"
     },
     "./unittest/proto3-bad-macros": {
-      "import": "./dist/unittest/proto3-bad-macros.mjs",
-      "require": "./dist/unittest/proto3-bad-macros.cjs"
+      "require": "./dist/unittest/proto3-bad-macros.cjs",
+      "import": "./dist/unittest/proto3-bad-macros.mjs"
     },
     "./unittest/proto3-extensions": {
-      "import": "./dist/unittest/proto3-extensions.mjs",
-      "require": "./dist/unittest/proto3-extensions.cjs"
+      "require": "./dist/unittest/proto3-extensions.cjs",
+      "import": "./dist/unittest/proto3-extensions.mjs"
     },
     "./unittest/proto3-lite": {
-      "import": "./dist/unittest/proto3-lite.mjs",
-      "require": "./dist/unittest/proto3-lite.cjs"
+      "require": "./dist/unittest/proto3-lite.cjs",
+      "import": "./dist/unittest/proto3-lite.mjs"
     },
     "./unittest/proto3-optional": {
-      "import": "./dist/unittest/proto3-optional.mjs",
-      "require": "./dist/unittest/proto3-optional.cjs"
+      "require": "./dist/unittest/proto3-optional.cjs",
+      "import": "./dist/unittest/proto3-optional.mjs"
     },
     "./unittest/redaction": {
-      "import": "./dist/unittest/redaction.mjs",
-      "require": "./dist/unittest/redaction.cjs"
+      "require": "./dist/unittest/redaction.cjs",
+      "import": "./dist/unittest/redaction.mjs"
     },
     "./unittest/retention": {
-      "import": "./dist/unittest/retention.mjs",
-      "require": "./dist/unittest/retention.cjs"
+      "require": "./dist/unittest/retention.cjs",
+      "import": "./dist/unittest/retention.mjs"
     },
     "./unittest/string-type": {
-      "import": "./dist/unittest/string-type.mjs",
-      "require": "./dist/unittest/string-type.cjs"
+      "require": "./dist/unittest/string-type.cjs",
+      "import": "./dist/unittest/string-type.mjs"
     },
     "./unittest/string-view": {
-      "import": "./dist/unittest/string-view.mjs",
-      "require": "./dist/unittest/string-view.cjs"
+      "require": "./dist/unittest/string-view.cjs",
+      "import": "./dist/unittest/string-view.mjs"
     },
     "./unittest/well-known-types": {
-      "import": "./dist/unittest/well-known-types.mjs",
-      "require": "./dist/unittest/well-known-types.cjs"
+      "require": "./dist/unittest/well-known-types.cjs",
+      "import": "./dist/unittest/well-known-types.mjs"
     },
     "./wkt": {
-      "import": "./dist/wkt/index.mjs",
-      "require": "./dist/wkt/index.cjs"
+      "require": "./dist/wkt/index.cjs",
+      "import": "./dist/wkt/index.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -195,9 +195,10 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "protogen": "buf generate"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",

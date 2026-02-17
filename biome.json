@@ -18,9 +18,9 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-	  "suspicious": {
-		"noFallthroughSwitchClause": "off"
-	  }
+      "suspicious": {
+        "noFallthroughSwitchClause": "off"
+      }
     }
   },
   "javascript": {

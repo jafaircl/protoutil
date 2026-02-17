@@ -45,3 +45,6 @@ Thumbs.db
 # moon
 .moon/cache
 .moon/docker
+
+# angular
+.angular/cache
