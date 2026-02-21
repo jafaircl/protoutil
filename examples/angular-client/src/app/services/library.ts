@@ -8,9 +8,8 @@ import {
   CreateShelfRequestSchema,
   DeleteShelfRequestSchema,
   GetShelfRequestSchema,
-  type ListShelvesRequestSchema,
+  ListShelvesRequestSchema,
   type ListShelvesResponse,
-  ListShelvesResponseSchema,
   type Shelf,
 } from "../../gen/library/v1/library_pb";
 
@@ -68,18 +67,10 @@ export class LibraryService {
     input: MessageInitShape<typeof ListShelvesRequestSchema>,
     signal?: AbortSignal,
   ): Promise<ListShelvesResponse> {
-    // const request = this.prepareRequest(ListShelvesRequestSchema, input);
-    // return await this.client().listShelves(request, {
-    //   signal,
-    //   timeoutMs: this.timeoutMs,
-    // });
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-    console.log(input);
-    return create(ListShelvesResponseSchema, {
-      shelves: new Array(input.pageSize)
-        .fill(0)
-        .map((_, i) => ({ name: `shelf-${i}`, theme: `Theme ${i}` })),
-      totalSize: 100,
+    const request = this.prepareRequest(ListShelvesRequestSchema, input);
+    return await this.client().listShelves(request, {
+      signal,
+      timeoutMs: this.timeoutMs,
     });
   }
 
