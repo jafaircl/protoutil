@@ -112,17 +112,14 @@ export class ShelfListComponent implements AfterViewInit {
 
   private initialized = false;
 
-  filterEffect = effect(
-    () => {
-      // Track the filter param
-      this.filterParam();
-      // Reset to first page when filter changes, but only after initial load
-      if (this.initialized) {
-        this.skipParam.set(0);
-      }
-    },
-    { allowSignalWrites: true },
-  );
+  filterEffect = effect(() => {
+    // Track the filter param
+    this.filterParam();
+    // Reset to first page when filter changes, but only after initial load
+    if (this.initialized) {
+      this.skipParam.set(0);
+    }
+  });
 
   ngAfterViewInit() {
     this.setInitialFilter();

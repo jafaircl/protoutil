@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "dev": "FASTIFY_AUTOLOAD_TYPESCRIPT=1 tsx watch --import tsx/esm src/server.ts",
+    "dev": "lsof -ti:8080 | xargs kill -9 2>/dev/null; FASTIFY_AUTOLOAD_TYPESCRIPT=1 tsx watch --import tsx/esm src/server.ts",
     "test": "NODE_OPTIONS=\"--import tsx/esm\" vitest run",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build",
