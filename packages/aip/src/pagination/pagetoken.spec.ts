@@ -183,4 +183,45 @@ describe("pagetoken", () => {
     });
     expect(() => parsePageToken(TestPaginationRequestSchema, request)).toThrow("checksum mismatch");
   });
+
+  it("previous should not return negative offset", () => {
+    const request = create(TestPaginationRequestSchema, {
+      parent: "shelves/1",
+      pageSize: 10,
+    });
+    const pageToken = parsePageToken(TestPaginationRequestSchema, request);
+    const previousPageToken = pageToken.previous(request);
+    expect(previousPageToken.offset).toEqual(0);
+  });
+
+  it("previous should return correct offset", () => {
+    const request = create(TestPaginationRequestSchema, {
+      parent: "shelves/1",
+      pageSize: 10,
+    });
+    const pageToken = parsePageToken(TestPaginationRequestSchema, request);
+    const nextPageToken = pageToken.next(request);
+    expect(nextPageToken.offset).toEqual(10);
+    const previousPageToken = nextPageToken.previous(request);
+    expect(previousPageToken.offset).toEqual(0);
+  });
+
+  it("previous should return correct offset with skip and pageSize", () => {
+    const request = create(TestPaginationRequestSchema, {
+      parent: "shelves/1",
+      pageSize: 10,
+      skip: 30,
+    });
+    const pageToken = parsePageToken(TestPaginationRequestSchema, request);
+    const nextPageToken = pageToken.next(request);
+    expect(nextPageToken.offset).toEqual(40);
+    const previousPageToken = nextPageToken.previous(request);
+    expect(previousPageToken.offset).toEqual(30);
+  });
+
+  it("toString should return the same string for the same PageToken", () => {
+    const token1 = new PageToken(50, 789);
+    const token2 = new PageToken(50, 789);
+    expect(token1.toString()).toEqual(token2.toString());
+  });
 });

@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PersonSchema } from "./gen/protovalidate-testing/tests/example/v1/example_pb";
 import { validateMessageTree } from "./validate-message-tree";
 
-describe("forms", () => {
+describe("message tree validator", () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [provideZonelessChangeDetection()],

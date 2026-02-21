@@ -50,8 +50,19 @@ export class PageToken {
    * @param request the request to get the next page token for
    */
   next(request: RequestMessage) {
-    this.offset += request.pageSize ?? 0;
-    return this;
+    return new PageToken(this.offset + (request.pageSize ?? 0), this.requestChecksum);
+  }
+
+  /**
+   * Previous returns the previous page token for the provided Request.
+   *
+   * If the previous page token would have a negative offset, a page token with
+   * offset 0 will be returned.
+   *
+   * @param request  the request to get the previous page token for
+   */
+  previous(request: RequestMessage) {
+    return new PageToken(Math.max(0, this.offset - (request.pageSize ?? 0)), this.requestChecksum);
   }
 
   /**

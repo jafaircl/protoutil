@@ -15,7 +15,7 @@
     "target": "ES2022",
     "module": "preserve",
     "paths": {
-      "angular": ["./packages/angular/dist"]
+      "@protoutil/angular": ["./packages/angular/dist"]
     }
   },
   "angularCompilerOptions": {
@@ -31,6 +31,12 @@
     },
     {
       "path": "./packages/angular/tsconfig.spec.json"
+    },
+    {
+      "path": "./examples/angular-client/tsconfig.app.json"
+    },
+    {
+      "path": "./examples/angular-client/tsconfig.spec.json"
     }
   ]
 }

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package protoutil.aip.v1;
+
+import "google/api/resource.proto";
+
+message UserEvent {
+  option (google.api.resource) = {
+    type: "example.googleapis.com/UserEvent"
+    pattern: "projects/{project}/users/{user}/events/{event}"
+    pattern: "users/{user}/events/{event}"
+    singular: "userEvent"
+    plural: "userEvents"
+  };
+
+  string name = 1;
+}

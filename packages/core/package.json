@@ -211,6 +211,7 @@
   "module": "./dist/index.mjs",
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
+    "buffer": "^6.0.3",
     "crc": "^4.3.2",
     "temporal-polyfill": "^0.3.0"
   }

@@ -6,7 +6,13 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": false
+    "ignoreUnknown": false,
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!examples/angular-client/**/*.html"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -19,7 +25,8 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noFallthroughSwitchClause": "off"
+        "noFallthroughSwitchClause": "off",
+        "noUnknownAtRules": "off"
       }
     }
   },

@@ -1,1 +1,6 @@
-export { PageToken, parsePageToken } from "./pagetoken.js";
+export {
+  decodePageTokenStruct,
+  encodePageTokenStruct,
+  PageToken,
+  parsePageToken,
+} from "./pagetoken.js";

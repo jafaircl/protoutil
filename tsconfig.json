@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "esnext",
-    "lib": ["es2023"],
+    "lib": ["es2023", "dom"],
     "moduleDetection": "force",
     "module": "preserve",
     "moduleResolution": "bundler",
@@ -14,6 +14,9 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@protoutil/angular": ["./packages/angular/dist"]
+    }
   }
 }

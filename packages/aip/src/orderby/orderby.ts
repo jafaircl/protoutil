@@ -109,7 +109,7 @@ export function parseOrderBy(str: string) {
         message: `parse order by '${str}': invalid format`,
         errorInfo: {
           reason: "MISSING_FIELD_NAME",
-          domain: "bearclaw.aip.orderby",
+          domain: "protoutil.aip.orderby",
           metadata: {
             orderBy: str,
           },
@@ -136,7 +136,7 @@ export function parseOrderBy(str: string) {
               message: `parse order by '${str}': invalid format`,
               errorInfo: {
                 reason: "INVALID_SORT_ORDER",
-                domain: "bearclaw.aip.orderby",
+                domain: "protoutil.aip.orderby",
                 metadata: {
                   orderBy: str,
                 },
@@ -151,7 +151,7 @@ export function parseOrderBy(str: string) {
           message: `parse order by '${str}': invalid format`,
           errorInfo: {
             reason: "INVALID_FORMAT",
-            domain: "bearclaw.aip.orderby",
+            domain: "protoutil.aip.orderby",
             metadata: {
               orderBy: str,
             },
