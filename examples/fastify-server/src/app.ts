@@ -17,13 +17,6 @@ export type AppOptions = {
 const options: AppOptions = {};
 
 const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void> => {
-  // Handle graceful shutdown for hot reload
-  process.removeAllListeners("SIGUSR2");
-  process.once("SIGUSR2", async () => {
-    await fastify.close();
-    process.kill(process.pid, "SIGUSR2");
-  });
-
   // Place here your custom code!
   fastify.register(cors);
   fastify.register(fastifyConnectPlugin, {

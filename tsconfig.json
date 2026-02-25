@@ -16,6 +16,7 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "paths": {
+      "@protoutil/aip": ["./packages/aip/dist"],
       "@protoutil/angular": ["./packages/angular/dist"]
     }
   }

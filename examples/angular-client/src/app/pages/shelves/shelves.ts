@@ -16,14 +16,8 @@ import { MatInputModule } from "@angular/material/input";
 import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatSort, MatSortModule, type Sort } from "@angular/material/sort";
 import { MatTableModule } from "@angular/material/table";
-import {
-  extendStandardFilterDeclarations,
-  Field,
-  newIdentDeclaration,
-  OrderBy,
-  parseOrderBy,
-  TypeString,
-} from "@protoutil/aip";
+import { ident, STRING } from "@protoutil/aip/filtering";
+import { Field, OrderBy, parseOrderBy } from "@protoutil/aip/orderby";
 import { validateAipFilter } from "@protoutil/angular";
 import { linkedQueryParam, paramToNumber } from "ngxtension/linked-query-param";
 import type { ListShelvesResponse } from "../../../gen/library/v1/library_pb";
@@ -31,7 +25,7 @@ import { LibraryService } from "../../services/library";
 import { DEFAULT_PAGE_SIZE } from "../../utils/defaults";
 import { stringifyQueryParam } from "../../utils/query-params";
 
-const declarations = extendStandardFilterDeclarations([newIdentDeclaration("theme", TypeString)]);
+const declarations = [ident("theme", STRING)];
 
 @Component({
   selector: "app-shelves",

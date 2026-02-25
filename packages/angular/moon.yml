@@ -19,8 +19,8 @@ tasks:
     command: 'pnpm run build'
     dependsOn:
     - test
-  dev:
-    command: 'pnpm run dev'
+  # dev:
+  #   command: 'pnpm run dev'
   pack:
     command: 'pnpm pack'
     dependsOn:

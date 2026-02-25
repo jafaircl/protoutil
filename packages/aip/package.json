@@ -18,6 +18,34 @@
       "require": "./dist/index.cjs",
       "import": "./dist/index.mjs"
     },
+    "./errors": {
+      "require": "./dist/errors/index.cjs",
+      "import": "./dist/errors/index.mjs"
+    },
+    "./etag": {
+      "require": "./dist/etag/index.cjs",
+      "import": "./dist/etag/index.mjs"
+    },
+    "./fieldbehavior": {
+      "require": "./dist/fieldbehavior/index.cjs",
+      "import": "./dist/fieldbehavior/index.mjs"
+    },
+    "./filtering": {
+      "require": "./dist/filtering/index.cjs",
+      "import": "./dist/filtering/index.mjs"
+    },
+    "./orderby": {
+      "require": "./dist/orderby/index.cjs",
+      "import": "./dist/orderby/index.mjs"
+    },
+    "./pagination": {
+      "require": "./dist/pagination/index.cjs",
+      "import": "./dist/pagination/index.mjs"
+    },
+    "./resourcename": {
+      "require": "./dist/resourcename/index.cjs",
+      "import": "./dist/resourcename/index.mjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.cts",

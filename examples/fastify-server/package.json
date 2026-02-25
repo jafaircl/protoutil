@@ -26,6 +26,7 @@
     "@fastify/autoload": "^6.3.1",
     "@fastify/cors": "^11.2.0",
     "@fastify/sensible": "^6.0.4",
+    "@protoutil/aip": "workspace:*",
     "fastify": "^5.7.4"
   },
   "devDependencies": {

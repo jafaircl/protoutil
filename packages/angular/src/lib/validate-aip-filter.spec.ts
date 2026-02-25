@@ -2,13 +2,11 @@ import { Component, provideZonelessChangeDetection, signal } from "@angular/core
 import { TestBed } from "@angular/core/testing";
 import { ReactiveFormsModule } from "@angular/forms";
 import { FormField, form } from "@angular/forms/signals";
-import { extendStandardFilterDeclarations, newIdentDeclaration, TypeString } from "@protoutil/aip";
+import { ident, STRING } from "@protoutil/aip/filtering";
 import { beforeEach, describe, expect, it } from "vitest";
 import { validateAipFilter } from "./validate-aip-filter";
 
-const testDeclarations = extendStandardFilterDeclarations([
-  newIdentDeclaration("name", TypeString),
-]);
+const testDeclarations = [ident("name", STRING)];
 
 describe("aip filter validator", () => {
   beforeEach(() => {
@@ -82,7 +80,7 @@ describe("aip filter validator", () => {
     class TestCmp {
       readonly s = signal("");
       readonly f = form(this.s, (path) => {
-        validateAipFilter(path, testDeclarations);
+        validateAipFilter(path, () => testDeclarations);
       });
     }
     const fixture = TestBed.createComponent(TestCmp);
@@ -100,7 +98,7 @@ describe("aip filter validator", () => {
     class TestCmp {
       readonly s = signal('abc = "test"');
       readonly f = form(this.s, (path) => {
-        validateAipFilter(path, testDeclarations);
+        validateAipFilter(path, () => testDeclarations);
       });
     }
     const fixture = TestBed.createComponent(TestCmp);
@@ -119,7 +117,7 @@ describe("aip filter validator", () => {
     class TestCmp {
       readonly s = signal('name = "test"');
       readonly f = form(this.s, (path) => {
-        validateAipFilter(path, testDeclarations);
+        validateAipFilter(path, () => testDeclarations);
       });
     }
     const fixture = TestBed.createComponent(TestCmp);
@@ -137,7 +135,7 @@ describe("aip filter validator", () => {
     class TestCmp {
       readonly s = signal("");
       readonly f = form(this.s, (path) => {
-        validateAipFilter(path, testDeclarations);
+        validateAipFilter(path, () => testDeclarations);
       });
     }
     const fixture = TestBed.createComponent(TestCmp);

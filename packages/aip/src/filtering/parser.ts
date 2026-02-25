@@ -1,730 +1,570 @@
-import { create } from "@bufbuild/protobuf";
+import { create, type MessageInitShape } from "@bufbuild/protobuf";
+import { NullValue } from "@bufbuild/protobuf/wkt";
 import {
-  type Expr,
+  type ConstantSchema,
+  type Expr_CallSchema,
+  type ExprSchema,
   type ParsedExpr,
   ParsedExprSchema,
-  SourceInfoSchema,
+  type SourceInfoSchema,
 } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
-import { ParseError } from "./errors.js";
-import { FunctionNot } from "./functions.js";
-import { Lexer } from "./lexer.js";
-import {
-  parsedExpression,
-  parsedFactor,
-  parsedFloat,
-  parsedFunction,
-  parsedInt,
-  parsedMember,
-  parsedSequence,
-  parsedString,
-  parsedText,
-} from "./parsedexpr.js";
-import type { Position } from "./position.js";
-import type { Token } from "./token.js";
-import {
-  type TokenType,
-  TokenTypeAnd,
-  TokenTypeComma,
-  TokenTypeDot,
-  TokenTypeHas,
-  TokenTypeHexNumber,
-  TokenTypeLeftParen,
-  TokenTypeMinus,
-  TokenTypeNot,
-  TokenTypeNumber,
-  TokenTypeOr,
-  TokenTypeRightParen,
-  TokenTypeString,
-  TokenTypeWhitespace,
-} from "./tokentype.js";
+import { type Token, TokenType, tokenize } from "./lexer.js";
+
+export type ExprInit = MessageInitShape<typeof ExprSchema>;
+export type ConstantInit = MessageInitShape<typeof ConstantSchema>;
+export type Expr_CallInit = MessageInitShape<typeof Expr_CallSchema>;
 
 /**
- * Parser for filter expressions.
+ * Compute lineOffsets for v1alpha1 SourceInfo.
+ * lineOffsets[i] = code point offset of the i-th '\n' character.
+ * An empty array means the source has no newlines (single line).
  */
-export class Parser {
-  private _filter: string;
-  private _lexer: Lexer;
-  private _id: bigint;
-  private _positions: number[];
+function computeLineOffsets(input: string): number[] {
+  const offsets: number[] = [];
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === "\n") offsets.push(i);
+  }
+  return offsets;
+}
 
-  constructor(filter: string) {
-    this._filter = filter.trim();
-    this._lexer = new Lexer(filter);
-    this._id = -BigInt(1);
-    this._positions = [];
+/**
+ * Convert a character offset to a 1-based line and 0-based column,
+ * using v1alpha1 lineOffsets (newline positions).
+ *
+ * Algorithm:
+ *   - Line 1 starts at offset 0. It ends at lineOffsets[0] (exclusive) if set.
+ *   - Line k starts at lineOffsets[k-2] + 1.
+ *   - Binary search for the largest i where lineOffsets[i] < offset.
+ *   - line   = i + 2  (1-based, +1 because arrays are 0-based, +1 because
+ *                      the line after newline at lineOffsets[i] is line i+2)
+ *   - column = offset - (lineOffsets[i] + 1)  (0-based)
+ *   If offset ≤ lineOffsets[0] (or no offsets), it's on line 1.
+ */
+export function offsetToLineCol(
+  offset: number,
+  lineOffsets: number[],
+): { line: number; column: number } {
+  if (lineOffsets.length === 0 || offset <= lineOffsets[0]) {
+    return { line: 1, column: offset };
+  }
+  // Binary search for largest index i where lineOffsets[i] < offset
+  let lo = 0;
+  let hi = lineOffsets.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (lineOffsets[mid] < offset) lo = mid;
+    else hi = mid - 1;
+  }
+  const lineStart = lineOffsets[lo] + 1;
+  return { line: lo + 2, column: offset - lineStart };
+}
+
+export function mapToObject<K, V>(map: Map<K, V>): Record<string, V> {
+  const obj: Record<string, V> = {};
+  for (const [k, v] of map) {
+    obj[String(k)] = v;
+  }
+  return obj;
+}
+
+class Parser {
+  #tokens: Token[];
+  #pos: number = 0;
+  #positions: Map<bigint, number> = new Map();
+  #macroCalls: Map<bigint, ExprInit> = new Map();
+  #idCounter: bigint = 1n;
+
+  constructor(private input: string) {
+    this.#tokens = tokenize(input);
   }
 
-  /**
-   * Parse the filter
-   */
-  parse(): ParsedExpr | Error {
-    const e = this.parseExpression();
-    if (e instanceof Error) {
-      return e;
-    }
-    const end = this._lexer.position();
-    const token = this._lexer.lex();
-    if (token instanceof Error) {
-      if (token.message !== "EOF") {
-        return token;
-      }
-    } else {
-      return this.errorf(end, `unexpected trailing token: ${token.type.value}`);
-    }
-    return create(ParsedExprSchema, {
-      expr: e,
-      sourceInfo: this.sourceInfo(),
-    });
+  private nextId(): bigint {
+    return this.#idCounter++;
   }
 
-  sourceInfo() {
-    const positions: Record<number, number> = {};
-    for (let i = 0; i < this._positions.length; i++) {
-      positions[i] = this._positions[i];
-    }
-    return create(SourceInfoSchema, {
-      lineOffsets: this._lexer.lineOffsets(),
-      positions,
-    });
+  public resetIds(): void {
+    this.#idCounter = 1n;
+    this.#pos = 0;
+    this.#positions.clear();
+    this.#macroCalls.clear();
   }
 
-  /**
-   * ParseExpression parses an Expression.
-   *
-   * EBNF
-   *
-   * expression
-   *    : sequence {WS AND WS sequence}
-   *    ;
-   */
-  parseExpression(): Expr | Error {
-    const start = this._lexer.position();
-    const sequences: Expr[] = [];
-    while (true) {
-      this.eatTokens(TokenTypeWhitespace);
-      const sequence = this.parseSequence();
-      if (sequence instanceof Error) {
-        return this.wrapf(sequence, start, "expression");
+  private peek(skip = 0): Token {
+    let p = this.#pos;
+    let seen = 0;
+    while (p < this.#tokens.length) {
+      const t = this.#tokens[p];
+      if (t.type === TokenType.WS) {
+        p++;
+        continue;
       }
-      sequences.push(sequence);
-      if (this.eatTokens(TokenTypeWhitespace, TokenTypeAnd, TokenTypeWhitespace)) {
-        break;
-      }
+      if (seen === skip) return t;
+      seen++;
+      p++;
     }
-    let exp = sequences[0];
-    for (let i = 1; i < sequences.length; i++) {
-      exp = parsedExpression(this.nextID(start), exp, sequences[i]);
-    }
-    return exp;
+    return { type: TokenType.EOF, value: "", offset: this.input.length };
   }
 
-  /**
-   * ParseSequence parses a Sequence.
-   *
-   * EBNF
-   *
-   * sequence
-   *    : factor {WS factor}
-   *    ;
-   */
-  parseSequence(): Expr | Error {
-    const start = this._lexer.position();
-    const factors: Expr[] = [];
-    while (true) {
-      const factor = this.parseFactor();
-      if (factor instanceof Error) {
-        return this.wrapf(factor, start, "sequence");
-      }
-      factors.push(factor);
-      if (this.sniffTokens(TokenTypeWhitespace, TokenTypeAnd)) {
-        break;
-      }
-      if (this.eatTokens(TokenTypeWhitespace) instanceof Error) {
-        break;
-      }
-    }
-    if (factors.length === 1) {
-      return factors[0];
-    }
-    let result = parsedSequence(this.nextID(start), factors[0], factors[1]);
-    for (let i = 2; i < factors.length; i++) {
-      result = parsedSequence(this.nextID(start), result, factors[i]);
-    }
-    return result;
+  private peekRaw(): Token {
+    return this.#tokens[this.#pos] ?? { type: TokenType.EOF, value: "", offset: this.input.length };
   }
 
-  /**
-   * ParseFactor parses a Factor.
-   *
-   * EBNF
-   *
-   * factor
-   *    : term {WS OR WS term}
-   *    ;
-   */
-  parseFactor(): Expr | Error {
-    const start = this._lexer.position();
-    const terms: Expr[] = [];
-    while (true) {
-      const term = this.parseTerm();
-      if (term instanceof Error) {
-        return this.wrapf(term, start, "factor");
-      }
-      terms.push(term);
-      if (this.eatTokens(TokenTypeWhitespace, TokenTypeOr, TokenTypeWhitespace)) {
-        break;
-      }
-    }
-    if (terms.length === 1) {
-      return terms[0];
-    }
-    let result = parsedFactor(this.nextID(start), terms[0], terms[1]);
-    for (let i = 2; i < terms.length; i++) {
-      result = parsedFactor(this.nextID(start), result, terms[i]);
-    }
-    return result;
+  private consume(): Token {
+    this.skipWS();
+    return (
+      this.#tokens[this.#pos++] ?? { type: TokenType.EOF, value: "", offset: this.input.length }
+    );
   }
 
-  /**
-   * ParseTerm parses a Term.
-   *
-   * EBNF
-   *
-   * term
-   *    : [(NOT WS | MINUS)] simple
-   *    ;
-   */
-  parseTerm(): Expr | Error {
-    const start = this._lexer.position();
-    let not = false;
-    let minus = false;
-    if (!this.eatTokens(TokenTypeNot, TokenTypeWhitespace)) {
-      not = true;
-    } else if (!this.eatTokens(TokenTypeMinus)) {
-      minus = true;
+  private consumeRaw(): Token {
+    return (
+      this.#tokens[this.#pos++] ?? { type: TokenType.EOF, value: "", offset: this.input.length }
+    );
+  }
+
+  private skipWS(): void {
+    while (this.#pos < this.#tokens.length && this.#tokens[this.#pos].type === TokenType.WS)
+      this.#pos++;
+  }
+
+  private expect(tt: TokenType): Token {
+    const tok = this.consume();
+    if (tok.type !== tt) {
+      throw new ParseError(
+        `Expected ${TokenType[tt]}, got ${TokenType[tok.type]} ("${tok.value}") at offset ${tok.offset}`,
+        tok.offset,
+      );
     }
-    const simple = this.parseSimple();
-    if (simple instanceof Error) {
-      return this.wrapf(simple, start, "term");
+    return tok;
+  }
+
+  private register(id: bigint, offset: number): void {
+    this.#positions.set(id, offset);
+  }
+
+  parse(): ParsedExpr {
+    this.skipWS();
+    const expr =
+      this.peek().type === TokenType.EOF ? this.makeIdent("", 0) : this.parseExpression();
+    this.skipWS();
+
+    const sourceInfo: MessageInitShape<typeof SourceInfoSchema> = {
+      syntaxVersion: "cel1",
+      location: "<input>",
+      lineOffsets: computeLineOffsets(this.input),
+      positions: mapToObject(this.#positions),
+      macroCalls: mapToObject(this.#macroCalls),
+      extensions: [],
+    };
+
+    return create(ParsedExprSchema, { expr, sourceInfo });
+  }
+
+  private parseExpression(): ExprInit {
+    let left = this.parseSequence();
+    while (this.peekNonWS() === TokenType.AND) {
+      this.skipWS();
+      const t = this.consumeRaw();
+      left = this.makeCall("_&&_", [left, this.parseSequence()], t.offset);
     }
-    if (not || minus) {
-      if (minus) {
-        // Simplify MINUS number to negation of the constant value
-        if (simple.exprKind.case === "constExpr") {
-          switch (simple.exprKind.value.constantKind.case) {
-            case "int64Value":
-              simple.exprKind.value.constantKind.value *= -BigInt(1);
-              return simple;
-            case "doubleValue":
-              simple.exprKind.value.constantKind.value *= -1;
-              return simple;
-            default:
-              break;
-          }
+    return left;
+  }
+
+  private parseSequence(): ExprInit {
+    let left = this.parseFactor();
+    while (this.hasImplicitAndAhead()) {
+      const offset = this.peek().offset;
+      left = this.makeCall("_&&_", [left, this.parseFactor()], offset);
+    }
+    return left;
+  }
+
+  private parseFactor(): ExprInit {
+    let left = this.parseTerm();
+    while (this.peekNonWS() === TokenType.OR) {
+      this.skipWS();
+      const t = this.consumeRaw();
+      left = this.makeCall("_||_", [left, this.parseTerm()], t.offset);
+    }
+    return left;
+  }
+
+  private parseTerm(): ExprInit {
+    this.skipWS();
+    const raw = this.peekRaw();
+    if (raw.type === TokenType.NOT) {
+      this.consumeRaw();
+      this.skipWS();
+      return this.makeCall("@not", [this.parseSimple()], raw.offset);
+    }
+    if (raw.type === TokenType.MINUS) {
+      const saved = this.#pos;
+      this.consumeRaw();
+      const after = this.peekRaw();
+      if (after.type === TokenType.TEXT) {
+        const num = parseNumber(`-${after.value}`);
+        if (num !== undefined) {
+          this.consumeRaw();
+          return this.makeConst(num, raw.offset);
         }
       }
-      return parsedFunction(this.nextID(start), FunctionNot, simple);
+      this.#pos = saved;
+      this.consumeRaw();
+      this.skipWS();
+      return this.makeCall("@not", [this.parseSimple()], raw.offset);
     }
-    return simple;
+    return this.parseSimple();
   }
 
-  /**
-   * ParseSimple parses a Simple.
-   *
-   * EBNF
-   *
-   * simple
-   *    : restriction
-   *    | composite
-   *    ;
-   */
-  parseSimple() {
-    const start = this._lexer.position();
-    if (this.sniffTokens(TokenTypeLeftParen)) {
-      const composite = this.parseComposite();
-      if (composite instanceof Error) {
-        return this.wrapf(composite, start, "simple");
-      }
-      return composite;
-    }
-    const restriction = this.parseRestriction();
-    if (restriction instanceof Error) {
-      return this.wrapf(restriction, start, "simple");
-    }
-    return restriction;
+  private parseSimple(): ExprInit {
+    if (this.peek().type === TokenType.LPAREN) return this.parseComposite();
+    return this.parseRestriction();
   }
 
-  /**
-   * ParseRestriction parses a Restriction.
-   *
-   * EBNF
-   *
-   * restriction
-   *    : comparable [comparator arg]
-   *    ;
-   */
-  parseRestriction(): Expr | Error {
-    const start = this._lexer.position();
+  private parseComposite(): ExprInit {
+    this.expect(TokenType.LPAREN);
+    this.skipWS();
+    const expr = this.parseExpression();
+    this.skipWS();
+    this.expect(TokenType.RPAREN);
+    return expr;
+  }
+
+  private parseRestriction(): ExprInit {
     const comp = this.parseComparable();
-    if (comp instanceof Error) {
-      return this.wrapf(comp, start, "restriction");
-    }
-    if (
-      !(
-        this.sniff((t) => t.isComparator()) ||
-        this.sniff(TokenTypeWhitespace.test.bind(TokenTypeWhitespace), (t) => t.isComparator())
-      )
-    ) {
-      return comp;
-    }
-    this.eatTokens(TokenTypeWhitespace);
-    const comparatorToken = this.parseToken((t) => t.isComparator());
-    if (comparatorToken instanceof Error) {
-      return this.wrapf(comparatorToken, start, "restriction");
-    }
-    this.eatTokens(TokenTypeWhitespace);
-    let arg = this.parseArg();
-    if (arg instanceof Error) {
-      return this.wrapf(arg, start, "restriction");
-    }
-    // Special case for `:`
-    if (comparatorToken.type.value === TokenTypeHas.value && arg.exprKind.case === "identExpr") {
-      // m:foo - true if m contains the key "foo".
-      arg = parsedString(arg.id, arg.exprKind.value.name);
-    }
-    return parsedFunction(this.nextID(start), comparatorToken.type.function(), comp, arg as Expr);
+    const op = this.peekComparator();
+    if (!op) return comp;
+    this.consume();
+    return this.makeCall(comparatorToFunction(op), [comp, this.parseArg()], Number(comp.id));
   }
 
-  /**
-   * ParseComparable parses a Comparable.
-   *
-   * EBNF
-   *
-   * comparable
-   *    : member
-   *    | function
-   *    | number (custom)
-   *    ;
-   */
-  parseComparable(): Expr | Error {
-    const start = this._lexer.position();
-    const fun = this.tryParseFunction();
-    if (!(fun instanceof Error)) {
-      return fun;
-    }
-    const number = this.tryParseNumber();
-    if (!(number instanceof Error)) {
-      return number;
-    }
-    const member = this.parseMember();
-    if (member instanceof Error) {
-      return this.wrapf(member, start, "comparable");
-    }
-    return member;
+  private parseComparable(): ExprInit {
+    if (this.isStandaloneFunction()) return this.parseTopLevelFunction();
+    return this.parseDotChain(this.parseBaseValue());
   }
 
-  /**
-   * ParseFunction parses a Function.
-   *
-   * EBNF
-   *
-   * function
-   *    : name {DOT name} LPAREN [argList] RPAREN
-   *    ;
-   *
-   * name
-   *    : TEXT
-   *    | keyword
-   *    ;
-   */
-  parseFunction(): Expr | Error {
-    const start = this._lexer.position();
-
-    let name = "";
-    while (true) {
-      const nameToken = this.parseToken((t) => t.isName());
-      if (nameToken instanceof Error) {
-        return this.wrapf(nameToken, start, "function");
+  private parseDotChain(base: ExprInit): ExprInit {
+    let current = base;
+    while (this.peekRaw().type === TokenType.DOT) {
+      const dotOffset = this.peekRaw().offset;
+      const look = this.lookaheadDotChain();
+      if (look.endsInCall) {
+        this.consumeRaw(); // DOT
+        const names: string[] = [];
+        for (let si = 0; si < look.segments.length; si++) {
+          if (si > 0) this.consumeRaw(); // DOT
+          names.push(this.consumeRaw().value);
+        }
+        const args = this.parseArgList();
+        if (names.length === 1) {
+          current = this.makeCall(names[0], args, dotOffset, current);
+        } else {
+          for (let si = 0; si < names.length - 1; si++) {
+            const id = this.nextId();
+            this.register(id, dotOffset);
+            current = {
+              id,
+              exprKind: {
+                case: "selectExpr",
+                value: { operand: current, field: names[si], testOnly: false },
+              },
+            };
+          }
+          current = this.makeCall(names[names.length - 1], args, dotOffset, current);
+        }
+      } else {
+        this.consumeRaw(); // DOT
+        const fieldTok = this.consumeRaw();
+        const id = this.nextId();
+        this.register(id, fieldTok.offset);
+        current = {
+          id,
+          exprKind: {
+            case: "selectExpr",
+            value: { operand: current, field: fieldTok.value, testOnly: false },
+          },
+        };
       }
-      name += nameToken.unquote();
-      const err = this.eatTokens(TokenTypeDot);
-      if (err instanceof Error) {
+    }
+    return current;
+  }
+
+  private lookaheadDotChain(): { segments: string[]; endsInCall: boolean } {
+    const saved = this.#pos;
+    const segments: string[] = [];
+    while (this.peekRaw().type === TokenType.DOT) {
+      this.consumeRaw();
+      const t = this.peekRaw();
+      if (t.type !== TokenType.TEXT && !isKeyword(t.type)) {
+        segments.push(t.value);
+        this.consumeRaw();
         break;
       }
-      name += ".";
-    }
-
-    const err = this.eatTokens(TokenTypeLeftParen);
-    if (err instanceof Error) {
-      return this.wrapf(err, start, "function");
-    }
-    this.eatTokens(TokenTypeWhitespace);
-
-    const args: Expr[] = [];
-    while (!this.sniffTokens(TokenTypeRightParen)) {
-      const arg = this.parseArg();
-      if (arg instanceof Error) {
-        return this.wrapf(arg, start, "function");
+      this.consumeRaw();
+      segments.push(t.value);
+      if (this.peekRaw().type === TokenType.LPAREN) {
+        this.#pos = saved;
+        return { segments, endsInCall: true };
       }
-      args.push(arg);
-      this.eatTokens(TokenTypeWhitespace);
-      const err = this.eatTokens(TokenTypeComma);
-      if (err instanceof Error) {
-        break;
-      }
-      this.eatTokens(TokenTypeWhitespace);
+      if (this.peekRaw().type !== TokenType.DOT) break;
     }
-    this.eatTokens(TokenTypeWhitespace);
-    const err2 = this.eatTokens(TokenTypeRightParen);
-    if (err2 instanceof Error) {
-      return this.wrapf(err2, start, "function");
-    }
-    return parsedFunction(this.nextID(start), name, ...args);
+    this.#pos = saved;
+    return { segments, endsInCall: false };
   }
 
-  tryParseFunction(): Expr | Error {
-    const copy = Parser.from(this);
-    const result = copy.parseFunction();
-    if (result instanceof Error) {
-      return result;
-    }
-    this._lexer = copy._lexer;
-    this._id = copy._id;
-    this._positions = copy._positions;
-    return result;
+  private isStandaloneFunction(): boolean {
+    const tok = this.peek();
+    if (tok.type !== TokenType.TEXT && !isKeyword(tok.type)) return false;
+    return this.peek(1).type === TokenType.LPAREN;
   }
 
-  /**
-   * ParseMember parses a Member.
-   *
-   * EBNF
-   *
-   * member
-   *    : value {DOT field}
-   *    ;
-   *
-   * value
-   *    : TEXT
-   *    | STRING
-   *    ;
-   *
-   * field
-   *    : value
-   *    | keyword
-   *    | number
-   *    ;
-   */
-  parseMember(): Expr | Error {
-    const start = this._lexer.position();
-    const valueToken = this.parseToken((t) => t.isValue());
-    if (valueToken instanceof Error) {
-      return this.wrapf(valueToken, start, "member");
+  private parseTopLevelFunction(): ExprInit {
+    const t = this.consume();
+    return this.makeCall(t.value, this.parseArgList(), t.offset);
+  }
+
+  private parseBaseValue(): ExprInit {
+    const tok = this.peek();
+    if (tok.type === TokenType.UNTERMINATED_STRING) {
+      throw new ParseError(`Unterminated string literal at offset ${tok.offset}`, tok.offset);
     }
-    if (!this.sniffTokens(TokenTypeDot)) {
-      if (valueToken.type.value === TokenTypeString.value) {
-        return parsedString(this.nextID(valueToken.position), valueToken.unquote());
+    if (tok.type === TokenType.MINUS) {
+      this.consume();
+      const numTok = this.peek();
+      if (numTok.type === TokenType.TEXT) {
+        const num = parseNumber(`-${numTok.value}`);
+        if (num !== undefined) {
+          this.consume();
+          return this.makeConst(num, tok.offset);
+        }
       }
-      return parsedText(this.nextID(valueToken.position), valueToken.value);
+      const id = this.nextId();
+      this.register(id, tok.offset);
+      return { id, exprKind: { case: "identExpr", value: { name: "-" } } };
     }
-    const value = parsedText(this.nextID(valueToken.position), valueToken.unquote());
-    this.eatTokens(TokenTypeDot);
-    const firstFieldToken = this.parseToken((t) => t.isField());
-    if (firstFieldToken instanceof Error) {
-      return this.wrapf(firstFieldToken, start, "member");
+    if (tok.type === TokenType.STRING) {
+      this.consume();
+      const id = this.nextId();
+      this.register(id, tok.offset);
+      return {
+        id,
+        exprKind: {
+          case: "constExpr",
+          value: {
+            constantKind: {
+              case: "stringValue",
+              value: tok.value,
+            },
+          },
+        },
+      };
     }
-    let member = parsedMember(
-      this.nextID(firstFieldToken.position),
-      value,
-      firstFieldToken.unquote(),
+    if (tok.type === TokenType.TEXT || isKeyword(tok.type)) {
+      this.consume();
+      const lit = parseTextLiteral(tok.value);
+      const id = this.nextId();
+      this.register(id, tok.offset);
+      if (lit !== undefined) {
+        return { id, exprKind: { case: "constExpr", value: lit } };
+      }
+      return { id, exprKind: { case: "identExpr", value: { name: tok.value } } };
+    }
+    throw new ParseError(
+      `Unexpected token ${TokenType[tok.type]} ("${tok.value}") at offset ${tok.offset}`,
+      tok.offset,
     );
-    while (true) {
-      const err = this.eatTokens(TokenTypeDot);
-      if (err instanceof Error) {
-        break;
-      }
-      const fieldToken = this.parseToken((t) => t.isField());
-      if (fieldToken instanceof Error) {
-        break;
-      }
-      member = parsedMember(this.nextID(fieldToken.position), member, fieldToken.unquote());
-    }
-    if (member instanceof Error) {
-      return this.wrapf(member, start, "member");
-    }
-    return member;
   }
 
-  /**
-   * ParseComposite parses a Composite.
-   *
-   * EBNF
-   *
-   * composite
-   *    : LPAREN expression RPAREN
-   *    ;
-   */
-  parseComposite(): Expr | Error {
-    const start = this._lexer.position();
-    let err = this.eatTokens(TokenTypeLeftParen);
-    if (err instanceof Error) {
-      return this.wrapf(err, start, "composite");
-    }
-    this.eatTokens(TokenTypeWhitespace);
-    const expression = this.parseExpression();
-    if (expression instanceof Error) {
-      return this.wrapf(expression, start, "composite");
-    }
-    this.eatTokens(TokenTypeWhitespace);
-    err = this.eatTokens(TokenTypeRightParen);
-    if (err instanceof Error) {
-      return this.wrapf(err, start, "composite");
-    }
-    return expression;
-  }
-
-  /**
-   * ParseNumber parses a number.
-   *
-   * EBNF
-   *
-   * number
-   *    : float
-   *    | int
-   *    ;
-   *
-   * float
-   *    : MINUS? (NUMBER DOT NUMBER* | DOT NUMBER) EXP?
-   *    ;
-   *
-   * int
-   *    : MINUS? NUMBER
-   *    | MINUS? HEX
-   *    ;
-   */
-  parseNumber(): Expr | Error {
-    const start = this._lexer.position();
-    const float = this.tryParseFloat();
-    if (!(float instanceof Error)) {
-      return float;
-    }
-    const int = this.parseInt();
-    if (int instanceof Error) {
-      return this.wrapf(int, start, "number");
-    }
-    return int;
-  }
-
-  tryParseNumber() {
-    const copy = Parser.from(this);
-    const result = copy.parseNumber();
-    if (result instanceof Error) {
-      return result;
-    }
-    this._lexer = copy._lexer;
-    this._id = copy._id;
-    this._positions = copy._positions;
-    return result;
-  }
-
-  /**
-   * ParseFloat parses a float.
-   *
-   * EBNF
-   *
-   * float
-   *    : MINUS? (NUMBER DOT NUMBER* | DOT NUMBER) EXP?
-   *    ;
-   */
-  parseFloat(): Expr | Error {
-    const start = this._lexer.position();
-    let minusToken: Token | Error | null = null;
-    if (this.sniffTokens(TokenTypeMinus)) {
-      minusToken = this._lexer.lex();
-      if (minusToken instanceof Error) {
-        return this.wrapf(minusToken, start, "float");
+  private parseArgList(): ExprInit[] {
+    this.expect(TokenType.LPAREN);
+    this.skipWS();
+    const args: ExprInit[] = [];
+    if (this.peek().type !== TokenType.RPAREN) {
+      args.push(this.parseArg());
+      this.skipWS();
+      while (this.peek().type === TokenType.COMMA) {
+        this.consume();
+        this.skipWS();
+        args.push(this.parseArg());
+        this.skipWS();
       }
     }
-
-    let intToken: Token | Error | null = null;
-    if (this.sniffTokens(TokenTypeNumber)) {
-      intToken = this._lexer.lex();
-      if (intToken instanceof Error) {
-        return this.wrapf(intToken, start, "float");
-      }
-    }
-
-    const dotToken = this.parseToken(TokenTypeDot.test.bind(TokenTypeDot));
-    if (dotToken instanceof Error) {
-      return this.wrapf(dotToken, start, "float");
-    }
-
-    let fractionToken: Token | Error | null = null;
-    if (this.sniffTokens(TokenTypeNumber)) {
-      fractionToken = this._lexer.lex();
-      if (fractionToken instanceof Error) {
-        return this.wrapf(fractionToken, start, "float");
-      }
-    }
-
-    if (!fractionToken && !intToken) {
-      return this.wrapf(this.errorf(start, "expected int or fraction"), start, "float");
-    }
-
-    let stringValue = "";
-    if (minusToken) {
-      stringValue += minusToken.value;
-    }
-    if (intToken) {
-      stringValue += intToken.value;
-    }
-    stringValue += dotToken.value;
-    if (fractionToken) {
-      stringValue += fractionToken.value;
-    }
-    try {
-      const floatValue = parseFloat(stringValue);
-      return parsedFloat(this.nextID(start), floatValue);
-    } catch (err) {
-      return this.wrapf(err as Error, start, "float");
-    }
+    this.expect(TokenType.RPAREN);
+    return args;
   }
 
-  tryParseFloat(): Expr | Error {
-    const copy = Parser.from(this);
-    const result = copy.parseFloat();
-    if (result instanceof Error) {
-      return result;
-    }
-    this._lexer = copy._lexer;
-    this._id = copy._id;
-    this._positions = copy._positions;
-    return result;
+  private parseArg(): ExprInit {
+    if (this.peek().type === TokenType.LPAREN) return this.parseComposite();
+    return this.parseComparable();
   }
 
-  /**
-   * ParseInt parses an int.
-   *
-   * EBNF
-   *
-   * int
-   *    : MINUS? NUMBER
-   *    | MINUS? HEX
-   *    ;
-   */
-  parseInt(): Expr | Error {
-    const start = this._lexer.position();
-    const minus = this.eatTokens(TokenTypeMinus) === null;
-    const token = this.parseToken(
-      TokenTypeNumber.test.bind(TokenTypeNumber),
-      TokenTypeHexNumber.test.bind(TokenTypeHexNumber),
+  // ── Look-ahead ────────────────────────────────────────────────────────────
+
+  private peekNonWS(): TokenType {
+    const saved = this.#pos;
+    this.skipWS();
+    const t = this.peekRaw().type;
+    this.#pos = saved;
+    return t;
+  }
+
+  private hasImplicitAndAhead(): boolean {
+    if (this.peekRaw().type !== TokenType.WS) return false;
+    const saved = this.#pos;
+    this.skipWS();
+    const next = this.peekRaw().type;
+    this.#pos = saved;
+    return (
+      next !== TokenType.EOF &&
+      next !== TokenType.AND &&
+      next !== TokenType.OR &&
+      next !== TokenType.RPAREN
     );
-    if (token instanceof Error) {
-      return this.wrapf(token, start, "int");
+  }
+
+  private peekComparator(): TokenType | undefined {
+    const tt = this.peek().type;
+    switch (tt) {
+      case TokenType.LESS_EQUALS:
+      case TokenType.LESS_THAN:
+      case TokenType.GREATER_EQUALS:
+      case TokenType.GREATER_THAN:
+      case TokenType.NOT_EQUALS:
+      case TokenType.EQUALS:
+      case TokenType.HAS:
+        return tt;
+      default:
+        return undefined;
     }
+  }
+
+  private makeCall(name: string, args: ExprInit[], offset: number, target?: ExprInit): ExprInit {
+    const id = this.nextId();
+    this.register(id, offset);
+    const callValue: Expr_CallInit = { function: name, args };
+    if (target !== undefined) callValue.target = target;
+    return { id, exprKind: { case: "callExpr", value: callValue } };
+  }
+
+  private makeIdent(name: string, offset: number): ExprInit {
+    const id = this.nextId();
+    this.register(id, offset);
+    return { id, exprKind: { case: "identExpr", value: { name } } };
+  }
+
+  private makeConst(c: ConstantInit, offset: number): ExprInit {
+    const id = this.nextId();
+    this.register(id, offset);
+    return { id, exprKind: { case: "constExpr", value: c } };
+  }
+}
+
+function isKeyword(tt: TokenType): boolean {
+  return tt === TokenType.AND || tt === TokenType.OR || tt === TokenType.NOT;
+}
+
+function parseNumber(s: string): ConstantInit | undefined {
+  if (/^\d+u$/i.test(s)) {
     try {
-      let intValue = BigInt(token.value);
-      if (minus) {
-        intValue = -intValue;
-      }
-      return parsedInt(this.nextID(start), intValue);
-    } catch (err) {
-      return this.wrapf(err as Error, start, "int");
+      return {
+        constantKind: {
+          case: "uint64Value",
+          value: BigInt(s.slice(0, -1)),
+        },
+      };
+    } catch {
+      return undefined;
     }
   }
-
-  /**
-   * ParseArg parses an Arg.
-   *
-   * EBNF
-   *
-   * arg
-   *    : comparable
-   *    | composite
-   *    ;
-   */
-  parseArg(): Expr | Error {
-    const start = this._lexer.position();
-    if (this.sniffTokens(TokenTypeLeftParen)) {
-      const composite = this.parseComposite();
-      if (composite instanceof Error) {
-        return this.wrapf(composite, start, "arg");
-      }
-      return composite;
+  if (/^-?\d+\.\d*([eE][+-]?\d+)?$/.test(s) || /^-?\d+[eE][+-]?\d+$/.test(s)) {
+    const n = Number(s);
+    if (!Number.isNaN(n)) {
+      return {
+        constantKind: {
+          case: "doubleValue",
+          value: n,
+        },
+      };
     }
-    const comparable = this.parseComparable();
-    if (comparable instanceof Error) {
-      return this.wrapf(comparable, start, "arg");
+  }
+  if (/^-?\d+$/.test(s)) {
+    try {
+      return {
+        constantKind: {
+          case: "int64Value",
+          value: BigInt(s),
+        },
+      };
+    } catch {
+      return undefined;
     }
-    return comparable;
   }
+  return undefined;
+}
 
-  parseToken(...fns: ((t: TokenType) => boolean)[]) {
-    const start = this._lexer.position();
-    const token = this._lexer.lex();
-    if (token instanceof Error) {
-      return this.wrapf(token, start, "parse token");
-    }
-    for (const fn of fns) {
-      if (fn(token.type)) {
-        return token;
-      }
-    }
-    return this.errorf(token.position, `unexpected token ${token.type.value}`);
+function parseTextLiteral(s: string): ConstantInit | undefined {
+  if (s === "true") {
+    return {
+      constantKind: {
+        case: "boolValue",
+        value: true,
+      },
+    };
   }
+  if (s === "false") {
+    return {
+      constantKind: {
+        case: "boolValue",
+        value: false,
+      },
+    };
+  }
+  if (s === "null") {
+    return {
+      constantKind: {
+        case: "nullValue",
+        value: NullValue.NULL_VALUE,
+      },
+    };
+  }
+  return parseNumber(s);
+}
 
-  sniff(...fns: ((t: TokenType) => boolean)[]) {
-    const copy = Lexer.from(this._lexer);
-    for (const fn of fns) {
-      const token = copy.lex();
-      if (token instanceof Error || !fn(token.type)) {
-        return false;
-      }
-    }
-    return true;
+function comparatorToFunction(tt: TokenType): string {
+  switch (tt) {
+    case TokenType.LESS_EQUALS:
+      return "_<=_";
+    case TokenType.LESS_THAN:
+      return "_<_";
+    case TokenType.GREATER_EQUALS:
+      return "_>=_";
+    case TokenType.GREATER_THAN:
+      return "_>_";
+    case TokenType.NOT_EQUALS:
+      return "_!=_";
+    case TokenType.EQUALS:
+      return "_==_";
+    case TokenType.HAS:
+      return "@in";
+    default:
+      throw new Error("Not a comparator");
   }
+}
 
-  sniffTokens(...wantTokenTypes: TokenType[]) {
-    const copy = Lexer.from(this._lexer);
-    for (const wantTokenType of wantTokenTypes) {
-      const token = copy.lex();
-      if (token instanceof Error || wantTokenType.value !== token.type.value) {
-        return false;
-      }
-    }
-    return true;
+export class ParseError extends Error {
+  constructor(
+    message: string,
+    public readonly offset: number = 0,
+  ) {
+    super(message);
+    this.name = "ParseError";
   }
+}
 
-  eatTokens(...wantTokenTypes: TokenType[]) {
-    const copy = Lexer.from(this._lexer);
-    for (const wantTokenType of wantTokenTypes) {
-      const token = copy.lex();
-      if (token instanceof Error || wantTokenType.value !== token.type.value) {
-        return this.errorf(copy.position(), `expected ${wantTokenType}}`);
-      }
-    }
-    this._lexer = copy;
-    return null;
-  }
-
-  errorf(position: Position, message: string) {
-    return new ParseError(message, this._filter, position);
-  }
-
-  wrapf(err: Error, position: Position, message: string) {
-    return new ParseError(message, this._filter, position, err);
-  }
-
-  nextID(position: Position) {
-    this._id++;
-    this._positions.push(position.offset);
-    return this._id;
-  }
-
-  static from(parser: Parser) {
-    const newParser = new Parser(parser._filter);
-    newParser._lexer = Lexer.from(parser._lexer);
-    newParser._id = parser._id;
-    newParser._positions = [...parser._positions];
-    return newParser;
-  }
+/**
+ * Parse a CEL/AIP-160 filter string.
+ * Returns a ParsedExpr with v1alpha1 SourceInfo (lineOffsets = newline positions).
+ */
+export function parse(input: string): ParsedExpr {
+  return new Parser(input).parse();
 }

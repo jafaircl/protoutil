@@ -20,3 +20,5 @@ tasks:
     command: 'pnpm pack'
     dependsOn:
     - build
+  # dev:
+  #   command: 'pnpm run dev'

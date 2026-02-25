@@ -1,5 +1,6 @@
 import { create } from "@bufbuild/protobuf";
 import type { ConnectRouter } from "@connectrpc/connect";
+import { parseOrderBy } from "@protoutil/aip/orderby";
 import { LibraryService, ShelfSchema } from "./gen/library/v1/library_pb.js";
 
 const dummyShelves = new Array(10)
@@ -8,7 +9,13 @@ const dummyShelves = new Array(10)
 
 export default (router: ConnectRouter) => {
   router.service(LibraryService, {
-    listShelves: async () => {
+    listShelves: async (req) => {
+      const orderBy = parseOrderBy(req.orderBy);
+      if (orderBy.fields.length > 0) {
+        console.log(
+          `Ordering by ${orderBy.fields[0].path} in ${orderBy.fields[0].desc ? "descending" : "ascending"} order`,
+        );
+      }
       return {
         shelves: dummyShelves,
         totalSize: dummyShelves.length * 10,

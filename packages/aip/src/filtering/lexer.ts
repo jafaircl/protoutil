@@ -1,233 +1,203 @@
-import { LexError } from "./errors.js";
-import { Position } from "./position.js";
-import { Token } from "./token.js";
-import {
-  TokenType,
-  TokenTypeHexNumber,
-  TokenTypeNumber,
-  TokenTypeString,
-  TokenTypeText,
-  TokenTypeWhitespace,
-} from "./tokentype.js";
-import { decodeRuneInString, RuneError } from "./utf8.js";
+export enum TokenType {
+  TEXT,
+  STRING,
+  LPAREN,
+  RPAREN,
+  DOT,
+  COMMA,
+  MINUS,
+  LESS_EQUALS,
+  LESS_THAN,
+  GREATER_EQUALS,
+  GREATER_THAN,
+  NOT_EQUALS,
+  EQUALS,
+  HAS,
+  AND,
+  OR,
+  NOT,
+  WS,
+  EOF,
+  UNTERMINATED_STRING,
+}
 
-/**
- * Lexer is a filter expression lexer.
- */
-export class Lexer {
-  private _filter: string;
-  private _tokenStart: Position;
-  private _tokenEnd: Position;
-  private _lineOffsets: number[];
+export interface Token {
+  type: TokenType;
+  value: string;
+  offset: number;
+}
 
-  constructor(filter: string) {
-    this._filter = filter.trim();
-    this._tokenStart = new Position(0, 1, 1);
-    this._tokenEnd = new Position(0, 1, 1);
-    this._lineOffsets = [];
-  }
+const KEYWORDS: Record<string, TokenType> = {
+  AND: TokenType.AND,
+  OR: TokenType.OR,
+  NOT: TokenType.NOT,
+};
 
-  lex() {
-    const [r, err] = this.nextRune();
-    if (err !== null) {
-      return err;
+export function tokenize(input: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+
+  while (i < input.length) {
+    const start = i;
+    const ch = input[i];
+
+    // Whitespace
+    if (/\s/.test(ch)) {
+      while (i < input.length && /\s/.test(input[i])) i++;
+      tokens.push({ type: TokenType.WS, value: input.slice(start, i), offset: start });
+      continue;
     }
-    switch (String.fromCharCode(r)) {
-      // Single-character operator?
-      case "(":
-      case ")":
-      case "-":
-      case ".":
-      case "=":
-      case ":":
-      case ",":
-        return this.emit(new TokenType(this.tokenValue()));
-      // Two-character operator?
-      case "<":
-      case ">":
-      case "!":
-        if (this.sniffRune("=")) {
-          this.nextRune();
-        }
-        return this.emit(new TokenType(this.tokenValue()));
-      // String?
-      case "'":
-      case '"':
-        while (true) {
-          const [r2, err] = this.nextRune();
-          if (err !== null) {
-            if (err.message === "EOF") {
-              return this.errorf("unterminated string");
-            }
-            return err;
-          }
-          if (r === r2) {
-            return this.emit(TokenTypeString);
-          }
-        }
-      // Number?
-      case "0":
-      case "1":
-      case "2":
-      case "3":
-      case "4":
-      case "5":
-      case "6":
-      case "7":
-      case "8":
-      case "9":
-        // Hex number?
-        if (this.sniffRune("x")) {
-          this.nextRune();
-          while (this.sniff(isHexDigit)) {
-            this.nextRune();
-          }
-          return this.emit(TokenTypeHexNumber);
-        }
-        while (this.sniff(isDigit)) {
-          this.nextRune();
-        }
-        return this.emit(TokenTypeNumber);
+
+    // Two-char operators
+    if (ch === "<" && input[i + 1] === "=") {
+      tokens.push({ type: TokenType.LESS_EQUALS, value: "<=", offset: i });
+      i += 2;
+      continue;
     }
-    // Space?
-    if (isSpace(r)) {
-      while (this.sniff(isSpace)) {
-        this.nextRune();
+    if (ch === ">" && input[i + 1] === "=") {
+      tokens.push({ type: TokenType.GREATER_EQUALS, value: ">=", offset: i });
+      i += 2;
+      continue;
+    }
+    if (ch === "!" && input[i + 1] === "=") {
+      tokens.push({ type: TokenType.NOT_EQUALS, value: "!=", offset: i });
+      i += 2;
+      continue;
+    }
+
+    // Single-char operators
+    if (ch === "(") {
+      tokens.push({ type: TokenType.LPAREN, value: "(", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === ")") {
+      tokens.push({ type: TokenType.RPAREN, value: ")", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === ".") {
+      tokens.push({ type: TokenType.DOT, value: ".", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === ",") {
+      tokens.push({ type: TokenType.COMMA, value: ",", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === "-") {
+      tokens.push({ type: TokenType.MINUS, value: "-", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === "<") {
+      tokens.push({ type: TokenType.LESS_THAN, value: "<", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === ">") {
+      tokens.push({ type: TokenType.GREATER_THAN, value: ">", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === "=") {
+      tokens.push({ type: TokenType.EQUALS, value: "=", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === ":") {
+      tokens.push({ type: TokenType.HAS, value: ":", offset: i });
+      i++;
+      continue;
+    }
+
+    // String literal
+    if (ch === '"' || ch === "'") {
+      const quote = ch;
+      i++;
+      let str = "";
+      while (i < input.length && input[i] !== quote) {
+        if (input[i] === "\\" && i + 1 < input.length) {
+          const esc = input[i + 1];
+          switch (esc) {
+            case "n":
+              str += "\n";
+              break;
+            case "t":
+              str += "\t";
+              break;
+            case "r":
+              str += "\r";
+              break;
+            case "\\":
+              str += "\\";
+              break;
+            case '"':
+              str += '"';
+              break;
+            case "'":
+              str += "'";
+              break;
+            default:
+              str += `\\${esc}`;
+          }
+          i += 2;
+        } else {
+          str += input[i++];
+        }
       }
-      return this.emit(TokenTypeWhitespace);
-    }
-    // Text or keyword.
-    while (this.sniff(isText)) {
-      this.nextRune();
-    }
-    // Keyword?
-    const tokenType = new TokenType(this.tokenValue());
-    if (tokenType.isKeyword()) {
-      return this.emit(tokenType);
-    }
-    // Text.
-    return this.emit(TokenTypeText);
-  }
-
-  /**
-   * Position returns the current position of the lexer.
-   */
-  position() {
-    return this._tokenStart;
-  }
-
-  /**
-   * LineOffsets returns a monotonically increasing list of character offsets
-   * where newlines appear.
-   */
-  lineOffsets() {
-    return this._lineOffsets;
-  }
-
-  emit(t: TokenType) {
-    const token = new Token(Position.from(this._tokenStart), t, this.tokenValue());
-    this._tokenStart = Position.from(this._tokenEnd);
-    return token;
-  }
-
-  tokenValue() {
-    return this._filter.slice(this._tokenStart.offset, this._tokenEnd.offset);
-  }
-
-  remainingFilter() {
-    return this._filter.slice(this._tokenEnd.offset);
-  }
-
-  nextRune(): [number, Error | null] {
-    const [r, n] = decodeRuneInString(this.remainingFilter());
-    if (n === 0) {
-      return [r, new Error("EOF")];
-    }
-    if (r === RuneError) {
-      return [r, this.errorf("invalid UTF-8")];
-    }
-    if (r === "\n".charCodeAt(0)) {
-      this._lineOffsets.push(this._tokenEnd.offset);
-      this._tokenEnd.line++;
-      this._tokenEnd.column = 1;
-    } else {
-      this._tokenEnd.column++;
-    }
-    this._tokenEnd.offset += n;
-    return [r, null];
-  }
-
-  sniff(...wantFns: ((r: number) => boolean)[]): boolean {
-    let remaining = this.remainingFilter();
-    for (const wantFn of wantFns) {
-      const [r, n] = decodeRuneInString(remaining);
-      if (!wantFn(r)) {
-        return false;
+      if (i >= input.length) {
+        tokens.push({ type: TokenType.UNTERMINATED_STRING, value: str, offset: start });
+        continue;
       }
-      remaining = remaining.slice(n);
+      i++;
+      tokens.push({ type: TokenType.STRING, value: str, offset: start });
+      continue;
     }
-    return true;
+
+    // Backtick raw identifier
+    if (ch === "`") {
+      i++;
+      let str = "";
+      while (i < input.length && input[i] !== "`") str += input[i++];
+      if (i < input.length) i++;
+      tokens.push({ type: TokenType.TEXT, value: str, offset: start });
+      continue;
+    }
+
+    // TEXT token (identifiers, numbers)
+    if (isTextChar(ch)) {
+      while (i < input.length && isTextChar(input[i])) i++;
+      let word = input.slice(start, i);
+
+      // Float lookahead: "123" followed by "." then digits/e
+      if (/^\d+$/.test(word) && i < input.length && input[i] === ".") {
+        const afterDot = i + 1;
+        if (afterDot < input.length && /[\deE]/.test(input[afterDot])) {
+          i++; // consume the DOT
+          while (i < input.length && /[0-9eE+-]/.test(input[i])) i++;
+          word = input.slice(start, i);
+        }
+      }
+
+      const kwType = KEYWORDS[word];
+      tokens.push({
+        type: kwType !== undefined ? kwType : TokenType.TEXT,
+        value: word,
+        offset: start,
+      });
+      continue;
+    }
+
+    // Skip unknown chars
+    i++;
   }
 
-  sniffRune(want: string) {
-    const [r] = decodeRuneInString(this.remainingFilter());
-    return r === want.charCodeAt(0);
-  }
-
-  errorf(message: string) {
-    return new LexError(message, this._filter, this._tokenStart);
-  }
-
-  static from(lexer: Lexer) {
-    const newLexer = new Lexer(lexer._filter);
-    newLexer._tokenStart = Position.from(lexer._tokenStart);
-    newLexer._tokenEnd = Position.from(lexer._tokenEnd);
-    newLexer._lineOffsets = [...lexer._lineOffsets];
-    return newLexer;
-  }
+  tokens.push({ type: TokenType.EOF, value: "", offset: input.length });
+  return tokens;
 }
 
-function isText(r: number) {
-  switch (r) {
-    case RuneError:
-    case "(".charCodeAt(0):
-    case ")".charCodeAt(0):
-    case "-".charCodeAt(0):
-    case ".".charCodeAt(0):
-    case "=".charCodeAt(0):
-    case ":".charCodeAt(0):
-    case "<".charCodeAt(0):
-    case ">".charCodeAt(0):
-    case "!".charCodeAt(0):
-    case ",".charCodeAt(0):
-      return false;
-    default:
-      return !isSpace(r);
-  }
-}
-
-function isSpace(r: number) {
-  switch (r) {
-    case " ".charCodeAt(0):
-    case "\t".charCodeAt(0):
-    case "\n".charCodeAt(0):
-    case "\r".charCodeAt(0):
-    case 0x85:
-    case 0xa0:
-      return true;
-    default:
-      return false;
-  }
-}
-
-function isHexDigit(codePoint: number): boolean {
-  return (
-    (codePoint >= "a".charCodeAt(0) && codePoint <= "f".charCodeAt(0)) ||
-    (codePoint >= "A".charCodeAt(0) && codePoint <= "F".charCodeAt(0)) ||
-    (codePoint >= "0".charCodeAt(0) && codePoint <= "9".charCodeAt(0))
-  );
-}
-
-function isDigit(codePoint: number): boolean {
-  return codePoint >= "0".charCodeAt(0) && codePoint <= "9".charCodeAt(0);
+function isTextChar(ch: string): boolean {
+  return !/[\s.,()\-<>=!:"'`]/.test(ch);
 }

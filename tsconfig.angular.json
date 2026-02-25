@@ -15,6 +15,7 @@
     "target": "ES2022",
     "module": "preserve",
     "paths": {
+      "@protoutil/aip": ["./packages/aip/dist"],
       "@protoutil/angular": ["./packages/angular/dist"]
     }
   },

@@ -1,379 +1,633 @@
-/* eslint-disable no-case-declarations */
-import { create, equals } from "@bufbuild/protobuf";
+import { create, type MessageInitShape, type MessageShape } from "@bufbuild/protobuf";
 import {
-  durationFromString,
-  isValidDuration,
-  isValidTimestamp,
-  timestampFromDateString,
-} from "@protoutil/core/wkt";
-import {
+  type CheckedExpr,
   CheckedExprSchema,
-  type Decl_FunctionDecl,
-  type Decl_FunctionDecl_Overload,
-  type Decl_IdentDecl,
-  type Type,
-  TypeSchema,
+  type Decl,
+  type ReferenceSchema,
+  type Type_ListTypeSchema,
+  type Type_MapTypeSchema,
 } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
-import type { Expr, SourceInfo } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
-import type { Declarations } from "./declarations.js";
-import { FilterTypeError } from "./errors.js";
+import type { Expr, ParsedExpr } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
+import { offsetToLineCol } from "./parser.js";
 import {
-  FunctionOverloadDurationString,
-  FunctionOverloadEqualsTimestampString,
-  FunctionOverloadGreaterEqualsTimestampString,
-  FunctionOverloadGreaterThanTimestampString,
-  FunctionOverloadLessEqualsTimestampString,
-  FunctionOverloadLessThanTimestampString,
-  FunctionOverloadNotEqualsTimestampString,
-  FunctionOverloadTimestampString,
-} from "./functions.js";
-import { getFieldType, TypeBool, TypeFloat, TypeInt, TypeString } from "./types.js";
+  BOOL,
+  BYTES,
+  DOUBLE,
+  DURATION,
+  DYN,
+  ERROR,
+  func,
+  INT64,
+  ident,
+  LIST_OF_A,
+  listType,
+  MAP_OF_A_B,
+  mapType,
+  memberOverload,
+  messageType,
+  NULL,
+  type OverloadInit,
+  overload,
+  PARAM_A,
+  STRING,
+  TIMESTAMP,
+  type TypeInit,
+  UINT64,
+} from "./types.js";
+
+export const BUILTIN_DECLS: Decl[] = [
+  // Constant idents
+  ident("true", BOOL),
+  ident("false", BOOL),
+  ident("null", NULL),
+
+  // Logical operators
+  func("_&&_", overload("logical_and", [BOOL, BOOL], BOOL, "Logical AND operator")),
+  func("_||_", overload("logical_or", [BOOL, BOOL], BOOL, "Logical OR operator")),
+  func("@not", overload("logical_not", [BOOL], BOOL, "Logical NOT operator")),
+
+  // Equality/inequality operators
+  func(
+    "_==_",
+    overload("equals_int64", [INT64, INT64], BOOL, "Equality operator"),
+    overload("equals_uint64", [UINT64, UINT64], BOOL, "Equality operator"),
+    overload("equals_double", [DOUBLE, DOUBLE], BOOL, "Equality operator"),
+    overload("equals_string", [STRING, STRING], BOOL, "Equality operator"),
+    overload("equals_bytes", [BYTES, BYTES], BOOL, "Equality operator"),
+    // overload("equals_dyn", [DYN, DYN], BOOL, "Equality operator for dynamic types"),
+  ),
+  func(
+    "_!=_",
+    overload("not_equals_int64", [INT64, INT64], BOOL, "Inequality operator"),
+    overload("not_equals_uint64", [UINT64, UINT64], BOOL, "Inequality operator"),
+    overload("not_equals_double", [DOUBLE, DOUBLE], BOOL, "Inequality operator"),
+    overload("not_equals_string", [STRING, STRING], BOOL, "Inequality operator"),
+    overload("not_equals_bytes", [BYTES, BYTES], BOOL, "Inequality operator"),
+    // overload("not_equals_dyn", [DYN, DYN], BOOL, "Inequality operator for dynamic types"),
+  ),
+
+  // Comparison operators
+  func(
+    "_<_",
+    overload("less_int64", [INT64, INT64], BOOL, "Less-than operator for int64"),
+    overload("less_uint64", [UINT64, UINT64], BOOL, "Less-than operator for uint64"),
+    overload("less_double", [DOUBLE, DOUBLE], BOOL, "Less-than operator for double"),
+    overload("less_string", [STRING, STRING], BOOL, "Less-than operator for strings"),
+    // overload("less_dyn", [DYN, DYN], BOOL, "Less-than operator for dynamic types"),
+  ),
+  func(
+    "_<=_",
+    overload("less_equals_int64", [INT64, INT64], BOOL, "Less-than-or-equal operator for int64"),
+    overload(
+      "less_equals_uint64",
+      [UINT64, UINT64],
+      BOOL,
+      "Less-than-or-equal operator for uint64",
+    ),
+    overload(
+      "less_equals_double",
+      [DOUBLE, DOUBLE],
+      BOOL,
+      "Less-than-or-equal operator for double",
+    ),
+    overload(
+      "less_equals_string",
+      [STRING, STRING],
+      BOOL,
+      "Less-than-or-equal operator for strings",
+    ),
+    // overload("less_equals_dyn", [DYN, DYN], BOOL, "Less-than-or-equal operator for dynamic types"),
+  ),
+  func(
+    "_>_",
+    overload("greater_int64", [INT64, INT64], BOOL, "Greater-than operator for int64"),
+    overload("greater_uint64", [UINT64, UINT64], BOOL, "Greater-than operator for uint64"),
+    overload("greater_double", [DOUBLE, DOUBLE], BOOL, "Greater-than operator for double"),
+    overload("greater_string", [STRING, STRING], BOOL, "Greater-than operator for strings"),
+    // overload("greater_dyn", [DYN, DYN], BOOL, "Greater-than operator for dynamic types"),
+  ),
+  func(
+    "_>=_",
+    overload(
+      "greater_equals_int64",
+      [INT64, INT64],
+      BOOL,
+      "Greater-than-or-equal operator for int64",
+    ),
+    overload(
+      "greater_equals_uint64",
+      [UINT64, UINT64],
+      BOOL,
+      "Greater-than-or-equal operator for uint64",
+    ),
+    overload(
+      "greater_equals_double",
+      [DOUBLE, DOUBLE],
+      BOOL,
+      "Greater-than-or-equal operator for double",
+    ),
+    overload(
+      "greater_equals_string",
+      [STRING, STRING],
+      BOOL,
+      "Greater-than-or-equal operator for strings",
+    ),
+    // overload(
+    //   "greater_equals_dyn",
+    //   [DYN, DYN],
+    //   BOOL,
+    //   "Greater-than-or-equal operator for dynamic types",
+    // ),
+  ),
+
+  // Has operator
+  func(
+    "@in",
+    overload("in_list", [PARAM_A, LIST_OF_A], BOOL, "Has operator for lists and strings"),
+    overload("in_map", [PARAM_A, MAP_OF_A_B], BOOL, "Has operator for maps"),
+  ),
+
+  // String methods
+  func(
+    "startsWith",
+    memberOverload("string_starts_with", [STRING], BOOL, "Checks if a string starts with a prefix"),
+  ),
+  func(
+    "endsWith",
+    memberOverload("string_ends_with", [STRING], BOOL, "Checks if a string ends with a suffix"),
+  ),
+  func(
+    "contains",
+    memberOverload("string_contains", [STRING], BOOL, "Checks if a string contains a substring"),
+  ),
+  func(
+    "matches",
+    memberOverload("string_matches", [STRING], BOOL, "Checks if a string matches a regex pattern"),
+  ),
+
+  // Size
+  func(
+    "size",
+    overload(
+      "size_string",
+      [STRING],
+      INT64,
+      "Returns the number of Unicode code points in a string",
+    ),
+    overload("size_bytes", [BYTES], INT64, "Returns the number of bytes in a bytestring"),
+    overload("size_list", [LIST_OF_A], INT64, "Returns the number of elements in a list"),
+    overload("size_map", [MAP_OF_A_B], INT64, "Returns the number of entries in a map"),
+    memberOverload(
+      "size_string_instance",
+      [STRING],
+      INT64,
+      "Returns the number of Unicode code points in a string",
+    ),
+    memberOverload(
+      "size_bytes_instance",
+      [BYTES],
+      INT64,
+      "Returns the number of bytes in a bytestring",
+    ),
+    memberOverload(
+      "size_list_instance",
+      [LIST_OF_A],
+      INT64,
+      "Returns the number of elements in a list",
+    ),
+    memberOverload(
+      "size_map_instance",
+      [MAP_OF_A_B],
+      INT64,
+      "Returns the number of entries in a map",
+    ),
+  ),
+
+  // Type coercion
+  func("int", overload("int_dyn", [DYN], INT64, "Coerces dyn to int64")),
+  func("uint", overload("uint_dyn", [DYN], UINT64, "Coerces dyn to uint64")),
+  func("double", overload("double_dyn", [DYN], DOUBLE, "Coerces dyn to double")),
+  func("string", overload("string_dyn", [DYN], STRING, "Coerces dyn to string")),
+  func("bytes", overload("bytes_dyn", [DYN], BYTES, "Coerces dyn to bytes")),
+  func("bool", overload("bool_dyn", [DYN], BOOL, "Coerces dyn to bool")),
+  func("type", overload("type_dyn", [DYN], STRING, "Returns the type of a dyn value as a string")),
+
+  // Has macro
+  func("has", overload("has_macro", [DYN, DYN], BOOL, "Has macro for checking presence")),
+
+  // Timestamp and duration
+  func(
+    "timestamp",
+    overload("timestamp_string", [STRING], TIMESTAMP, "Parses a timestamp from a string"),
+  ),
+  func(
+    "duration",
+    overload("duration_string", [STRING], DURATION, "Parses a duration from a string"),
+  ),
+];
+
+/**
+ * A specific position in the source text.
+ * Corresponds to google.api.expr.v1alpha1.SourcePosition.
+ */
+export interface SourcePosition {
+  location: string;
+  offset: number;
+  /** 1-based line number (0 if unknown) */
+  line: number;
+  /** 0-based column within the line */
+  column: number;
+}
+
+export class TypeCheckError extends Error {
+  exprId: bigint;
+  position?: SourcePosition;
+
+  constructor(exprId: bigint, message: string, position?: SourcePosition) {
+    super(message);
+    this.name = "TypeCheckError";
+    this.exprId = exprId;
+    this.position = position;
+  }
+}
+
+type ReferenceInit = MessageInitShape<typeof ReferenceSchema>;
+
+function isDyn(t: TypeInit): boolean {
+  return t.typeKind?.case === "dyn";
+}
+
+function isError(t: TypeInit): boolean {
+  return t.typeKind?.case === "error";
+}
+
+/**
+ * Returns true if `actual` is compatible with `expected` for overload matching.
+ * DYN is compatible with anything. Errors are never compatible.
+ */
+function typeCompatible(expected: TypeInit, actual: TypeInit): boolean {
+  if (isError(expected) || isError(actual)) return false;
+  if (isDyn(expected) || isDyn(actual)) return true;
+  if (expected.typeKind?.case !== actual.typeKind?.case) return false;
+  switch (expected.typeKind?.case) {
+    case "primitive":
+      return expected.typeKind.value === actual.typeKind?.value;
+    case "wellKnown":
+      return expected.typeKind.value === actual.typeKind?.value;
+    case "messageType":
+      return expected.typeKind.value === actual.typeKind?.value;
+    case "listType":
+      if (actual.typeKind?.case !== "listType") return false;
+      return typeCompatible(
+        expected.typeKind.value.elemType ?? {},
+        actual.typeKind.value.elemType ?? {},
+      );
+    case "mapType":
+      if (actual.typeKind?.case !== "mapType") return false;
+      if (!expected.typeKind.value.keyType || !expected.typeKind.value.valueType) return false;
+      return (
+        typeCompatible(expected.typeKind.value.keyType, actual.typeKind.value.keyType ?? {}) &&
+        typeCompatible(expected.typeKind.value.valueType, actual.typeKind.value.valueType ?? {})
+      );
+    default:
+      return true;
+  }
+}
+
+function paramsMatch(params: TypeInit[], args: TypeInit[]): boolean {
+  if (params.length !== args.length) return false;
+  return params.every((p, i) => typeCompatible(p, args[i]));
+}
+
+/** Unify a list of types to their most specific common type, falling back to DYN. */
+function unify(types: TypeInit[]): TypeInit {
+  if (types.length === 0) return DYN;
+  const first = types[0];
+  if (types.every((t) => t.typeKind?.case === first.typeKind?.case)) {
+    switch (first.typeKind?.case) {
+      case "primitive":
+        if (types.every((t) => t.typeKind?.value === first.typeKind?.value)) return first;
+        break;
+      case "wellKnown":
+        if (types.every((t) => t.typeKind?.value === first.typeKind?.value)) return first;
+        break;
+      case "messageType":
+        if (types.every((t) => t.typeKind?.value === first.typeKind?.value)) return first;
+        break;
+      case "listType": {
+        const elem = unify(
+          types.map(
+            (t) =>
+              (t.typeKind?.value as MessageInitShape<typeof Type_ListTypeSchema>)
+                ?.elemType as TypeInit,
+          ),
+        );
+        return listType(elem);
+      }
+      case "mapType": {
+        const key = unify(
+          types.map(
+            (t) =>
+              (t.typeKind?.value as MessageShape<typeof Type_MapTypeSchema>)?.keyType as TypeInit,
+          ),
+        );
+        const val = unify(
+          types.map(
+            (t) =>
+              (t.typeKind?.value as MessageShape<typeof Type_MapTypeSchema>)?.valueType as TypeInit,
+          ),
+        );
+        return mapType(key, val);
+      }
+    }
+  }
+  return DYN;
+}
+
+function inferConstantType(expr: Expr): TypeInit {
+  switch (expr.exprKind.case) {
+    case "constExpr":
+      switch (expr.exprKind.value.constantKind.case) {
+        case "nullValue":
+          return NULL;
+        case "boolValue":
+          return BOOL;
+        case "int64Value":
+          return INT64;
+        case "uint64Value":
+          return UINT64;
+        case "doubleValue":
+          return DOUBLE;
+        case "stringValue":
+          return STRING;
+        case "bytesValue":
+          return BYTES;
+        default:
+          return DYN;
+      }
+    default:
+      throw new Error(`Expected constExpr, got ${expr.exprKind?.case}`);
+  }
+}
+
+// ── Checker ───────────────────────────────────────────────────────────────────
 
 export class Checker {
-  private _declarations: Declarations;
-  private _expr: Expr;
-  private _sourceInfo: SourceInfo;
-  private _typeMap: Map<bigint, Type> = new Map();
+  #typeMap: Map<bigint, TypeInit> = new Map();
+  #referenceMap: Map<bigint, ReferenceInit> = new Map();
+  #errors: TypeCheckError[] = [];
+  #decls: Decl[];
+  #sourceInfo?: ParsedExpr["sourceInfo"];
 
-  constructor(expr: Expr, sourceInfo: SourceInfo, declarations: Declarations) {
-    this._expr = expr;
-    this._sourceInfo = sourceInfo;
-    this._declarations = declarations;
+  constructor(extraDecls: Decl[] = []) {
+    this.#decls = [...BUILTIN_DECLS, ...extraDecls];
   }
 
-  check() {
-    const err = this.checkExpr(this._expr);
-    if (err instanceof Error) {
-      return err;
+  check(parsed: ParsedExpr): { checkedExpr: CheckedExpr; errors: TypeCheckError[] } {
+    this.#sourceInfo = parsed.sourceInfo;
+    if (parsed.expr) this.#visit(parsed.expr);
+
+    // Convert bigint-keyed maps to string-keyed records for protobuf-es
+    const typeMap: Record<string, TypeInit> = {};
+    for (const [id, t] of this.#typeMap) {
+      typeMap[String(id)] = t;
     }
-    const resultType = this.getType(this._expr);
-    if (!resultType) {
-      return this.errorf(this._expr, `unknown result type`);
+    const referenceMap: Record<string, ReferenceInit> = {};
+    for (const [id, r] of this.#referenceMap) {
+      referenceMap[String(id)] = r;
     }
-    if (!equals(TypeSchema, resultType, TypeBool)) {
-      return this.errorf(this._expr, `non-bool result type`);
-    }
-    return create(CheckedExprSchema, {
-      expr: this._expr,
-      sourceInfo: this._sourceInfo,
-      typeMap: Object.fromEntries(this._typeMap.entries()),
+
+    const checkedExpr = create(CheckedExprSchema, {
+      expr: parsed.expr,
+      sourceInfo: parsed.sourceInfo,
+      typeMap,
+      referenceMap,
+      exprVersion: "cel1",
     });
+
+    return { checkedExpr, errors: this.#errors };
   }
 
-  checkExpr(expr: Expr): FilterTypeError | undefined {
-    if (!expr) {
-      return;
-    }
-    switch (expr.exprKind.case) {
+  #visit(expr: Expr): TypeInit {
+    const kind = expr.exprKind;
+    let result: TypeInit;
+
+    switch (kind.case) {
       case "constExpr":
-        switch (expr.exprKind.value.constantKind.case) {
-          case "boolValue":
-            return this.checkBoolLiteral(expr);
-          case "doubleValue":
-            return this.checkDoubleLiteral(expr);
-          case "int64Value":
-            return this.checkInt64Literal(expr);
-          case "stringValue":
-            return this.checkStringLiteral(expr);
-          default:
-            return this.errorf(
-              expr,
-              `unsupported constant kind: ${expr.exprKind.value.constantKind.case}`,
-            );
+        result = inferConstantType(expr);
+        break;
+
+      case "identExpr": {
+        const name = kind.value.name;
+        if (!name) {
+          result = NULL;
+          break;
         }
-      case "identExpr":
-        return this.checkIdentExpr(expr);
-      case "selectExpr":
-        return this.checkSelectExpr(expr);
-      case "callExpr":
-        return this.checkCallExpr(expr);
-      default:
-        return this.errorf(expr, `unsupported expr kind: ${expr.exprKind.case}`);
-    }
-  }
-
-  checkIdentExpr(e: Expr): FilterTypeError | undefined {
-    if (e.exprKind.case !== "identExpr") {
-      return this.errorf(e, `expected ident expression, got ${e.exprKind.case}`);
-    }
-    const identExpr = e.exprKind.value;
-    const ident = this._declarations.lookupIdent(identExpr.name);
-    if (!ident) {
-      return this.errorf(e, `undeclared identifier '${identExpr.name}'`);
-    }
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    // biome-ignore lint/style/noNonNullAssertion: just get it out of the way
-    const err = this.setType(e, (ident.declKind.value as Decl_IdentDecl).type!);
-    if (err instanceof Error) {
-      return this.wrapf(e, err, `identifier '${identExpr.name}'`);
-    }
-  }
-
-  checkSelectExpr(e: Expr): FilterTypeError | undefined {
-    if (e.exprKind.case !== "selectExpr") {
-      return this.errorf(e, `expected select expression, got ${e.exprKind.case}`);
-    }
-    const qualifiedName = toQualifiedName(e);
-    if (qualifiedName) {
-      const ident = this._declarations.lookupIdent(qualifiedName);
-      if (ident) {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        // biome-ignore lint/style/noNonNullAssertion: just get it out of the way
-        return this.setType(e, (ident.declKind.value as Decl_IdentDecl).type!);
-      }
-    }
-    const selectExpr = e.exprKind.value;
-    if (!selectExpr.operand) {
-      return this.errorf(e, `missing operand`);
-    }
-    const operand = this.checkExpr(selectExpr.operand);
-    if (operand instanceof Error) {
-      return this.wrapf(e, operand, `check select expr`);
-    }
-    const operandType = this.getType(selectExpr.operand);
-    if (!operandType) {
-      return this.errorf(e, `failed to get operand type`);
-    }
-    switch (operandType.typeKind.case) {
-      case "listType":
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        // biome-ignore lint/style/noNonNullAssertion: just get it out of the way
-        return this.setType(e, operandType.typeKind.value.elemType!);
-      case "mapType":
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        // biome-ignore lint/style/noNonNullAssertion: just get it out of the way
-        return this.setType(e, operandType.typeKind.value.valueType!);
-      case "messageType": {
-        const fieldDescriptor = this._declarations.lookupMessageField(
-          operandType.typeKind.value,
-          selectExpr.field,
-        );
-        if (!fieldDescriptor) {
-          return this.errorf(
-            e,
-            `unknown field '${selectExpr.field}' for message type '${operandType.typeKind.value}'`,
-          );
+        const decl = this.#findIdent(name);
+        if (!decl) {
+          this.#addError(expr.id, `Undeclared reference to '${name}'`);
+          result = ERROR;
+          break;
         }
-        const fieldType = getFieldType(fieldDescriptor);
-        if (!fieldType) {
-          return this.errorf(e, `failed to get field type for '${selectExpr.field}'`);
+        if (decl.declKind?.case !== "ident") {
+          this.#addError(expr.id, `'${name}' is not an ident`);
+          result = ERROR;
+          break;
         }
-        return this.setType(e, fieldType);
+        result = decl.declKind.value.type as TypeInit;
+        this.#referenceMap.set(expr.id, { name });
+        break;
       }
-      default:
-        return this.errorf(e, `unsupported operand type: ${operandType.typeKind.case}`);
-    }
-  }
 
-  checkCallExpr(e: Expr): FilterTypeError | undefined {
-    if (e.exprKind.case !== "callExpr") {
-      return this.errorf(e, `expected call expression, got ${e.exprKind.case}`);
-    }
-    const callExpr = e.exprKind.value;
-    for (const arg of callExpr.args) {
-      const err = this.checkExpr(arg);
-      if (err instanceof Error) {
-        return err;
+      case "selectExpr": {
+        const operand = kind.value.operand;
+        if (!operand) {
+          result = DYN;
+          break;
+        }
+        const baseType = this.#visit(operand);
+        if (baseType.typeKind?.case === "mapType") {
+          result = baseType.typeKind.value.valueType ?? DYN;
+        } else if (baseType.typeKind?.case === "messageType") {
+          result = DYN;
+        } else if (isDyn(baseType)) {
+          result = DYN;
+        } else if (isError(baseType)) {
+          result = ERROR;
+        } else {
+          result = DYN;
+        }
+        break;
       }
-    }
-    const functionDeclaration = this._declarations.lookupFunction(callExpr.function);
-    if (!functionDeclaration) {
-      return this.errorf(e, `undeclared function '${callExpr.function}'`);
-    }
-    const functionOverload = this.resolveCallExprFunctionOverload(
-      e,
-      functionDeclaration.declKind.value as Decl_FunctionDecl,
-    );
-    if (functionOverload instanceof Error) {
-      return this.wrapf(e, functionOverload, `check call exp`);
-    }
-    const err = this.checkCallExprBuiltinFunctionOverloads(e, functionOverload);
-    if (err instanceof Error) {
-      return this.wrapf(e, err, `check call expr`);
-    }
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    // biome-ignore lint/style/noNonNullAssertion: just get it out of the way
-    return this.setType(e, functionOverload.resultType!);
-  }
 
-  resolveCallExprFunctionOverload(expr: Expr, functionDeclaration: Decl_FunctionDecl) {
-    if (expr.exprKind.case !== "callExpr") {
-      return this.errorf(expr, `expected call expression, got ${expr.exprKind.case}`);
-    }
-    const callExpr = expr.exprKind.value;
-    for (const overload of functionDeclaration.overloads) {
-      if (callExpr.args.length !== overload.params.length) {
-        continue;
+      case "callExpr": {
+        const { function: fnName, target, args } = kind.value;
+        const argTypes = args.map((a) => this.#visit(a));
+        const targetType = target ? this.#visit(target) : undefined;
+        const isMethod = target !== undefined;
+
+        const overloads = this.#findOverloads(fnName);
+        if (overloads.length === 0) {
+          this.#addError(expr.id, `Unknown function '${fnName}'`);
+          result = ERROR;
+          break;
+        }
+
+        const match = this.#matchOverload(overloads, argTypes, targetType, isMethod);
+        result = match?.resultType ?? DYN;
+
+        const matchedIds = match ? [match.overloadId] : overloads.map((o) => o.overloadId);
+        this.#referenceMap.set(expr.id, { name: fnName, overloadId: matchedIds as string[] });
+        break;
       }
-      if (overload.typeParams.length === 0) {
-        let allTypesMatch = true;
-        for (let i = 0; i < overload.params.length; i++) {
-          const param = overload.params[i];
-          const argType = this.getType(callExpr.args[i]);
-          if (!argType) {
-            return this.errorf(callExpr.args[i], `unknown type`);
+
+      case "listExpr": {
+        const elemTypes = kind.value.elements.map((e) => this.#visit(e));
+        result = listType(elemTypes.length === 0 ? DYN : unify(elemTypes));
+        break;
+      }
+
+      case "structExpr": {
+        const { messageName, entries } = kind.value;
+        if (messageName) {
+          for (const e of entries) {
+            if (e.keyKind.case === "mapKey") {
+              this.#visit(e.keyKind.value);
+            }
+            if (!e.value) {
+              this.#addError(expr.id, "Struct entries must have a value");
+              continue;
+            }
+            this.#visit(e.value);
           }
-          if (!equals(TypeSchema, param, argType)) {
-            allTypesMatch = false;
-            break;
+          result = messageType(messageName);
+          this.#referenceMap.set(expr.id, { name: messageName });
+        } else {
+          const keyTypes: TypeInit[] = [];
+          const valTypes: TypeInit[] = [];
+          for (const e of entries) {
+            keyTypes.push(e.keyKind.case === "mapKey" ? this.#visit(e.keyKind.value) : STRING);
+            if (!e.value) {
+              this.#addError(expr.id, "Struct entries must have a value");
+              continue;
+            }
+            valTypes.push(this.#visit(e.value));
           }
+          result =
+            entries.length === 0 ? mapType(DYN, DYN) : mapType(unify(keyTypes), unify(valTypes));
         }
-        if (allTypesMatch) {
-          return overload;
-        }
+        break;
       }
-      // TODO: Add support for type parameters.
-    }
-    const argTypes: string[] = [];
-    for (const arg of callExpr.args) {
-      const argType = this.getType(arg);
-      if (!argType) {
-        argTypes.push("UNKNOWN");
-      } else {
-        argTypes.push(argType.$typeName);
-      }
-    }
-    return this.errorf(
-      expr,
-      `no matching overload found for calling '${callExpr.function}' with ${argTypes.join(", ")}`,
-    );
-  }
 
-  checkCallExprBuiltinFunctionOverloads(expr: Expr, overload: Decl_FunctionDecl_Overload) {
-    if (expr.exprKind.case !== "callExpr") {
-      return this.errorf(expr, `expected call expression, got ${expr.exprKind.case}`);
-    }
-    const callExpr = expr.exprKind.value;
-    switch (overload.overloadId) {
-      case FunctionOverloadTimestampString: {
-        const arg0 = callExpr.args[0];
-        if (arg0.exprKind.case !== "constExpr") {
+      case "comprehensionExpr": {
+        const c = kind.value;
+        if (!c.iterVar || !c.accuVar) {
+          this.#addError(expr.id, "Comprehension must have iterVar and accuVar");
+          result = ERROR;
           break;
         }
-        const constExpr = arg0.exprKind.value;
-        if (constExpr.constantKind.case !== "stringValue") {
+        if (!c.iterRange || !c.accuInit || !c.loopCondition || !c.loopStep || !c.result) {
+          this.#addError(expr.id, "Comprehension is missing required sub-expressions");
+          result = ERROR;
           break;
         }
-        if (!isValidTimestampString(constExpr.constantKind.value as string)) {
-          return this.errorf(arg0, `invalid timestamp. Should be in RFC3339 format`);
-        }
+        this.#visit(c.iterRange);
+        this.#visit(c.accuInit);
+        this.#visit(c.loopCondition);
+        this.#visit(c.loopStep);
+        result = this.#visit(c.result);
         break;
       }
-      case FunctionOverloadDurationString: {
-        const _arg0 = callExpr.args[0];
-        if (_arg0.exprKind.case !== "constExpr") {
-          break;
-        }
-        const _constExpr = _arg0.exprKind.value;
-        if (_constExpr.constantKind.case !== "stringValue") {
-          break;
-        }
-        if (!isValidDurationString(_constExpr.constantKind.value as string)) {
-          return this.errorf(_arg0, `invalid duration`);
-        }
-        break;
-      }
-      case FunctionOverloadLessThanTimestampString:
-      case FunctionOverloadGreaterThanTimestampString:
-      case FunctionOverloadLessEqualsTimestampString:
-      case FunctionOverloadGreaterEqualsTimestampString:
-      case FunctionOverloadEqualsTimestampString:
-      case FunctionOverloadNotEqualsTimestampString: {
-        const arg1 = callExpr.args[1];
-        if (arg1.exprKind.case !== "constExpr") {
-          break;
-        }
-        const constExpr1 = arg1.exprKind.value;
-        if (constExpr1.constantKind.case !== "stringValue") {
-          break;
-        }
-        if (!isValidTimestampString(constExpr1.constantKind.value as string)) {
-          return this.errorf(arg1, `invalid timestamp. Should be in RFC3339 format`);
-        }
-        break;
-      }
+
       default:
-        break;
+        result = DYN;
     }
-    return null;
-  }
 
-  checkInt64Literal(expr: Expr) {
-    return this.setType(expr, TypeInt);
-  }
-
-  checkStringLiteral(expr: Expr) {
-    return this.setType(expr, TypeString);
-  }
-
-  checkDoubleLiteral(expr: Expr) {
-    return this.setType(expr, TypeFloat);
-  }
-
-  checkBoolLiteral(expr: Expr) {
-    return this.setType(expr, TypeBool);
-  }
-
-  errorf(expr: Expr, message: string) {
-    return new FilterTypeError(message, expr);
-  }
-
-  wrapf(expr: Expr, err: Error, message: string) {
-    return new FilterTypeError(message, expr, err);
-  }
-
-  setType(expr: Expr, type: Type): FilterTypeError | undefined {
-    const existingType = this._typeMap.get(expr.id);
-    if (existingType && !equals(TypeSchema, existingType, type)) {
-      return this.errorf(expr, `type conflict between ${existingType} and ${type}`);
+    // Per CheckedExpr spec: only store non-DYN types
+    if (!isDyn(result)) {
+      this.#typeMap.set(expr.id, result);
     }
-    this._typeMap.set(expr.id, type);
+
+    return result;
   }
 
-  getType(expr: Expr): Type | null {
-    const type = this._typeMap.get(expr?.id);
-    if (type) {
-      return type;
+  #findIdent(name: string): Decl | undefined {
+    for (const decl of this.#decls) {
+      if (decl.name === name && decl.declKind?.case === "ident") return decl;
     }
-    return null;
+    return undefined;
   }
-}
 
-function toQualifiedName(expr: Expr): string | null {
-  switch (expr.exprKind?.case) {
-    case "identExpr":
-      return expr.exprKind.value.name;
-    case "selectExpr": {
-      if (expr.exprKind.value.testOnly) {
-        return null;
+  #findOverloads(name: string): OverloadInit[] {
+    const result: OverloadInit[] = [];
+    for (const decl of this.#decls) {
+      if (decl.name === name && decl.declKind?.case === "function") {
+        if (decl.declKind.case !== "function") continue;
+        result.push(...(decl.declKind.value.overloads ?? []));
       }
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      // biome-ignore lint/style/noNonNullAssertion: just get it out of the way
-      const parent = toQualifiedName(expr.exprKind.value.operand!);
-      if (parent === null) {
-        return null;
-      }
-      return `${parent}.${expr.exprKind.value.field}`;
     }
-    default:
-      return null;
+    return result;
+  }
+
+  #matchOverload(
+    overloads: OverloadInit[],
+    argTypes: TypeInit[],
+    targetType: TypeInit | undefined,
+    isMethod: boolean,
+  ): OverloadInit | undefined {
+    if (targetType) {
+      // For method overloads, the target type is the first parameter (the receiver)
+      argTypes = [targetType, ...argTypes];
+    }
+    for (const ov of overloads) {
+      if (isMethod && ov.isInstanceFunction) {
+        // params[0] is receiver type in the proto sense, but our memberOverload
+        // stores only the non-receiver params — so just match argTypes directly
+        if (paramsMatch(ov.params as TypeInit[], argTypes)) return ov;
+      } else if (!isMethod && !ov.isInstanceFunction) {
+        if (paramsMatch(ov.params as TypeInit[], argTypes)) return ov;
+      }
+    }
+    // Fallback: return first overload (type will be its result type)
+    return overloads[0];
+  }
+
+  #addError(exprId: bigint, message: string): void {
+    const position = this.#getPosition(exprId);
+    this.#errors.push(new TypeCheckError(exprId, message, position));
+  }
+
+  #getPosition(exprId: bigint): SourcePosition | undefined {
+    if (!this.#sourceInfo) return undefined;
+    const offset = this.#sourceInfo.positions[String(exprId)];
+    if (offset === undefined) return undefined;
+    const { line, column } = offsetToLineCol(offset, this.#sourceInfo.lineOffsets);
+    return {
+      location: this.#sourceInfo.location,
+      offset,
+      line,
+      column,
+    };
   }
 }
 
-function isValidTimestampString(str: string) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    // biome-ignore lint/style/noNonNullAssertion: just get it out of the way
-    return isValidTimestamp(timestampFromDateString(str)!);
-  } catch {
-    return false;
-  }
+/**
+ * Type check a parsed AIP-160 filter expression. You can provide additional
+ * declarations for idents and functions via `extraDecls`. Returns the checked
+ * expression along with any type errors encountered. The checked expression will
+ * include a type map and reference map that you can use for evaluation.
+ */
+export function check(
+  parsed: ParsedExpr,
+  extraDecls: Decl[] = [],
+): { checkedExpr: CheckedExpr; errors: TypeCheckError[] } {
+  return new Checker(extraDecls).check(parsed);
 }
 
-function isValidDurationString(str: string) {
-  try {
-    return isValidDuration(durationFromString(str));
-  } catch {
-    return false;
-  }
+/**
+ * Determine the output type of a checked expression from its type map. Returns
+ * undefined if the expression has no type (e.g. due to a type error or missing type info).
+ */
+export function outputType(checkedExpr: CheckedExpr): TypeInit | undefined {
+  return checkedExpr.typeMap[String(checkedExpr.expr?.id)];
 }
