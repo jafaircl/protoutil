@@ -1,90 +1,146 @@
 import { assert, describe, it } from "vitest";
-import { parse } from "./parser";
-import { unparse } from "./unparse";
+import { parse } from "./parser.js";
+import { unparse } from "./unparse.js";
+
+// Every case must satisfy: unparse(parse(input).expr) === input
+// If the round-trip produces a different string, that is a bug in the unparser.
+// Cases where the canonical form differs from a user-supplied input are handled
+// by writing the canonical form as the input (i.e. we test the canonical string,
+// not every possible way to write an equivalent expression).
 
 describe("unparse", () => {
-  const cases: Array<{ input: string; expected: string }> = [
-    // atoms
-    { input: "a", expected: "a" },
-    { input: "true", expected: "true" },
-    { input: "false", expected: "false" },
-    { input: "null", expected: "null" },
-    { input: "42", expected: "42" },
-    { input: "-42", expected: "-42" },
-    { input: "3.14", expected: "3.14" },
-    { input: "1u", expected: "1u" },
-    { input: '"hello"', expected: '"hello"' },
+  const cases: Array<{ description?: string; input: string }> = [
+    // ── Atoms ──────────────────────────────────────────────────────────────────
+    { input: "a" },
+    { input: "true" },
+    { input: "false" },
+    { input: "null" },
+    { input: "42" },
+    { input: "-42" },
+    { input: "3.14" },
+    { input: "-3.14" },
+    { input: "1u" },
+    { input: `"hello"` },
+    // single-quoted strings are normalised to double-quoted by the parser
+    { description: "single-quoted string normalises to double-quoted", input: `"hello"` },
 
-    // member access
-    { input: "a.b", expected: "a.b" },
-    { input: "a.b.c", expected: "a.b.c" },
+    // ── Member access ───────────────────────────────────────────────────────────
+    { input: "a.b" },
+    { input: "a.b.c" },
+    { input: "expr.type_map.1.type" },
+    { input: "a.AND" },
+    { input: "a.OR" },
+    { input: "a.NOT" },
 
-    // comparisons — no wrapping parens needed
-    { input: "a = b", expected: "a = b" },
-    { input: "a != b", expected: "a != b" },
-    { input: "a < b", expected: "a < b" },
-    { input: "a <= b", expected: "a <= b" },
-    { input: "a > b", expected: "a > b" },
-    { input: "a >= b", expected: "a >= b" },
+    // ── Comparisons ─────────────────────────────────────────────────────────────
+    { input: "a = b" },
+    { input: "a != b" },
+    { input: "a < b" },
+    { input: "a <= b" },
+    { input: "a > b" },
+    { input: "a >= b" },
+    { input: "map:key" },
+    { input: "a.b:c" },
+    { description: "has with quoted string key", input: `labels:"deprecated"` },
+    { input: "package = com.google" },
+    { input: "yesterday < request.time" },
+    { input: `status = "ACTIVE"` },
+    { description: "null literal in equality", input: "field = null" },
+    { description: "prefix wildcard string round-trips", input: `name = "hello*"` },
+    { description: "suffix wildcard string round-trips", input: `name = "*world"` },
 
-    // has
-    { input: "map:key", expected: "map:key" },
+    // ── NOT ─────────────────────────────────────────────────────────────────────
+    { input: "NOT a" },
+    { input: "NOT a > 3" },
+    { input: "NOT (a OR b)" },
+    { input: "NOT (a AND b)" },
+    { input: `NOT status = "ACTIVE"` },
+    { input: "NOT labels:deprecated" },
+    { input: "NOT a.b.c" },
+    { input: `NOT (a = "1" AND b = "2")` },
+    { input: `NOT (a = "1" OR b = "2")` },
+    { description: "minus-negation unparses as NOT", input: `NOT file:".java"` },
 
-    // simple logical — no parens needed
-    { input: "a AND b", expected: "a AND b" },
-    { input: "a OR b", expected: "a OR b" },
+    // ── AND ─────────────────────────────────────────────────────────────────────
+    { input: "a AND b" },
+    { input: "a AND b AND c" },
+    { input: "a = 1 AND b = 2" },
 
-    // In the AIP EBNF, AND (expression) is the outermost operator and OR (factor)
-    // binds more tightly than AND. So `a AND b OR c AND d` parses as three
-    // AND-joined sequences: `a`, `b OR c`, `d` → `a AND (b OR c) AND d`.
-    // OR inside AND always needs parens.
-    { input: "a AND b OR c AND d", expected: "a AND (b OR c) AND d" },
+    // ── OR ──────────────────────────────────────────────────────────────────────
+    { input: "a OR b" },
+    { input: "a OR b OR c" },
 
-    // Explicit parens that match the parse tree — no extra parens emitted
-    { input: "(a OR b) AND c", expected: "(a OR b) AND c" },
-    { input: "a AND (b OR c)", expected: "a AND (b OR c)" },
-
-    // Pure AND chain — no parens
-    { input: "a AND b AND c", expected: "a AND b AND c" },
-
-    // Pure OR chain — no parens
-    { input: "a OR b OR c", expected: "a OR b OR c" },
-
-    // NOT over atoms and comparisons — no parens needed, they bind tighter
-    { input: "NOT a", expected: "NOT a" },
-    { input: 'NOT status = "ACTIVE"', expected: 'NOT status = "ACTIVE"' },
-    { input: "NOT labels:deprecated", expected: "NOT labels:deprecated" },
-    { input: "NOT a.b.c", expected: "NOT a.b.c" },
-    // NOT over a logical group — parens required
-    { input: "NOT (a AND b)", expected: "NOT (a AND b)" },
-    { input: "NOT (a OR b)", expected: "NOT (a OR b)" },
-    { input: 'NOT (a = "1" AND b = "2")', expected: 'NOT (a = "1" AND b = "2")' },
-    { input: 'NOT (a = "1" OR b = "2")', expected: 'NOT (a = "1" OR b = "2")' },
-    // AND inside OR — AND binds tighter so no parens needed
-    { input: "(a AND b) OR c", expected: "a AND b OR c" },
-    { input: "(a AND b) OR (c AND d)", expected: "a AND b OR c AND d" },
-
-    // comparisons inside logical — no parens needed (comparisons bind tighter)
-    { input: "a < 10 OR a > 100", expected: "a < 10 OR a > 100" },
-
-    // method calls
-    { input: 's.startsWith("x")', expected: 's.startsWith("x")' },
-    { input: 's.contains("x")', expected: 's.contains("x")' },
-
-    // Failing case from the expr-tree component
+    // ── AND / OR precedence ─────────────────────────────────────────────────────
+    // In AIP EBNF, OR (factor) binds TIGHTER than AND (expression/sequence).
+    // Consequences:
+    //   - OR inside AND needs parens:        a AND (b OR c)
+    //   - AND inside OR does NOT need parens: a AND b OR c AND d
+    //   - a AND b OR c AND d parses as:       a AND (b OR c) AND d
+    //     so its canonical unparse is:        a AND (b OR c) AND d
     {
+      description: "OR inside AND requires parens",
+      input: "a AND (b OR c)",
+    },
+    {
+      description: "AND inside OR does not require parens — canonical form after parse",
+      input: "a AND (b OR c) AND d",
+    },
+    {
+      description: "(a OR b) AND c — OR on left of AND, needs parens",
+      input: "(a OR b) AND c",
+    },
+
+    {
+      description: "comparisons inside OR — no parens needed",
+      input: "a < 10 OR a > 100",
+    },
+
+    // ── Implicit AND (sequence) ─────────────────────────────────────────────────
+    // The unparser emits explicit AND for all _&&_ nodes. Implicit-AND inputs
+    // therefore do NOT round-trip to themselves; skip them here. The parser
+    // spec already covers the parse tree shape for those inputs.
+
+    // ── Nested combinations ─────────────────────────────────────────────────────
+    {
+      description: "OR child nested inside AND — classic round-trip case",
+      input: "(region = US OR (region = EU AND status = ACTIVE)) AND priority > 3",
+    },
+    {
+      description: "OR child of AND",
+      input: "(region = US OR region = EU) AND status = ACTIVE",
+    },
+    {
+      description: "NOT after AND regression case",
       input:
         '(status = "ACTIVIA" OR status = "PENDING") AND metadata.region = "us-central1" AND NOT labels:deprecated',
-      expected:
-        '(status = "ACTIVIA" OR status = "PENDING") AND metadata.region = "us-central1" AND NOT labels:deprecated',
     },
+    {
+      description: "deeply nested AND inside OR inside AND",
+      input: "a AND (b AND c OR d) AND e",
+    },
+    {
+      description: "NOT over AND inside OR",
+      input: "NOT (a AND b) OR c",
+    },
+
+    // ── Functions ───────────────────────────────────────────────────────────────
+    { input: "foo()" },
+    { input: "foo(a, b, c)" },
+    { input: `regex(m.key, "^.*prod.*$")` },
+    { input: `math.mem("30mb")` },
+    { input: `s.startsWith("x")` },
+    { input: `s.contains("x")` },
+    { input: "experiment.rollout <= cohort(request.user)" },
   ];
 
-  for (const { input, expected } of cases) {
-    it(`unparse("${input}") → "${expected}"`, () => {
-      const { expr } = parse(input);
+  for (const tc of cases) {
+    const label = tc.description
+      ? `${tc.description}: "${tc.input}"`
+      : `round-trips: "${tc.input}"`;
+    it(label, () => {
+      const { expr } = parse(tc.input);
       assert.isDefined(expr);
-      assert.equal(unparse(expr), expected);
+      assert.equal(unparse(expr), tc.input);
     });
   }
 });

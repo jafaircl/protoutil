@@ -76,7 +76,31 @@ export function unparse(expr: Expr): string {
   return unparseExpr(expr);
 }
 
-function unparseExpr(expr: Expr): string {
+/** Returns true if this expression's outermost operator is AND (`_&&_`). */
+function isAndExpr(expr: Expr): boolean {
+  return (
+    expr.exprKind.case === "callExpr" &&
+    (expr.exprKind.value satisfies Expr_Call).function === "_&&_"
+  );
+}
+
+/** Returns true if this expression's outermost operator is OR (`_||_`). */
+function isOrExpr(expr: Expr): boolean {
+  return (
+    expr.exprKind.case === "callExpr" &&
+    (expr.exprKind.value satisfies Expr_Call).function === "_||_"
+  );
+}
+
+/**
+ * @param freeOrInAnd - when true, an OR child of an AND node is emitted
+ *   WITHOUT wrapping parens.  This is used when the AND node is itself being
+ *   rendered inside an explicit paren group: in that context AIP's grammar
+ *   already treats OR as tighter than AND, so parens are redundant and would
+ *   produce a non-canonical string (e.g. `(b AND (c OR d))` instead of
+ *   `(b AND c OR d)`).
+ */
+function unparseExpr(expr: Expr, freeOrInAnd = false): string {
   switch (expr.exprKind.case) {
     case "constExpr":
       return unparseConstant(expr);
@@ -118,10 +142,48 @@ function unparseExpr(expr: Expr): string {
 
       // Infix binary operators
       if (fn in INFIX_OP && call.args.length === 2) {
-        const myPrec = PRECEDENCE[fn] ?? 3;
         const left = call.args[0];
         const right = call.args[1];
 
+        if (fn === "_&&_") {
+          // AIP grammar: AND is at expression level (looser than OR).
+          //
+          // Left child: left-associativity means a left AND child never needs
+          // parens (a AND b AND c always re-parses as (a AND b) AND c).
+          // Exception: a left OR child still gets parens for canonical style.
+          //
+          // Right child:
+          //   - OR  → parens (canonical style, matches existing tests)
+          //   - AND → parens (right-heavy AND would flatten on re-parse);
+          //           render the inner AND with freeOrInAnd=true so the
+          //           content inside the paren group is canonical
+          //           (e.g. `b AND c OR d` not `b AND (c OR d)`).
+          const leftStr = isOrExpr(left)
+            ? `(${unparseExpr(left)})`
+            : unparseExpr(left, freeOrInAnd);
+
+          let rightStr: string;
+          if (isAndExpr(right)) {
+            rightStr = `(${unparseExpr(right, /* freeOrInAnd= */ true)})`;
+          } else if (isOrExpr(right) && !freeOrInAnd) {
+            rightStr = `(${unparseExpr(right)})`;
+          } else {
+            rightStr = unparseExpr(right, freeOrInAnd);
+          }
+
+          return `${leftStr} AND ${rightStr}`;
+        }
+
+        if (fn === "_||_") {
+          // AIP grammar: OR is at factor level (tighter than AND).
+          // An AND child of OR cannot be parsed as a factor without parens.
+          const leftStr = isAndExpr(left) ? `(${unparseExpr(left)})` : unparseExpr(left);
+          const rightStr = isAndExpr(right) ? `(${unparseExpr(right)})` : unparseExpr(right);
+          return `${leftStr} OR ${rightStr}`;
+        }
+
+        // All other infix operators (comparisons, has, arithmetic)
+        const myPrec = PRECEDENCE[fn] ?? 3;
         const leftStr = maybeWrap(unparseExpr(left), exprPrecedence(left), myPrec);
         const rightStr = maybeWrap(unparseExpr(right), exprPrecedence(right), myPrec);
 

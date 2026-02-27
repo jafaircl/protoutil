@@ -11,7 +11,8 @@
       "**",
       "!**/dist",
       "!**/node_modules",
-      "!examples/angular-client/**/*.html"
+      "!examples/angular-client/**/*.html",
+      "!packages/angular/**/*.html"
     ]
   },
   "formatter": {

@@ -9,6 +9,7 @@ import {
   type SourceInfoSchema,
 } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
 import { type Token, TokenType, tokenize } from "./lexer.js";
+import { MAX_EXPR_DEPTH } from "./utils.js";
 
 export type ExprInit = MessageInitShape<typeof ExprSchema>;
 export type ConstantInit = MessageInitShape<typeof ConstantSchema>;
@@ -73,9 +74,15 @@ class Parser {
   #positions: Map<bigint, number> = new Map();
   #macroCalls: Map<bigint, ExprInit> = new Map();
   #idCounter: bigint = 1n;
+  #depth: number = 0;
+  #maxDepth: number;
 
-  constructor(private input: string) {
+  constructor(
+    private input: string,
+    maxDepth: number,
+  ) {
     this.#tokens = tokenize(input);
+    this.#maxDepth = maxDepth;
   }
 
   private nextId(): bigint {
@@ -147,6 +154,15 @@ class Parser {
     const expr =
       this.peek().type === TokenType.EOF ? this.makeIdent("", 0) : this.parseExpression();
     this.skipWS();
+
+    // Assert all input was consumed — catches trailing garbage like "a AND b)"
+    const trailing = this.peek();
+    if (trailing.type !== TokenType.EOF) {
+      throw new ParseError(
+        `Unexpected token "${trailing.value}" at offset ${trailing.offset}`,
+        trailing.offset,
+      );
+    }
 
     const sourceInfo: MessageInitShape<typeof SourceInfoSchema> = {
       syntaxVersion: "cel1",
@@ -223,10 +239,18 @@ class Parser {
 
   private parseComposite(): ExprInit {
     this.expect(TokenType.LPAREN);
+    this.#depth++;
+    if (this.#depth > this.#maxDepth) {
+      throw new ParseError(
+        `Expression depth exceeds maximum allowed depth of ${this.#maxDepth}`,
+        this.peek().offset,
+      );
+    }
     this.skipWS();
     const expr = this.parseExpression();
     this.skipWS();
     this.expect(TokenType.RPAREN);
+    this.#depth--;
     return expr;
   }
 
@@ -275,6 +299,12 @@ class Parser {
       } else {
         this.consumeRaw(); // DOT
         const fieldTok = this.consumeRaw();
+        if (fieldTok.type !== TokenType.TEXT && !isKeyword(fieldTok.type)) {
+          throw new ParseError(
+            `Expected field name after "." at offset ${fieldTok.offset}`,
+            fieldTok.offset,
+          );
+        }
         const id = this.nextId();
         this.register(id, fieldTok.offset);
         current = {
@@ -327,6 +357,12 @@ class Parser {
     const tok = this.peek();
     if (tok.type === TokenType.UNTERMINATED_STRING) {
       throw new ParseError(`Unterminated string literal at offset ${tok.offset}`, tok.offset);
+    }
+    // AND, OR, NOT cannot begin a restriction as bare identifiers.
+    // NOT is a unary operator handled by parseTerm before we reach here.
+    // AND and OR are conjunction operators that require a left-hand operand.
+    if (tok.type === TokenType.AND || tok.type === TokenType.OR || tok.type === TokenType.NOT) {
+      throw new ParseError(`Unexpected keyword "${tok.value}" at offset ${tok.offset}`, tok.offset);
     }
     if (tok.type === TokenType.MINUS) {
       this.consume();
@@ -504,28 +540,13 @@ function parseNumber(s: string): ConstantInit | undefined {
 
 function parseTextLiteral(s: string): ConstantInit | undefined {
   if (s === "true") {
-    return {
-      constantKind: {
-        case: "boolValue",
-        value: true,
-      },
-    };
+    return { constantKind: { case: "boolValue", value: true } };
   }
   if (s === "false") {
-    return {
-      constantKind: {
-        case: "boolValue",
-        value: false,
-      },
-    };
+    return { constantKind: { case: "boolValue", value: false } };
   }
   if (s === "null") {
-    return {
-      constantKind: {
-        case: "nullValue",
-        value: NullValue.NULL_VALUE,
-      },
-    };
+    return { constantKind: { case: "nullValue", value: NullValue.NULL_VALUE } };
   }
   return parseNumber(s);
 }
@@ -562,9 +583,13 @@ export class ParseError extends Error {
 }
 
 /**
- * Parse a CEL/AIP-160 filter string.
+ * Parse a AIP-160 filter string.
  * Returns a ParsedExpr with v1alpha1 SourceInfo (lineOffsets = newline positions).
+ *
+ * @param input - The filter string to parse.
+ * @param maxDepth - Maximum allowed expression nesting depth. Defaults to 32
+ * @throws ParseError if the input is not a valid filter expression or exceeds maxDepth.
  */
-export function parse(input: string): ParsedExpr {
-  return new Parser(input).parse();
+export function parse(input: string, maxDepth: number = MAX_EXPR_DEPTH): ParsedExpr {
+  return new Parser(input, maxDepth).parse();
 }

@@ -141,10 +141,12 @@ export const BUILTIN_DECLS: Decl[] = [
   ),
 
   // Has operator
+  // The AIP parser emits @in(collection, key) — i.e. `labels:"deprecated"` becomes
+  // @in(labels, "deprecated") — so the collection is the first argument.
   func(
     "@in",
-    overload("in_list", [PARAM_A, LIST_OF_A], BOOL, "Has operator for lists and strings"),
-    overload("in_map", [PARAM_A, MAP_OF_A_B], BOOL, "Has operator for maps"),
+    overload("in_list", [LIST_OF_A, PARAM_A], BOOL, "Has operator for lists"),
+    overload("in_map", [MAP_OF_A_B, PARAM_A], BOOL, "Has operator for maps"),
   ),
 
   // String methods
@@ -268,6 +270,9 @@ function isError(t: TypeInit): boolean {
 function typeCompatible(expected: TypeInit, actual: TypeInit): boolean {
   if (isError(expected) || isError(actual)) return false;
   if (isDyn(expected) || isDyn(actual)) return true;
+  // A type parameter in the expected (overload signature) position is a type
+  // variable — it unifies with any concrete type, like a generic placeholder.
+  if (expected.typeKind?.case === "typeParam") return true;
   if (expected.typeKind?.case !== actual.typeKind?.case) return false;
   switch (expected.typeKind?.case) {
     case "primitive":

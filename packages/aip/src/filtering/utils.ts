@@ -186,3 +186,70 @@ export function cloneExpr(expr: Expr, nextId: () => bigint): Expr {
       return create(ExprSchema, { id, exprKind: expr.exprKind });
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Expr depth
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const MAX_EXPR_DEPTH = 32;
+
+export class ExprDepthError extends Error {
+  constructor(
+    public readonly depth: number,
+    public readonly max: number,
+  ) {
+    super(`Expression depth ${depth} exceeds maximum allowed depth of ${max}`);
+    this.name = "ExprDepthError";
+  }
+}
+
+/** Returns the maximum nesting depth of an Expr tree. A leaf node has depth 1. */
+export function exprDepth(expr: Expr): number {
+  switch (expr.exprKind.case) {
+    case "selectExpr": {
+      const operand = expr.exprKind.value.operand;
+      return 1 + (operand ? exprDepth(operand) : 0);
+    }
+    case "callExpr": {
+      const { target, args } = expr.exprKind.value;
+      const childDepths = [target ? exprDepth(target) : 0, ...args.map(exprDepth)];
+      return 1 + Math.max(0, ...childDepths);
+    }
+    case "listExpr": {
+      const depths = expr.exprKind.value.elements.map(exprDepth);
+      return 1 + Math.max(0, ...depths);
+    }
+    case "structExpr": {
+      const depths = expr.exprKind.value.entries.flatMap((e) => [
+        e.value ? exprDepth(e.value) : 0,
+        e.keyKind.case === "mapKey" ? exprDepth(e.keyKind.value) : 0,
+      ]);
+      return 1 + Math.max(0, ...depths);
+    }
+    case "comprehensionExpr": {
+      const c = expr.exprKind.value;
+      const depths = [
+        c.iterRange ? exprDepth(c.iterRange) : 0,
+        c.accuInit ? exprDepth(c.accuInit) : 0,
+        c.loopCondition ? exprDepth(c.loopCondition) : 0,
+        c.loopStep ? exprDepth(c.loopStep) : 0,
+        c.result ? exprDepth(c.result) : 0,
+      ];
+      return 1 + Math.max(0, ...depths);
+    }
+    default:
+      // constExpr, identExpr — leaves
+      return 1;
+  }
+}
+
+/**
+ * Throws an ExprDepthError if the expression's depth exceeds `max`.
+ * Defaults to MAX_EXPR_DEPTH if `max` is not provided.
+ */
+export function assertExprDepth(expr: Expr, max: number = MAX_EXPR_DEPTH): void {
+  const depth = exprDepth(expr);
+  if (depth > max) {
+    throw new ExprDepthError(depth, max);
+  }
+}
