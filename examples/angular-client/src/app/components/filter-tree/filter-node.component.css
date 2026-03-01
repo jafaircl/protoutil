@@ -1,0 +1,364 @@
+/* filter-node.component.css */
+
+/* ============================================================
+   Design tokens — customizable spacing, sizing, and borders.
+   Override these on a parent element or :host to retheme.
+   All values are rem-based so they scale with html font-size.
+   ============================================================ */
+
+:host {
+  /* Spacing */
+  --filter-tree-gap-xs: 0.125rem;
+  --filter-tree-gap-sm: 0.25rem;
+  --filter-tree-gap-md: 0.375rem;
+  --filter-tree-gap-lg: 0.5rem;
+  --filter-tree-gap-xl: 0.75rem;
+  --filter-tree-gap-2xl: 1rem;
+
+  /* Sizing */
+  --filter-tree-chip-height: 2rem;
+  --filter-tree-icon-size: 1.125rem;
+  --filter-tree-icon-button-size: 1.5rem;
+  --filter-tree-delete-button-size: 1.75rem;
+
+  /* Borders */
+  --filter-tree-border-width: 0.0625rem;
+  --filter-tree-rail-width: 0.125rem;
+  --filter-tree-outline-width: 0.125rem;
+  --filter-tree-rail-indent: 0.875rem;
+
+  /* Radii */
+  --filter-tree-radius-sm: 0.0625rem;
+  --filter-tree-radius-md: 0.1875rem;
+  --filter-tree-radius-lg: 0.25rem;
+  --filter-tree-radius: 0.5rem;
+
+  /* Typography */
+  --filter-tree-font-size: 0.875rem;
+  --filter-tree-font-size-sm: 0.8rem;
+  --filter-tree-font-size-xs: 0.75rem;
+  --filter-tree-font-size-2xs: 0.7rem;
+
+  /* Drag zones */
+  --filter-tree-gap-zone-height: 1rem;
+  --filter-tree-empty-zone-height: 2rem;
+  --filter-tree-insertion-line-height: 0.125rem;
+}
+
+/* ============================================================
+   Leaf — chip-styled div
+   ============================================================
+   Styled to match Material 3 chip appearance using --mat-sys-*
+   tokens. We use a plain div instead of mat-chip because
+   mat-chip's internal event handling conflicts with cdkDragHandle
+   inside projected content.
+*/
+
+.filter-leaf {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--filter-tree-gap-sm);
+  height: var(--filter-tree-chip-height);
+  padding: 0 var(--filter-tree-gap-xl);
+  margin: var(--filter-tree-gap-xs) 0;
+  border-radius: var(--filter-tree-radius);
+  border: var(--filter-tree-border-width) solid var(--mat-sys-outline, #79747e);
+  background: var(--mat-sys-surface-container-low, #f7f2fa);
+  color: var(--mat-sys-on-surface, #1d1b20);
+  font-size: var(--filter-tree-font-size);
+  letter-spacing: 0.01em;
+  cursor: default;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.filter-leaf--drop-target {
+  outline: var(--filter-tree-outline-width) solid var(--mat-sys-primary, #6750a4);
+  outline-offset: var(--filter-tree-border-width);
+}
+
+.leaf-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Remove button — matches Material chip trailing icon */
+.leaf-remove {
+  flex-shrink: 0;
+  --mdc-icon-button-state-layer-size: var(--filter-tree-icon-button-size);
+  --mdc-icon-button-icon-size: var(--filter-tree-icon-size);
+  width: var(--filter-tree-icon-button-size);
+  height: var(--filter-tree-icon-button-size);
+  padding: 0;
+  margin-left: var(--filter-tree-gap-xs);
+  margin-right: calc(var(--filter-tree-gap-md) * -1);
+  color: var(--mat-sys-on-surface-variant, #49454f);
+  transition: color 100ms ease;
+}
+
+.leaf-remove:hover {
+  color: var(--mat-sys-error, #b3261e);
+}
+
+.leaf-remove mat-icon {
+  font-size: var(--filter-tree-icon-size);
+  width: var(--filter-tree-icon-size);
+  height: var(--filter-tree-icon-size);
+  line-height: var(--filter-tree-icon-size);
+}
+
+/* ============================================================
+   Branch — flat left-rail
+   ============================================================
+   Nesting depth is indicated by a left border on the branch body,
+   indenting all children under the header. The rail lives on
+   .branch-body (not .filter-branch) so it visually groups the
+   children beneath the header at every nesting level.
+*/
+
+.filter-branch {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: var(--filter-tree-gap-xs) 0;
+}
+
+/* ---- Header ---- */
+
+.branch-header {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--filter-tree-gap-md);
+  padding: var(--filter-tree-gap-sm) var(--filter-tree-gap-lg);
+  border-radius: var(--filter-tree-radius);
+  background: var(--mat-sys-surface-container-highest);
+  user-select: none;
+  margin-bottom: var(--filter-tree-gap-xs);
+}
+
+/* mat-button-toggle-group for AND / OR */
+.conjunction-toggle-group {
+  --mat-standard-button-toggle-selected-state-background-color: var(--mat-sys-primary-container, #e8def8);
+  --mat-standard-button-toggle-selected-state-text-color: var(--mat-sys-on-primary-container, #21005d);
+}
+
+.conjunction-toggle-group .mat-button-toggle-label-content {
+  display: flex;
+  align-items: center;
+  gap: var(--filter-tree-gap-sm);
+  font-weight: 700;
+  font-size: var(--filter-tree-font-size-sm);
+  letter-spacing: 0.05em;
+  line-height: 1;
+  padding: 0 var(--filter-tree-gap-xl);
+}
+
+.conjunction-toggle-group .mat-button-toggle-checked .mat-button-toggle-label-content mat-icon,
+.conjunction-toggle-group .mat-button-toggle-checked .mat-button-toggle-label-content .mat-icon {
+  font-size: var(--filter-tree-font-size-sm);
+  width: var(--filter-tree-font-size-sm);
+  height: var(--filter-tree-font-size-sm);
+  line-height: var(--filter-tree-font-size-sm);
+}
+
+/* Drop-target highlight on branch header */
+.branch-header--drop-target {
+  outline: var(--filter-tree-outline-width) solid var(--mat-sys-primary, #6750a4);
+  outline-offset: var(--filter-tree-outline-width);
+  border-radius: var(--filter-tree-radius);
+}
+
+/* ---- Body ---- */
+
+.branch-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border-left: var(--filter-tree-rail-width) solid var(--mat-sys-outline-variant);
+  margin-left: var(--filter-tree-rail-indent);
+  padding-left: var(--filter-tree-gap-xl);
+  padding-top: var(--filter-tree-gap-xs);
+  padding-bottom: var(--filter-tree-gap-xs);
+  min-height: var(--filter-tree-gap-xl);
+}
+
+/* ============================================================
+   Child wrapper
+   ============================================================ */
+
+.child-wrapper {
+  position: relative;
+}
+
+/* ============================================================
+   Gap zones — INSERT BEFORE/AFTER
+   ============================================================ */
+
+.gap-zone {
+  height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--filter-tree-radius-md);
+  transition: height 120ms ease, background 100ms ease;
+  position: relative;
+  align-self: stretch;
+}
+
+.gap-zone--visible {
+  height: var(--filter-tree-gap-zone-height);
+}
+
+.gap-zone--active {
+  height: var(--filter-tree-gap-zone-height);
+  background: transparent;
+}
+
+.gap-zone--active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--filter-tree-insertion-line-height);
+  border-radius: var(--filter-tree-radius-sm);
+  background: var(--mat-sys-primary, #6750a4);
+}
+
+/* Empty branch */
+.gap-zone--empty {
+  height: var(--filter-tree-empty-zone-height);
+  border: var(--filter-tree-border-width) dashed var(--mat-sys-outline-variant);
+  border-radius: var(--filter-tree-radius);
+  color: var(--mat-sys-outline);
+  font-size: var(--filter-tree-font-size-xs);
+  font-style: italic;
+  padding: 0 var(--filter-tree-gap-2xl);
+}
+
+.gap-zone--empty.gap-zone--active {
+  border-color: var(--mat-sys-primary, #6750a4);
+  background: color-mix(in srgb, var(--mat-sys-primary, #6750a4) 6%, transparent);
+  color: var(--mat-sys-primary, #6750a4);
+}
+
+.gap-label {
+  pointer-events: none;
+}
+
+/* ============================================================
+   Item merge overlay
+   ============================================================ */
+
+.item-merge-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: var(--filter-tree-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  background: transparent;
+  border: var(--filter-tree-outline-width) dashed transparent;
+  transition: opacity 80ms ease;
+}
+
+.item-merge-overlay--active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--mat-sys-tertiary, #4caf50) 12%, transparent);
+  border-color: var(--mat-sys-tertiary, #4caf50);
+}
+
+.merge-label {
+  font-size: var(--filter-tree-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-tertiary-container, #2e7d32);
+  background: var(--mat-sys-surface, rgba(255, 255, 255, 0.85));
+  padding: var(--filter-tree-gap-xs) var(--filter-tree-gap-lg);
+  border-radius: var(--filter-tree-radius-lg);
+}
+
+/* ============================================================
+   Delete button (branch header)
+   ============================================================ */
+
+.delete-button {
+  flex-shrink: 0;
+  --mdc-icon-button-state-layer-size: var(--filter-tree-delete-button-size);
+  --mdc-icon-button-icon-size: var(--filter-tree-icon-size);
+  width: var(--filter-tree-delete-button-size);
+  height: var(--filter-tree-delete-button-size);
+  padding: 0;
+  color: var(--mat-sys-outline);
+  transition: color 100ms ease;
+}
+
+.delete-button:hover {
+  color: var(--mat-sys-error, #b3261e);
+}
+
+.delete-button mat-icon {
+  font-size: var(--filter-tree-icon-size);
+  width: var(--filter-tree-icon-size);
+  height: var(--filter-tree-icon-size);
+  line-height: var(--filter-tree-icon-size);
+}
+
+/* ============================================================
+   Drag handle
+   ============================================================ */
+
+.drag-handle {
+  cursor: grab;
+  color: var(--mat-sys-on-surface-variant, #49454f);
+  display: inline-flex;
+  align-items: center;
+  touch-action: none;
+  flex-shrink: 0;
+  margin-left: calc(var(--filter-tree-gap-md) * -1);
+  margin-right: calc(var(--filter-tree-gap-xs) * -1);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle mat-icon {
+  font-size: var(--filter-tree-icon-size);
+  width: var(--filter-tree-icon-size);
+  height: var(--filter-tree-icon-size);
+  line-height: var(--filter-tree-icon-size);
+}
+
+/* Inside a branch header the negative margin isn't needed */
+.branch-header > .drag-handle {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* ============================================================
+   Drag preview & placeholder
+   ============================================================ */
+
+.drag-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--filter-tree-gap-md);
+  padding: var(--filter-tree-gap-md) var(--filter-tree-gap-xl);
+  background: var(--mat-sys-surface, #fff);
+  border: var(--filter-tree-outline-width) solid var(--mat-sys-primary, #6750a4);
+  border-radius: var(--filter-tree-radius);
+  box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.15);
+  font-size: var(--filter-tree-font-size);
+  pointer-events: none;
+}
+
+.drag-placeholder-hidden {
+  display: none !important;
+}

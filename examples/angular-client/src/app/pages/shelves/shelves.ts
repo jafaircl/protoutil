@@ -16,22 +16,42 @@ import { MatInputModule } from "@angular/material/input";
 import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatSort, MatSortModule, type Sort } from "@angular/material/sort";
 import { MatTableModule } from "@angular/material/table";
-import { ident, STRING } from "@protoutil/aip/filtering";
+import { type Expr, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
 import { Field, OrderBy, parseOrderBy } from "@protoutil/aip/orderby";
 import { validateAipFilter } from "@protoutil/angular";
 import { linkedQueryParam, paramToNumber } from "ngxtension/linked-query-param";
 import type { ListShelvesResponse } from "../../../gen/library/v1/library_pb";
+import {
+  exprToFilterNode,
+  type FilterNode,
+  filterNodeToExpr,
+} from "../../components/filter-tree/filter-node.model";
+import { FilterTreeComponent } from "./../../components/filter-tree/filter-tree.component";
 import { LibraryService } from "../../services/library";
 import { DEFAULT_PAGE_SIZE } from "../../utils/defaults";
 import { stringifyQueryParam } from "../../utils/query-params";
 
-const declarations = [ident("theme", STRING)];
+/**
+ * Build a sample tree for demo purposes:
+ *
+ *   root (AND)
+ *     ├── leaf: "status = ACTIVE"
+ *     ├── branch (OR)
+ *     │     ├── leaf: "region = US"
+ *     │     └── leaf: "region = EU"
+ *     ├── leaf: "priority > 3"
+ *     └── leaf: "name.startsWith("foo")"
+ */
+function buildDemoTree(): FilterNode {
+  return exprToFilterNode(parse(`status = ACTIVE AND (region = US OR region = EU) AND priority > 3 AND name.startsWith("foo")`).expr as Expr);
+}
 
 @Component({
   selector: "app-shelves",
   templateUrl: "./shelves.html",
   styleUrls: ["./shelves.css"],
   imports: [
+    FilterTreeComponent,
     FormField,
     FormsModule,
     MatFormFieldModule,
@@ -56,10 +76,11 @@ export class ShelfListComponent implements AfterViewInit {
     parse: (str) => (!str ? null : parseOrderBy(str)),
     stringify: (param) => (!param ? null : param.toString()),
   });
+  decls = signal([ident("theme", STRING)]);
   filterForm = form(signal(""), (path) => {
     // Debounce filter input to avoid excessive requests/validation while typing
     debounce(path, 300);
-    validateAipFilter(path, declarations);
+    validateAipFilter(path, this.decls);
   });
   filterParam = linkedQueryParam("filter", {
     source: linkedSignal(() => {
@@ -151,4 +172,11 @@ export class ShelfListComponent implements AfterViewInit {
     }
     this.orderByParam.set(new OrderBy([new Field(state.active, state.direction === "desc")]));
   }
+
+  onFilterChange($event: unknown) {
+    console.log({ $event });
+    console.log(unparse(filterNodeToExpr($event as FilterNode)));
+  }
+
+  rootNode = signal<FilterNode>(buildDemoTree());
 }

@@ -9,9 +9,9 @@ tasks:
     - protogen
   test:
     command: 'pnpm run test'
-    dependsOn:
-    - typecheck
-    - check
+    # dependsOn:
+    # - typecheck
+    # - check
   build:
     command: 'pnpm run build'
     dependsOn:

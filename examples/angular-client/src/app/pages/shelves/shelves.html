@@ -7,6 +7,7 @@
     <mat-error>{{ filterForm().errors()[0].message }}</mat-error>
     }
   </mat-form-field>
+  <aip-filter-tree [initialTree]="rootNode()" (treeChange)="onFilterChange($event)"></aip-filter-tree>
 
   <table
     mat-table

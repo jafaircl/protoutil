@@ -1,0 +1,8 @@
+/* filter-tree.component.css
+ *
+ * Minimal host styles. Node styles live in filter-node.component.css.
+ */
+
+:host {
+  display: block;
+}

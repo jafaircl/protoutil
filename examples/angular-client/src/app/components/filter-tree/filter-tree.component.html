@@ -1,0 +1,15 @@
+<!--
+  filter-tree.component.html
+
+  Thin shell: renders the tree by delegating to the recursive
+  FilterNodeComponent and wiring up the events.
+-->
+<aip-filter-node
+  [node]="root()"
+  [root]="root()"
+  [isRoot]="true"
+  [allDropListIds]="allDropListIds()"
+  (nodeDrop)="onNodeDrop($event)"
+  (conjunctionToggle)="onConjunctionToggle($event)"
+  (nodeDelete)="onNodeDelete($event)"
+/>

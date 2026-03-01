@@ -1,0 +1,196 @@
+<!--
+  filter-node.component.html
+
+  KEY ATTRIBUTES:
+  - .branch-body[data-branch-id]  — lets the service identify which branch
+                                    body the pointer is inside.
+  - .child-wrapper[data-node-id]  — lets computeActiveZone() identify which
+                                    child is the dragged node so it can skip
+                                    the item-center snap point for it.
+
+  PLACEHOLDERS:
+  Both *cdkDragPlaceholder elements use .drag-placeholder-hidden to suppress
+  CDK's default phantom element.
+
+  MERGE OVERLAY:
+  Only shown for LEAF children (not branches). The dragged node
+  itself is also excluded (can't create a branch with yourself); this is
+  enforced in computeActiveZone() by skipping the item snap point for
+  the child whose data-node-id matches currentDragId.
+-->
+
+@if (isLeaf()) {
+  <!-- ======================================================================
+       LEAF NODE — styled as a chip, plain div for cdkDrag compatibility.
+       mat-chip's internal event handling conflicts with cdkDragHandle
+       inside projected content, so we use chip design tokens on a div.
+       ====================================================================== -->
+  <div
+    class="filter-leaf"
+    [class.filter-leaf--drop-target]="isDropTarget()"
+    cdkDrag
+    [cdkDragData]="node().id"
+    [cdkDragDisabled]="isRoot()"
+    (cdkDragStarted)="onDragStarted()"
+    (cdkDragEnded)="onDragEnded()"
+    (cdkDragMoved)="onDragMoved($event)"
+  >
+    @if (!isRoot()) {
+      <span class="drag-handle" cdkDragHandle aria-label="Drag handle">
+        <mat-icon>drag_indicator</mat-icon>
+      </span>
+    }
+
+    <span class="leaf-label">{{ leafLabel() }}</span>
+
+    @if (!isRoot()) {
+      <button
+        class="leaf-remove"
+        mat-icon-button
+        matTooltip="Delete filter"
+        aria-label="Delete filter"
+        (click)="onDeleteNode()"
+      >
+        <mat-icon>cancel</mat-icon>
+      </button>
+    }
+
+    <div *cdkDragPreview class="drag-preview">{{ leafLabel() }}</div>
+    <div *cdkDragPlaceholder class="drag-placeholder-hidden"></div>
+  </div>
+} @else if (isBranch()) {
+  <!-- ======================================================================
+       BRANCH NODE — flat left-rail style
+       ====================================================================== -->
+  <div class="filter-branch" [class.filter-branch--root]="isRoot()">
+    <!-- Header: conjunction toggle + drag handle + delete -->
+    <div
+      class="branch-header"
+      [class.branch-header--drop-target]="isDropTarget()"
+      cdkDrag
+      [cdkDragData]="node().id"
+      [cdkDragDisabled]="isRoot()"
+      (cdkDragStarted)="onDragStarted()"
+      (cdkDragEnded)="onDragEnded()"
+      (cdkDragMoved)="onDragMoved($event)"
+    >
+      @if (!isRoot()) {
+        <span class="drag-handle" cdkDragHandle aria-label="Drag branch">
+          <mat-icon>drag_indicator</mat-icon>
+        </span>
+      }
+
+      <mat-button-toggle-group
+        class="conjunction-toggle-group"
+        [value]="node().conjunction"
+        (change)="onToggleConjunction()"
+        [attr.aria-label]="'Conjunction, currently ' + conjunctionLabel()"
+      >
+        <mat-button-toggle
+          value="_&&_"
+          matTooltip="AND — all conditions must match"
+          >AND</mat-button-toggle
+        >
+        <mat-button-toggle
+          value="_||_"
+          matTooltip="OR — any condition must match"
+          >OR</mat-button-toggle
+        >
+      </mat-button-toggle-group>
+
+      @if (!isRoot()) {
+        <button
+          class="delete-button"
+          mat-icon-button
+          matTooltip="Delete branch"
+          aria-label="Delete branch"
+          (click)="onDeleteNode()"
+        >
+          <mat-icon>cancel</mat-icon>
+        </button>
+      }
+
+      <div *cdkDragPreview class="drag-preview">
+        {{ conjunctionLabel() }} branch
+      </div>
+      <div *cdkDragPlaceholder class="drag-placeholder-hidden"></div>
+    </div>
+
+    <!--
+      Branch body: the cdkDropList.
+      [attr.data-branch-id] is read by FilterTreeDragStateService.updatePointer()
+      to identify this branch in the global DOM walk.
+    -->
+    <div
+      class="branch-body"
+      [attr.data-branch-id]="node().id"
+      cdkDropList
+      [id]="dropListId()"
+      [cdkDropListData]="node().children"
+      [cdkDropListConnectedTo]="allDropListIds()"
+      [cdkDropListSortingDisabled]="true"
+      (cdkDropListDropped)="onDrop($event)"
+    >
+      @if (node().children.length === 0) {
+        <div
+          class="gap-zone gap-zone--empty"
+          [class.gap-zone--active]="isDragging() && isGapActive(0)"
+          aria-hidden="true"
+        >
+          <span class="gap-label">Drop here</span>
+        </div>
+      } @else {
+        <!-- Leading gap -->
+        <div
+          class="gap-zone"
+          [class.gap-zone--visible]="isDragging()"
+          [class.gap-zone--active]="isDragging() && isGapActive(0)"
+          [attr.data-gap-index]="isDragging() ? 0 : null"
+          [attr.data-branch-id]="isDragging() ? node().id : null"
+          aria-hidden="true"
+        ></div>
+
+        @for (child of node().children; track child.id; let i = $index) {
+          <div class="child-wrapper" [attr.data-node-id]="child.id">
+            @if (child.children.length === 0) {
+              <div
+                class="item-merge-overlay"
+                [class.item-merge-overlay--active]="
+                  isDragging() && isItemActive(i)
+                "
+                aria-hidden="true"
+              >
+                <span class="merge-label">Create branch</span>
+              </div>
+            }
+
+            <aip-filter-node
+              [node]="child"
+              [root]="root()"
+              [isRoot]="false"
+              [allDropListIds]="allDropListIds()"
+              [isDropTarget]="isDragging() && isItemActive(i)"
+              (nodeDrop)="onChildDrop($event)"
+              (conjunctionToggle)="onChildConjunctionToggle($event)"
+              (nodeDelete)="onChildDelete($event)"
+            />
+          </div>
+
+          <div
+            class="gap-zone"
+            [class.gap-zone--visible]="isDragging()"
+            [class.gap-zone--active]="
+              isDragging() &&
+              (i === node().children.length - 1
+                ? isTrailingGapActive()
+                : isGapActive(i + 1))
+            "
+            [attr.data-gap-index]="isDragging() ? i + 1 : null"
+            [attr.data-branch-id]="isDragging() ? node().id : null"
+            aria-hidden="true"
+          ></div>
+        }
+      }
+    </div>
+  </div>
+}
