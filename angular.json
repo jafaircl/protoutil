@@ -98,7 +98,13 @@
           "defaultConfiguration": "development"
         },
         "test": {
-          "builder": "@angular/build:unit-test"
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "examples/angular-client/tsconfig.spec.json",
+            "buildTarget": "angular-client:build:development",
+            "browsers": ["chromium"],
+            "runnerConfig": "examples/angular-client/vitest.config.ts"
+          }
         }
       }
     }

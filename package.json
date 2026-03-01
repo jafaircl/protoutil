@@ -12,21 +12,38 @@
     "examples/*",
     "packages/*"
   ],
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
   "devDependencies": {
+    "@angular/animations": "^21.1.5",
     "@angular/build": "^21.1.4",
+    "@angular/cdk": "~21.1.5",
     "@angular/cli": "^21.1.4",
+    "@angular/common": "^21.1.4",
     "@angular/compiler-cli": "^21.1.0",
+    "@angular/core": "^21.1.4",
+    "@angular/forms": "^21.1.4",
+    "@angular/material": "~21.1.5",
+    "@angular/platform-browser": "^21.1.4",
+    "@angular/router": "^21.2.0",
     "@biomejs/biome": "2.4.0",
     "@bufbuild/buf": "^1.65.0",
+    "@bufbuild/protobuf": "^2.11.0",
+    "@bufbuild/protovalidate": "^1.1.1",
     "@bufbuild/protoc-gen-es": "^2.11.0",
+    "@connectrpc/connect": "^2.1.1",
+    "@connectrpc/connect-web": "^2.1.1",
+    "@vitest/browser": "^4.0.18",
+    "@vitest/browser-playwright": "^4.0.18",
     "fastify-cli": "^7.4.1",
     "jsdom": "^27.1.0",
     "ng-packagr": "^21.1.0",
+    "ngxtension": "^7.1.0",
+    "playwright": "^1.58.2",
+    "rxjs": "^7.8.2",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
-  },
-  "dependencies": {
-    "tslib": "^2.3.0"
   }
 }

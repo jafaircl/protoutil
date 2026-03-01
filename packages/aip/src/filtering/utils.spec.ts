@@ -1,5 +1,6 @@
 import { assert, describe, it } from "vitest";
 import type { Expr } from "../gen/google/api/expr/v1alpha1/syntax_pb";
+import { AipFilterError, ErrorCode } from "./errors";
 import { parse } from "./parser";
 import { assertExprDepth, ExprDepthError, exprDepth, MAX_EXPR_DEPTH } from "./utils";
 
@@ -163,18 +164,19 @@ describe("assertExprDepth", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("ExprDepthError", () => {
-  it("is an instance of Error", () => {
+  it("is an instance of Error, AipFilterError, and ExprDepthError", () => {
     const e = new ExprDepthError(10, 5);
-    assert.instanceOf(e, Error);
-  });
-
-  it("is an instance of ExprDepthError", () => {
-    const e = new ExprDepthError(10, 5);
-    assert.instanceOf(e, ExprDepthError);
+    assert(e instanceof Error);
+    assert(e instanceof AipFilterError);
+    assert(e instanceof ExprDepthError);
   });
 
   it("name is ExprDepthError", () => {
     assert.equal(new ExprDepthError(10, 5).name, "ExprDepthError");
+  });
+
+  it("code is DEPTH_EXCEEDED", () => {
+    assert.equal(new ExprDepthError(10, 5).code, ErrorCode.DEPTH_EXCEEDED);
   });
 
   it("exposes depth property", () => {
@@ -183,6 +185,24 @@ describe("ExprDepthError", () => {
 
   it("exposes max property", () => {
     assert.equal(new ExprDepthError(10, 5).max, 5);
+  });
+
+  it("message includes both depth and max", () => {
+    const e = new ExprDepthError(10, 5);
+    assert.include(e.message, "10");
+    assert.include(e.message, "5");
+  });
+
+  it("toString() uses the CEL sentinel position -1:0", () => {
+    assert.include(String(new ExprDepthError(10, 5)), "ERROR: <input>:-1:0:");
+  });
+
+  it("toString() has no pointer line (no source location)", () => {
+    assert.notMatch(String(new ExprDepthError(10, 5)), /\| /);
+  });
+
+  it("position.line is -1 (sentinel — no meaningful source location)", () => {
+    assert.equal(new ExprDepthError(10, 5).position?.line, -1);
   });
 });
 

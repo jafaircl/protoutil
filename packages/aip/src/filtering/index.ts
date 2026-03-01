@@ -1,11 +1,25 @@
 export * from "./../gen/google/api/expr/v1alpha1/checked_pb.js";
 export * from "./../gen/google/api/expr/v1alpha1/syntax_pb.js";
-export { BUILTIN_DECLS, check, outputType, type TypeCheckError } from "./checker.js";
-export { toDebugString } from "./debug.js";
+export { BUILTIN_DECLS, check, outputType } from "./checker.js";
+export {
+  AipFilterError,
+  ErrorCode,
+  ExprDepthError,
+  formatPosition,
+  ParseError,
+  type SourcePosition,
+  TypeCheckError,
+} from "./errors.js";
 export { fold } from "./fold.js";
 export { inline } from "./inline.js";
 export { type Optimizer, optimize } from "./optimizer.js";
 export { parse } from "./parser.js";
+export {
+  KindAdorner,
+  LocationAdorner,
+  SemanticAdorner,
+  toDebugString,
+} from "./to-debug-string.js";
 export {
   ANY,
   abstractType,
@@ -34,3 +48,4 @@ export {
   wrapperType,
 } from "./types.js";
 export { unparse } from "./unparse.js";
+export { assertExprDepth, exprDepth, MAX_EXPR_DEPTH } from "./utils.js";

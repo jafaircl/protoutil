@@ -8,6 +8,7 @@ import {
   type Type_MapTypeSchema,
 } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
 import type { Expr, ParsedExpr } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
+import { ErrorCode, type SourcePosition, TypeCheckError } from "./errors.js";
 import { offsetToLineCol } from "./parser.js";
 import {
   BOOL,
@@ -228,31 +229,6 @@ export const BUILTIN_DECLS: Decl[] = [
   ),
 ];
 
-/**
- * A specific position in the source text.
- * Corresponds to google.api.expr.v1alpha1.SourcePosition.
- */
-export interface SourcePosition {
-  location: string;
-  offset: number;
-  /** 1-based line number (0 if unknown) */
-  line: number;
-  /** 0-based column within the line */
-  column: number;
-}
-
-export class TypeCheckError extends Error {
-  exprId: bigint;
-  position?: SourcePosition;
-
-  constructor(exprId: bigint, message: string, position?: SourcePosition) {
-    super(message);
-    this.name = "TypeCheckError";
-    this.exprId = exprId;
-    this.position = position;
-  }
-}
-
 type ReferenceInit = MessageInitShape<typeof ReferenceSchema>;
 
 function isDyn(t: TypeInit): boolean {
@@ -383,9 +359,11 @@ export class Checker {
   #errors: TypeCheckError[] = [];
   #decls: Decl[];
   #sourceInfo?: ParsedExpr["sourceInfo"];
+  #source?: string;
 
-  constructor(extraDecls: Decl[] = []) {
+  constructor(extraDecls: Decl[] = [], source?: string) {
     this.#decls = [...BUILTIN_DECLS, ...extraDecls];
+    this.#source = source;
   }
 
   check(parsed: ParsedExpr): { checkedExpr: CheckedExpr; errors: TypeCheckError[] } {
@@ -430,12 +408,16 @@ export class Checker {
         }
         const decl = this.#findIdent(name);
         if (!decl) {
-          this.#addError(expr.id, `Undeclared reference to '${name}'`);
+          this.#addError(
+            ErrorCode.CHECK_UNDECLARED_IDENT,
+            expr.id,
+            `Undeclared reference to '${name}'`,
+          );
           result = ERROR;
           break;
         }
         if (decl.declKind?.case !== "ident") {
-          this.#addError(expr.id, `'${name}' is not an ident`);
+          this.#addError(ErrorCode.CHECK_UNDECLARED_IDENT, expr.id, `'${name}' is not an ident`);
           result = ERROR;
           break;
         }
@@ -473,7 +455,7 @@ export class Checker {
 
         const overloads = this.#findOverloads(fnName);
         if (overloads.length === 0) {
-          this.#addError(expr.id, `Unknown function '${fnName}'`);
+          this.#addError(ErrorCode.CHECK_UNKNOWN_FUNCTION, expr.id, `Unknown function '${fnName}'`);
           result = ERROR;
           break;
         }
@@ -500,7 +482,11 @@ export class Checker {
               this.#visit(e.keyKind.value);
             }
             if (!e.value) {
-              this.#addError(expr.id, "Struct entries must have a value");
+              this.#addError(
+                ErrorCode.CHECK_INVALID_EXPRESSION,
+                expr.id,
+                "Struct entries must have a value",
+              );
               continue;
             }
             this.#visit(e.value);
@@ -513,7 +499,11 @@ export class Checker {
           for (const e of entries) {
             keyTypes.push(e.keyKind.case === "mapKey" ? this.#visit(e.keyKind.value) : STRING);
             if (!e.value) {
-              this.#addError(expr.id, "Struct entries must have a value");
+              this.#addError(
+                ErrorCode.CHECK_INVALID_EXPRESSION,
+                expr.id,
+                "Struct entries must have a value",
+              );
               continue;
             }
             valTypes.push(this.#visit(e.value));
@@ -527,12 +517,20 @@ export class Checker {
       case "comprehensionExpr": {
         const c = kind.value;
         if (!c.iterVar || !c.accuVar) {
-          this.#addError(expr.id, "Comprehension must have iterVar and accuVar");
+          this.#addError(
+            ErrorCode.CHECK_INVALID_EXPRESSION,
+            expr.id,
+            "Comprehension must have iterVar and accuVar",
+          );
           result = ERROR;
           break;
         }
         if (!c.iterRange || !c.accuInit || !c.loopCondition || !c.loopStep || !c.result) {
-          this.#addError(expr.id, "Comprehension is missing required sub-expressions");
+          this.#addError(
+            ErrorCode.CHECK_INVALID_EXPRESSION,
+            expr.id,
+            "Comprehension is missing required sub-expressions",
+          );
           result = ERROR;
           break;
         }
@@ -597,9 +595,9 @@ export class Checker {
     return overloads[0];
   }
 
-  #addError(exprId: bigint, message: string): void {
+  #addError(code: ErrorCode, exprId: bigint, message: string): void {
     const position = this.#getPosition(exprId);
-    this.#errors.push(new TypeCheckError(exprId, message, position));
+    this.#errors.push(new TypeCheckError(code, exprId, message, this.#source, position));
   }
 
   #getPosition(exprId: bigint): SourcePosition | undefined {
@@ -612,6 +610,7 @@ export class Checker {
       offset,
       line,
       column,
+      exprId,
     };
   }
 }
@@ -625,8 +624,9 @@ export class Checker {
 export function check(
   parsed: ParsedExpr,
   extraDecls: Decl[] = [],
+  source?: string,
 ): { checkedExpr: CheckedExpr; errors: TypeCheckError[] } {
-  return new Checker(extraDecls).check(parsed);
+  return new Checker(extraDecls, source).check(parsed);
 }
 
 /**

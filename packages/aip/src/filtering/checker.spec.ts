@@ -3,7 +3,8 @@
 
 import { assert, describe, it } from "vitest";
 import type { Decl } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
-import { check, outputType, TypeCheckError } from "./checker.js";
+import { check, outputType } from "./checker.js";
+import { AipFilterError, ErrorCode, TypeCheckError } from "./errors.js";
 import { parse } from "./parser.js";
 import { SemanticAdorner, toDebugString } from "./to-debug-string.js";
 import type { TypeInit } from "./types.js";
@@ -776,15 +777,27 @@ describe("check", () => {
 // they live outside the data-driven table.
 
 describe("TypeCheckError", () => {
-  it("is an instance of Error", () => {
+  it("is an instance of Error, AipFilterError, and TypeCheckError", () => {
     const { errors } = check(parse("badIdent"));
     assert.ok(errors[0] instanceof Error);
+    assert.ok(errors[0] instanceof AipFilterError);
     assert.ok(errors[0] instanceof TypeCheckError);
   });
 
   it("has exprId as bigint", () => {
     const { errors } = check(parse("badIdent"));
     assert.equal(typeof errors[0].exprId, "bigint");
+  });
+
+  it("has CHECK_UNDECLARED_IDENT code for unknown idents", () => {
+    const { errors } = check(parse("badIdent"));
+    assert.equal(errors[0].code, ErrorCode.CHECK_UNDECLARED_IDENT);
+  });
+
+  it("has CHECK_UNKNOWN_FUNCTION code for unknown functions", () => {
+    const { errors } = check(parse("unknownFn()"));
+    const fnErr = errors.find((e) => e.code === ErrorCode.CHECK_UNKNOWN_FUNCTION);
+    assert.ok(fnErr, "expected a CHECK_UNKNOWN_FUNCTION error");
   });
 
   it("position has correct offset — leading whitespace", () => {
@@ -794,6 +807,11 @@ describe("TypeCheckError", () => {
     assert.equal(errors[0].position?.column, 2);
   });
 
+  it("position.exprId matches error.exprId", () => {
+    const { errors } = check(parse("badIdent"));
+    assert.equal(errors[0].position?.exprId, errors[0].exprId);
+  });
+
   it("multi-line: error on line 2 has correct line number", () => {
     // "a\nbadIdent" — badIdent is on line 2
     const { errors } = check(parse("a\nbadIdent"), [ident("a", BOOL)]);
@@ -801,6 +819,33 @@ describe("TypeCheckError", () => {
     assert.ok(err);
     assert.equal(err!.position?.line, 2);
     assert.equal(err!.position?.column, 0);
+  });
+
+  it("embeds source when passed to check()", () => {
+    const source = "badIdent";
+    const { errors } = check(parse(source), [], source);
+    assert.equal(errors[0].source, source);
+  });
+
+  it("toString() without source — header line only, no pointer", () => {
+    const { errors } = check(parse("badIdent"));
+    const str = String(errors[0]);
+    assert.match(str, /^ERROR: <input>:\d+:\d+:/);
+    assert.notMatch(str, /\| /);
+  });
+
+  it("toString() with source — full CEL block with pointer", () => {
+    const source = "badIdent";
+    const { errors } = check(parse(source), [], source);
+    const str = String(errors[0]);
+    assert.match(str, /^ERROR: <input>:1:1:/);
+    assert.include(str, `| ${source}`);
+    assert.include(str, "^");
+  });
+
+  it("name is TypeCheckError", () => {
+    const { errors } = check(parse("badIdent"));
+    assert.equal(errors[0].name, "TypeCheckError");
   });
 });
 

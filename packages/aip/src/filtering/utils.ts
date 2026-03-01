@@ -8,6 +8,7 @@ import type {
   Expr_Select,
 } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
 import { type ConstantSchema, ExprSchema } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
+import { ExprDepthError } from "./errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // makeConst
@@ -193,15 +194,7 @@ export function cloneExpr(expr: Expr, nextId: () => bigint): Expr {
 
 export const MAX_EXPR_DEPTH = 32;
 
-export class ExprDepthError extends Error {
-  constructor(
-    public readonly depth: number,
-    public readonly max: number,
-  ) {
-    super(`Expression depth ${depth} exceeds maximum allowed depth of ${max}`);
-    this.name = "ExprDepthError";
-  }
-}
+export { ExprDepthError } from "./errors.js";
 
 /** Returns the maximum nesting depth of an Expr tree. A leaf node has depth 1. */
 export function exprDepth(expr: Expr): number {

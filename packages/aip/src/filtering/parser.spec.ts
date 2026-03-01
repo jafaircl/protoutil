@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Expr } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
-import { ParseError, parse } from "./parser.js";
+import { AipFilterError, ErrorCode, ParseError } from "./errors.js";
+import { parse } from "./parser.js";
 import { KindAdorner, toDebugString } from "./to-debug-string.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -733,5 +734,97 @@ describe("parse — depth limiting", () => {
     // Parens inside an arglist re-enter parseComposite the same way
     expect(() => parse("foo((a))", 1)).not.toThrow();
     expect(() => parse("foo(((a)))", 1)).toThrow(ParseError);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ParseError plumbing
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("ParseError plumbing", () => {
+  it("is an instance of Error, AipFilterError, and ParseError", () => {
+    try {
+      parse("a AND");
+    } catch (e) {
+      expect(e).toBeInstanceOf(Error);
+      expect(e).toBeInstanceOf(AipFilterError);
+      expect(e).toBeInstanceOf(ParseError);
+    }
+  });
+
+  it("has PARSE_UNEXPECTED_TOKEN code for generic parse errors", () => {
+    try {
+      parse("a AND");
+    } catch (e) {
+      expect((e as ParseError).code).toBe(ErrorCode.PARSE_UNEXPECTED_TOKEN);
+    }
+  });
+
+  it("has PARSE_UNTERMINATED_STRING code for unterminated strings", () => {
+    try {
+      parse('"abc');
+    } catch (e) {
+      expect((e as ParseError).code).toBe(ErrorCode.PARSE_UNTERMINATED_STRING);
+    }
+  });
+
+  it("has PARSE_DEPTH_EXCEEDED code for depth violations", () => {
+    try {
+      parse("((a))", 1);
+    } catch (e) {
+      expect((e as ParseError).code).toBe(ErrorCode.PARSE_DEPTH_EXCEEDED);
+    }
+  });
+
+  it("embeds the source string", () => {
+    try {
+      parse("a AND");
+    } catch (e) {
+      expect((e as ParseError).source).toBe("a AND");
+    }
+  });
+
+  it("position.line is 1 for a single-line input", () => {
+    try {
+      parse("a AND");
+    } catch (e) {
+      expect((e as ParseError).position?.line).toBe(1);
+    }
+  });
+
+  it("position.offset is a non-negative number", () => {
+    try {
+      parse("a AND");
+    } catch (e) {
+      expect((e as ParseError).position?.offset).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("toString() produces the CEL error block format", () => {
+    try {
+      parse('env = "abc');
+    } catch (e) {
+      const s = String(e);
+      expect(s).toMatch(/^ERROR: <input>:\d+:\d+:/);
+      expect(s).toContain("| ");
+      expect(s).toContain("^");
+    }
+  });
+
+  it("toString() source line contains the original input", () => {
+    const input = 'name = "hello';
+    try {
+      parse(input);
+    } catch (e) {
+      expect(String(e)).toContain(input);
+    }
+  });
+
+  it("name is ParseError", () => {
+    try {
+      parse("a AND");
+    } catch (e) {
+      expect((e as ParseError).name).toBe("ParseError");
+    }
   });
 });

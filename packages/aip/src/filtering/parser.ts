@@ -8,6 +8,7 @@ import {
   ParsedExprSchema,
   type SourceInfoSchema,
 } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
+import { ErrorCode, ParseError } from "./errors.js";
 import { type Token, TokenType, tokenize } from "./lexer.js";
 import { MAX_EXPR_DEPTH } from "./utils.js";
 
@@ -138,7 +139,9 @@ class Parser {
     const tok = this.consume();
     if (tok.type !== tt) {
       throw new ParseError(
+        ErrorCode.PARSE_UNEXPECTED_TOKEN,
         `Expected ${TokenType[tt]}, got ${TokenType[tok.type]} ("${tok.value}") at offset ${tok.offset}`,
+        this.input,
         tok.offset,
       );
     }
@@ -159,7 +162,9 @@ class Parser {
     const trailing = this.peek();
     if (trailing.type !== TokenType.EOF) {
       throw new ParseError(
+        ErrorCode.PARSE_UNEXPECTED_TOKEN,
         `Unexpected token "${trailing.value}" at offset ${trailing.offset}`,
+        this.input,
         trailing.offset,
       );
     }
@@ -242,7 +247,9 @@ class Parser {
     this.#depth++;
     if (this.#depth > this.#maxDepth) {
       throw new ParseError(
+        ErrorCode.PARSE_DEPTH_EXCEEDED,
         `Expression depth exceeds maximum allowed depth of ${this.#maxDepth}`,
+        this.input,
         this.peek().offset,
       );
     }
@@ -301,7 +308,9 @@ class Parser {
         const fieldTok = this.consumeRaw();
         if (fieldTok.type !== TokenType.TEXT && !isKeyword(fieldTok.type)) {
           throw new ParseError(
+            ErrorCode.PARSE_UNEXPECTED_TOKEN,
             `Expected field name after "." at offset ${fieldTok.offset}`,
+            this.input,
             fieldTok.offset,
           );
         }
@@ -356,13 +365,23 @@ class Parser {
   private parseBaseValue(): ExprInit {
     const tok = this.peek();
     if (tok.type === TokenType.UNTERMINATED_STRING) {
-      throw new ParseError(`Unterminated string literal at offset ${tok.offset}`, tok.offset);
+      throw new ParseError(
+        ErrorCode.PARSE_UNTERMINATED_STRING,
+        `Unterminated string literal at offset ${tok.offset}`,
+        this.input,
+        tok.offset,
+      );
     }
     // AND, OR, NOT cannot begin a restriction as bare identifiers.
     // NOT is a unary operator handled by parseTerm before we reach here.
     // AND and OR are conjunction operators that require a left-hand operand.
     if (tok.type === TokenType.AND || tok.type === TokenType.OR || tok.type === TokenType.NOT) {
-      throw new ParseError(`Unexpected keyword "${tok.value}" at offset ${tok.offset}`, tok.offset);
+      throw new ParseError(
+        ErrorCode.PARSE_UNEXPECTED_TOKEN,
+        `Unexpected keyword "${tok.value}" at offset ${tok.offset}`,
+        this.input,
+        tok.offset,
+      );
     }
     if (tok.type === TokenType.MINUS) {
       this.consume();
@@ -406,7 +425,9 @@ class Parser {
       return { id, exprKind: { case: "identExpr", value: { name: tok.value } } };
     }
     throw new ParseError(
+      ErrorCode.PARSE_UNEXPECTED_TOKEN,
       `Unexpected token ${TokenType[tok.type]} ("${tok.value}") at offset ${tok.offset}`,
+      this.input,
       tok.offset,
     );
   }
@@ -569,16 +590,6 @@ function comparatorToFunction(tt: TokenType): string {
       return "@in";
     default:
       throw new Error("Not a comparator");
-  }
-}
-
-export class ParseError extends Error {
-  constructor(
-    message: string,
-    public readonly offset: number = 0,
-  ) {
-    super(message);
-    this.name = "ParseError";
   }
 }
 
