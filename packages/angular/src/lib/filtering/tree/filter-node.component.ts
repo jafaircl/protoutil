@@ -76,11 +76,20 @@ export class FilterNodeComponent {
    */
   isDropTarget = input<boolean>(false);
 
+  /** Whether undo is available — only used by the root branch header. */
+  canUndo = input<boolean>(false);
+  /** Whether redo is available — only used by the root branch header. */
+  canRedo = input<boolean>(false);
+
   /** Final resolved drop — emitted after the root resolves the position. */
   nodeDrop = output<{ dragId: string; position: DropPosition }>();
   conjunctionToggle = output<string>();
   /** Emitted when the user clicks the delete button on a node. */
   nodeDelete = output<string>();
+  /** Emitted when the root undo button is clicked. */
+  undoClick = output<void>();
+  /** Emitted when the root redo button is clicked. */
+  redoClick = output<void>();
 
   // -------------------------------------------------------------------------
   // Services
@@ -97,17 +106,28 @@ export class FilterNodeComponent {
 
   leafLabel = computed(() => {
     const n = this.node();
-    if (n.expr == null) return "(empty)";
+    if (n.expr == null) return $localize`:@@filterNode.emptyLeaf:(empty)`;
     try {
       return unparse(n.expr);
     } catch {
-      return "(invalid expr)";
+      return $localize`:@@filterNode.invalidExpr:(invalid expr)`;
     }
   });
 
-  conjunctionLabel = computed(() => (this.node().conjunction === "_&&_" ? "AND" : "OR"));
+  conjunctionLabel = computed(() =>
+    this.node().conjunction === "_&&_"
+      ? $localize`:@@filterNode.conjunction.and:AND`
+      : $localize`:@@filterNode.conjunction.or:OR`,
+  );
+
+  conjunctionAriaLabel = computed(() =>
+    $localize`:@@filterNode.conjunction.ariaLabel:Conjunction, currently ${this.conjunctionLabel()}:conjunction:`,
+  );
   dropListId = computed(() => `drop-list-${this.node().id}`);
   isDragging = this.dragState.isDragging;
+
+  /** True when THIS node is the one currently being dragged. */
+  isSelfDragging = computed(() => this.dragState.currentDragId() === this.node().id);
 
   /**
    * True only when THIS branch is the active drop target.

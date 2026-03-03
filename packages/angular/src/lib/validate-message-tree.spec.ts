@@ -119,10 +119,10 @@ describe("message tree validator", () => {
     fixture.detectChanges();
     const f = fixture.componentInstance.f;
     expect(f.name().errors().length).toEqual(1);
-    f().setControlValue(create(PersonSchema, { name: "John Doe" }));
+    f().value.set(create(PersonSchema, { name: "John Doe" }));
     fixture.detectChanges();
     expect(f.name().errors().length).toEqual(0);
-    f().setControlValue(create(PersonSchema, { name: "John123" }));
+    f().value.set(create(PersonSchema, { name: "John123" }));
     fixture.detectChanges();
     expect(f.name().errors().length).toEqual(1);
   });

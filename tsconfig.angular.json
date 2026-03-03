@@ -15,8 +15,8 @@
     "target": "ES2022",
     "module": "preserve",
     "paths": {
-      "@protoutil/aip": ["./packages/aip/dist"],
-      "@protoutil/angular": ["./packages/angular/dist"]
+      "@protoutil/angular": ["./packages/angular/src/public-api.ts"],
+      "@protoutil/aip": ["./packages/aip/src/index.ts"]
     }
   },
   "angularCompilerOptions": {
@@ -24,20 +24,5 @@
     "strictInjectionParameters": true,
     "strictInputAccessModifiers": true,
     "strictTemplates": true
-  },
-  "files": [],
-  "references": [
-    {
-      "path": "./packages/angular/tsconfig.lib.json"
-    },
-    {
-      "path": "./packages/angular/tsconfig.spec.json"
-    },
-    {
-      "path": "./examples/angular-client/tsconfig.app.json"
-    },
-    {
-      "path": "./examples/angular-client/tsconfig.spec.json"
-    }
-  ]
+  }
 }

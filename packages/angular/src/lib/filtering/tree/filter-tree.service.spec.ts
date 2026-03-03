@@ -14,7 +14,7 @@
 
 import { TestBed } from "@angular/core/testing";
 import { createFilterBranchNode, createFilterLeafNode, type FilterNode } from "./filter-node.model";
-import { enforceMinChildren, FilterTreeService, findNode } from "./filter-tree.service";
+import { enforceMinChildren, type FilterTreeHistory, FilterTreeService, findNode } from "./filter-tree.service";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -501,5 +501,168 @@ describe("findNode", () => {
   it("returns undefined for an unknown id", () => {
     const root = branch("root", [leaf("l1")]);
     expect(findNode(root, "nobody")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Undo / Redo
+// ---------------------------------------------------------------------------
+
+describe("FilterTreeService — undo / redo", () => {
+  let service: FilterTreeService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(FilterTreeService);
+  });
+
+  // -- initHistory ----------------------------------------------------------
+
+  it("initHistory creates a single-entry stack at index 0", () => {
+    const root = branch("root", [leaf("l1")]);
+    const h = service.initHistory(root);
+    expect(h.stack.length).toBe(1);
+    expect(h.index).toBe(0);
+    expect(service.currentRoot(h)).toBe(root);
+  });
+
+  // -- commitState ----------------------------------------------------------
+
+  it("commitState pushes a new state and advances the index", () => {
+    const s0 = branch("root", [leaf("l1")]);
+    const s1 = branch("root", [leaf("l1"), leaf("l2")]);
+    let h = service.initHistory(s0);
+    h = service.commitState(h, s1);
+    expect(h.stack.length).toBe(2);
+    expect(h.index).toBe(1);
+    expect(service.currentRoot(h)).toBe(s1);
+  });
+
+  it("commitState truncates redo states when committing after an undo", () => {
+    const s0 = branch("root", [leaf("l1")]);
+    const s1 = branch("root", [leaf("l1"), leaf("l2")]);
+    const s2 = branch("root", [leaf("l1"), leaf("l2"), leaf("l3")]);
+    const s3 = branch("root", [leaf("l4")]);
+
+    let h = service.initHistory(s0);
+    h = service.commitState(h, s1);
+    h = service.commitState(h, s2);
+    // undo back to s1
+    h = service.undo(h)!;
+    // commit s3 — s2 should be discarded
+    h = service.commitState(h, s3);
+    expect(h.stack.length).toBe(3); // s0, s1, s3
+    expect(service.currentRoot(h)).toBe(s3);
+    // redo should be impossible — s2 was truncated
+    expect(service.canRedo(h)).toBe(false);
+  });
+
+  // -- undo -----------------------------------------------------------------
+
+  it("undo steps back one state", () => {
+    const s0 = branch("root", [leaf("l1")]);
+    const s1 = branch("root", [leaf("l1"), leaf("l2")]);
+    let h = service.initHistory(s0);
+    h = service.commitState(h, s1);
+    h = service.undo(h)!;
+    expect(h.index).toBe(0);
+    expect(service.currentRoot(h)).toBe(s0);
+  });
+
+  it("undo returns null when already at the beginning", () => {
+    const h = service.initHistory(branch("root", [leaf("l1")]));
+    expect(service.undo(h)).toBeNull();
+  });
+
+  it("undo does not mutate the history object", () => {
+    const s0 = branch("root", [leaf("l1")]);
+    const s1 = branch("root", [leaf("l1"), leaf("l2")]);
+    let h = service.initHistory(s0);
+    h = service.commitState(h, s1);
+    const before: FilterTreeHistory = { stack: h.stack, index: h.index };
+    service.undo(h);
+    expect(h.index).toBe(before.index);
+    expect(h.stack).toBe(before.stack);
+  });
+
+  // -- redo -----------------------------------------------------------------
+
+  it("redo steps forward one state", () => {
+    const s0 = branch("root", [leaf("l1")]);
+    const s1 = branch("root", [leaf("l1"), leaf("l2")]);
+    let h = service.initHistory(s0);
+    h = service.commitState(h, s1);
+    h = service.undo(h)!;
+    h = service.redo(h)!;
+    expect(h.index).toBe(1);
+    expect(service.currentRoot(h)).toBe(s1);
+  });
+
+  it("redo returns null when already at the end", () => {
+    const s0 = branch("root", [leaf("l1")]);
+    const s1 = branch("root", [leaf("l1"), leaf("l2")]);
+    let h = service.initHistory(s0);
+    h = service.commitState(h, s1);
+    expect(service.redo(h)).toBeNull();
+  });
+
+  it("redo does not mutate the history object", () => {
+    const s0 = branch("root", [leaf("l1")]);
+    const s1 = branch("root", [leaf("l1"), leaf("l2")]);
+    let h = service.initHistory(s0);
+    h = service.commitState(h, s1);
+    h = service.undo(h)!;
+    const before: FilterTreeHistory = { stack: h.stack, index: h.index };
+    service.redo(h);
+    expect(h.index).toBe(before.index);
+    expect(h.stack).toBe(before.stack);
+  });
+
+  // -- canUndo / canRedo ----------------------------------------------------
+
+  it("canUndo is false on a fresh history", () => {
+    const h = service.initHistory(branch("root", [leaf("l1")]));
+    expect(service.canUndo(h)).toBe(false);
+  });
+
+  it("canUndo is true after a commit", () => {
+    let h = service.initHistory(branch("root", [leaf("l1")]));
+    h = service.commitState(h, branch("root", [leaf("l2")]));
+    expect(service.canUndo(h)).toBe(true);
+  });
+
+  it("canRedo is false at the end of the stack", () => {
+    let h = service.initHistory(branch("root", [leaf("l1")]));
+    h = service.commitState(h, branch("root", [leaf("l2")]));
+    expect(service.canRedo(h)).toBe(false);
+  });
+
+  it("canRedo is true after an undo", () => {
+    let h = service.initHistory(branch("root", [leaf("l1")]));
+    h = service.commitState(h, branch("root", [leaf("l2")]));
+    h = service.undo(h)!;
+    expect(service.canRedo(h)).toBe(true);
+  });
+
+  // -- round-trip -----------------------------------------------------------
+
+  it("multiple undo then redo restores the latest state", () => {
+    const s0 = branch("root", [leaf("l1")]);
+    const s1 = branch("root", [leaf("l1"), leaf("l2")]);
+    const s2 = branch("root", [leaf("l1"), leaf("l2"), leaf("l3")]);
+
+    let h = service.initHistory(s0);
+    h = service.commitState(h, s1);
+    h = service.commitState(h, s2);
+
+    // undo twice to s0
+    h = service.undo(h)!;
+    h = service.undo(h)!;
+    expect(service.currentRoot(h)).toBe(s0);
+
+    // redo twice back to s2
+    h = service.redo(h)!;
+    h = service.redo(h)!;
+    expect(service.currentRoot(h)).toBe(s2);
   });
 });

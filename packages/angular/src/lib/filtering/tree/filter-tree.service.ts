@@ -41,8 +41,14 @@ export type DropPosition =
   | { kind: "onto-leaf"; leafId: string }
   | { kind: "onto-branch-header"; branchId: string };
 
+/** Immutable snapshot of the undo/redo history stack. */
+export interface FilterTreeHistory {
+  readonly stack: readonly FilterNode[];
+  readonly index: number;
+}
+
 // ---------------------------------------------------------------------------
-// Injectable service (stateless — state lives in the component signal)
+// Injectable service (state lives in the component signal)
 // ---------------------------------------------------------------------------
 
 @Injectable({ providedIn: "root" })
@@ -131,6 +137,50 @@ export class FilterTreeService {
     if (!removed) return root; // node not found — no-op
     enforceMinChildren(tree, /* isRoot */ true);
     return tree;
+  }
+
+  // -------------------------------------------------------------------------
+  // Undo / Redo
+  // -------------------------------------------------------------------------
+
+  /** Create a fresh history with a single initial state. */
+  initHistory(root: FilterNode): FilterTreeHistory {
+    return { stack: [root], index: 0 };
+  }
+
+  /**
+   * Push a new tree state onto the history stack.
+   * Truncates any redo states beyond the current index.
+   */
+  commitState(history: FilterTreeHistory, newRoot: FilterNode): FilterTreeHistory {
+    const stack = history.stack.slice(0, history.index + 1);
+    stack.push(newRoot);
+    return { stack, index: stack.length - 1 };
+  }
+
+  /** Step back one state. Returns null if already at the beginning. */
+  undo(history: FilterTreeHistory): FilterTreeHistory | null {
+    if (history.index <= 0) return null;
+    return { stack: history.stack, index: history.index - 1 };
+  }
+
+  /** Step forward one state. Returns null if already at the end. */
+  redo(history: FilterTreeHistory): FilterTreeHistory | null {
+    if (history.index >= history.stack.length - 1) return null;
+    return { stack: history.stack, index: history.index + 1 };
+  }
+
+  /** The tree at the current history position. */
+  currentRoot(history: FilterTreeHistory): FilterNode {
+    return history.stack[history.index] as FilterNode;
+  }
+
+  canUndo(history: FilterTreeHistory): boolean {
+    return history.index > 0;
+  }
+
+  canRedo(history: FilterTreeHistory): boolean {
+    return history.index < history.stack.length - 1;
   }
 
   // -------------------------------------------------------------------------

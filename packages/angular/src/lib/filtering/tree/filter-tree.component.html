@@ -3,13 +3,19 @@
 
   Thin shell: renders the tree by delegating to the recursive
   FilterNodeComponent and wiring up the events.
+  Undo/redo buttons live in the root branch header.
 -->
+
 <aip-filter-node
   [node]="root()"
   [root]="root()"
   [isRoot]="true"
   [allDropListIds]="allDropListIds()"
+  [canUndo]="canUndo()"
+  [canRedo]="canRedo()"
   (nodeDrop)="onNodeDrop($event)"
   (conjunctionToggle)="onConjunctionToggle($event)"
   (nodeDelete)="onNodeDelete($event)"
+  (undoClick)="undo()"
+  (redoClick)="redo()"
 />

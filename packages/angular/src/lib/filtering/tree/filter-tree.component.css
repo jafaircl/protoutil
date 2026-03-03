@@ -1,0 +1,9 @@
+/* filter-tree.component.css
+ *
+ * Host styles. Node styles live in filter-node.component.css.
+ */
+
+:host {
+  display: block;
+  outline: none;
+}

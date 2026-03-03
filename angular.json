@@ -59,6 +59,9 @@
             "styles": [
               "examples/angular-client/src/material-theme.scss",
               "examples/angular-client/src/styles.css"
+            ],
+            "polyfills": [
+              "@angular/localize/init"
             ]
           },
           "configurations": {

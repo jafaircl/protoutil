@@ -18,15 +18,15 @@ import { MatSort, MatSortModule, type Sort } from "@angular/material/sort";
 import { MatTableModule } from "@angular/material/table";
 import { type Expr, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
 import { Field, OrderBy, parseOrderBy } from "@protoutil/aip/orderby";
-import { validateAipFilter } from "@protoutil/angular";
-import { linkedQueryParam, paramToNumber } from "ngxtension/linked-query-param";
-import type { ListShelvesResponse } from "../../../gen/library/v1/library_pb";
 import {
   exprToFilterNode,
   type FilterNode,
+  FilterTreeComponent,
   filterNodeToExpr,
-} from "../../components/filter-tree/filter-node.model";
-import { FilterTreeComponent } from "./../../components/filter-tree/filter-tree.component";
+  validateAipFilter,
+} from "@protoutil/angular";
+import { linkedQueryParam, paramToNumber } from "ngxtension/linked-query-param";
+import type { ListShelvesResponse } from "../../../gen/library/v1/library_pb";
 import { LibraryService } from "../../services/library";
 import { DEFAULT_PAGE_SIZE } from "../../utils/defaults";
 import { stringifyQueryParam } from "../../utils/query-params";
@@ -43,7 +43,11 @@ import { stringifyQueryParam } from "../../utils/query-params";
  *     └── leaf: "name.startsWith("foo")"
  */
 function buildDemoTree(): FilterNode {
-  return exprToFilterNode(parse(`status = ACTIVE AND (region = US OR region = EU) AND priority > 3 AND name.startsWith("foo")`).expr as Expr);
+  return exprToFilterNode(
+    parse(
+      `status = ACTIVE AND (region = US OR region = EU) AND priority > 3 AND name.startsWith("foo")`,
+    ).expr as Expr,
+  );
 }
 
 @Component({
@@ -143,7 +147,7 @@ export class ShelfListComponent implements AfterViewInit {
   }
 
   setInitialFilter() {
-    this.filterForm().setControlValue(this.filter() ?? "");
+    this.filterForm().value.set(this.filter() ?? "");
   }
 
   setInitialOrderBy() {

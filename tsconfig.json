@@ -1,23 +1,12 @@
 {
-  "compilerOptions": {
-    "target": "esnext",
-    "lib": ["es2023", "dom"],
-    "moduleDetection": "force",
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "types": ["node", "vitest/globals"],
-    "strict": true,
-    "noUnusedLocals": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true,
-    "paths": {
-      "@protoutil/aip": ["./packages/aip/dist"],
-      "@protoutil/angular": ["./packages/angular/dist"]
-    }
-  }
+  "files": [],
+  "references": [
+    { "path": "./packages/aip" },
+    { "path": "./packages/core" },
+    { "path": "./examples/fastify-server" },
+    { "path": "./packages/angular/tsconfig.lib.json" },
+    { "path": "./packages/angular/tsconfig.spec.json" },
+    { "path": "./examples/angular-client/tsconfig.app.json" },
+    { "path": "./examples/angular-client/tsconfig.spec.json" }
+  ]
 }

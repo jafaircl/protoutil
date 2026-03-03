@@ -3,14 +3,22 @@
  *
  * The root component for the filter tree editor. It:
  *  • Owns the signal that holds the tree state (root FilterNode).
+ *  • Maintains an undo/redo history stack of tree snapshots.
  *  • Computes the flat list of all cdkDropList IDs in the tree so every
  *    drop list can be connected to every other (enabling cross-list drag).
- *  • Handles drop and conjunction-toggle events emitted by FilterNodeComponent
- *    by delegating to FilterTreeService and writing the result back to the
- *    signal.
+ *  • Handles drop, conjunction-toggle, and delete events emitted by
+ *    FilterNodeComponent by delegating to FilterTreeService and writing
+ *    the result back to the signal.
  *
  * Usage:
  *   <app-filter-tree [initialTree]="myRootNode" (treeChange)="onTreeChange($event)" />
+ *
+ * UNDO / REDO
+ * -----------
+ * Every successful mutation pushes the new root onto a history stack.
+ * Undo and redo move a pointer through that stack. Keyboard shortcuts
+ * (Cmd/Ctrl+Z for undo, Cmd/Ctrl+Shift+Z for redo) are bound via the
+ * host element's keydown listener.
  */
 
 import { DragDropModule } from "@angular/cdk/drag-drop";
@@ -29,15 +37,22 @@ import {
   createFilterBranchNode,
   type FilterNode,
 } from "./filter-node.model";
-import { type DropPosition, FilterTreeService } from "./filter-tree.service";
+import { type DropPosition, type FilterTreeHistory, FilterTreeService } from "./filter-tree.service";
 
 @Component({
   selector: "aip-filter-tree",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DragDropModule, FilterNodeComponent],
+  imports: [
+    DragDropModule,
+    FilterNodeComponent,
+  ],
   templateUrl: "./filter-tree.component.html",
   styleUrls: ["./filter-tree.component.css"],
+  host: {
+    "(keydown)": "onKeydown($event)",
+    tabindex: "0",
+  },
 })
 export class FilterTreeComponent implements OnInit {
   // -------------------------------------------------------------------------
@@ -51,7 +66,7 @@ export class FilterTreeComponent implements OnInit {
    */
   initialTree = input<FilterNode | undefined>(undefined);
 
-  /** Emitted after every successful tree mutation. */
+  /** Emitted after every successful tree mutation (including undo/redo). */
   treeChange = output<FilterNode>();
 
   // -------------------------------------------------------------------------
@@ -62,6 +77,17 @@ export class FilterTreeComponent implements OnInit {
   readonly root = signal<FilterNode>(
     createFilterBranchNode([], "_&&_"), // default empty root; replaced in ngOnInit
   );
+
+  // -------------------------------------------------------------------------
+  // Undo / Redo history
+  // -------------------------------------------------------------------------
+
+  private readonly history = signal<FilterTreeHistory>({ stack: [], index: 0 });
+
+  /** True when there's at least one state to undo to. */
+  readonly canUndo = computed(() => this.treeService.canUndo(this.history()));
+  /** True when there's at least one state to redo to. */
+  readonly canRedo = computed(() => this.treeService.canRedo(this.history()));
 
   // -------------------------------------------------------------------------
   // Services
@@ -89,11 +115,9 @@ export class FilterTreeComponent implements OnInit {
   // -------------------------------------------------------------------------
 
   ngOnInit(): void {
-    const initial = this.initialTree();
-    if (initial) {
-      this.root.set(initial);
-    }
-    // If no initial tree was provided, keep the empty root created above.
+    const initial = this.initialTree() ?? this.root();
+    this.root.set(initial);
+    this.history.set(this.treeService.initHistory(initial));
   }
 
   // -------------------------------------------------------------------------
@@ -108,18 +132,14 @@ export class FilterTreeComponent implements OnInit {
   onNodeDrop(event: { dragId: string; position: DropPosition }): void {
     const before = this.root();
     const newRoot = this.treeService.applyDrop(before, event.dragId, event.position);
-    // Don't emit if the tree structure didn't actually change — an unchanged
-    // tree must not trigger downstream side effects (e.g. expensive DB queries).
     if (treesEqual(before, newRoot)) return;
-    this.root.set(newRoot);
-    this.treeChange.emit(newRoot);
+    this.commitState(newRoot);
   }
 
   /** Handle a conjunction toggle from any branch. */
   onConjunctionToggle(branchId: string): void {
     const newRoot = this.treeService.toggleConjunction(this.root(), branchId);
-    this.root.set(newRoot);
-    this.treeChange.emit(newRoot);
+    this.commitState(newRoot);
   }
 
   /** Handle a node deletion from anywhere in the tree. */
@@ -127,13 +147,60 @@ export class FilterTreeComponent implements OnInit {
     const before = this.root();
     const newRoot = this.treeService.deleteNode(before, nodeId);
     if (treesEqual(before, newRoot)) return;
+    this.commitState(newRoot);
+  }
+
+  // -------------------------------------------------------------------------
+  // Undo / Redo
+  // -------------------------------------------------------------------------
+
+  undo(): void {
+    const next = this.treeService.undo(this.history());
+    if (!next) return;
+    this.history.set(next);
+    const state = this.treeService.currentRoot(next);
+    this.root.set(state);
+    this.treeChange.emit(state);
+  }
+
+  redo(): void {
+    const next = this.treeService.redo(this.history());
+    if (!next) return;
+    this.history.set(next);
+    const state = this.treeService.currentRoot(next);
+    this.root.set(state);
+    this.treeChange.emit(state);
+  }
+
+  // -------------------------------------------------------------------------
+  // Keyboard shortcuts
+  // -------------------------------------------------------------------------
+
+  onKeydown(event: KeyboardEvent): void {
+    const mod = event.metaKey || event.ctrlKey;
+    if (!mod || event.key.toLowerCase() !== "z") return;
+    event.preventDefault();
+    if (event.shiftKey) {
+      this.redo();
+    } else {
+      this.undo();
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Private
+  // -------------------------------------------------------------------------
+
+  private commitState(newRoot: FilterNode): void {
+    const next = this.treeService.commitState(this.history(), newRoot);
+    this.history.set(next);
     this.root.set(newRoot);
     this.treeChange.emit(newRoot);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Helper
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
@@ -142,7 +209,6 @@ export class FilterTreeComponent implements OnInit {
  * Leaves have no drop lists.
  */
 function collectDropListIds(node: FilterNode, ids: string[]): void {
-  // A branch is any node that has a conjunction (or is root with empty children)
   if (typeof node.conjunction === "string" || node.children.length > 0) {
     ids.push(`drop-list-${node.id}`);
     for (const child of node.children) {
@@ -155,8 +221,7 @@ function collectDropListIds(node: FilterNode, ids: string[]): void {
  * Deep structural equality check for two FilterNode trees.
  *
  * Compares id, conjunction, and children shape recursively. Used to detect
- * no-op drops — where the user released the node in its original position —
- * so we don't emit treeChange and trigger unnecessary downstream side effects.
+ * no-op drops so we don't push redundant history entries.
  *
  * We intentionally do NOT compare expr — drop operations never mutate
  * expressions, only structure.

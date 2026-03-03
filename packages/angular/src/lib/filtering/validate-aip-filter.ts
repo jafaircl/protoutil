@@ -1,10 +1,16 @@
-import { type SchemaPath, validate } from "@angular/forms/signals";
+import {
+  type PathKind,
+  type SchemaPath,
+  type SchemaPathRules,
+  validate,
+} from "@angular/forms/signals";
 import {
   check,
   type Decl,
+  type Expr,
   outputType,
   parse,
-  type SourceInfo,
+  SemanticAdorner,
   toDebugString,
   typeToString,
 } from "@protoutil/aip/filtering";
@@ -18,7 +24,10 @@ import {
  * @param path the schema path of the form control to validate
  * @param declarations the optional filter declarations to use for validation
  */
-export function validateAipFilter(path: SchemaPath<string>, declarations?: () => Decl[]): void {
+export function validateAipFilter<TPathKind extends PathKind = PathKind.Root>(
+  path: SchemaPath<string, SchemaPathRules.Supported, TPathKind>,
+  declarations?: () => Decl[],
+): void {
   validate(path, (ctx) => {
     const filter = ctx.value();
     if (!filter) return;
@@ -27,7 +36,7 @@ export function validateAipFilter(path: SchemaPath<string>, declarations?: () =>
       if (errors.length > 0) {
         return {
           kind: "invalidFilter",
-          message: toDebugString(errors, filter, checkedExpr.sourceInfo as SourceInfo),
+          message: toDebugString(checkedExpr.expr as Expr, new SemanticAdorner(checkedExpr)),
         };
       }
       const type = outputType(checkedExpr);
