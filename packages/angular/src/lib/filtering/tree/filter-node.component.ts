@@ -22,19 +22,8 @@
  * See FilterTreeDragStateService for the full algorithm.
  */
 
-import {
-  type CdkDragDrop,
-  type CdkDragMove,
-  DragDropModule,
-} from "@angular/cdk/drag-drop";
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  input,
-  output,
-} from "@angular/core";
+import { type CdkDragDrop, type CdkDragMove, DragDropModule } from "@angular/cdk/drag-drop";
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
 import { MatButtonToggleModule } from "@angular/material/button-toggle";
 import { MatIconModule } from "@angular/material/icon";
@@ -120,8 +109,9 @@ export class FilterNodeComponent {
       : $localize`:@@filterNode.conjunction.or:OR`,
   );
 
-  conjunctionAriaLabel = computed(() =>
-    $localize`:@@filterNode.conjunction.ariaLabel:Conjunction, currently ${this.conjunctionLabel()}:conjunction:`,
+  conjunctionAriaLabel = computed(
+    () =>
+      $localize`:@@filterNode.conjunction.ariaLabel:Conjunction, currently ${this.conjunctionLabel()}:conjunction:`,
   );
   dropListId = computed(() => `drop-list-${this.node().id}`);
   isDragging = this.dragState.isDragging;

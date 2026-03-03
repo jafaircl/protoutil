@@ -16,20 +16,16 @@
 // @generated from file protovalidate-testing/tests/example/v1/example.proto (package tests.example.v1, syntax proto3)
 /* eslint-disable */
 
-import type { Message } from "@bufbuild/protobuf";
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import { file_buf_validate_validate } from "../../../../buf/validate/validate_pb.js";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file protovalidate-testing/tests/example/v1/example.proto.
  */
-export const file_protovalidate_testing_tests_example_v1_example: GenFile =
-  /*@__PURE__*/
-  fileDesc(
-    "CjRwcm90b3ZhbGlkYXRlLXRlc3RpbmcvdGVzdHMvZXhhbXBsZS92MS9leGFtcGxlLnByb3RvEhB0ZXN0cy5leGFtcGxlLnYxIpUBCgZQZXJzb24SFAoCaWQYASABKARCCLpIBTIDIOcHEhYKBWVtYWlsGAIgASgJQge6SARyAmABEjAKBG5hbWUYAyABKAlCIrpIH3IdKIACMhheW2EtekEtWl0rKCBbYS16QS1aXSspKiQSKwoEaG9tZRgEIAEoCzIdLnRlc3RzLmV4YW1wbGUudjEuQ29vcmRpbmF0ZXMiWQoLQ29vcmRpbmF0ZXMSJAoDbGF0GAEgASgBQhe6SBQSEhkAAAAAAIBWQCkAAAAAAIBWwBIkCgNsbmcYAiABKAFCF7pIFBISGQAAAAAAgGZAKQAAAAAAgGbAYgZwcm90bzM",
-    [file_buf_validate_validate],
-  );
+export const file_protovalidate_testing_tests_example_v1_example: GenFile = /*@__PURE__*/
+  fileDesc("CjRwcm90b3ZhbGlkYXRlLXRlc3RpbmcvdGVzdHMvZXhhbXBsZS92MS9leGFtcGxlLnByb3RvEhB0ZXN0cy5leGFtcGxlLnYxIpUBCgZQZXJzb24SFAoCaWQYASABKARCCLpIBTIDIOcHEhYKBWVtYWlsGAIgASgJQge6SARyAmABEjAKBG5hbWUYAyABKAlCIrpIH3IdKIACMhheW2EtekEtWl0rKCBbYS16QS1aXSspKiQSKwoEaG9tZRgEIAEoCzIdLnRlc3RzLmV4YW1wbGUudjEuQ29vcmRpbmF0ZXMiWQoLQ29vcmRpbmF0ZXMSJAoDbGF0GAEgASgBQhe6SBQSEhkAAAAAAIBWQCkAAAAAAIBWwBIkCgNsbmcYAiABKAFCF7pIFBISGQAAAAAAgGZAKQAAAAAAgGbAYgZwcm90bzM", [file_buf_validate_validate]);
 
 /**
  * @generated from message tests.example.v1.Person
@@ -60,8 +56,7 @@ export type Person = Message<"tests.example.v1.Person"> & {
  * Describes the message tests.example.v1.Person.
  * Use `create(PersonSchema)` to create a new message.
  */
-export const PersonSchema: GenMessage<Person> =
-  /*@__PURE__*/
+export const PersonSchema: GenMessage<Person> = /*@__PURE__*/
   messageDesc(file_protovalidate_testing_tests_example_v1_example, 0);
 
 /**
@@ -83,6 +78,6 @@ export type Coordinates = Message<"tests.example.v1.Coordinates"> & {
  * Describes the message tests.example.v1.Coordinates.
  * Use `create(CoordinatesSchema)` to create a new message.
  */
-export const CoordinatesSchema: GenMessage<Coordinates> =
-  /*@__PURE__*/
+export const CoordinatesSchema: GenMessage<Coordinates> = /*@__PURE__*/
   messageDesc(file_protovalidate_testing_tests_example_v1_example, 1);
+

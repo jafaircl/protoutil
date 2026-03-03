@@ -33,20 +33,18 @@ import {
   signal,
 } from "@angular/core";
 import { FilterNodeComponent } from "./filter-node.component";
+import { createFilterBranchNode, type FilterNode } from "./filter-node.model";
 import {
-  createFilterBranchNode,
-  type FilterNode,
-} from "./filter-node.model";
-import { type DropPosition, type FilterTreeHistory, FilterTreeService } from "./filter-tree.service";
+  type DropPosition,
+  type FilterTreeHistory,
+  FilterTreeService,
+} from "./filter-tree.service";
 
 @Component({
   selector: "aip-filter-tree",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    DragDropModule,
-    FilterNodeComponent,
-  ],
+  imports: [DragDropModule, FilterNodeComponent],
   templateUrl: "./filter-tree.component.html",
   styleUrls: ["./filter-tree.component.css"],
   host: {

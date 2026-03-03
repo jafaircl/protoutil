@@ -47,13 +47,15 @@ export class FilterTextInputComponent {
   declarations = input<Decl[]>([]);
 
   /** Placeholder text for the input. */
-  placeholder = input($localize`:@@filterTextInput.placeholder:e.g. status = "ACTIVE" AND priority > 3`);
+  placeholder = input(
+    $localize`:@@filterTextInput.placeholder:e.g. status = "ACTIVE" AND priority > 3`,
+  );
 
   /** Label shown inside the form field. */
   label = input($localize`:@@filterTextInput.label:Filter expression`);
 
   /** Text on the submit button. */
-  submitLabel = input($localize`:@@filterTextInput.submitLabel:Apply`);
+  submitLabel = input($localize`:@@filterTextInput.submitLabel:Add`);
 
   /** Emitted when the user submits a valid filter expression. */
   exprAdd = output<Expr>();

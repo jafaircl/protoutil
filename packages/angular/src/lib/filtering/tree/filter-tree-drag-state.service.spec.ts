@@ -151,43 +151,71 @@ describe("resolveDropPosition — real DOM geometry", () => {
     ]);
 
     // Build a minimal DOM that findDeepestBranchZone can measure.
-    // Items are 30px tall, 8px gap between them, stacked vertically at x=0.
+    // jsdom doesn't do layout, so we mock getBoundingClientRect on each element.
+    //
+    // Intended layout (30px items, 8px gaps, stacked vertically at x=0..400):
+    //   rootBody:        top=0,   bottom=125, paddingTop=1
+    //     orGroupWrapper:  top=0,   bottom=87
+    //       orGroupBody:   top=0,   bottom=87, paddingTop=1, paddingBottom=10
+    //         regionUS:    top=9,   bottom=39
+    //         regionEU:    top=47,  bottom=77
+    //     priorityWrapper: top=95,  bottom=125
+
     host = document.createElement("div");
-    host.style.cssText = "position:fixed;top:0;left:0;width:400px;";
     document.body.appendChild(host);
+
+    const mockRect = (el: HTMLElement, rect: Partial<DOMRect>) => {
+      el.getBoundingClientRect = () => ({
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 400,
+        width: 400,
+        height: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+        ...rect,
+      });
+    };
 
     const rootBody = document.createElement("div");
     rootBody.className = "branch-body";
     rootBody.dataset["branchId"] = "root";
-    rootBody.style.cssText = "position:relative;padding-top:1px;";
+    rootBody.style.cssText = "padding-top:1px;";
+    mockRect(rootBody, { top: 0, bottom: 125, height: 125 });
     host.appendChild(rootBody);
 
-    // orGroup sits at root level as a child-wrapper containing its own branch-body
     const orGroupWrapper = document.createElement("div");
     orGroupWrapper.className = "child-wrapper";
     orGroupWrapper.dataset["nodeId"] = "orGroup";
+    mockRect(orGroupWrapper, { top: 0, bottom: 87, height: 87 });
     rootBody.appendChild(orGroupWrapper);
 
     const orGroupBody = document.createElement("div");
     orGroupBody.className = "branch-body";
     orGroupBody.dataset["branchId"] = "orGroup";
-    orGroupBody.style.cssText = "position:relative;padding-top:1px;padding-bottom:10px;";
+    orGroupBody.style.cssText = "padding-top:1px;padding-bottom:10px;";
+    mockRect(orGroupBody, { top: 0, bottom: 87, height: 87 });
     orGroupWrapper.appendChild(orGroupBody);
 
-    const makeChildWrapper = (parent: HTMLElement, nodeId: string): HTMLElement => {
-      const w = document.createElement("div");
-      w.className = "child-wrapper";
-      w.dataset["nodeId"] = nodeId;
-      w.style.cssText = "position:relative;height:30px;margin-top:8px;";
-      parent.appendChild(w);
-      return w;
-    };
+    regionUSWrapper = document.createElement("div");
+    regionUSWrapper.className = "child-wrapper";
+    regionUSWrapper.dataset["nodeId"] = "regionUS";
+    mockRect(regionUSWrapper, { top: 9, bottom: 39, height: 30 });
+    orGroupBody.appendChild(regionUSWrapper);
 
-    regionUSWrapper = makeChildWrapper(orGroupBody, "regionUS");
-    regionEUWrapper = makeChildWrapper(orGroupBody, "regionEU");
+    regionEUWrapper = document.createElement("div");
+    regionEUWrapper.className = "child-wrapper";
+    regionEUWrapper.dataset["nodeId"] = "regionEU";
+    mockRect(regionEUWrapper, { top: 47, bottom: 77, height: 30 });
+    orGroupBody.appendChild(regionEUWrapper);
 
-    // priority lives at root level, after orGroup
-    priorityWrapper = makeChildWrapper(rootBody, "priority");
+    priorityWrapper = document.createElement("div");
+    priorityWrapper.className = "child-wrapper";
+    priorityWrapper.dataset["nodeId"] = "priority";
+    mockRect(priorityWrapper, { top: 95, bottom: 125, height: 30 });
+    rootBody.appendChild(priorityWrapper);
   });
 
   afterEach(() => {
@@ -202,9 +230,13 @@ describe("resolveDropPosition — real DOM geometry", () => {
    * Simulate a complete drag: hover at (x, y), release, then resolve.
    * Mirrors the real CDK sequence: cdkDragMoved → cdkDragEnded → cdkDropListDropped.
    */
-  function simulateDrop(x: number, y: number, dragId = "priority"): ReturnType<typeof service.resolveDropPosition> {
+  function simulateDrop(
+    x: number,
+    y: number,
+    dragId = "priority",
+  ): ReturnType<typeof service.resolveDropPosition> {
     service.updatePointer(x, y); // cdkDragMoved:       sets activeDropZone
-    service.endDrag();            // cdkDragEnded:       snapshots → _pendingDropZone, clears state
+    service.endDrag(); // cdkDragEnded:       snapshots → _pendingDropZone, clears state
     return service.resolveDropPosition(x, y, dragId, root); // cdkDropListDropped: consumes snapshot
   }
 

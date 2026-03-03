@@ -14,7 +14,12 @@
 
 import { TestBed } from "@angular/core/testing";
 import { createFilterBranchNode, createFilterLeafNode, type FilterNode } from "./filter-node.model";
-import { enforceMinChildren, type FilterTreeHistory, FilterTreeService, findNode } from "./filter-tree.service";
+import {
+  enforceMinChildren,
+  type FilterTreeHistory,
+  FilterTreeService,
+  findNode,
+} from "./filter-tree.service";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -405,10 +410,7 @@ describe("FilterTreeService.deleteNode", () => {
 
   it("removes a leaf from a nested branch", () => {
     // root→[b1(OR)→[l1, l2], l3]. Delete l1 → b1 collapses → root→[l2, l3]
-    const root = branch("root", [
-      branch("b1", [leaf("l1"), leaf("l2")], "_||_"),
-      leaf("l3"),
-    ]);
+    const root = branch("root", [branch("b1", [leaf("l1"), leaf("l2")], "_||_"), leaf("l3")]);
     const result = service.deleteNode(root, "l1");
     // b1 had 2 children, now has 1 → enforceMinChildren hoists l2 into root
     expect(result.children.map((c) => c.id)).toEqual(["l2", "l3"]);
@@ -417,10 +419,7 @@ describe("FilterTreeService.deleteNode", () => {
 
   it("removes an entire branch (and enforces invariant)", () => {
     // root→[b1→[l1, l2], l3]. Delete b1 → root→[l3]
-    const root = branch("root", [
-      branch("b1", [leaf("l1"), leaf("l2")]),
-      leaf("l3"),
-    ]);
+    const root = branch("root", [branch("b1", [leaf("l1"), leaf("l2")]), leaf("l3")]);
     const result = service.deleteNode(root, "b1");
     expect(result.children.map((c) => c.id)).toEqual(["l3"]);
     expect(findNode(result, "l1")).toBeUndefined();
@@ -441,10 +440,7 @@ describe("FilterTreeService.deleteNode", () => {
   it("absorbs single remaining branch child into root after delete", () => {
     // root→[b1(OR)→[l1, l2], l3]. Delete l3 → root has 1 branch child → absorbed.
     // Result: root.conjunction=OR, root.children=[l1, l2]
-    const root = branch("root", [
-      branch("b1", [leaf("l1"), leaf("l2")], "_||_"),
-      leaf("l3"),
-    ]);
+    const root = branch("root", [branch("b1", [leaf("l1"), leaf("l2")], "_||_"), leaf("l3")]);
     const result = service.deleteNode(root, "l3");
     expect(result.conjunction).toBe("_||_");
     expect(result.children.map((c) => c.id)).toEqual(["l1", "l2"]);

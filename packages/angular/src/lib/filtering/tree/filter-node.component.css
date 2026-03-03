@@ -141,8 +141,14 @@
 
 /* mat-button-toggle-group for AND / OR */
 .conjunction-toggle-group {
-  --mat-standard-button-toggle-selected-state-background-color: var(--mat-sys-primary-container, #e8def8);
-  --mat-standard-button-toggle-selected-state-text-color: var(--mat-sys-on-primary-container, #21005d);
+  --mat-standard-button-toggle-selected-state-background-color: var(
+    --mat-sys-primary-container,
+    #e8def8
+  );
+  --mat-standard-button-toggle-selected-state-text-color: var(
+    --mat-sys-on-primary-container,
+    #21005d
+  );
 }
 
 .conjunction-toggle-group .mat-button-toggle-label-content {
@@ -204,7 +210,9 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--filter-tree-radius-md);
-  transition: height 120ms ease, background 100ms ease;
+  transition:
+    height 120ms ease,
+    background 100ms ease;
   position: relative;
   align-self: stretch;
 }
@@ -318,7 +326,9 @@
   height: var(--filter-tree-delete-button-size);
   padding: 0;
   color: var(--mat-sys-on-surface-variant, #49454f);
-  transition: color 100ms ease, opacity 100ms ease;
+  transition:
+    color 100ms ease,
+    opacity 100ms ease;
 }
 
 .history-button:disabled {

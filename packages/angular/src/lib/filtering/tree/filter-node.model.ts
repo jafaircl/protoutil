@@ -38,15 +38,11 @@ export function isFilterLeafNode(node: FilterNode): boolean {
 
 /** True if the node is a branch (has children and a conjunction). */
 export function isFilterBranchNode(node: FilterNode): boolean {
-  return (
-    isFilterNode(node) &&
-    node.children.length > 0 &&
-    typeof node.conjunction === "string"
-  );
+  return isFilterNode(node) && node.children.length > 0 && typeof node.conjunction === "string";
 }
 
 /** Create a new leaf node wrapping the given Expr. */
-export function createFilterLeafNode(expr: Expr, id = crypto.randomUUID()): FilterNode {
+export function createFilterLeafNode(expr: Expr, id: string = crypto.randomUUID()): FilterNode {
   return {
     [privateSymbol]: {},
     id,
@@ -59,7 +55,7 @@ export function createFilterLeafNode(expr: Expr, id = crypto.randomUUID()): Filt
 export function createFilterBranchNode(
   children: FilterNode[],
   conjunction: "_&&_" | "_||_",
-  id = crypto.randomUUID()
+  id: string = crypto.randomUUID(),
 ): FilterNode {
   return {
     [privateSymbol]: {},
@@ -123,15 +119,24 @@ export function exprToFilterNode(expr: Expr): FilterNode {
  *
  * Leaf nodes return their `expr` unchanged.
  */
-export function filterNodeToExpr(node: FilterNode): Expr {
+export function filterNodeToExpr(node: FilterNode): Expr | undefined {
+  // Empty branch — no filter expression.
+  if (node.conjunction != null && node.children.length === 0) {
+    return undefined;
+  }
+
   if (isFilterBranchNode(node)) {
     if (node.children.length === 1) {
       return filterNodeToExpr(node.children[0]);
     }
 
     const fn = node.conjunction;
-    const [first, ...rest] = node.children.map(filterNodeToExpr);
+    const childExprs = node.children.map(filterNodeToExpr).filter((e): e is Expr => e != null);
 
+    if (childExprs.length === 0) return undefined;
+    if (childExprs.length === 1) return childExprs[0];
+
+    const [first, ...rest] = childExprs;
     return rest.reduce<Expr>(
       (acc, child) =>
         create(ExprSchema, {

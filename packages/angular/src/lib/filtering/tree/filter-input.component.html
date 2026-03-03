@@ -1,0 +1,32 @@
+<!--
+  filter-input.component.html
+
+  Wrapper that shows either the guided stepper or the free-text input,
+  with toggle buttons on the right to switch between modes.
+-->
+
+<div class="filter-input">
+  <div class="filter-input-body">
+    @if (mode() === "stepper") {
+      <aip-filter-stepper
+        [declarations]="declarations()"
+        (exprAdd)="onExprAdd($event)"
+      />
+    } @else {
+      <aip-filter-text-input
+        [declarations]="declarations()"
+        (exprAdd)="onExprAdd($event)"
+      />
+    }
+  </div>
+
+  <div class="filter-input-toggle">
+    <button
+      mat-icon-button
+      [matTooltip]="mode() === 'stepper' ? 'Switch to free-text input' : 'Switch to guided input'"
+      (click)="toggleMode()"
+    >
+      <mat-icon>{{ mode() === "stepper" ? "edit" : "auto_fix_high" }}</mat-icon>
+    </button>
+  </div>
+</div>

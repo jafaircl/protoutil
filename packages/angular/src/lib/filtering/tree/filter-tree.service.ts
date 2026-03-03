@@ -66,10 +66,7 @@ export class FilterTreeService {
   applyDrop(root: FilterNode, dragId: string, position: DropPosition): FilterNode {
     // 0. Guard: dropping a branch onto its own header is a no-op.
     //    Check BEFORE cloning — otherwise we'd do work for nothing.
-    if (
-      position.kind === "onto-branch-header" &&
-      position.branchId === dragId
-    ) return root;
+    if (position.kind === "onto-branch-header" && position.branchId === dragId) return root;
 
     // Deep-clone so all mutations below are isolated from the caller.
     const tree = cloneNode(root);
@@ -84,7 +81,7 @@ export class FilterTreeService {
     let insertIndex = position.kind === "into-branch" ? position.index : 0;
     if (position.kind === "into-branch") {
       const targetBranch = findNode(tree, position.branchId);
-      const draggedIndexInBranch = targetBranch?.children.findIndex(c => c.id === dragId) ?? -1;
+      const draggedIndexInBranch = targetBranch?.children.findIndex((c) => c.id === dragId) ?? -1;
       if (draggedIndexInBranch !== -1 && draggedIndexInBranch < position.index) {
         insertIndex = position.index - 1;
       }
@@ -208,9 +205,7 @@ export class FilterTreeService {
    * New branches always start as AND (per spec).
    */
   private _dropOntoLeaf(root: FilterNode, dragged: FilterNode, leafId: string): void {
-    replaceInChildren(root, leafId, (leaf) =>
-      createFilterBranchNode([dragged, leaf], "_&&_"),
-    );
+    replaceInChildren(root, leafId, (leaf) => createFilterBranchNode([dragged, leaf], "_&&_"));
   }
 
   /**
@@ -327,8 +322,14 @@ function flattenChildren(node: FilterNode): void {
     changed = false;
     node.children = node.children.flatMap((child) => {
       const isBranch = typeof child.conjunction === "string";
-      if (isBranch && child.children.length === 0) { changed = true; return []; }
-      if (isBranch && child.children.length === 1) { changed = true; return [child.children[0]]; }
+      if (isBranch && child.children.length === 0) {
+        changed = true;
+        return [];
+      }
+      if (isBranch && child.children.length === 1) {
+        changed = true;
+        return [child.children[0]];
+      }
       return [child];
     });
   }

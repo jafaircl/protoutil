@@ -1,0 +1,21 @@
+<!--
+  filter-editor.component.html
+
+  Combines the filter tree (shown only when non-empty) with the
+  input wrapper below it.
+-->
+
+<div class="filter-editor">
+  @if (showTree()) {
+    <aip-filter-tree
+      [initialTree]="root()"
+      (treeChange)="onTreeChange($event)"
+    />
+  }
+
+  <aip-filter-input
+    [declarations]="declarations()"
+    [initialMode]="initialInputMode()"
+    (exprAdd)="onExprAdd($event)"
+  />
+</div>

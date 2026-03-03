@@ -1,3 +1,5 @@
+export * from "./tree/filter-editor.component";
+export * from "./tree/filter-input.component";
 export * from "./tree/filter-node.component";
 export * from "./tree/filter-node.model";
 export * from "./tree/filter-operators.model";
@@ -6,4 +8,4 @@ export * from "./tree/filter-text-input.component";
 export * from "./tree/filter-tree.component";
 export * from "./tree/filter-tree.service";
 export * from "./tree/filter-tree-drag-state.service";
-export * from './validate-aip-filter'
+export * from "./validate-aip-filter";

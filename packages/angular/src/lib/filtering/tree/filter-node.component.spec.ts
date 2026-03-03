@@ -33,11 +33,7 @@
 import { TestBed } from "@angular/core/testing";
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  createFilterBranchNode,
-  createFilterLeafNode,
-  type FilterNode,
-} from "./filter-node.model";
+import { createFilterBranchNode, createFilterLeafNode, type FilterNode } from "./filter-node.model";
 import { FilterTreeComponent } from "./filter-tree.component";
 import { FilterTreeDragStateService } from "./filter-tree-drag-state.service";
 
@@ -46,7 +42,9 @@ import { FilterTreeDragStateService } from "./filter-tree-drag-state.service";
 // ---------------------------------------------------------------------------
 
 function leaf(id: string): FilterNode {
-  const n = createFilterLeafNode(undefined as unknown as Parameters<typeof createFilterLeafNode>[0]);
+  const n = createFilterLeafNode(
+    undefined as unknown as Parameters<typeof createFilterLeafNode>[0],
+  );
   Object.assign(n, { id });
   return n;
 }

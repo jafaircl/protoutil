@@ -70,11 +70,11 @@ export class FilterStepperComponent {
   // String inputs (i18n)
   // -----------------------------------------------------------------------
 
-  fieldLabel     = input($localize`:@@filterStepper.fieldLabel:Field`);
-  operatorLabel  = input($localize`:@@filterStepper.operatorLabel:Operator`);
-  valueLabel     = input($localize`:@@filterStepper.valueLabel:Value`);
-  addLabel       = input($localize`:@@filterStepper.addLabel:Add`);
-  boolTrueLabel  = input($localize`:@@filterStepper.boolTrueLabel:true`);
+  fieldLabel = input($localize`:@@filterStepper.fieldLabel:Field`);
+  operatorLabel = input($localize`:@@filterStepper.operatorLabel:Operator`);
+  valueLabel = input($localize`:@@filterStepper.valueLabel:Value`);
+  addLabel = input($localize`:@@filterStepper.addLabel:Add`);
+  boolTrueLabel = input($localize`:@@filterStepper.boolTrueLabel:true`);
   boolFalseLabel = input($localize`:@@filterStepper.boolFalseLabel:false`);
 
   /** Override display labels for operators by filterFn key. */
@@ -158,23 +158,19 @@ export class FilterStepperComponent {
 
   constructor() {
     // When field changes, reset operator and value.
-    effect(
-      () => {
-        this.selectedFieldName(); // track
-        this.selectedOperatorFn.set(null);
-        this.valueText.set("");
-        this.valueBool.set(true);
-      },
-    );
+    effect(() => {
+      this.selectedFieldName(); // track
+      this.selectedOperatorFn.set(null);
+      this.valueText.set("");
+      this.valueBool.set(true);
+    });
 
     // When operator changes, reset value.
-    effect(
-      () => {
-        this.selectedOperatorFn(); // track
-        this.valueText.set("");
-        this.valueBool.set(true);
-      },
-    );
+    effect(() => {
+      this.selectedOperatorFn(); // track
+      this.valueText.set("");
+      this.valueBool.set(true);
+    });
   }
 
   // -----------------------------------------------------------------------

@@ -33,19 +33,39 @@ export interface FilterOperator {
 
 const EQUALITY: FilterOperator[] = [
   { label: $localize`:@@filterOperator.equals:equals`, filterFn: "_==_", kind: "comparison" },
-  { label: $localize`:@@filterOperator.notEquals:not equals`, filterFn: "_!=_", kind: "comparison" },
+  {
+    label: $localize`:@@filterOperator.notEquals:not equals`,
+    filterFn: "_!=_",
+    kind: "comparison",
+  },
 ];
 
 const ORDERING: FilterOperator[] = [
   { label: $localize`:@@filterOperator.lessThan:less than`, filterFn: "_<_", kind: "comparison" },
-  { label: $localize`:@@filterOperator.lessOrEqual:less or equal`, filterFn: "_<=_", kind: "comparison" },
-  { label: $localize`:@@filterOperator.greaterThan:greater than`, filterFn: "_>_", kind: "comparison" },
-  { label: $localize`:@@filterOperator.greaterOrEqual:greater or equal`, filterFn: "_>=_", kind: "comparison" },
+  {
+    label: $localize`:@@filterOperator.lessOrEqual:less or equal`,
+    filterFn: "_<=_",
+    kind: "comparison",
+  },
+  {
+    label: $localize`:@@filterOperator.greaterThan:greater than`,
+    filterFn: "_>_",
+    kind: "comparison",
+  },
+  {
+    label: $localize`:@@filterOperator.greaterOrEqual:greater or equal`,
+    filterFn: "_>=_",
+    kind: "comparison",
+  },
 ];
 
 const STRING_METHODS: FilterOperator[] = [
   { label: $localize`:@@filterOperator.contains:contains`, filterFn: "contains", kind: "method" },
-  { label: $localize`:@@filterOperator.startsWith:starts with`, filterFn: "startsWith", kind: "method" },
+  {
+    label: $localize`:@@filterOperator.startsWith:starts with`,
+    filterFn: "startsWith",
+    kind: "method",
+  },
   { label: $localize`:@@filterOperator.endsWith:ends with`, filterFn: "endsWith", kind: "method" },
 ];
 

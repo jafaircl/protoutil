@@ -16,10 +16,11 @@ import { MatInputModule } from "@angular/material/input";
 import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatSort, MatSortModule, type Sort } from "@angular/material/sort";
 import { MatTableModule } from "@angular/material/table";
-import { type Expr, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
+import { check, type Expr, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
 import { Field, OrderBy, parseOrderBy } from "@protoutil/aip/orderby";
 import {
   exprToFilterNode,
+  FilterEditorComponent,
   type FilterNode,
   FilterTreeComponent,
   filterNodeToExpr,
@@ -31,32 +32,12 @@ import { LibraryService } from "../../services/library";
 import { DEFAULT_PAGE_SIZE } from "../../utils/defaults";
 import { stringifyQueryParam } from "../../utils/query-params";
 
-/**
- * Build a sample tree for demo purposes:
- *
- *   root (AND)
- *     ├── leaf: "status = ACTIVE"
- *     ├── branch (OR)
- *     │     ├── leaf: "region = US"
- *     │     └── leaf: "region = EU"
- *     ├── leaf: "priority > 3"
- *     └── leaf: "name.startsWith("foo")"
- */
-function buildDemoTree(): FilterNode {
-  return exprToFilterNode(
-    parse(
-      `status = ACTIVE AND (region = US OR region = EU) AND priority > 3 AND name.startsWith("foo")`,
-    ).expr as Expr,
-  );
-}
-
 @Component({
   selector: "app-shelves",
   templateUrl: "./shelves.html",
   styleUrls: ["./shelves.css"],
   imports: [
-    FilterTreeComponent,
-    FormField,
+    FilterEditorComponent,
     FormsModule,
     MatFormFieldModule,
     MatInputModule,
@@ -81,17 +62,20 @@ export class ShelfListComponent implements AfterViewInit {
     stringify: (param) => (!param ? null : param.toString()),
   });
   decls = signal([ident("theme", STRING)]);
-  filterForm = form(signal(""), (path) => {
-    // Debounce filter input to avoid excessive requests/validation while typing
-    debounce(path, 300);
-    validateAipFilter(path, this.decls);
-  });
-  filterParam = linkedQueryParam("filter", {
-    source: linkedSignal(() => {
-      const state = this.filterForm();
-      if (!state.value() || state.invalid()) return null;
-      return state.value();
-    }),
+  filterParam = linkedQueryParam("filter");
+  filterTree = computed<FilterNode | undefined>(() => {
+    const filterStr = this.filterParam();
+    if (!filterStr) return undefined;
+    try {
+      const parsed = parse(filterStr);
+      const { checkedExpr, errors } = check(parsed, this.decls(), filterStr);
+      if (checkedExpr.expr && errors.length === 0) {
+        return exprToFilterNode(checkedExpr.expr);
+      }
+    } catch {
+      // Invalid filter in URL — ignore
+    }
+    return undefined;
   });
 
   pageSize = computed(() => this.pageSizeParam() ?? DEFAULT_PAGE_SIZE);
@@ -132,8 +116,7 @@ export class ShelfListComponent implements AfterViewInit {
   private initialized = false;
 
   filterEffect = effect(() => {
-    // Track the filter param
-    this.filterParam();
+    this.filterParam(); // track
     // Reset to first page when filter changes, but only after initial load
     if (this.initialized) {
       this.skipParam.set(0);
@@ -141,13 +124,8 @@ export class ShelfListComponent implements AfterViewInit {
   });
 
   ngAfterViewInit() {
-    this.setInitialFilter();
     this.setInitialOrderBy();
     this.initialized = true;
-  }
-
-  setInitialFilter() {
-    this.filterForm().value.set(this.filter() ?? "");
   }
 
   setInitialOrderBy() {
@@ -178,9 +156,7 @@ export class ShelfListComponent implements AfterViewInit {
   }
 
   onFilterChange($event: unknown) {
-    console.log({ $event });
-    console.log(unparse(filterNodeToExpr($event as FilterNode)));
+    const expr = filterNodeToExpr($event as FilterNode);
+    this.filterParam.set(expr ? unparse(expr) : null);
   }
-
-  rootNode = signal<FilterNode>(buildDemoTree());
 }

@@ -1,3 +1,4 @@
+import "@angular/localize/init";
 import type { Provider } from "@angular/core";
 
 // JSDom + Vitest don't play well with each other. Long story short - default

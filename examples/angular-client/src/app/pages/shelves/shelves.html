@@ -1,13 +1,6 @@
 <h1>Shelves</h1>
 <div class="mat-elevation-z8">
-  <mat-form-field appearance="outline">
-    <mat-label>Filter Shelves</mat-label>
-    <input type="text" matInput [formField]="filterForm" />
-    @if (filterForm().invalid() && filterForm().errors().length > 0) {
-    <mat-error>{{ filterForm().errors()[0].message }}</mat-error>
-    }
-  </mat-form-field>
-  <aip-filter-tree [initialTree]="rootNode()" (treeChange)="onFilterChange($event)"></aip-filter-tree>
+  <aip-filter-editor [initialTree]="filterTree()" [declarations]="decls()" (treeChange)="onFilterChange($event)"></aip-filter-editor>
 
   <table
     mat-table
