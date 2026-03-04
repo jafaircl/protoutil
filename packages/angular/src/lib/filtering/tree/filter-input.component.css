@@ -27,7 +27,3 @@
   color: var(--mat-sys-on-surface-variant, #49454f);
   transition: color 100ms ease;
 }
-
-.filter-input-toggle button.active {
-  color: var(--mat-sys-primary, #6750a4);
-}

@@ -13,9 +13,11 @@
   [allDropListIds]="allDropListIds()"
   [canUndo]="canUndo()"
   [canRedo]="canRedo()"
+  [canClearAll]="canClearAll()"
   (nodeDrop)="onNodeDrop($event)"
   (conjunctionToggle)="onConjunctionToggle($event)"
   (nodeDelete)="onNodeDelete($event)"
   (undoClick)="undo()"
   (redoClick)="redo()"
+  (clearAllClick)="clearAll()"
 />

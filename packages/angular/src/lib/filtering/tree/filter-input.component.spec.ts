@@ -51,6 +51,17 @@ class TextModeHostComponent {
   input = viewChild.required(FilterInputComponent);
 }
 
+@Component({
+  standalone: true,
+  imports: [FilterInputComponent],
+  template: `<aip-filter-input [declarations]="decls" [initialField]="initialField" />`,
+})
+class InitialFieldHostComponent {
+  decls: Decl[] = [stringDecl("name"), stringDecl("status")];
+  initialField: string | null = "status";
+  input = viewChild.required(FilterInputComponent);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -62,7 +73,12 @@ describe("FilterInputComponent", () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TestHostComponent, TextModeHostComponent, NoopAnimationsModule],
+      imports: [
+        TestHostComponent,
+        TextModeHostComponent,
+        InitialFieldHostComponent,
+        NoopAnimationsModule,
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TestHostComponent);
@@ -91,13 +107,13 @@ describe("FilterInputComponent", () => {
   // -----------------------------------------------------------------------
 
   it("switches to text mode", () => {
-    comp.setMode("text");
+    comp.mode.set("text");
     expect(comp.mode()).toBe("text");
   });
 
   it("switches back to stepper mode", () => {
-    comp.setMode("text");
-    comp.setMode("stepper");
+    comp.mode.set("text");
+    comp.mode.set("stepper");
     expect(comp.mode()).toBe("stepper");
   });
 
@@ -122,7 +138,7 @@ describe("FilterInputComponent", () => {
   });
 
   it("renders the text input component in text mode", () => {
-    comp.setMode("text");
+    comp.mode.set("text");
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector("aip-filter-text-input")).not.toBeNull();
@@ -142,7 +158,7 @@ describe("FilterInputComponent", () => {
   });
 
   it("shows wand icon in text mode", () => {
-    comp.setMode("text");
+    comp.mode.set("text");
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     const icon = el.querySelector(".filter-input-toggle mat-icon");
@@ -154,5 +170,16 @@ describe("FilterInputComponent", () => {
     expect(comp.mode()).toBe("text");
     comp.toggleMode();
     expect(comp.mode()).toBe("stepper");
+  });
+
+  // -----------------------------------------------------------------------
+  // initialField passthrough
+  // -----------------------------------------------------------------------
+
+  it("passes initialField through to the stepper", () => {
+    const f = TestBed.createComponent(InitialFieldHostComponent);
+    f.detectChanges();
+    const inputComp = f.componentInstance.input();
+    expect(inputComp.initialField()).toBe("status");
   });
 });

@@ -69,6 +69,8 @@ export class FilterNodeComponent {
   canUndo = input<boolean>(false);
   /** Whether redo is available — only used by the root branch header. */
   canRedo = input<boolean>(false);
+  /** Whether clear-all is available — only used by the root branch header. */
+  canClearAll = input<boolean>(false);
 
   /** Final resolved drop — emitted after the root resolves the position. */
   nodeDrop = output<{ dragId: string; position: DropPosition }>();
@@ -79,6 +81,8 @@ export class FilterNodeComponent {
   undoClick = output<void>();
   /** Emitted when the root redo button is clicked. */
   redoClick = output<void>();
+  /** Emitted when the root clear-all button is clicked. */
+  clearAllClick = output<void>();
 
   // -------------------------------------------------------------------------
   // Services

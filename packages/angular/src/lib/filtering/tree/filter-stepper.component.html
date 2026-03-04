@@ -59,15 +59,14 @@
   }
 
   <!-- Add button -->
-  @if (canAdd()) {
-    <button
-      mat-flat-button
-      color="primary"
-      class="stepper-add"
-      (click)="onAdd()"
-    >
-      <mat-icon>add</mat-icon>
-      {{ addLabel() }}
-    </button>
-  }
+  <button
+    mat-flat-button
+    color="primary"
+    class="stepper-add"
+    [disabled]="!canAdd()"
+    (click)="onAdd()"
+  >
+    <mat-icon>add</mat-icon>
+    {{ addLabel() }}
+  </button>
 </div>

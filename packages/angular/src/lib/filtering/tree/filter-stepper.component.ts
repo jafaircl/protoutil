@@ -63,6 +63,9 @@ export class FilterStepperComponent {
   /** The available field declarations. */
   declarations = input.required<Decl[]>();
 
+  /** Optional field name to pre-select. */
+  initialField = input<string | null>(null);
+
   /** Emitted when the user completes all steps and adds a filter. */
   exprAdd = output<Expr>();
 
@@ -157,6 +160,14 @@ export class FilterStepperComponent {
   // -----------------------------------------------------------------------
 
   constructor() {
+    // Apply initialField when it changes.
+    effect(() => {
+      const field = this.initialField();
+      if (field != null) {
+        this.selectedFieldName.set(field);
+      }
+    });
+
     // When field changes, reset operator and value.
     effect(() => {
       this.selectedFieldName(); // track

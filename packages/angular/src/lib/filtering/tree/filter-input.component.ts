@@ -38,6 +38,9 @@ export class FilterInputComponent {
   /** The available field declarations for the stepper and text input. */
   declarations = input<Decl[]>([]);
 
+  /** Optional field name to pre-select in the stepper. */
+  initialField = input<string | null>(null);
+
   /** The initial input mode. */
   initialMode = input<FilterInputMode>("stepper");
 
@@ -49,10 +52,6 @@ export class FilterInputComponent {
 
   ngOnInit(): void {
     this.mode.set(this.initialMode());
-  }
-
-  setMode(mode: FilterInputMode): void {
-    this.mode.set(mode);
   }
 
   toggleMode(): void {

@@ -1,5 +1,30 @@
+.table-card {
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container-lowest);
+}
+
 table.loading {
   opacity: 0.6;
   pointer-events: none;
   transition: opacity 150ms ease;
+}
+
+.header-cell {
+  display: flex;
+  align-items: center;
+}
+
+th .column-filter-btn {
+  --mdc-icon-button-icon-size: 16px;
+  --mdc-icon-button-state-layer-size: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+th .column-filter-btn:hover {
+  opacity: 1;
 }

@@ -44,6 +44,9 @@ export class FilterEditorComponent {
   /** Optional initial tree state. */
   initialTree = input<FilterNode | undefined>(undefined);
 
+  /** Optional field name to pre-select in the stepper. */
+  initialField = input<string | null>(null);
+
   /** The initial input mode for the input wrapper. */
   initialInputMode = input<FilterInputMode>("stepper");
 
@@ -77,8 +80,13 @@ export class FilterEditorComponent {
     });
   }
 
-  /** True when the tree has at least one child (i.e. is non-empty). */
-  readonly showTree = computed(() => this.root().children.length > 0);
+  /**
+   * True when the tree should be visible: either it has children, or the
+   * tree component has undo history (so the user can undo a clear-all).
+   */
+  readonly showTree = computed(
+    () => this.root().children.length > 0 || (this.tree()?.canUndo() ?? false),
+  );
 
   onTreeChange(node: FilterNode): void {
     this.root.set(node);
@@ -95,12 +103,13 @@ export class FilterEditorComponent {
     );
     this.root.set(newRoot);
 
-    // Update the tree component's state directly.
     const treeComp = this.tree();
     if (treeComp) {
-      treeComp.root.set(newRoot);
+      treeComp.applyExternalUpdate(newRoot);
+    } else {
+      // Tree not yet mounted — treeChange triggers showTree(),
+      // and ngOnInit will pick up root() as initialTree.
+      this.treeChange.emit(newRoot);
     }
-
-    this.treeChange.emit(newRoot);
   }
 }

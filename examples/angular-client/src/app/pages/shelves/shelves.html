@@ -1,6 +1,12 @@
+<div class="page">
 <h1>Shelves</h1>
-<div class="mat-elevation-z8">
-  <aip-filter-editor [initialTree]="filterTree()" [declarations]="decls()" (treeChange)="onFilterChange($event)"></aip-filter-editor>
+<div class="mat-elevation-z2 table-card">
+  <div class="toolbar">
+    <button mat-stroked-button [color]="hasActiveFilter() ? 'primary' : undefined" (click)="openFilterDialog()">
+      <mat-icon>filter_list</mat-icon>
+      {{ hasActiveFilter() ? 'Edit Filter' : 'Add Filter' }}
+    </button>
+  </div>
 
   <table
     mat-table
@@ -10,7 +16,14 @@
     (matSortChange)="handleSortChangeEvent($event)"
   >
     <ng-container matColumnDef="theme">
-      <th mat-header-cell mat-sort-header *matHeaderCellDef>Theme</th>
+      <th mat-header-cell *matHeaderCellDef>
+        <div class="header-cell">
+          <span mat-sort-header>Theme</span>
+          <button mat-icon-button class="column-filter-btn" (click)="openFilterForField('theme')" aria-label="Filter by theme">
+            <mat-icon>filter_list</mat-icon>
+          </button>
+        </div>
+      </th>
       <td mat-cell *matCellDef="let element">{{ element.theme }}</td>
     </ng-container>
 
@@ -26,4 +39,5 @@
     showFirstLastButtons
     (page)="handlePageEvent($event)"
   />
+</div>
 </div>

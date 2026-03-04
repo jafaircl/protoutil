@@ -64,6 +64,26 @@ class EmptyTestHostComponent {
 }
 
 // ---------------------------------------------------------------------------
+// Test host — with initialField
+// ---------------------------------------------------------------------------
+
+@Component({
+  standalone: true,
+  imports: [FilterEditorComponent],
+  template: `<aip-filter-editor
+    [declarations]="decls"
+    [initialField]="initialField"
+    (treeChange)="lastTree = $event"
+  />`,
+})
+class InitialFieldHostComponent {
+  decls: Decl[] = [stringDecl("name"), stringDecl("status")];
+  initialField: string | null = "status";
+  lastTree: FilterNode | null = null;
+  editor = viewChild.required(FilterEditorComponent);
+}
+
+// ---------------------------------------------------------------------------
 // Test host — pre-populated tree
 // ---------------------------------------------------------------------------
 
@@ -98,7 +118,7 @@ describe("FilterEditorComponent (empty)", () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [EmptyTestHostComponent, NoopAnimationsModule],
+      imports: [EmptyTestHostComponent, InitialFieldHostComponent, NoopAnimationsModule],
     }).compileComponents();
 
     fixture = TestBed.createComponent(EmptyTestHostComponent);
@@ -117,7 +137,9 @@ describe("FilterEditorComponent (empty)", () => {
 
   it("hides the tree element in the DOM when empty", () => {
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelector("aip-filter-tree")).toBeNull();
+    const tree = el.querySelector("aip-filter-tree") as HTMLElement;
+    expect(tree).not.toBeNull();
+    expect(tree.hidden).toBe(true);
   });
 
   it("shows the input wrapper", () => {
@@ -179,6 +201,13 @@ describe("FilterEditorComponent (empty)", () => {
     const addedChild = comp.root().children[0];
     expect(addedChild.children.length).toBe(0);
     expect(addedChild.expr).toBe(expr);
+  });
+
+  it("passes initialField through to the input", () => {
+    const f = TestBed.createComponent(InitialFieldHostComponent);
+    f.detectChanges();
+    const editorComp = f.componentInstance.editor();
+    expect(editorComp.initialField()).toBe("status");
   });
 });
 

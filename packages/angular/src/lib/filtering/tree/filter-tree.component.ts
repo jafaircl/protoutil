@@ -86,6 +86,8 @@ export class FilterTreeComponent implements OnInit {
   readonly canUndo = computed(() => this.treeService.canUndo(this.history()));
   /** True when there's at least one state to redo to. */
   readonly canRedo = computed(() => this.treeService.canRedo(this.history()));
+  /** True when the tree has at least one child (i.e. there are filters to clear). */
+  readonly canClearAll = computed(() => this.root().children.length > 0);
 
   // -------------------------------------------------------------------------
   // Services
@@ -161,6 +163,12 @@ export class FilterTreeComponent implements OnInit {
     this.treeChange.emit(state);
   }
 
+  clearAll(): void {
+    if (this.root().children.length === 0) return;
+    const emptyRoot = createFilterBranchNode([], this.root().conjunction ?? "_&&_");
+    this.commitState(emptyRoot);
+  }
+
   redo(): void {
     const next = this.treeService.redo(this.history());
     if (!next) return;
@@ -183,6 +191,14 @@ export class FilterTreeComponent implements OnInit {
     } else {
       this.undo();
     }
+  }
+
+  /**
+   * Apply an external tree mutation through the history stack.
+   * Used by FilterEditorComponent when appending a new leaf.
+   */
+  applyExternalUpdate(newRoot: FilterNode): void {
+    this.commitState(newRoot);
   }
 
   // -------------------------------------------------------------------------

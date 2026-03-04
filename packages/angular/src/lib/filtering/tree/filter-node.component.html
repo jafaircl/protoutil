@@ -161,6 +161,18 @@
         >
           <mat-icon>redo</mat-icon>
         </button>
+        <button
+          class="history-button"
+          mat-icon-button
+          [disabled]="!canClearAll()"
+          matTooltip="Clear all filters"
+          i18n-matTooltip="@@filterTree.clearAll.tooltip"
+          aria-label="Clear all filters"
+          i18n-aria-label="@@filterTree.clearAll.ariaLabel"
+          (click)="clearAllClick.emit()"
+        >
+          <mat-icon>delete</mat-icon>
+        </button>
       } @else {
         <button
           class="delete-button"

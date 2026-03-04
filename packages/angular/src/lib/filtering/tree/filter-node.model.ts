@@ -31,14 +31,14 @@ export function isFilterNode(obj: unknown): obj is FilterNode {
   return typeof obj === "object" && obj !== null && privateSymbol in obj;
 }
 
-/** True if the node is a leaf (no children). */
+/** True if the node is a leaf (has no conjunction). */
 export function isFilterLeafNode(node: FilterNode): boolean {
-  return isFilterNode(node) && node.children.length === 0;
+  return isFilterNode(node) && typeof node.conjunction !== "string";
 }
 
-/** True if the node is a branch (has children and a conjunction). */
+/** True if the node is a branch (has a conjunction, may have zero children). */
 export function isFilterBranchNode(node: FilterNode): boolean {
-  return isFilterNode(node) && node.children.length > 0 && typeof node.conjunction === "string";
+  return isFilterNode(node) && typeof node.conjunction === "string";
 }
 
 /** Create a new leaf node wrapping the given Expr. */

@@ -10,6 +10,7 @@
     @if (mode() === "stepper") {
       <aip-filter-stepper
         [declarations]="declarations()"
+        [initialField]="initialField()"
         (exprAdd)="onExprAdd($event)"
       />
     } @else {

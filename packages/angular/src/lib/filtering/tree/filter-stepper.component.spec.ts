@@ -43,6 +43,18 @@ class TestHostComponent {
   stepper = viewChild.required(FilterStepperComponent);
 }
 
+@Component({
+  standalone: true,
+  imports: [FilterStepperComponent],
+  template: `<aip-filter-stepper [declarations]="decls" [initialField]="initialField" (exprAdd)="lastExpr = $event" />`,
+})
+class InitialFieldHostComponent {
+  decls: Decl[] = [stringDecl("name"), intDecl("priority"), boolDecl("active")];
+  initialField: string | null = "priority";
+  lastExpr: Expr | null = null;
+  stepper = viewChild.required(FilterStepperComponent);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -54,7 +66,7 @@ describe("FilterStepperComponent", () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TestHostComponent, NoopAnimationsModule],
+      imports: [TestHostComponent, InitialFieldHostComponent, NoopAnimationsModule],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TestHostComponent);
@@ -86,6 +98,29 @@ describe("FilterStepperComponent", () => {
 
   it("cannot add initially", () => {
     expect(comp.canAdd()).toBe(false);
+  });
+
+  it("renders the add button disabled when stepper is incomplete", () => {
+    expect(comp.canAdd()).toBe(false);
+    fixture.detectChanges();
+    const btn = fixture.nativeElement.querySelector(".stepper-add") as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    expect(btn.disabled).toBe(true);
+  });
+
+  it("add button is always present in the DOM", () => {
+    // Button should be present regardless of stepper completeness
+    fixture.detectChanges();
+    const btnBefore = fixture.nativeElement.querySelector(".stepper-add") as HTMLButtonElement;
+    expect(btnBefore).not.toBeNull();
+
+    // Complete all steps
+    comp.selectedFieldName.set("name");
+    comp.selectedOperatorFn.set("_==_");
+    comp.valueText.set("Alice");
+    fixture.detectChanges();
+    const btnAfter = fixture.nativeElement.querySelector(".stepper-add") as HTMLButtonElement;
+    expect(btnAfter).not.toBeNull();
   });
 
   // -----------------------------------------------------------------------
@@ -272,6 +307,19 @@ describe("FilterStepperComponent", () => {
     comp.selectedFieldName.set("priority");
     TestBed.tick();
     expect(comp.selectedOperatorFn()).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // initialField
+  // -----------------------------------------------------------------------
+
+  it("pre-selects a field when initialField is set", async () => {
+    const f2 = TestBed.createComponent(InitialFieldHostComponent);
+    f2.detectChanges();
+    await f2.whenStable();
+    const stepper = f2.componentInstance.stepper();
+    expect(stepper.selectedFieldName()).toBe("priority");
+    expect(stepper.showOperator()).toBe(true);
   });
 });
 

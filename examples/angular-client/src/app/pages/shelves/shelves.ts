@@ -11,7 +11,10 @@ import {
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { debounce, FormField, form } from "@angular/forms/signals";
+import { MatButtonModule } from "@angular/material/button";
+import { MatDialog } from "@angular/material/dialog";
 import { MatFormFieldModule } from "@angular/material/form-field";
+import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatSort, MatSortModule, type Sort } from "@angular/material/sort";
@@ -20,26 +23,25 @@ import { check, type Expr, ident, parse, STRING, unparse } from "@protoutil/aip/
 import { Field, OrderBy, parseOrderBy } from "@protoutil/aip/orderby";
 import {
   exprToFilterNode,
-  FilterEditorComponent,
   type FilterNode,
-  FilterTreeComponent,
   filterNodeToExpr,
-  validateAipFilter,
 } from "@protoutil/angular";
 import { linkedQueryParam, paramToNumber } from "ngxtension/linked-query-param";
 import type { ListShelvesResponse } from "../../../gen/library/v1/library_pb";
 import { LibraryService } from "../../services/library";
 import { DEFAULT_PAGE_SIZE } from "../../utils/defaults";
 import { stringifyQueryParam } from "../../utils/query-params";
+import { FilterDialogComponent, type FilterDialogData } from "./filter-dialog";
 
 @Component({
   selector: "app-shelves",
   templateUrl: "./shelves.html",
   styleUrls: ["./shelves.css"],
   imports: [
-    FilterEditorComponent,
     FormsModule,
+    MatButtonModule,
     MatFormFieldModule,
+    MatIconModule,
     MatInputModule,
     MatPaginatorModule,
     MatSortModule,
@@ -48,6 +50,7 @@ import { stringifyQueryParam } from "../../utils/query-params";
 })
 export class ShelfListComponent implements AfterViewInit {
   library = inject(LibraryService);
+  private dialog = inject(MatDialog);
 
   pageSizeParam = linkedQueryParam("page_size", {
     parse: paramToNumber({ defaultValue: DEFAULT_PAGE_SIZE }),
@@ -109,6 +112,8 @@ export class ShelfListComponent implements AfterViewInit {
   previousPagetoken = computed(() => this.shelvesResponse()?.previousPageToken ?? null);
   totalSize = computed(() => this.shelvesResponse()?.totalSize ?? 0);
 
+  hasActiveFilter = computed(() => !!this.filterParam());
+
   readonly displayedColumns = ["theme"] as const;
   paginator = viewChild.required(MatPaginator);
   sort = viewChild.required(MatSort);
@@ -155,8 +160,25 @@ export class ShelfListComponent implements AfterViewInit {
     this.orderByParam.set(new OrderBy([new Field(state.active, state.direction === "desc")]));
   }
 
-  onFilterChange($event: unknown) {
-    const expr = filterNodeToExpr($event as FilterNode);
-    this.filterParam.set(expr ? unparse(expr) : null);
+  openFilterDialog(initialField?: string | null): void {
+    const data: FilterDialogData = {
+      declarations: this.decls(),
+      initialTree: this.filterTree(),
+      initialField: initialField ?? null,
+    };
+
+    this.dialog
+      .open(FilterDialogComponent, { data, width: "600px", maxHeight: "80vh" })
+      .afterClosed()
+      .subscribe((result: FilterNode | undefined) => {
+        if (result !== undefined) {
+          const expr = filterNodeToExpr(result);
+          this.filterParam.set(expr ? unparse(expr) : null);
+        }
+      });
+  }
+
+  openFilterForField(fieldName: string): void {
+    this.openFilterDialog(fieldName);
   }
 }

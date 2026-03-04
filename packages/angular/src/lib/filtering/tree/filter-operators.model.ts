@@ -71,7 +71,7 @@ const STRING_METHODS: FilterOperator[] = [
 
 const BOOL_OPS: FilterOperator[] = [...EQUALITY];
 const NUMERIC_OPS: FilterOperator[] = [...EQUALITY, ...ORDERING];
-const STRING_OPS: FilterOperator[] = [...EQUALITY, ...ORDERING, ...STRING_METHODS];
+const STRING_OPS: FilterOperator[] = [...EQUALITY, ...STRING_METHODS];
 
 // ---------------------------------------------------------------------------
 // Public API

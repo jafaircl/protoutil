@@ -254,32 +254,6 @@
   color: var(--mat-sys-primary, #6750a4);
 }
 
-.gap-label {
-  pointer-events: none;
-}
-
-/* ============================================================
-   Item merge overlay
-   ============================================================ */
-
-.item-merge-overlay {
-  position: absolute;
-  inset: var(--filter-tree-gap-xs);
-  z-index: 2;
-  border-radius: var(--filter-tree-radius);
-  pointer-events: none;
-  opacity: 0;
-  background: transparent;
-  border: var(--filter-tree-outline-width) solid transparent;
-  transition: opacity 80ms ease;
-}
-
-.item-merge-overlay--active {
-  opacity: 1;
-  background: color-mix(in srgb, var(--mat-sys-primary, #6750a4) 8%, transparent);
-  border-color: var(--mat-sys-primary, #6750a4);
-}
-
 /* ============================================================
    Delete button (branch header)
    ============================================================ */
@@ -293,10 +267,6 @@
   padding: 0;
   color: var(--mat-sys-outline);
   transition: color 100ms ease;
-}
-
-.delete-button:hover {
-  color: var(--mat-sys-error, #b3261e);
 }
 
 .delete-button mat-icon {

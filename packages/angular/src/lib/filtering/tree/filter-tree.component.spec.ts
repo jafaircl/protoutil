@@ -274,6 +274,88 @@ describe("FilterTreeComponent — undo/redo", () => {
   });
 });
 
+describe("FilterTreeComponent — clear all", () => {
+  let fixture: ComponentFixture<TestHostComponent>;
+  let host: TestHostComponent;
+  let comp: FilterTreeComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [TestHostComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(TestHostComponent);
+    fixture.detectChanges();
+    host = fixture.componentInstance;
+    comp = host.filterTree();
+  });
+
+  it("canClearAll is true when the tree has children", () => {
+    expect(comp.canClearAll()).toBe(true);
+  });
+
+  it("canClearAll is false after clearing", () => {
+    comp.clearAll();
+    expect(comp.canClearAll()).toBe(false);
+  });
+
+  it("clearAll removes all children from the root", () => {
+    comp.clearAll();
+    expect(comp.root().children.length).toBe(0);
+  });
+
+  it("clearAll preserves the root conjunction", () => {
+    comp.onConjunctionToggle("root");
+    expect(comp.root().conjunction).toBe("_||_");
+
+    comp.clearAll();
+    expect(comp.root().conjunction).toBe("_||_");
+  });
+
+  it("clearAll emits treeChange", () => {
+    host.lastEmitted = null;
+    comp.clearAll();
+    expect(host.lastEmitted).not.toBeNull();
+    expect(host.lastEmitted!.children.length).toBe(0);
+  });
+
+  it("clearAll is undoable", () => {
+    const before = comp.root();
+    comp.clearAll();
+    expect(comp.root().children.length).toBe(0);
+
+    comp.undo();
+    expect(comp.root().children.length).toBe(before.children.length);
+  });
+
+  it("clearAll is a no-op when tree is already empty", () => {
+    comp.clearAll();
+    const emptyRoot = comp.root();
+    comp.clearAll(); // second call — should do nothing
+    expect(comp.root()).toBe(emptyRoot);
+  });
+
+  it("renders a clear-all button with a delete icon in the root header", () => {
+    fixture.detectChanges();
+    const btn = fixture.nativeElement.querySelector(
+      '.branch-header button[aria-label="Clear all filters"]',
+    ) as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    const icon = btn.querySelector("mat-icon");
+    expect(icon?.textContent?.trim()).toBe("delete");
+  });
+
+  it("canClearAll is false on an initially empty tree", async () => {
+    // Create a fresh fixture with an empty root
+    const emptyFixture = TestBed.createComponent(TestHostComponent);
+    emptyFixture.componentInstance.tree = branch("root", []);
+    emptyFixture.detectChanges();
+    await emptyFixture.whenStable();
+    const emptyComp = emptyFixture.componentInstance.filterTree();
+    expect(emptyComp.canClearAll()).toBe(false);
+  });
+});
+
 describe("FilterTreeComponent - ordering", () => {
   let fixture: ComponentFixture<TestHostComponent>;
   let host: TestHostComponent;
