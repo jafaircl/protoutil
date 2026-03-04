@@ -366,6 +366,7 @@
    ============================================================ */
 
 .drag-placeholder-hidden {
+  /* biome-ignore lint/complexity/noImportantStyles: required to override CDK inline styles */
   display: none !important;
 }
 

@@ -156,11 +156,7 @@ export function findDeepestBranchZone(
     deepest.querySelectorAll<HTMLElement>(":scope > .child-wrapper"),
   );
 
-  // A branch is "root" for snap purposes if no other branch body contains it.
-  // We detect this by checking if it has any ancestor .branch-body elements
-  // in the candidates list (the root has no such ancestor).
-  const isRoot = candidates.length === 1;
-  const zone = computeActiveZone(y, childWrappers, dragId, isRoot);
+  const zone = computeActiveZone(y, childWrappers, dragId);
   return { branchId, zone };
 }
 
@@ -171,14 +167,12 @@ export function findDeepestBranchZone(
  * @param rects      - bounding rects of child wrappers (in order)
  * @param nodeIds    - data-node-id of each child wrapper (parallel to rects)
  * @param dragId     - ID of the node currently being dragged (to skip its gaps)
- * @param isRoot     - true for the root branch (emits trailing gap snap)
  */
 export function computeZoneFromRects(
   pointerY: number,
   rects: Array<{ top: number; bottom: number; height: number }>,
   nodeIds: string[],
   dragId?: string,
-  isRoot = false,
 ): ZoneKind {
   if (rects.length === 0) return { kind: "gap", index: 0 };
 
@@ -239,12 +233,11 @@ export function computeActiveZone(
   pointerY: number,
   childWrappers: HTMLElement[],
   dragId?: string,
-  isRoot = false,
 ): ZoneKind {
   if (childWrappers.length === 0) return { kind: "gap", index: 0 };
   const rects = childWrappers.map((el) => el.getBoundingClientRect());
   const nodeIds = childWrappers.map((el) => el.dataset["nodeId"] ?? "");
-  return computeZoneFromRects(pointerY, rects, nodeIds, dragId, isRoot);
+  return computeZoneFromRects(pointerY, rects, nodeIds, dragId);
 }
 
 /** Find a node by ID anywhere in the tree. */

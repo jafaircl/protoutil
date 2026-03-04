@@ -12,8 +12,7 @@ import { ChangeDetectionStrategy, Component, input, output, signal } from "@angu
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
 import { MatTooltipModule } from "@angular/material/tooltip";
-import type { Decl } from "@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb";
-import type { Expr } from "@protoutil/aip/filtering";
+import type { Decl, Expr } from "@protoutil/aip/filtering";
 
 import { FilterStepperComponent } from "./filter-stepper.component";
 import { FilterTextInputComponent } from "./filter-text-input.component";

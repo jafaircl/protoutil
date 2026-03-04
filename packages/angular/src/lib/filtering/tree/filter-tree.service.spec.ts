@@ -13,6 +13,8 @@
  */
 
 import { TestBed } from "@angular/core/testing";
+import { create } from "@bufbuild/protobuf";
+import { ExprSchema } from "@protoutil/aip/filtering";
 import { createFilterBranchNode, createFilterLeafNode, type FilterNode } from "./filter-node.model";
 import {
   enforceMinChildren,
@@ -27,9 +29,7 @@ import {
 
 /** Build a leaf with a predictable ID for readability in assertions. */
 function leaf(id: string): FilterNode {
-  const n = createFilterLeafNode(undefined as any);
-  (n as any).id = id;
-  return n;
+  return createFilterLeafNode(create(ExprSchema), id);
 }
 
 /** Build a branch with a predictable ID. */
@@ -38,9 +38,7 @@ function branch(
   children: FilterNode[],
   conjunction: "_&&_" | "_||_" = "_&&_",
 ): FilterNode {
-  const n = createFilterBranchNode(children, conjunction);
-  (n as any).id = id;
-  return n;
+  return createFilterBranchNode(children, conjunction, id);
 }
 
 /**
@@ -68,7 +66,7 @@ function snapshot(node: FilterNode): TreeSnapshot {
 describe("enforceMinChildren", () => {
   it("leaves a valid tree unchanged", () => {
     const root = branch("root", [branch("b1", [leaf("l1"), leaf("l2")]), leaf("l3")]);
-    enforceMinChildren(root, true);
+    enforceMinChildren(root);
     expect(root.children.length).toBe(2);
     expect(root.children[0].children.length).toBe(2);
   });
@@ -85,19 +83,19 @@ describe("enforceMinChildren", () => {
     // Step 1 (bottom-up): b2 has 1 child → hoist l1 → b1 gets [l1, l2]
     // Step 2 (root absorption): root has 1 branch child b1 → absorb → root gets [l1, l2]
     const root = branch("root", [branch("b1", [branch("b2", [leaf("l1")]), leaf("l2")])]);
-    enforceMinChildren(root, true);
+    enforceMinChildren(root);
     expect(root.children.map((c) => c.id)).toEqual(["l1", "l2"]);
   });
 
   it("removes empty non-root branches", () => {
     const root = branch("root", [branch("empty", []), leaf("l1"), leaf("l2")]);
-    enforceMinChildren(root, true);
+    enforceMinChildren(root);
     expect(root.children.map((c) => c.id)).toEqual(["l1", "l2"]);
   });
 
   it("does NOT flatten root when its only child is a leaf", () => {
     const root = branch("root", [leaf("l1")]);
-    enforceMinChildren(root, true);
+    enforceMinChildren(root);
     expect(root.children.length).toBe(1);
     expect(root.children[0].id).toBe("l1");
   });
@@ -106,7 +104,7 @@ describe("enforceMinChildren", () => {
     // root → [b1(OR) → [l1, l2]]
     // root has 1 child that is a branch → absorb: root becomes OR with [l1, l2]
     const root = branch("root", [branch("b1", [leaf("l1"), leaf("l2")], "_||_")]);
-    enforceMinChildren(root, true);
+    enforceMinChildren(root);
     expect(root.conjunction).toBe("_||_");
     expect(root.children.map((c) => c.id)).toEqual(["l1", "l2"]);
   });
@@ -118,7 +116,7 @@ describe("enforceMinChildren", () => {
       branch("b1", [branch("b2", [leaf("l1"), leaf("l2")], "_||_")]),
       leaf("l3"),
     ]);
-    enforceMinChildren(root, true);
+    enforceMinChildren(root);
     const b1 = findNode(root, "b1")!;
     expect(b1.conjunction).toBe("_||_");
     expect(b1.children.map((c) => c.id)).toEqual(["l1", "l2"]);
@@ -127,7 +125,7 @@ describe("enforceMinChildren", () => {
   it("preserves conjunction when absorbing single branch child", () => {
     // root→[b1(OR)→[l1,l2]]: b1 absorbed into root, conjunction preserved on root
     const root = branch("root", [branch("b1", [leaf("l1"), leaf("l2")], "_||_")]);
-    enforceMinChildren(root, true);
+    enforceMinChildren(root);
     expect(root.conjunction).toBe("_||_");
     expect(root.children.map((c) => c.id)).toEqual(["l1", "l2"]);
   });

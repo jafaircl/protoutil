@@ -22,8 +22,7 @@ import {
   signal,
   viewChild,
 } from "@angular/core";
-import type { Decl } from "@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb";
-import type { Expr } from "@protoutil/aip/filtering";
+import type { Decl, Expr } from "@protoutil/aip/filtering";
 
 import { FilterInputComponent, type FilterInputMode } from "./filter-input.component";
 import { createFilterBranchNode, exprToFilterNode, type FilterNode } from "./filter-node.model";

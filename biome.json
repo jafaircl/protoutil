@@ -10,6 +10,7 @@
     "includes": [
       "**",
       "!**/dist",
+      "!**/gen",
       "!**/node_modules",
       "!examples/angular-client/**/*.html",
       "!packages/angular/**/*.html"
@@ -25,6 +26,12 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "complexity": {
+        "useLiteralKeys": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      },
       "suspicious": {
         "noFallthroughSwitchClause": "off",
         "noUnknownAtRules": "off"

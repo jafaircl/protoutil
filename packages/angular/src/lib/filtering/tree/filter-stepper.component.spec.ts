@@ -4,11 +4,11 @@
  * Unit tests for the filter stepper inline input component.
  */
 
-import { Component, signal, viewChild } from "@angular/core";
+import { Component, viewChild } from "@angular/core";
 import { type ComponentFixture, TestBed } from "@angular/core/testing";
 import { NoopAnimationsModule } from "@angular/platform-browser/animations";
-import type { Decl } from "@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb";
-import { type Expr, ExprSchema, ident } from "@protoutil/aip/filtering";
+import { create } from "@bufbuild/protobuf";
+import { type Decl, type Expr, ident, TypeSchema } from "@protoutil/aip/filtering";
 import { operatorsForType, valueInputKindForType } from "./filter-operators.model";
 import { FilterStepperComponent } from "./filter-stepper.component";
 
@@ -327,20 +327,24 @@ describe("FilterStepperComponent", () => {
 // Operator model unit tests
 // ---------------------------------------------------------------------------
 
+function primitiveType(value: number) {
+  return create(TypeSchema, { typeKind: { case: "primitive", value } });
+}
+
 describe("operatorsForType", () => {
   it("returns string operators for STRING primitive", () => {
-    const ops = operatorsForType({ typeKind: { case: "primitive", value: 5 } } as any);
+    const ops = operatorsForType(primitiveType(5));
     expect(ops.some((o) => o.filterFn === "startsWith")).toBe(true);
   });
 
   it("returns numeric operators for INT64 primitive", () => {
-    const ops = operatorsForType({ typeKind: { case: "primitive", value: 2 } } as any);
+    const ops = operatorsForType(primitiveType(2));
     expect(ops.some((o) => o.filterFn === "_<_")).toBe(true);
     expect(ops.some((o) => o.filterFn === "startsWith")).toBe(false);
   });
 
   it("returns equality-only for BOOL primitive", () => {
-    const ops = operatorsForType({ typeKind: { case: "primitive", value: 1 } } as any);
+    const ops = operatorsForType(primitiveType(1));
     expect(ops.length).toBe(2);
     expect(ops.every((o) => o.filterFn === "_==_" || o.filterFn === "_!=_")).toBe(true);
   });
@@ -353,21 +357,15 @@ describe("operatorsForType", () => {
 
 describe("valueInputKindForType", () => {
   it("returns 'boolean' for BOOL", () => {
-    expect(valueInputKindForType({ typeKind: { case: "primitive", value: 1 } } as any)).toBe(
-      "boolean",
-    );
+    expect(valueInputKindForType(primitiveType(1))).toBe("boolean");
   });
 
   it("returns 'number' for INT64", () => {
-    expect(valueInputKindForType({ typeKind: { case: "primitive", value: 2 } } as any)).toBe(
-      "number",
-    );
+    expect(valueInputKindForType(primitiveType(2))).toBe("number");
   });
 
   it("returns 'text' for STRING", () => {
-    expect(valueInputKindForType({ typeKind: { case: "primitive", value: 5 } } as any)).toBe(
-      "text",
-    );
+    expect(valueInputKindForType(primitiveType(5))).toBe("text");
   });
 
   it("returns 'text' for undefined", () => {

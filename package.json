@@ -8,10 +8,6 @@
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.29.3",
-  "workspaces": [
-    "examples/*",
-    "packages/*"
-  ],
   "dependencies": {
     "tslib": "^2.3.0"
   },

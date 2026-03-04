@@ -10,7 +10,6 @@ import {
   viewChild,
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { debounce, FormField, form } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
 import { MatDialog } from "@angular/material/dialog";
 import { MatFormFieldModule } from "@angular/material/form-field";
@@ -19,13 +18,9 @@ import { MatInputModule } from "@angular/material/input";
 import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatSort, MatSortModule, type Sort } from "@angular/material/sort";
 import { MatTableModule } from "@angular/material/table";
-import { check, type Expr, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
+import { check, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
 import { Field, OrderBy, parseOrderBy } from "@protoutil/aip/orderby";
-import {
-  exprToFilterNode,
-  type FilterNode,
-  filterNodeToExpr,
-} from "@protoutil/angular";
+import { exprToFilterNode, type FilterNode, filterNodeToExpr } from "@protoutil/angular";
 import { linkedQueryParam, paramToNumber } from "ngxtension/linked-query-param";
 import type { ListShelvesResponse } from "../../../gen/library/v1/library_pb";
 import { LibraryService } from "../../services/library";

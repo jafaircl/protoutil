@@ -92,7 +92,7 @@ export abstract class AipFilterError extends Error {
     this.position = position;
   }
 
-  toString(): string {
+  override toString(): string {
     const pos = this.position;
     const location = pos ? formatPosition(pos) : "<input>:-1:0";
     const header = `ERROR: ${location}: ${this.message}`;

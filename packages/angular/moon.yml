@@ -3,10 +3,20 @@ language: 'javascript'
 tasks:
   protogen:
     command: 'pnpm run protogen'
+    inputs:
+    - 'proto/**/*'
+    - 'buf.yaml'
+    - 'buf.gen.yaml'
+    outputs:
+    - 'src/lib/gen'
   typecheck:
     command: 'pnpm run typecheck'
     dependsOn:
     - protogen
+    inputs:
+    - '@globs(sources)'
+    - 'tsconfig.lib.json'
+    - 'tsconfig.lib.prod.json'
   test:
     command: 'pnpm run test'
     dependsOn:
@@ -19,8 +29,8 @@ tasks:
     command: 'pnpm run build'
     dependsOn:
     - test
-  # dev:
-  #   command: 'pnpm run dev'
+    outputs:
+    - 'dist'
   pack:
     command: 'pnpm pack'
     dependsOn:

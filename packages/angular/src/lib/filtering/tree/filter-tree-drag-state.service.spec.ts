@@ -21,6 +21,8 @@
 
 import { TestBed } from "@angular/core/testing";
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async";
+import { create } from "@bufbuild/protobuf";
+import { ExprSchema } from "@protoutil/aip/filtering";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FilterNode } from "./filter-node.model";
 import { createFilterBranchNode, createFilterLeafNode } from "./filter-node.model";
@@ -35,9 +37,7 @@ function makeRect(top: number, bottom: number) {
 }
 
 function leaf(id: string): FilterNode {
-  const n = createFilterLeafNode(undefined as any);
-  (n as any).id = id;
-  return n;
+  return createFilterLeafNode(create(ExprSchema), id);
 }
 
 function branch(
@@ -45,9 +45,7 @@ function branch(
   children: FilterNode[],
   conjunction: "_&&_" | "_||_" = "_&&_",
 ): FilterNode {
-  const n = createFilterBranchNode(children, conjunction);
-  (n as any).id = id;
-  return n;
+  return createFilterBranchNode(children, conjunction, id);
 }
 
 // ---------------------------------------------------------------------------
@@ -60,11 +58,10 @@ describe("computeZoneFromRects — snap points", () => {
   //   gap[0]=100  item[0]=118  gap[1]=138  item[1]=158  gap[2]=178  item[2]=198  gap[3]=216
   const rects = [makeRect(100, 136), makeRect(140, 176), makeRect(180, 216)];
   const ids = ["l1", "l2", "l3"];
-  const z = (y: number, drag?: string, root = true) =>
-    computeZoneFromRects(y, rects, ids, drag, root);
+  const z = (y: number, drag?: string) => computeZoneFromRects(y, rects, ids, drag);
 
   it("empty rects → gap[0]", () => {
-    expect(computeZoneFromRects(50, [], [], undefined, true)).toEqual({ kind: "gap", index: 0 });
+    expect(computeZoneFromRects(50, [], [])).toEqual({ kind: "gap", index: 0 });
   });
   it("gap[0] at y=100", () => expect(z(100)).toEqual({ kind: "gap", index: 0 }));
   it("item[0] at y=118", () => expect(z(118)).toEqual({ kind: "item", index: 0 }));
@@ -72,8 +69,8 @@ describe("computeZoneFromRects — snap points", () => {
   it("item[1] at y=158", () => expect(z(158)).toEqual({ kind: "item", index: 1 }));
   it("gap[2] at y=178", () => expect(z(178)).toEqual({ kind: "gap", index: 2 }));
   it("item[2] at y=198", () => expect(z(198)).toEqual({ kind: "item", index: 2 }));
-  it("trailing gap[3] at y=216 when isRoot=true", () => {
-    expect(z(216, undefined, true)).toEqual({ kind: "gap", index: 3 });
+  it("trailing gap[3] at y=216", () => {
+    expect(z(216)).toEqual({ kind: "gap", index: 3 });
   });
   it("skips item snap for dragged node", () => {
     expect(z(118, "l1")).not.toEqual({ kind: "item", index: 0 });
@@ -85,14 +82,14 @@ describe("computeZoneFromRects — snap points", () => {
     expect(z(178, "l2")).not.toEqual({ kind: "gap", index: 2 });
   });
   it("skips trailing gap when dragged node is last child", () => {
-    expect(z(216, "l3", true)).not.toEqual({ kind: "gap", index: 3 });
+    expect(z(216, "l3")).not.toEqual({ kind: "gap", index: 3 });
   });
   it("does not skip unrelated gaps", () => {
     expect(z(100, "l2")).toEqual({ kind: "gap", index: 0 });
   });
   it("every y position returns exactly one zone", () => {
     for (let y = 90; y <= 230; y++) {
-      const result = z(y, "l2", true);
+      const result = z(y, "l2");
       expect(result).toHaveProperty("kind");
       expect(result).toHaveProperty("index");
     }

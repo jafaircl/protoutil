@@ -11,27 +11,39 @@ fileGroups:
 tasks:
   format:
     command:
-    - '../../node_modules/.bin/biome'
+    - 'pnpm'
+    - 'exec'
+    - 'biome'
     - 'format'
     - '--write'
+    dependsOn:
+    - protogen
     inputs:
     - '@globs(sources)'
     - '@globs(tests)'
     - '@globs(configs)'
   lint:
     command:
-    - '../../node_modules/.bin/biome'
+    - 'pnpm'
+    - 'exec'
+    - 'biome'
     - 'lint'
     - '--write'
+    dependsOn:
+    - protogen
     inputs:
     - '@globs(sources)'
     - '@globs(tests)'
     - '@globs(configs)'
   check:
     command:
-    - '../../node_modules/.bin/biome'
+    - 'pnpm'
+    - 'exec'
+    - 'biome'
     - 'check'
     - '--write'
+    dependsOn:
+    - protogen
     inputs:
     - '@globs(sources)'
     - '@globs(tests)'

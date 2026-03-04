@@ -8,8 +8,7 @@
 import { Component, viewChild } from "@angular/core";
 import { type ComponentFixture, TestBed } from "@angular/core/testing";
 import { NoopAnimationsModule } from "@angular/platform-browser/animations";
-import type { Decl } from "@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb";
-import { type Expr, ident } from "@protoutil/aip/filtering";
+import { type Decl, type Expr, ident } from "@protoutil/aip/filtering";
 
 import { FilterInputComponent, type FilterInputMode } from "./filter-input.component";
 

@@ -19,9 +19,8 @@ import { MatButtonModule } from "@angular/material/button";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
-import type { Decl } from "@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb";
-import { check, type Expr, parse } from "@protoutil/aip/filtering";
-import { validateAipFilter } from "@protoutil/angular";
+import { check, type Decl, type Expr, parse } from "@protoutil/aip/filtering";
+import { validateAipFilter } from "../validate-aip-filter";
 
 @Component({
   selector: "aip-filter-text-input",

@@ -48,3 +48,6 @@ Thumbs.db
 
 # angular
 .angular/cache
+
+# build artifacts
+*.tgz

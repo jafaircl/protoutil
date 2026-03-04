@@ -28,9 +28,8 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatSelectModule } from "@angular/material/select";
 import { MatSlideToggleModule } from "@angular/material/slide-toggle";
-import type { Decl } from "@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb";
 import { create } from "@bufbuild/protobuf";
-import { type Expr, ExprSchema } from "@protoutil/aip/filtering";
+import { type Decl, type Expr, ExprSchema } from "@protoutil/aip/filtering";
 
 import {
   type FilterOperator,

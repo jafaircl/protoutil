@@ -3,21 +3,37 @@ language: 'javascript'
 tasks:
   protogen:
     command: 'pnpm run protogen'
+    outputs:
+    - 'src/gen'
   typecheck:
     command: 'pnpm run typecheck'
     dependsOn:
     - protogen
+    inputs:
+    - '@globs(sources)'
+    - 'tsconfig.json'
   test:
     command: 'pnpm run test'
     dependsOn:
     - typecheck
     - check
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
   build:
     command: 'pnpm run build'
     dependsOn:
     - test
+    inputs:
+    - '@globs(sources)'
+    - 'tsdown.config.ts'
+    outputs:
+    - 'dist'
   dev:
     command: 'pnpm run dev'
+    options:
+      persistent: true
+      cache: false
   pack:
     command: 'pnpm pack'
     dependsOn:

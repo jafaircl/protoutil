@@ -9,15 +9,20 @@ tasks:
     - protogen
   test:
     command: 'pnpm run test'
-    # dependsOn:
-    # - typecheck
-    # - check
+    dependsOn:
+    - typecheck
+    - check
   build:
     command: 'pnpm run build'
     dependsOn:
     - test
+    outputs:
+    - 'dist'
   dev:
     command: 'pnpm run dev'
+    options:
+      persistent: true
+      cache: false
   pack:
     command: 'pnpm pack'
     dependsOn:

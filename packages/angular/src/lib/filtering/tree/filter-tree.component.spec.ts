@@ -13,6 +13,8 @@
 
 import { Component, viewChild } from "@angular/core";
 import { type ComponentFixture, TestBed } from "@angular/core/testing";
+import { create } from "@bufbuild/protobuf";
+import { ExprSchema } from "@protoutil/aip/filtering";
 import { createFilterBranchNode, createFilterLeafNode, type FilterNode } from "./filter-node.model";
 import { FilterTreeComponent } from "./filter-tree.component";
 
@@ -21,9 +23,7 @@ import { FilterTreeComponent } from "./filter-tree.component";
 // ---------------------------------------------------------------------------
 
 function leaf(id: string): FilterNode {
-  const n = createFilterLeafNode(undefined as any);
-  (n as any).id = id;
-  return n;
+  return createFilterLeafNode(create(ExprSchema), id);
 }
 
 function branch(
@@ -31,9 +31,7 @@ function branch(
   children: FilterNode[],
   conjunction: "_&&_" | "_||_" = "_&&_",
 ): FilterNode {
-  const n = createFilterBranchNode(children, conjunction);
-  (n as any).id = id;
-  return n;
+  return createFilterBranchNode(children, conjunction, id);
 }
 
 /** Dispatch a keyboard event on the given element. */
@@ -159,7 +157,7 @@ describe("FilterTreeComponent — undo/redo", () => {
 
   it("redo restores the undone state", () => {
     comp.onConjunctionToggle("root");
-    const toggled = comp.root();
+    comp.root(); // capture toggled state
     comp.undo();
     comp.redo();
     expect(comp.root().conjunction).toBe("_||_");
@@ -201,8 +199,6 @@ describe("FilterTreeComponent — undo/redo", () => {
   // -----------------------------------------------------------------------
 
   it("supports multiple undo/redo steps", () => {
-    const initial = comp.root();
-
     comp.onConjunctionToggle("root"); // 1: toggle to OR
     comp.onNodeDelete("l1"); // 2: delete l1
 

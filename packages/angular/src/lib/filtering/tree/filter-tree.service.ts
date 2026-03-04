@@ -24,12 +24,7 @@
  */
 
 import { Injectable } from "@angular/core";
-import {
-  cloneNode,
-  createFilterBranchNode,
-  type FilterNode,
-  isFilterLeafNode,
-} from "./filter-node.model";
+import { cloneNode, createFilterBranchNode, type FilterNode } from "./filter-node.model";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -104,7 +99,7 @@ export class FilterTreeService {
     }
 
     // 3. Enforce >=2-children invariant on all non-root branches.
-    enforceMinChildren(tree, /* isRoot */ true);
+    enforceMinChildren(tree);
 
     return tree;
   }
@@ -132,7 +127,7 @@ export class FilterTreeService {
     const tree = cloneNode(root);
     const removed = extractNode(tree, nodeId);
     if (!removed) return root; // node not found — no-op
-    enforceMinChildren(tree, /* isRoot */ true);
+    enforceMinChildren(tree);
     return tree;
   }
 
@@ -285,10 +280,10 @@ function replaceInChildren(
  * Empty non-root branches are also removed (can occur when both children of a
  * branch are deleted or dragged out).
  */
-export function enforceMinChildren(node: FilterNode, isRoot = false): void {
+export function enforceMinChildren(node: FilterNode): void {
   // Recurse into children first (bottom-up).
   for (const child of node.children) {
-    enforceMinChildren(child, false);
+    enforceMinChildren(child);
   }
 
   // Flatten invalid branch children (empty or single-child) until stable.

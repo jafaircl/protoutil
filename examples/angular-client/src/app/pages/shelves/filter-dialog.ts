@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from "@angular/material/dialog";
-import type { Decl } from "@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb";
+import type { Decl } from "@protoutil/aip/filtering";
 import { FilterEditorComponent, type FilterNode } from "@protoutil/angular";
 
 export interface FilterDialogData {

@@ -12,7 +12,7 @@
  * from method operators (member calls like `x.startsWith(y)`).
  */
 
-import type { Type } from "@buf/googleapis_googleapis.bufbuild_es/google/api/expr/v1alpha1/checked_pb";
+import type { Type } from "@protoutil/aip/filtering";
 
 // ---------------------------------------------------------------------------
 // Operator descriptor

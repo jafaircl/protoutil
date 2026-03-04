@@ -1,9 +1,9 @@
 import { TestBed } from "@angular/core/testing";
-import { MatDialogRef, MAT_DIALOG_DATA } from "@angular/material/dialog";
+import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { NoopAnimationsModule } from "@angular/platform-browser/animations";
 import { create } from "@bufbuild/protobuf";
 import { type Expr, ExprSchema, ident } from "@protoutil/aip/filtering";
-import { createFilterBranchNode, createFilterLeafNode, type FilterNode } from "@protoutil/angular";
+import { createFilterBranchNode, createFilterLeafNode } from "@protoutil/angular";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilterDialogComponent, type FilterDialogData } from "./filter-dialog";

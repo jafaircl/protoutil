@@ -14,10 +14,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.29.3",
   "dependencies": {
     "@protoutil/aip": "workspace:*",
-    "@protoutil/angular": "workspace:*",
-    "icon": "link:@angular/material/icon"
+    "@protoutil/angular": "workspace:*"
   }
 }
