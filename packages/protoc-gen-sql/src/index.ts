@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S npx tsx
 // protoc-gen-sql entry point.
 // Reads a CodeGeneratorRequest from stdin via buf/protoc,
 // generates SQL schema and query files, writes to stdout.
@@ -26,7 +26,6 @@ const plugin = createEcmaScriptPlugin({
           errors.map((e, i) => `  ${i + 1}. ${e}`).join("\n\n"),
       );
     }
-
     generateSchema(schema, schema.options);
     generateQueries(schema, schema.options);
   },
