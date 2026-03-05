@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package test.library.v1;
+
+import "protoutil/sql/v1/options.proto";
+
+message Shelf {
+  option (protoutil.sql.v1.message) = {
+    generate: true
+    indexes: ["theme"]
+  };
+  string name = 1 [(protoutil.sql.v1.field).omit = true];
+  string theme = 2;
+}
+
+message Book {
+  option (protoutil.sql.v1.message) = {
+    generate: true
+    foreign_keys: [
+      {
+        column: "shelf_id"
+        references_table: "test_library_v1_shelf"
+        on_delete: FOREIGN_KEY_ACTION_CASCADE
+      }
+    ]
+  };
+  string name = 1 [(protoutil.sql.v1.field).omit = true];
+  string author = 2 [(protoutil.sql.v1.field).index = true];
+  string title = 3;
+  bool read = 4;
+}
+
+// Request/response messages — not opted in, should produce no output
+message CreateBookRequest {
+  Book book = 1;
+}
+message ListBooksRequest {
+  string parent = 1;
+}
+message CreateShelfRequest {
+  Shelf shelf = 1;
+}

@@ -50,6 +50,7 @@
           "options": {
             "browser": "examples/angular-client/src/main.ts",
             "tsConfig": "examples/angular-client/tsconfig.app.json",
+            "outputPath": "examples/angular-client/dist",
             "assets": [
               {
                 "glob": "**/*",

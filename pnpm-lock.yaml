@@ -245,6 +245,40 @@ importers:
         specifier: ^4.0.16
         version: 4.0.18(@types/node@25.2.3)(@vitest/browser-playwright@4.0.18)(jiti@2.6.1)(jsdom@27.4.0)(less@4.5.1)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/protoc-gen-sql:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.11.0
+        version: 2.11.0
+      '@protoutil/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@buf/googleapis_googleapis.bufbuild_es':
+        specifier: 2.11.0-20251126203132-004180b77378.1
+        version: 2.11.0-20251126203132-004180b77378.1(@bufbuild/protobuf@2.11.0)
+      '@bufbuild/protocompile':
+        specifier: ^0.0.1
+        version: 0.0.1(@bufbuild/buf@1.65.0)
+      '@bufbuild/protoplugin':
+        specifier: ^2.11.0
+        version: 2.11.0
+      '@types/node':
+        specifier: ^25.0.3
+        version: 25.2.3
+      bumpp:
+        specifier: ^10.3.2
+        version: 10.4.1
+      tsdown:
+        specifier: ^0.18.1
+        version: 0.18.4(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.16
+        version: 4.0.18(@types/node@25.2.3)(@vitest/browser-playwright@4.0.18)(jiti@2.6.1)(jsdom@27.4.0)(less@4.5.1)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)
+
 packages:
 
   '@acemir/cssom@0.9.31':

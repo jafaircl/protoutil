@@ -1,5 +1,5 @@
 {
-  "name": "@protoutil/aip",
+  "name": "@protoutil/protoc-gen-sql",
   "type": "module",
   "version": "0.2.5",
   "description": "A starter for creating a TypeScript package.",
@@ -18,34 +18,6 @@
       "require": "./dist/index.cjs",
       "import": "./dist/index.mjs"
     },
-    "./errors": {
-      "require": "./dist/errors/index.cjs",
-      "import": "./dist/errors/index.mjs"
-    },
-    "./etag": {
-      "require": "./dist/etag/index.cjs",
-      "import": "./dist/etag/index.mjs"
-    },
-    "./fieldbehavior": {
-      "require": "./dist/fieldbehavior/index.cjs",
-      "import": "./dist/fieldbehavior/index.mjs"
-    },
-    "./filtering": {
-      "require": "./dist/filtering/index.cjs",
-      "import": "./dist/filtering/index.mjs"
-    },
-    "./orderby": {
-      "require": "./dist/orderby/index.cjs",
-      "import": "./dist/orderby/index.mjs"
-    },
-    "./pagination": {
-      "require": "./dist/pagination/index.cjs",
-      "import": "./dist/pagination/index.mjs"
-    },
-    "./resourcename": {
-      "require": "./dist/resourcename/index.cjs",
-      "import": "./dist/resourcename/index.mjs"
-    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.cts",
@@ -62,6 +34,7 @@
   },
   "devDependencies": {
     "@bufbuild/protocompile": "^0.0.1",
+    "@bufbuild/protoplugin": "^2.11.0",
     "@types/node": "^25.0.3",
     "bumpp": "^10.3.2",
     "tsdown": "^0.18.1",
