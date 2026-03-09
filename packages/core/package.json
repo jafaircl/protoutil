@@ -184,7 +184,6 @@
     },
     "./wkt": {
       "require": "./dist/wkt/index.cjs",
-      "types": "./dist/wkt/index.d.cts",
       "import": "./dist/wkt/index.mjs"
     },
     "./package.json": "./package.json"
