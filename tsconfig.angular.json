@@ -17,7 +17,9 @@
     "paths": {
       "@protoutil/angular": ["./packages/angular/src/public-api.ts"],
       "@protoutil/aip": ["./packages/aip/src/index.ts"],
-      "@protoutil/aip/*": ["./packages/aip/src/*/index.ts"]
+      "@protoutil/aip/*": ["./packages/aip/src/*/index.ts"],
+      "@protoutil/core": ["./packages/core/src/index.ts"],
+      "@protoutil/core/*": ["./packages/core/src/*/index.ts"]
     }
   },
   "angularCompilerOptions": {

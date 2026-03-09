@@ -55,7 +55,8 @@ export const BUILTIN_DECLS: Decl[] = [
     overload("equals_double", [DOUBLE, DOUBLE], BOOL, "Equality operator"),
     overload("equals_string", [STRING, STRING], BOOL, "Equality operator"),
     overload("equals_bytes", [BYTES, BYTES], BOOL, "Equality operator"),
-    // overload("equals_dyn", [DYN, DYN], BOOL, "Equality operator for dynamic types"),
+    overload("equals_timestamp", [TIMESTAMP, TIMESTAMP], BOOL, "Equality operator"),
+    overload("equals_duration", [DURATION, DURATION], BOOL, "Equality operator"),
   ),
   func(
     "_!=_",
@@ -64,7 +65,8 @@ export const BUILTIN_DECLS: Decl[] = [
     overload("not_equals_double", [DOUBLE, DOUBLE], BOOL, "Inequality operator"),
     overload("not_equals_string", [STRING, STRING], BOOL, "Inequality operator"),
     overload("not_equals_bytes", [BYTES, BYTES], BOOL, "Inequality operator"),
-    // overload("not_equals_dyn", [DYN, DYN], BOOL, "Inequality operator for dynamic types"),
+    overload("not_equals_timestamp", [TIMESTAMP, TIMESTAMP], BOOL, "Inequality operator"),
+    overload("not_equals_duration", [DURATION, DURATION], BOOL, "Inequality operator"),
   ),
 
   // Comparison operators
@@ -74,7 +76,8 @@ export const BUILTIN_DECLS: Decl[] = [
     overload("less_uint64", [UINT64, UINT64], BOOL, "Less-than operator for uint64"),
     overload("less_double", [DOUBLE, DOUBLE], BOOL, "Less-than operator for double"),
     overload("less_string", [STRING, STRING], BOOL, "Less-than operator for strings"),
-    // overload("less_dyn", [DYN, DYN], BOOL, "Less-than operator for dynamic types"),
+    overload("less_timestamp", [TIMESTAMP, TIMESTAMP], BOOL, "Less-than operator for timestamps"),
+    overload("less_duration", [DURATION, DURATION], BOOL, "Less-than operator for durations"),
   ),
   func(
     "_<=_",
@@ -97,7 +100,18 @@ export const BUILTIN_DECLS: Decl[] = [
       BOOL,
       "Less-than-or-equal operator for strings",
     ),
-    // overload("less_equals_dyn", [DYN, DYN], BOOL, "Less-than-or-equal operator for dynamic types"),
+    overload(
+      "less_equals_timestamp",
+      [TIMESTAMP, TIMESTAMP],
+      BOOL,
+      "Less-than-or-equal operator for timestamps",
+    ),
+    overload(
+      "less_equals_duration",
+      [DURATION, DURATION],
+      BOOL,
+      "Less-than-or-equal operator for durations",
+    ),
   ),
   func(
     "_>_",
@@ -105,7 +119,13 @@ export const BUILTIN_DECLS: Decl[] = [
     overload("greater_uint64", [UINT64, UINT64], BOOL, "Greater-than operator for uint64"),
     overload("greater_double", [DOUBLE, DOUBLE], BOOL, "Greater-than operator for double"),
     overload("greater_string", [STRING, STRING], BOOL, "Greater-than operator for strings"),
-    // overload("greater_dyn", [DYN, DYN], BOOL, "Greater-than operator for dynamic types"),
+    overload(
+      "greater_timestamp",
+      [TIMESTAMP, TIMESTAMP],
+      BOOL,
+      "Greater-than operator for timestamps",
+    ),
+    overload("greater_duration", [DURATION, DURATION], BOOL, "Greater-than operator for durations"),
   ),
   func(
     "_>=_",
@@ -133,12 +153,18 @@ export const BUILTIN_DECLS: Decl[] = [
       BOOL,
       "Greater-than-or-equal operator for strings",
     ),
-    // overload(
-    //   "greater_equals_dyn",
-    //   [DYN, DYN],
-    //   BOOL,
-    //   "Greater-than-or-equal operator for dynamic types",
-    // ),
+    overload(
+      "greater_equals_timestamp",
+      [TIMESTAMP, TIMESTAMP],
+      BOOL,
+      "Greater-than-or-equal operator for timestamps",
+    ),
+    overload(
+      "greater_equals_duration",
+      [DURATION, DURATION],
+      BOOL,
+      "Greater-than-or-equal operator for durations",
+    ),
   ),
 
   // Has operator
@@ -222,10 +248,12 @@ export const BUILTIN_DECLS: Decl[] = [
   func(
     "timestamp",
     overload("timestamp_string", [STRING], TIMESTAMP, "Parses a timestamp from a string"),
+    overload("timestamp_timestamp", [TIMESTAMP], TIMESTAMP, "Identity for timestamp literals"),
   ),
   func(
     "duration",
     overload("duration_string", [STRING], DURATION, "Parses a duration from a string"),
+    overload("duration_duration", [DURATION], DURATION, "Identity for duration literals"),
   ),
 ];
 
@@ -343,6 +371,10 @@ function inferConstantType(expr: Expr): TypeInit {
           return STRING;
         case "bytesValue":
           return BYTES;
+        case "durationValue":
+          return DURATION;
+        case "timestampValue":
+          return TIMESTAMP;
         default:
           return DYN;
       }

@@ -1,5 +1,6 @@
 import { create, type MessageInitShape } from "@bufbuild/protobuf";
 import { NullValue } from "@bufbuild/protobuf/wkt";
+import { durationFromString, timestampFromDateString } from "@protoutil/core/wkt";
 import {
   type ConstantSchema,
   type Expr_CallSchema,
@@ -520,6 +521,24 @@ function isKeyword(tt: TokenType): boolean {
   return tt === TokenType.AND || tt === TokenType.OR || tt === TokenType.NOT;
 }
 
+function parseDuration(s: string): ConstantInit | undefined {
+  try {
+    const d = durationFromString(s);
+    return { constantKind: { case: "durationValue", value: d } };
+  } catch {
+    return undefined;
+  }
+}
+
+function parseTimestamp(s: string): ConstantInit | undefined {
+  try {
+    const t = timestampFromDateString(s);
+    return { constantKind: { case: "timestampValue", value: t } };
+  } catch {
+    return undefined;
+  }
+}
+
 function parseNumber(s: string): ConstantInit | undefined {
   if (/^\d+u$/i.test(s)) {
     try {
@@ -533,6 +552,10 @@ function parseNumber(s: string): ConstantInit | undefined {
       return undefined;
     }
   }
+  // Duration: digits (with optional decimal) followed by a duration unit suffix
+  const dur = parseDuration(s);
+  if (dur !== undefined) return dur;
+
   if (/^-?\d+\.\d*([eE][+-]?\d+)?$/.test(s) || /^-?\d+[eE][+-]?\d+$/.test(s)) {
     const n = Number(s);
     if (!Number.isNaN(n)) {
@@ -569,6 +592,10 @@ function parseTextLiteral(s: string): ConstantInit | undefined {
   if (s === "null") {
     return { constantKind: { case: "nullValue", value: NullValue.NULL_VALUE } };
   }
+  // Timestamp: RFC-3339 formatted string (unquoted)
+  const ts = parseTimestamp(s);
+  if (ts !== undefined) return ts;
+
   return parseNumber(s);
 }
 

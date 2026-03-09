@@ -4,6 +4,7 @@ modules:
 deps:
   - buf.build/googleapis/googleapis
   - buf.build/bufbuild/protovalidate
+  - buf.build/protoutil/sql
 lint:
   use:
     - STANDARD

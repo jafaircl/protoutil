@@ -7,3 +7,6 @@ deps:
   - name: buf.build/googleapis/googleapis
     commit: 004180b77378443887d3b55cabc00384
     digest: b5:e8f475fe3330f31f5fd86ac689093bcd274e19611a09db91f41d637cb9197881ce89882b94d13a58738e53c91c6e4bae7dc1feba85f590164c975a89e25115dc
+  - name: buf.build/protoutil/sql
+    commit: 154b1195b32c4fd2bfa6f1632e29cda4
+    digest: b5:966eff0b92659ac51199510acc16c4987a073231868a7096e742a8653aea8280d58951ceb98a6f974ca9cb3f42ff2cf3bd8bf6ffb6bbb2791f056cd514ecc9d0

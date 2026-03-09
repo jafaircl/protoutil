@@ -1,0 +1,22 @@
+version: v2
+clean: true
+inputs:
+  - directory: ../proto
+plugins:
+  - local: ../../node_modules/.bin/protoc-gen-es
+    include_imports: true
+    out: src/gen
+    opt:
+      - target=ts
+      - import_extension=.js
+      - ts_nocheck=false
+  - local: ['tsx', '../../packages/protoc-gen-sql/src/index.ts']
+    out: src/gen/sqlite
+    opt:
+      - target=ts
+      - engine=sqlite
+  - local: ['tsx', '../../packages/protoc-gen-sql/src/index.ts']
+    out: src/gen/postgres
+    opt:
+      - target=ts
+      - engine=postgres

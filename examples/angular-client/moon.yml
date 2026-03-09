@@ -3,6 +3,12 @@ language: 'javascript'
 tasks:
   protogen:
     command: 'pnpm run protogen'
+    inputs:
+      - '/examples/proto/**/*'
+      - '/examples/buf.yaml'
+      - 'buf.gen.yaml'
+    outputs:
+    - 'src/gen'
   typecheck:
     command: 'pnpm run typecheck'
     dependsOn:

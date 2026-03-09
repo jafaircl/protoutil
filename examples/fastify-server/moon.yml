@@ -3,12 +3,50 @@ language: 'javascript'
 tasks:
   protogen:
     command: 'pnpm run protogen'
+    inputs:
+      - '/examples/proto/**/*'
+      - '/examples/buf.yaml'
+      - 'buf.gen.yaml'
     outputs:
     - 'src/gen'
+  dbgen:
+    command: 'pnpm run dbgen'
+    dependsOn:
+    - protogen
+    inputs:
+    - 'src/gen/sqlite/schema.sql'
+    - 'scripts/*-init-db.ts'
+    outputs:
+    - 'src/gen'
+  dbseed:
+    command: 'pnpm run dbseed'
+    dependsOn:
+    - dbgen
+    inputs:
+    - 'data/library.db'
+    - 'scripts/*-seed-db.ts'
+  kyselygen:
+    command: 'pnpm run kyselygen'
+    dependsOn:
+    - dbgen
+    inputs:
+    - src/gen/sqlite/schema.sql
+    outputs:
+    - src/gen/kysely/sqlite/types.ts
+  sqlcgen:
+    command: 'pnpm run sqlcgen'
+    dependsOn:
+    - protogen
+    inputs:
+    - 'src/gen/postgres/schema.sql'
+    - 'sqlc.yaml'
+    outputs:
+    - 'src/gen/sqlc/postgres'
   typecheck:
     command: 'pnpm run typecheck'
     dependsOn:
-    - protogen
+    - kyselygen
+    - sqlcgen
     inputs:
     - '@globs(sources)'
     - 'tsconfig.json'
@@ -31,6 +69,8 @@ tasks:
     - 'dist'
   dev:
     command: 'pnpm run dev'
+    dependsOn:
+    - dbseed
     options:
       persistent: true
       cache: false

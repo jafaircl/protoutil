@@ -12,6 +12,7 @@ import {
   BOOL,
   BYTES,
   DOUBLE,
+  DURATION,
   DYN,
   ERROR,
   func,
@@ -645,16 +646,12 @@ const cases: Case[] = [
     description: "timestamp comparison — create_time > timestamp(...)",
     in: `create_time > timestamp("2024-01-01T00:00:00Z")`,
     decls: [ident("create_time", TIMESTAMP)],
-    // TIMESTAMP is a wellKnown type; no comparison overload declared for it,
-    // so the checker falls back to the first overload (less_int64) but still
-    // resolves and returns BOOL. The important thing is no error is raised
-    // for the timestamp() call itself.
     out: `_>_(
   create_time~timestamp^create_time,
   timestamp(
     "2024-01-01T00:00:00Z"~string
   )~timestamp^timestamp_string
-)~bool^greater_int64`,
+)~bool^greater_timestamp`,
     outType: BOOL,
   },
 
@@ -710,6 +707,56 @@ const cases: Case[] = [
     )~bool^in_map
   )~bool^logical_not
 )~bool^logical_and`,
+    outType: BOOL,
+  },
+
+  // ── Duration literals ──────────────────────────────────────────────────
+
+  {
+    description: "duration literal: 20s",
+    in: "20s",
+    out: "20s~duration",
+    outType: DURATION,
+  },
+  {
+    description: "negative duration: -5s",
+    in: "-5s",
+    out: "-5s~duration",
+    outType: DURATION,
+  },
+  {
+    description: "compound duration: 1h30m",
+    in: "1h30m",
+    out: "5400s~duration",
+    outType: DURATION,
+  },
+  {
+    description: "duration comparison: ttl = 20s",
+    in: "ttl = 20s",
+    decls: [ident("ttl", DURATION)],
+    out: `_==_(
+  ttl~duration^ttl,
+  20s~duration
+)~bool^equals_duration`,
+    outType: BOOL,
+  },
+
+  // ── Timestamp literals ────────────────────────────────────────────────
+
+  {
+    description: "raw timestamp literal",
+    in: "2021-01-01T00:00:00Z",
+    out: "2021-01-01T00:00:00Z~timestamp",
+    outType: TIMESTAMP,
+  },
+  {
+    description: "raw timestamp comparison",
+    in: "create_time > 2021-01-01T00:00:00Z",
+    decls: [ident("create_time", TIMESTAMP)],
+    out: `_>_(
+  create_time~timestamp^create_time,
+  2021-01-01T00:00:00Z~timestamp
+)~bool^greater_timestamp`,
     outType: BOOL,
   },
 

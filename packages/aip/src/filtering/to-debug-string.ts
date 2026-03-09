@@ -1,3 +1,4 @@
+import { durationString, timestampDateString } from "@protoutil/core/wkt";
 import type { CheckedExpr, Type } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
 import {
   Type_PrimitiveType,
@@ -376,6 +377,8 @@ function getExprTypeName(expr: Expr): string {
         doubleValue: "*expr.Constant_DoubleValue",
         stringValue: "*expr.Constant_StringValue",
         bytesValue: "*expr.Constant_BytesValue",
+        durationValue: "*expr.Constant_DurationValue",
+        timestampValue: "*expr.Constant_TimestampValue",
       };
       return map[kind ?? ""] ?? "*expr.Constant";
     }
@@ -419,6 +422,10 @@ function formatConstant(expr: Expr): string {
       return `b"${Array.from(c.value)
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("")}"`;
+    case "durationValue":
+      return durationString(c.value);
+    case "timestampValue":
+      return timestampDateString(c.value);
     default:
       return "?";
   }

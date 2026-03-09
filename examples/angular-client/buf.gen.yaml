@@ -1,0 +1,15 @@
+version: v2
+clean: true
+inputs:
+  - directory: ../proto
+    # This will remove these types from the output entirely so you don't need to worry about leaking sql schema
+    exclude_types:
+      - protoutil.sql.v1
+plugins:
+  - local: ../../node_modules/.bin/protoc-gen-es
+    include_imports: true
+    out: src/gen
+    opt:
+      - target=ts
+      - import_extension=.js
+      - ts_nocheck=false

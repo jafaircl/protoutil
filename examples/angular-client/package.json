@@ -9,7 +9,7 @@
     "test": "ng test",
     "typecheck": "tsc --project tsconfig.app.json --noEmit",
     "prepublishOnly": "pnpm run build",
-    "protogen": "buf generate --template ../buf.gen.yaml"
+    "protogen": "buf generate"
   },
   "keywords": [],
   "author": "",

@@ -181,6 +181,25 @@ export function tokenize(input: string): Token[] {
         }
       }
 
+      // Duration suffix: consume trailing duration unit(s) after a numeric token.
+      // Handles simple (20s, 1.5h) and compound (1h30m, 1h30m15s) durations.
+      if (/^\d/.test(word) && i < input.length && isDurationPrefix(input[i])) {
+        i = scanDurationSuffix(input, i);
+        word = input.slice(start, i);
+      }
+
+      // Timestamp lookahead: 4-digit year followed by "-" suggests RFC-3339.
+      // Consume the full timestamp including non-text chars (-, :, +).
+      if (/^\d{4}$/.test(word) && i < input.length && input[i] === "-") {
+        const tsMatch = input
+          .slice(start)
+          .match(/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})/);
+        if (tsMatch) {
+          i = start + tsMatch[0].length;
+          word = tsMatch[0];
+        }
+      }
+
       const kwType = KEYWORDS[word];
       tokens.push({
         type: kwType !== undefined ? kwType : TokenType.TEXT,
@@ -200,4 +219,49 @@ export function tokenize(input: string): Token[] {
 
 function isTextChar(ch: string): boolean {
   return !/[\s.,()\-<>=!:"'`]/.test(ch);
+}
+
+function isDurationPrefix(ch: string): boolean {
+  return ch === "h" || ch === "m" || ch === "s" || ch === "n" || ch === "u";
+}
+
+/**
+ * Starting from position `i` (which points at a duration prefix char),
+ * consume duration suffix characters. Handles compound durations like
+ * `1h30m15s` and multi-char units like `ms`, `us`, `ns`.
+ */
+function scanDurationSuffix(input: string, i: number): number {
+  // Consume the first unit suffix
+  i = consumeDurationUnit(input, i);
+  // Compound durations: after a unit, digits may follow for the next component
+  while (i < input.length && /\d/.test(input[i])) {
+    // Consume the digits
+    while (i < input.length && /[\d.]/.test(input[i])) i++;
+    // Must be followed by a duration prefix
+    if (i < input.length && isDurationPrefix(input[i])) {
+      i = consumeDurationUnit(input, i);
+    } else {
+      break;
+    }
+  }
+  return i;
+}
+
+/** Consume a single duration unit: h, m, s, ms, us, ns */
+function consumeDurationUnit(input: string, i: number): number {
+  const ch = input[i];
+  if (ch === "h" || ch === "s") {
+    return i + 1;
+  }
+  if (ch === "m" || ch === "n" || ch === "u") {
+    // Check for two-char unit: ms, ns, us
+    if (i + 1 < input.length && input[i + 1] === "s") {
+      return i + 2;
+    }
+    // Standalone m (minutes)
+    if (ch === "m") return i + 1;
+    // Standalone n or u is not valid but let the parser reject it
+    return i + 1;
+  }
+  return i;
 }

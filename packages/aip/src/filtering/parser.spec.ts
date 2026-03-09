@@ -72,6 +72,102 @@ const cases: Array<{ description?: string; input: string; P: string }> = [
     P: "a^#1:*expr.Expr_IdentExpr#",
   },
 
+  // ── Duration atoms ──────────────────────────────────────────────────────
+  {
+    description: "duration: 20s",
+    input: "20s",
+    P: "20s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration: 1.5s",
+    input: "1.5s",
+    P: "1.500000000s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration: 1h",
+    input: "1h",
+    P: "3600s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration: 1m",
+    input: "1m",
+    P: "60s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration: 1ms",
+    input: "1ms",
+    P: "0.001000000s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration: 1us",
+    input: "1us",
+    P: "0.000001000s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration: 1ns",
+    input: "1ns",
+    P: "0.000000001s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration: 1.5h",
+    input: "1.5h",
+    P: "5400s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration: compound 1h30m",
+    input: "1h30m",
+    P: "5400s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "negative duration: -5s",
+    input: "-5s",
+    P: "-5s^#1:*expr.Constant_DurationValue#",
+  },
+  {
+    description: "duration as comparison arg",
+    input: "ttl > 5s",
+    P: `_>_(
+ttl^#1:*expr.Expr_IdentExpr#,
+5s^#2:*expr.Constant_DurationValue#
+)^#3:*expr.Expr_CallExpr#`,
+  },
+  {
+    description: "decimal duration as comparison arg",
+    input: "ttl <= 1.5s",
+    P: `_<=_(
+ttl^#1:*expr.Expr_IdentExpr#,
+1.500000000s^#2:*expr.Constant_DurationValue#
+)^#3:*expr.Expr_CallExpr#`,
+  },
+
+  // ── Timestamp atoms ─────────────────────────────────────────────────────
+  {
+    description: "timestamp: UTC",
+    input: "2021-01-01T00:00:00Z",
+    P: "2021-01-01T00:00:00Z^#1:*expr.Constant_TimestampValue#",
+  },
+  {
+    description: "timestamp: with timezone offset",
+    input: "2012-04-21T11:30:00-04:00",
+    P: "2012-04-21T15:30:00Z^#1:*expr.Constant_TimestampValue#",
+  },
+  {
+    description: "timestamp UTC as comparison arg",
+    input: "created_at > 2021-01-01T00:00:00Z",
+    P: `_>_(
+created_at^#1:*expr.Expr_IdentExpr#,
+2021-01-01T00:00:00Z^#2:*expr.Constant_TimestampValue#
+)^#3:*expr.Expr_CallExpr#`,
+  },
+  {
+    description: "timestamp with TZ as comparison arg",
+    input: "created_at <= 2012-04-21T11:30:00-04:00",
+    P: `_<=_(
+created_at^#1:*expr.Expr_IdentExpr#,
+2012-04-21T15:30:00Z^#2:*expr.Constant_TimestampValue#
+)^#3:*expr.Expr_CallExpr#`,
+  },
+
   // ── Empty filter — EBNF: filter = [expression] ─────────────────────────────
   {
     description: "empty string is a valid filter",
@@ -191,6 +287,24 @@ request^#2:*expr.Expr_IdentExpr#.time^#3:*expr.Expr_SelectExpr#
     P: `_==_(
 status^#1:*expr.Expr_IdentExpr#,
 "ACTIVE"^#2:*expr.Constant_StringValue#
+)^#3:*expr.Expr_CallExpr#`,
+  },
+
+  // ── Duration/timestamp in comparisons ────────────────────────────────
+  {
+    description: "duration as comparison arg",
+    input: "ttl = 20s",
+    P: `_==_(
+ttl^#1:*expr.Expr_IdentExpr#,
+20s^#2:*expr.Constant_DurationValue#
+)^#3:*expr.Expr_CallExpr#`,
+  },
+  {
+    description: "timestamp as comparison arg",
+    input: "create_time > 2021-01-01T00:00:00Z",
+    P: `_>_(
+create_time^#1:*expr.Expr_IdentExpr#,
+2021-01-01T00:00:00Z^#2:*expr.Constant_TimestampValue#
 )^#3:*expr.Expr_CallExpr#`,
   },
 

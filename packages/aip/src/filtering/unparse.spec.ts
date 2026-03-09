@@ -131,6 +131,15 @@ describe("unparse", () => {
     { input: `s.startsWith("x")` },
     { input: `s.contains("x")` },
     { input: "experiment.rollout <= cohort(request.user)" },
+
+    // ── Durations ───────────────────────────────────────────────────────────────
+    { input: "20s" },
+    { input: "-5s" },
+    // Round trip will only ever output seconds. See below for normalized tests
+
+    // ── Timestamps ──────────────────────────────────────────────────────────────
+    { input: "2021-01-01T00:00:00Z" },
+    // Round trip normalizes to UTC time. See below for normalized tests
   ];
 
   for (const tc of cases) {
@@ -143,4 +152,62 @@ describe("unparse", () => {
       assert.equal(unparse(expr), tc.input);
     });
   }
+
+  describe("duration/timestamp normalized output", () => {
+    const cases = [
+      // Durations
+      {
+        description: "duration: 1.5s",
+        input: "1.5s",
+        output: "1.500000000s",
+      },
+      {
+        description: "duration: 1h",
+        input: "1h",
+        output: "3600s",
+      },
+      {
+        description: "duration: 1m",
+        input: "1m",
+        output: "60s",
+      },
+      {
+        description: "duration: 1ms",
+        input: "1ms",
+        output: "0.001000000s",
+      },
+      {
+        description: "duration: 1us",
+        input: "1us",
+        output: "0.000001000s",
+      },
+      {
+        description: "duration: 1ns",
+        input: "1ns",
+        output: "0.000000001s",
+      },
+      {
+        description: "duration: 1.5h",
+        input: "1.5h",
+        output: "5400s",
+      },
+      {
+        description: "duration: compound 1h30m",
+        input: "1h30m",
+        output: "5400s",
+      },
+      // Timestamps
+      {
+        description: "timestamp: with timezone offset",
+        input: "2012-04-21T11:30:00-04:00",
+        output: "2012-04-21T15:30:00Z",
+      },
+    ];
+    for (const tc of cases) {
+      it(tc.description);
+      const { expr } = parse(tc.input);
+      assert.isDefined(expr);
+      assert.equal(unparse(expr), tc.output);
+    }
+  });
 });
