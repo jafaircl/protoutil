@@ -627,6 +627,94 @@ export const groups: UnifiedGroup[] = [
         mysql: { sql: "`create_time` > ?", params: [new Date("2012-04-21T11:30:00Z")] },
         mongo: { filter: { create_time: { $gt: new Date("2012-04-21T11:30:00Z") } } },
       },
+      {
+        // Fractional seconds — sub-second precision must be preserved
+        filter: `create_time > "2024-06-15T08:30:00.123Z"`,
+        postgres: {
+          sql: `"create_time" > $1`,
+          params: [new Date("2024-06-15T08:30:00.123Z")],
+        },
+        sqlite: { sql: `"create_time" > ?`, params: [new Date("2024-06-15T08:30:00.123Z")] },
+        mysql: { sql: "`create_time` > ?", params: [new Date("2024-06-15T08:30:00.123Z")] },
+        mongo: {
+          filter: { create_time: { $gt: new Date("2024-06-15T08:30:00.123Z") } },
+        },
+      },
+      {
+        // Fractional seconds with timezone offset
+        filter: `create_time = "2024-06-15T08:30:00.999-05:00"`,
+        postgres: {
+          sql: `"create_time" = $1`,
+          params: [new Date("2024-06-15T08:30:00.999-05:00")],
+        },
+        sqlite: {
+          sql: `"create_time" = ?`,
+          params: [new Date("2024-06-15T08:30:00.999-05:00")],
+        },
+        mysql: {
+          sql: "`create_time` = ?",
+          params: [new Date("2024-06-15T08:30:00.999-05:00")],
+        },
+        mongo: {
+          filter: { create_time: { $eq: new Date("2024-06-15T08:30:00.999-05:00") } },
+        },
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // SQL injection safety — values always go through parameterized queries,
+  // identifiers are always quoted. No user input is ever interpolated into SQL.
+  // ---------------------------------------------------------------------------
+  {
+    group: "sql injection safety",
+    cases: [
+      {
+        // Malicious string in a comparison — must be parameterized, never interpolated
+        filter: `name = "'; DROP TABLE users; --"`,
+        postgres: { sql: `"name" = $1`, params: ["'; DROP TABLE users; --"] },
+        sqlite: { sql: `"name" = ?`, params: ["'; DROP TABLE users; --"] },
+        mysql: { sql: "`name` = ?", params: ["'; DROP TABLE users; --"] },
+        mongo: { filter: { name: { $eq: "'; DROP TABLE users; --" } } },
+      },
+      {
+        // SQL keywords as field identifiers — must be quoted
+        filter: `select = "value"`,
+        postgres: { sql: `"select" = $1`, params: ["value"] },
+        sqlite: { sql: `"select" = ?`, params: ["value"] },
+        mysql: { sql: "`select` = ?", params: ["value"] },
+        mongo: { filter: { select: { $eq: "value" } } },
+      },
+      {
+        // Quote characters in field names — must be escaped inside quotes
+        filter: '`a"b` = 1',
+        postgres: { sql: `"a""b" = $1`, params: [1n] },
+        sqlite: { sql: `"a""b" = ?`, params: [1n] },
+        mysql: { sql: '`a"b` = ?', params: [1n] },
+        mongo: { filter: { 'a"b': { $eq: 1n } } },
+      },
+      {
+        // Malicious string in has operator — parameterized via LIKE
+        filter: `title:"%; DROP TABLE users; --"`,
+        postgres: { sql: `"title" ILIKE $1`, params: ["%%; DROP TABLE users; --%"] },
+        sqlite: { sql: `"title" LIKE ?`, params: ["%%; DROP TABLE users; --%"] },
+        mysql: { sql: "`title` LIKE ?", params: ["%%; DROP TABLE users; --%"] },
+        mongo: {
+          filter: {
+            title: { $regex: "%; DROP TABLE users; --", $options: "i" },
+          },
+        },
+      },
+      {
+        // Malicious string in startsWith — parameterized
+        filter: `title.startsWith("'; DROP TABLE")`,
+        postgres: { sql: `"title" ILIKE $1`, params: ["'; DROP TABLE%"] },
+        sqlite: { sql: `"title" LIKE ?`, params: ["'; DROP TABLE%"] },
+        mysql: { sql: "`title` LIKE ?", params: ["'; DROP TABLE%"] },
+        mongo: {
+          filter: { title: { $regex: "^'; DROP TABLE", $options: "i" } },
+        },
+      },
     ],
   },
 ];

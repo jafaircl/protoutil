@@ -223,7 +223,7 @@ function durationStringToISO8601DurationString(durationString: string): string {
  * Convert a google.protobuf.Duration message to a string. The string will be in the format of
  * '3s' for 3 seconds or '3.000000001s' for 3 seconds and 1 nanosecond.
  */
-export function durationString(d: Duration) {
+export function durationToString(d: Duration) {
   const nanos = durationNanos(d);
   const seconds = nanos / NANOS_PER_SECOND;
   let remainingNanos = nanos % NANOS_PER_SECOND;

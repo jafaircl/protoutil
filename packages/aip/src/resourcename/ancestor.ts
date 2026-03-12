@@ -1,9 +1,9 @@
 import { Scanner } from "./scanner.js";
 
 /**
- * resourceNameAncestor extracts an ancestor from the provided name, using a pattern for the ancestor.
+ * Extracts an ancestor from the provided name, using a pattern for the ancestor.
  */
-export function resourceNameAncestor(name: string, pattern: string) {
+export function ancestor(name: string, pattern: string) {
   if (name === "" || pattern === "") {
     return "";
   }

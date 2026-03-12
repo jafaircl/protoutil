@@ -1,4 +1,5 @@
 import type { Expr } from "@protoutil/aip/filtering";
+import { durationNanos } from "@protoutil/core/wkt";
 import { TranslationError } from "./errors";
 
 export function quoteIdent(name: string, quoteStyle = `"`): string {
@@ -69,4 +70,18 @@ export function constStringValue(expr: Expr, context: string): string {
     throw new TranslationError(`${context}: argument must be a string literal`);
   }
   return expr.exprKind.value.constantKind.value;
+}
+
+/**
+ * Extract the total nanoseconds from a `durationValue` constant expression.
+ * Throws if the expression is not a duration constant.
+ */
+export function durationConstNanos(expr: Expr): bigint {
+  if (
+    expr.exprKind.case !== "constExpr" ||
+    expr.exprKind.value.constantKind.case !== "durationValue"
+  ) {
+    throw new TranslationError("expected duration argument");
+  }
+  return durationNanos(expr.exprKind.value.constantKind.value);
 }

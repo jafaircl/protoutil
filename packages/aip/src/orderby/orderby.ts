@@ -47,21 +47,6 @@ export class OrderBy {
     this.fields = fields;
   }
 
-  /**
-   * ValidateForMessage validates that the ordering paths are syntactically
-   * valid and refer to known fields in the specified message type.
-   *
-   * @param desc the message descriptor
-   */
-  validateForMessage(desc: DescMessage) {
-    const paths: string[] = [];
-    for (const field of this.fields) {
-      paths.push(field.path);
-    }
-    const fm = fieldMask(desc, paths);
-    return isValidFieldMask(desc, fm);
-  }
-
   toString() {
     return this.fields
       .map((field) => {
@@ -75,12 +60,26 @@ export class OrderBy {
 }
 
 /**
+ * Validates that the ordering paths are syntactically valid and refer to
+ * known fields in the specified message type. Throws if any field path is
+ * invalid for the message descriptor.
+ */
+export function validate(orderBy: OrderBy, desc: DescMessage) {
+  const paths: string[] = [];
+  for (const field of orderBy.fields) {
+    paths.push(field.path);
+  }
+  const fm = fieldMask(desc, paths);
+  return isValidFieldMask(desc, fm);
+}
+
+/**
  * Parse an order by string into an OrderBy object.
  *
  * @param str the order by string
  * @returns the parsed order by object
  */
-export function parseOrderBy(str: string) {
+export function parse(str: string) {
   if (str === "") {
     return new OrderBy([]);
   }
@@ -160,31 +159,4 @@ export function parseOrderBy(str: string) {
     }
   }
   return new OrderBy(fields);
-}
-
-/**
- * Parses and validates an order by string for a specific message type.
- *
- * @param str the order by string
- * @param desc the message descriptor
- * @returns the parsed order by object
- * @throws Error if the order by string is invalid or does not match the
- * message type
- */
-export function parseAndValidateOrderBy(str: string, desc: DescMessage): OrderBy | undefined {
-  const orderBy = parseOrderBy(str);
-  if (!orderBy.validateForMessage(desc)) {
-    throw new InvalidArgumentError({
-      message: `invalid order by '${str}' for message ${desc.typeName}`,
-      errorInfo: {
-        reason: "INVALID_MESSAGE_FIELDS",
-        domain: "bearclaw.aip.orderby",
-        metadata: {
-          orderBy: str,
-          messageType: desc.typeName,
-        },
-      },
-    });
-  }
-  return orderBy;
 }

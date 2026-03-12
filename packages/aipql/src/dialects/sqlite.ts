@@ -1,5 +1,7 @@
 import type { CheckedExpr } from "@protoutil/aip/filtering";
+import { TranslationError } from "../errors.js";
 import type { SqlFunctionHandler, SqliteOptions, SqlOutput } from "../types.js";
+import { durationConstNanos } from "../utils.js";
 import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 
 // ---------------------------------------------------------------------------
@@ -20,6 +22,13 @@ export const stdlibSqlite: Record<string, SqlFunctionHandler> = {
   ...sqlStdlib,
   // string_matches intentionally absent — no built-in regex in SQLite.
   // Register a handler in options.functions pointing at your UDF.
+
+  ago_duration(_target, args, ctx) {
+    if (args.length !== 1) throw new TranslationError("ago: requires exactly one argument");
+    const nanos = durationConstNanos(args[0]);
+    const seconds = Number(nanos) / 1e9;
+    ctx.write(`datetime('now', ${ctx.pushParam(`-${seconds} seconds`)})`);
+  },
 };
 
 // ---------------------------------------------------------------------------

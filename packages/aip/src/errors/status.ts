@@ -42,7 +42,7 @@ const statusErrorRegistry = createRegistry(
  * Initialization for error details for a google.rpc.Status message
  */
 export interface ErrorDetailsInit {
-  errorInfo: MessageInitShape<typeof ErrorInfoSchema>;
+  errorInfo?: MessageInitShape<typeof ErrorInfoSchema>;
   retryInfo?: MessageInitShape<typeof RetryInfoSchema>;
   debugInfo?: MessageInitShape<typeof DebugInfoSchema>;
   quotaFailure?: MessageInitShape<typeof QuotaFailureSchema>;
@@ -58,7 +58,7 @@ export interface ErrorDetailsInit {
  * Error details for a google.rpc.Status message
  */
 export interface ErrorDetails {
-  errorInfo: ErrorInfo;
+  errorInfo?: ErrorInfo;
   retryInfo?: RetryInfo;
   debugInfo?: DebugInfo;
   quotaFailure?: QuotaFailure;
@@ -74,9 +74,10 @@ export interface ErrorDetails {
  * Creates an ErrorDetails object
  */
 export function errorDetails(init: ErrorDetailsInit) {
-  const details: ErrorDetails = {
-    errorInfo: create(ErrorInfoSchema, init.errorInfo),
-  };
+  const details: ErrorDetails = {};
+  if (init.errorInfo) {
+    details.errorInfo = create(ErrorInfoSchema, init.errorInfo);
+  }
   if (init.retryInfo) {
     details.retryInfo = create(RetryInfoSchema, init.retryInfo);
   }
@@ -111,7 +112,10 @@ export function errorDetails(init: ErrorDetailsInit) {
  * Packs google.rpc.Status error details into an array of google.protobuf.Any messages.
  */
 export function packErrorDetails(init: ErrorDetailsInit) {
-  const details: Any[] = [anyPack(ErrorInfoSchema, create(ErrorInfoSchema, init.errorInfo))];
+  const details: Any[] = [];
+  if (init.errorInfo) {
+    details.push(anyPack(ErrorInfoSchema, create(ErrorInfoSchema, init.errorInfo)));
+  }
   if (init.retryInfo) {
     details.push(anyPack(RetryInfoSchema, create(RetryInfoSchema, init.retryInfo)));
   }
@@ -223,5 +227,4 @@ export function status(init: StatusInit) {
 export const OK_STATUS = status({
   code: Code.OK,
   message: "OK",
-  errorInfo: {},
 });

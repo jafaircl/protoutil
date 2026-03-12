@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { joinResourceNames } from "./join.js";
+import { join } from "./join.js";
 
 describe("join", () => {
-  describe("joinResourceNames()", () => {
+  describe("join()", () => {
     const testCases = [
       {
         name: "zero",
@@ -106,7 +106,7 @@ describe("join", () => {
     ];
     for (const tc of testCases) {
       it(tc.name, () => {
-        const result = joinResourceNames(...tc.input);
+        const result = join(...tc.input);
         expect(result).toEqual(tc.expected);
       });
     }

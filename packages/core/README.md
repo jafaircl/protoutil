@@ -1,346 +1,366 @@
 # @protoutil/core
 
-A set of utilities for working with well-known protobuf types. These utilities assume you are using [`protobuf-es`](https://github.com/bufbuild/protobuf-es) to work with messages.
+A set of utilities for working with protobuf types. These utilities assume you are using [`protobuf-es`](https://github.com/bufbuild/protobuf-es) to work with messages.
 
 ## Install
 
-Use your configured package manager to install the `@protoutil/core` package. i.e. install from npm using `npm install @protoutil/core`.
+```bash
+npm install @protoutil/core
+```
 
-## Usage
+## Entry Points
 
-### CheckSum
+The package has two entry points:
 
-The `calculateMessageCheckSum` function can be used to calculate a non-cryptographic [checksum](https://en.wikipedia.org/wiki/Checksum) for a given message. The checksums for any two messages with identical values should be identical. But, the checksums for any two messages with different values should never match. Internally, this is used to create pagination page tokens and ETags in the AIP package. But, it is useful for quickly comparing any two messages:
+| Entry Point | Import Path | Contents |
+|-------------|-------------|----------|
+| Core | `@protoutil/core` | CheckSum, Fields, integer validators, error classes |
+| Well-Known Types | `@protoutil/core/wkt` | Duration, FieldMask, Timestamp |
+
+## CheckSum
+
+The `checksum` function calculates a non-cryptographic [checksum](https://en.wikipedia.org/wiki/Checksum) for a given message. Any two messages with identical values produce identical checksums. Internally, this is used for pagination page tokens and ETags in the `@protoutil/aip` package.
 
 ```ts
-import { calculateMessageCheckSum } from '@protoutil/core';
+import { checksum } from "@protoutil/core";
 
-const message1 = create(MySchema, { foo: 'bar' });
-const checksum1 = calculateMessageCheckSum(MySchema, message1);
+const message1 = create(MySchema, { foo: "bar" });
+const checksum1 = checksum(MySchema, message1);
 
-const message2 = create(MySchema, { foo: 'bar' });
-const checksum2 = calculateMessageCheckSum(MySchema, message2);
+const message2 = create(MySchema, { foo: "bar" });
+const checksum2 = checksum(MySchema, message2);
 
-const message3 = create(MySchema, { baz: 'quz' });
-const checksum3 = calculateMessageCheckSum(MySchema, message3);
+const message3 = create(MySchema, { baz: "quz" });
+const checksum3 = checksum(MySchema, message3);
 
 checksum1 === checksum2; // true
 checksum1 === checksum3; // false
-checksum2 === checksum3; // false
 ```
 
-### Duration
+## Fields
 
-> A Duration represents a signed, fixed-length span of time represented as a count of seconds and fractions of seconds at nanosecond resolution. It is independent of any calendar and concepts like "day" or "month". It is related to Timestamp in that the difference between two Timestamp values is a Duration and it can be added or subtracted from a Timestamp. Range is approximately +-10,000 years.
-
-The `duration` function creates and validates a `Duration` message:
+The `getField` and `setField` functions get and set field values on a message, with support for `oneof` fields:
 
 ```ts
-import { duration } from '@protoutil/core';
+import { getField, setField } from "@protoutil/core";
 
-duration(1n, 1_000_000); // returns a duration object representing 1.001 seconds
-duration(315_576_000_001n); // throws an error as durations have a max length of +/-10,000 years
+getField(message, fieldDescriptor); // Gets the value (or returns undefined)
+setField(message, fieldDescriptor, value); // Sets the value
 ```
 
-The `assertValidDuration` and `isValidDuration` functions validate `Duration` objects:
+Both functions check that the field descriptor belongs to the message's type and throw an error on mismatch. `setField` does not validate the value's type before setting.
+
+## Duration
+
+> A Duration represents a signed, fixed-length span of time represented as a count of seconds and fractions of seconds at nanosecond resolution.
+
+Import from `@protoutil/core/wkt`:
 
 ```ts
-import { assertValidDuration, isValidDuration } from '@protoutil/core';
-
-assertValidDuration(d); // throws an error if `d` is not a valid duration
-isValidDuration(d); // returns true if `d` is a valid duration and false otherwise
+import {
+  duration,
+  assertValidDuration,
+  isValidDuration,
+  durationFromString,
+  durationToString,
+  durationFromNanos,
+  durationNanos,
+  clampDuration,
+  durationFromTemporal,
+  durationTemporal,
+} from "@protoutil/core/wkt";
 ```
 
-The `durationFromString` and `durationString` functions convert strings to and from `Duration` protobuf messages:
+### Creating Durations
 
 ```ts
-import { durationFromString, durationString } from '@protoutil/core';
-
-durationFromString('2s'); // returns a `Duration` message representing 2 seconds
-durationString(d); // returns a string representation i.e. '1.001s'
+duration(1n, 1_000_000); // 1.001 seconds
+duration(315_576_000_001n); // throws — max is +-10,000 years
 ```
 
-The `durationFromNanos` and `durationNanos` functions convert nanoseconds to and from `Duration` protobuf messages (useful for performing math operations on durations and timestamps):
+### Validation
 
 ```ts
-import { durationFromNanos, durationNanos } from '@protoutil/core';
-
-durationFromNanos(1_000_000n); // returns a `Duration` message representing 1 millisecond
-durationNanos(d); // returns a BigInt i.e. 1_000_000n
-
-// Math example:
-const epochTimestamp = timestampFromNanos(0n);
-const epochTimestampNanos = timestampNanos(epochTimestamp);
-const oneWeekDuration = durationFromString(`${7 * 24 * 60 * 60}s`);
-const oneWeekDurationNanos = durationNanos(oneWeekDuration);
-const oneWeekAfterEpoch = timestampFromNanos(epochTimestampNanos + oneWeekDurationNanos);
-timestampDateString(oneWeekAfterEpoch); // returns '1970-01-08T00:00:00.000Z'
+assertValidDuration(d); // throws if invalid
+isValidDuration(d); // true/false
 ```
 
-The `clampDuration` function can be used to ensure that a `Duration` is between two specified values. By default, `clampDuration` uses the minimum and maximum values as defined in the protobuf spec (-315,576,000,000 seconds & +315,576,000,000 seconds).
+### String Conversion
 
 ```ts
-import { clampDuration } from '@protoutil/core';
-
-let min = duration(5n);
-let max = duration(10n);
-clampDuration(duration(15n), min, max); // returns the max value
-clampDuration(duration(1n), min, max); // returns the min value
-clampDuration(duration(7n), min, max); // returns the original value
-clampDuration(duration(-315,576,000,001n)); // returns a min (-315,576,000,000 seconds) duration
-clampDuration(duration(315,576,000,001n)); // returns a max (+315,576,000,000 seconds) duration
+durationFromString("2s"); // Duration message representing 2 seconds
+durationToString(d); // "1.001s"
 ```
 
-#### Temporal Functions
-
-`Temporal` is a Stage 3 TC39 proposal which has begun shipping in experimental releases of browsers. Since support is still experimental, we use the `temporal-polyfill`. Using `Temporal` instead of `Date` means native support for nanosecond resolution and simplified operations when working with calendar dates, time zones, date/time calculations, and more. [Read more about the `Temporal` API here.](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal)
-
-The `durationFromTemporal` and `durationTemporal` functions convert `Temporal.Duration` objects to and from `Duration` protobuf messages:
+### Nanosecond Conversion
 
 ```ts
-import { durationFromTemporal, durationTemporal } from '@protoutil/core';
-
-durationFromTemporal(duration); // returns a `Duration` object representing the `Temporal.Duration`
-durationTemporal(message); // returns a `Temporal.Duration` object representing the `Duration`
+durationFromNanos(1_000_000n); // Duration representing 1 millisecond
+durationNanos(d); // BigInt nanoseconds
 ```
 
-### Fields
-
-The `getField` function will get a field from a message given the field descriptor. The `setField` function will set a field on a message given the field descriptor and a value. Both `getField` and `setField` respect `oneof` values. Note that `setField` does not validate the type before setting the field (PRs are welcome):
+### Clamping
 
 ```ts
-import { getField, setField } from '@protobuf/core';
-
-getField(message, fieldDescriptor); // Gets the value of the field (or returns undefined);
-setField(message, fieldDescriptor, value); // Sets the value of the field
+const min = duration(5n);
+const max = duration(10n);
+clampDuration(duration(15n), min, max); // returns max
+clampDuration(duration(1n), min, max); // returns min
+clampDuration(duration(7n), min, max); // returns original
 ```
 
-### FieldMask
+Without arguments, `clampDuration` clamps to the protobuf spec range (-315,576,000,000s to +315,576,000,000s).
 
-> `FieldMask` represents a set of symbolic field paths, for example:
+### Temporal API
+
+Conversion to/from [`Temporal.Duration`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal) (using `temporal-polyfill`):
+
+```ts
+durationFromTemporal(temporalDuration); // Duration message
+durationTemporal(message); // Temporal.Duration
+```
+
+## Timestamp
+
+> A Timestamp represents a point in time independent of any time zone or local calendar, encoded as a count of seconds and fractions of seconds at nanosecond resolution.
 >
->     paths: "f.a"
->     paths: "f.b.d"
->
-> Here `f` represents a field in some root message, `a` and `b` fields in the message found in `f`, and `d` a field found in the message in `f.b`.
->
-> Field masks are used to specify a subset of fields that should be returned by a get operation or modified by an update operation.
+> Range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
 
-The `FieldMask` spec does not allow for wildcards and repeated or map fields must be the last part of the path. The final argument for all relevant `FieldMask` functions is `strict`, which defaults to `true`. If `strict` is `true`, the function will only allow field masks that are valid according to the spec. However, the [AIP Guidelines](https://google.aip.dev/161) allow for wildcards in field masks. So, if you want to allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
-
-The `fieldMask` function creates a `FieldMask` message and asserts that it is valid for the given schema:
+Import from `@protoutil/core/wkt`:
 
 ```ts
-import { fieldMask } from '@protoutil/core';
-
-fieldMask(MyMessageSchema 'my_path', 'my_other_path');
-// will throw if no fields named 'my_path' or 'my_other_path' are defined on `MyMessageSchema`
+import {
+  timestamp,
+  assertValidTimestamp,
+  isValidTimestamp,
+  timestampFromString,
+  timestampToString,
+  timestampFromNanos,
+  timestampNanos,
+  roundTimestampNanos,
+  clampTimestamp,
+  temporalTimestampNow,
+  timestampFromInstant,
+  timestampInstant,
+} from "@protoutil/core/wkt";
 ```
 
-The `assertValidFieldMask` and `isValidFieldMask` functions validate `FieldMask` objects for the given schema:
+### Creating Timestamps
 
 ```ts
-import { assertValidFieldMask, isValidFieldMask } from '@protoutil/core';
-
-assertValidFieldMask(MySchema, fm); // throws if `fm` is not valid for `MySchema`
-isValidFieldMask(MySchema, fm); // return true if `fm` is valid for `MySchema` or false otherwise
+timestamp(1n, 1_000_000); // 1.001 seconds after unix epoch
+timestamp(253402300800n); // throws — max is 9999-12-31T23:59:59.999999999Z
 ```
 
-The `fieldMaskHasPath` function returns true if a `FieldMask` matches the given path:
+### Validation
 
 ```ts
-import { fieldMask, fieldMaskHasPath } from '@protoutil/core';
-
-const fm = fieldMask(MySchema, 'a');
-fieldMaskHasPath(fm, 'a'); // true
-fieldMaskHasPath(fm, 'b'); // false
-fieldMaskHasPath(fm, 'a.b'); // true since 'a' was in the field mask so nested fields will be, too.
+assertValidTimestamp(ts); // throws if invalid
+isValidTimestamp(ts); // true/false
 ```
 
-The `applyFieldMask` function will apply a field mask to a message. If `inverse` is true, all fields will be returned _EXCEPT_ the ones in the mask.
+### String Conversion (RFC 3339)
 
 ```ts
-import { fieldMask, applyFieldMask } from '@protoutil/core';
-
-const fm = fieldMask(MySchema, 'a');
-const message = create(MySchema, { ... });
-const updated = applyFieldMask(MySchema, message, fm); // returns a message where only the 'a' field is populated
-const inverse = applyFieldMask(MySchema, message, fm, true); // returns a message where the 'a' field is NOT populated
+timestampFromString("1970-01-01T02:07:34.000000321+07:00"); // Timestamp message
+timestampToString(ts); // "1970-01-01T00:00:00.000000000Z"
 ```
 
-`applyFieldMask` does not mutate the original message.
-
-The `mergeFieldMasks` function accepts an arbitrary number of `FieldMask` objects and merges their paths. When combining, if one `FieldMask` has a parent field and another has one of its children, only the parent will be returned since it will apply to both:
+### Nanosecond Conversion
 
 ```ts
-import { fieldMask, mergeFieldMasks } from '@protoutil/core';
-
-const one = fieldMask(MySchema, 'a');
-const two = fieldMask(MySchema, 'a.b', 'c');
-mergeFieldMasks(one, two); // returns ['a', 'c'] as paths in the `FieldMask`
+timestampFromNanos(1_000_000n); // 1ms after epoch
+timestampNanos(ts); // BigInt nanoseconds
 ```
 
-The `intersectFieldMasks` function accepts an arbitrary number of `FieldMask` objects and returns the intersection of their paths. When combining, if one `FieldMask` has a parent field and another has one of its children, only the child will be returned since it is the only path that intersects both:
+### Math Example
 
 ```ts
-import { fieldMask, intersectFieldMasks } from '@protoutil/core';
-
-const one = fieldMask(MySchema, 'a');
-const two = fieldMask(MySchema, 'a.b', 'c');
-intersectFieldMasks(one, two); // returns ['a.b'] as paths in the `FieldMask`
+const epoch = timestampFromNanos(0n);
+const oneWeek = durationFromString(`${7 * 24 * 60 * 60}s`);
+const oneWeekLater = timestampFromNanos(timestampNanos(epoch) + durationNanos(oneWeek));
+timestampToString(oneWeekLater); // "1970-01-08T00:00:00.000Z"
 ```
 
-### Int32
+### Rounding
 
-The `assertValidInt32` and `isValidInt32` functions validate that number values are 32-bit integers:
-
-```ts
-import { assertValidInt32, isValidInt32 } from '@protoutil/wkt';
-
-assertValidInt32(num); // throws if `num` is not a 32 bit integer
-isValidInt32(num); // return true if `num` is a 32-bit integer or false otherwise
-```
-
-### Int64
-
-The `assertValidInt64` and `isValidInt64` functions validate that BigInt values are 64-bit integers:
+Ensure `nanos` is an integer after calculations:
 
 ```ts
-import { assertValidInt64, isValidInt64 } from '@protoutil/wkt';
-
-assertValidInt64(num); // throws if `num` is not a 64 bit integer
-isValidInt64(num); // return true if `num` is a 64-bit integer or false otherwise
-```
-
-### Timestamp
-
-> A Timestamp represents a point in time independent of any time zone or local calendar, encoded as a count of seconds and fractions of seconds at nanosecond resolution. The count is relative to an epoch at UTC midnight on January 1, 1970, in the proleptic Gregorian calendar which extends the Gregorian calendar backwards to year one.
->
-> All minutes are 60 seconds long. Leap seconds are "smeared" so that no leap second table is needed for interpretation, using a [24-hour linear smear](https://developers.google.com/time/smear).
->
-> The range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z. By restricting to that range, we ensure that we can convert to and from [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.
-
-The `timestamp` function creates and validates a `Timestamp` message:
-
-```ts
-import { timestamp } from '@protoutil/core';
-
-timestamp(1n, 1_000_000); // returns a timestamp object representing 1.001 seconds after the unix epoch
-timestamp(253402300800n); // throws an error as timestamps have a max value of 9999-12-31T23:59:59.999999999Z
-```
-
-The `assertValidTimestamp` and `isValidTimestamp` functions validate `Timestamp` objects:
-
-```ts
-import { assertValidTimestamp, isValidTimestamp } from '@protoutil/core';
-
-assertValidTimestamp(ts); // throws an error if `ts` is not a valid timestamp
-isValidTimestamp(d); // returns true if `ts` is a valid timestamp and false otherwise
-```
-
-The `timestampFromDateString` and `timestampDateString` functions convert strings to and from `Timestamp` protobuf messages:
-
-```ts
-import { timestampFromDateString, timestampDateString } from '@protoutil/core';
-
-timestampFromDateString('1970-01-01T02:07:34.000000321+07:00'); // returns a `Timestamp` message representing the unix epoch
-timestampDateString(ts); // returns a string representation i.e. '1970-01-01T00:00:00.000000000Z'
-```
-
-The `timestampFromNanos` and `timestampNanos` functions convert nanoseconds to and from `Timestamp` protobuf messages (useful for performing math operations on durations and timestamps):
-
-```ts
-import { timestampFromNanos, timestampNanos } from '@protoutil/core';
-
-timestampFromNanos(1_000_000n); // returns a `Timestamp` message representing 1 millisecond after Jan 1, 1970
-timestampNanos(d); // returns a BigInt i.e. 1_000_000n
-
-// Math example:
-const epochTimestamp = timestampFromNanos(0n);
-const epochTimestampNanos = timestampNanos(epochTimestamp);
-const oneWeekDuration = durationFromString(`${7 * 24 * 60 * 60}s`);
-const oneWeekDurationNanos = durationNanos(oneWeekDuration);
-const oneWeekAfterEpoch = timestampFromNanos(epochTimestampNanos + oneWeekDurationNanos);
-timestampDateString(oneWeekAfterEpoch); // returns '1970-01-08T00:00:00.000Z'
-```
-
-The `roundTimestampNanos` function is a helper to make sure that the `nanos` parameter of a `Timestamp` is an integer. This can be helpful if you need to perform calculations then validate a `Timestamp`.
-
-```ts
-import { roundTimestampNanos, assertValidTimestamp } from '@protoutil/core';
-
 let ts = create(TimestampSchema, { nanos: 3 / 2 });
 ts = roundTimestampNanos(ts);
-assertValidTimestamp(ts); // should not throw
+assertValidTimestamp(ts); // does not throw
 ```
 
-The `clampTimestamp` function can be used to ensure that a `Timestamp` is between two specified values. By default, `clampTimestamp` uses the minimum and maximum values as defined in the protobuf spec (0001-01-01T00:00:00Z & 9999-12-31T23:59:59.999999999Z).
+### Clamping
 
 ```ts
-import { clampTimestamp } from '@protoutil/core';
-
-let min = timestamp(5n);
-let max = timestamp(10n);
-clampTimestamp(timestamp(15n), min, max); // returns the max value
-clampTimestamp(timestamp(1n), min, max); // returns the min value
-clampTimestamp(timestamp(7n), min, max); // returns the original value
-clampTimestamp(timestamp(-62135596801n)); // returns a min (0001-01-01T00:00:00Z) timestamp
-clampTimestamp(timestamp(253402300800n)); // returns a max (9999-12-31T23:59:59.999999999Z) timestamp
+clampTimestamp(timestamp(15n), min, max); // clamp to range
 ```
 
-#### Temporal Functions
+Without arguments, clamps to the protobuf spec range (0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z).
 
-`Temporal` is a Stage 3 TC39 proposal which has begun shipping in experimental releases of browsers. Since support is still experimental, we use the `temporal-polyfill`. Using `Temporal` instead of `Date` means native support for nanosecond resolution and simplified operations when working with calendar dates, time zones, date/time calculations, and more. [Read more about the `Temporal` API here.](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal)
-
-The `temporalTimestampNow` function returns a `Timestamp` object representing the current time using the `Temporal` API:
+### Temporal API
 
 ```ts
-import { temporalTimestampNow } from '@protoutil/core';
-
-temporalTimestampNow(); // returns a `Timestamp` object representing the current time with nanosecond resolution
+temporalTimestampNow(); // Timestamp with nanosecond resolution
+timestampFromInstant(instant); // from Temporal.Instant
+timestampInstant(ts); // to Temporal.Instant
 ```
 
-The `timestampFromInstant` and `timestampInstant` functions convert `Temporal.Instant` objects to and from `Timestamp` protobuf messages:
+## FieldMask
+
+> FieldMask represents a set of symbolic field paths used to specify a subset of fields that should be returned by a get operation or modified by an update operation.
+
+Import from `@protoutil/core/wkt`:
 
 ```ts
-import { timestampFromInstant, timestampInstant } from '@protoutil/core';
-
-timestampFromInstant(instant); // returns a `Timestamp` object representing the `Temporal.Instant`
-timestampInstant(ts); // returns a `Temporal.Instant` object representing the `Timestamp`
+import {
+  fieldMask,
+  assertValidFieldMask,
+  isValidFieldMask,
+  fieldMaskHasPath,
+  applyFieldMask,
+  mergeFieldMasks,
+  intersectFieldMasks,
+} from "@protoutil/core/wkt";
 ```
 
-### UInt32
+### Strict vs Non-Strict Mode
 
-The `assertValidUInt32` and `isValidUInt32` functions validate that number values are 32-bit unsigned integers:
+All FieldMask functions accept a `strict` parameter (default: `true`). In strict mode, only spec-compliant field masks are allowed. Set `strict` to `false` to allow wildcards (`*`) per the [AIP Guidelines](https://google.aip.dev/161).
+
+### Creating FieldMasks
 
 ```ts
-import { assertValidUInt32, isValidUInt32 } from '@protoutil/wkt';
-
-assertValidUInt32(num); // throws if `num` is not a 32 bit unsigned integer
-isValidUInt32(num); // return true if `num` is a 32-bit unsigned integer or false otherwise
+fieldMask(MySchema, ["my_path", "my_other_path"]);
+// throws if fields don't exist on MySchema
 ```
 
-### UInt64
-
-The `assertValidUInt64` and `isValidUInt64` functions validate that BigInt values are 64-bit unsigned integers:
+### Validation
 
 ```ts
-import { assertValidUInt64, isValidUInt64 } from '@protoutil/wkt';
-
-assertValidUInt64(num); // throws if `num` is not a 64 bit unsigned integer
-isValidUInt64(num); // return true if `num` is a 64-bit unsinged integer or false otherwise
+assertValidFieldMask(MySchema, fm); // throws if invalid
+isValidFieldMask(MySchema, fm); // true/false
 ```
 
-### Unit Testing
+### Path Matching
 
-This library also exports the google/protobuf unit testing schemas compiled from [the protocolbuffers repository](https://github.com/protocolbuffers/protobuf/tree/27421b97a0daa29e91460d377b0213f9e7be5d3f/src/google/protobuf). These schemas can be helpful in testing for protobuf-dependent libraries. For instance, the `TestAllTypes` type and schema found in `@protoutil/core/unittest` contains a field for most basic protobuf types. A proto3-specific type and schema can be found in `@protoutil/core/unittest/proto3`. There are many helpful types and schemas exported from this portion of the library. Please explore the repository if you're looking for something specific. If there is a schema or type we don't export, please file an issue and it can be added.
+```ts
+const fm = fieldMask(MySchema, ["a"]);
+fieldMaskHasPath(fm, "a"); // true
+fieldMaskHasPath(fm, "b"); // false
+fieldMaskHasPath(fm, "a.b"); // true — "a" covers nested fields
+```
 
-## Contributing
+### Applying
 
-### Building
+```ts
+const fm = fieldMask(MySchema, ["a"]);
+applyFieldMask(MySchema, message, fm); // only "a" field populated
+applyFieldMask(MySchema, message, fm, { inverse: true }); // everything EXCEPT "a"
+```
 
-Run `moon run core:build` to build the library.
+`applyFieldMask` does not mutate the original message. Options:
 
-### Running unit tests
+| Option | Default | Description |
+|--------|---------|-------------|
+| `inverse` | `false` | When `true`, applies the inverse of the mask |
+| `strict` | `true` | When `false`, allows wildcards in the mask |
 
-Run `moon run core:test` to execute the unit tests via [Vitest](https://vitest.dev/).
+### Merging
+
+Combines paths — parent fields subsume their children:
+
+```ts
+const one = fieldMask(MySchema, ["a"]);
+const two = fieldMask(MySchema, ["a.b", "c"]);
+mergeFieldMasks(one, two); // paths: ["a", "c"]
+```
+
+### Intersecting
+
+Returns only paths present in all masks — child paths preferred over parents:
+
+```ts
+intersectFieldMasks(one, two); // paths: ["a.b"]
+```
+
+## Integer Validators
+
+Import from `@protoutil/core`:
+
+| Function | Description |
+|----------|-------------|
+| `assertValidInt32(num)` | Throws if `num` is not a 32-bit signed integer |
+| `isValidInt32(num)` | Returns `true` if `num` is a 32-bit signed integer |
+| `assertValidInt64(num)` | Throws if `num` (BigInt) is not a 64-bit signed integer |
+| `isValidInt64(num)` | Returns `true` if `num` (BigInt) is a 64-bit signed integer |
+| `assertValidUInt32(num)` | Throws if `num` is not a 32-bit unsigned integer |
+| `isValidUInt32(num)` | Returns `true` if `num` is a 32-bit unsigned integer |
+| `assertValidUInt64(num)` | Throws if `num` (BigInt) is not a 64-bit unsigned integer |
+| `isValidUInt64(num)` | Returns `true` if `num` (BigInt) is a 64-bit unsigned integer |
+
+## Error Classes
+
+Import from `@protoutil/core`:
+
+| Class | Description |
+|-------|-------------|
+| `OutOfRangeError` | Indicates a value is out of range. Properties: `value`, `min`, `max`. |
+| `InvalidValueError` | Indicates a value is invalid. Properties: `value`. |
+
+## Unit Testing Schemas
+
+This library exports the Google protobuf unit testing schemas compiled from [the protocolbuffers repository](https://github.com/protocolbuffers/protobuf/tree/27421b97a0daa29e91460d377b0213f9e7be5d3f/src/google/protobuf). These are useful when testing protobuf-dependent libraries.
+
+```ts
+// Main test types (proto2)
+import { TestAllTypesSchema } from "@protoutil/core/unittest";
+
+// Proto3-specific types
+import { TestAllTypes_NestedEnumSchema } from "@protoutil/core/unittest/proto3";
+```
+
+Many additional schemas are available under `@protoutil/core/unittest/*` sub-paths (arena, custom-options, features, lite, etc.). Please explore the repository or file an issue if you need a schema that isn't exported.
+
+## API Reference
+
+### `@protoutil/core`
+
+| Export | Description |
+|--------|-------------|
+| `checksum(schema, message)` | Calculate a non-cryptographic checksum for a message |
+| `getField(message, field)` | Get a field value from a message (supports oneof) |
+| `setField(message, field, value)` | Set a field value on a message (supports oneof) |
+| `assertValidInt32(num)` / `isValidInt32(num)` | Validate 32-bit signed integers |
+| `assertValidInt64(num)` / `isValidInt64(num)` | Validate 64-bit signed integers |
+| `assertValidUInt32(num)` / `isValidUInt32(num)` | Validate 32-bit unsigned integers |
+| `assertValidUInt64(num)` / `isValidUInt64(num)` | Validate 64-bit unsigned integers |
+| `OutOfRangeError` | Error for out-of-range values |
+| `InvalidValueError` | Error for invalid values |
+
+### `@protoutil/core/wkt`
+
+| Export | Description |
+|--------|-------------|
+| `duration(seconds, nanos?)` | Create a validated Duration |
+| `assertValidDuration(d)` / `isValidDuration(d)` | Validate a Duration |
+| `durationFromString(str)` / `durationToString(d)` | Convert Duration to/from string |
+| `durationFromNanos(n)` / `durationNanos(d)` | Convert Duration to/from nanoseconds |
+| `clampDuration(d, min?, max?)` | Clamp a Duration to a range |
+| `durationFromTemporal(td)` / `durationTemporal(d)` | Convert Duration to/from Temporal.Duration |
+| `timestamp(seconds, nanos?)` | Create a validated Timestamp |
+| `assertValidTimestamp(ts)` / `isValidTimestamp(ts)` | Validate a Timestamp |
+| `timestampFromString(str)` / `timestampToString(ts)` | Convert Timestamp to/from RFC 3339 string |
+| `timestampFromNanos(n)` / `timestampNanos(ts)` | Convert Timestamp to/from nanoseconds |
+| `roundTimestampNanos(ts)` | Round Timestamp nanos to an integer |
+| `clampTimestamp(ts, min?, max?)` | Clamp a Timestamp to a range |
+| `temporalTimestampNow()` | Get current time as a Timestamp |
+| `timestampFromInstant(i)` / `timestampInstant(ts)` | Convert Timestamp to/from Temporal.Instant |
+| `fieldMask(schema, paths, strict?)` | Create a validated FieldMask |
+| `assertValidFieldMask(schema, fm, strict?)` / `isValidFieldMask(schema, fm, strict?)` | Validate a FieldMask |
+| `fieldMaskHasPath(fm, path, strict?)` | Check if a FieldMask matches a path |
+| `applyFieldMask(schema, message, fm, opts?)` | Apply a FieldMask to a message. Options: `{ inverse?, strict? }` |
+| `mergeFieldMasks(...masks)` | Merge multiple FieldMasks |
+| `intersectFieldMasks(...masks)` | Intersect multiple FieldMasks |

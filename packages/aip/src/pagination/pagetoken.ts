@@ -4,17 +4,17 @@ import { InvalidArgumentError } from "../errors/errors.js";
 import { calculateRequestCheckSum, type RequestMessage } from "./request.js";
 
 /**
- * EncodePageTokenStruct encodes an arbitrary struct as a page token.
+ * Encodes an arbitrary struct as a page token.
  */
-export function encodePageTokenStruct(struct: PageToken): string {
+export function encode(struct: PageToken): string {
   const json = JSON.stringify(struct);
   return Buffer.from(json).toString("base64");
 }
 
 /**
- * DecodePageTokenStruct decodes a page token into a struct.
+ * Decodes a page token into a struct.
  */
-export function decodePageTokenStruct(token: string): PageToken {
+export function decode(token: string): PageToken {
   try {
     const str = Buffer.from(token, "base64").toString("utf8");
     const json = JSON.parse(str);
@@ -45,36 +45,36 @@ export class PageToken {
   }
 
   /**
-   * Next returns the next page token for the provided Request.
+   * Returns the next page token for the given page size.
    *
-   * @param request the request to get the next page token for
+   * @param pageSize the page size to advance by
    */
-  next(request: RequestMessage) {
-    return new PageToken(this.offset + (request.pageSize ?? 0), this.requestChecksum);
+  next(pageSize: number) {
+    return new PageToken(this.offset + pageSize, this.requestChecksum);
   }
 
   /**
-   * Previous returns the previous page token for the provided Request.
+   * Returns the previous page token for the given page size.
    *
    * If the previous page token would have a negative offset, a page token with
    * offset 0 will be returned.
    *
-   * @param request  the request to get the previous page token for
+   * @param pageSize the page size to go back by
    */
-  previous(request: RequestMessage) {
-    return new PageToken(Math.max(0, this.offset - (request.pageSize ?? 0)), this.requestChecksum);
+  previous(pageSize: number) {
+    return new PageToken(Math.max(0, this.offset - pageSize), this.requestChecksum);
   }
 
   /**
    * String returns a string representation of the page token.
    */
   toString() {
-    return encodePageTokenStruct(this);
+    return encode(this);
   }
 }
 
 /**
- * ParsePageToken parses an offset-based page token from the provided Request.
+ * Parses an offset-based page token from the provided Request.
  *
  * If the request does not have a page token, a page token with offset 0 will
  * be returned.
@@ -85,7 +85,7 @@ export class PageToken {
  * token checksums. Change the bitmask to force checksum failures when changing
  * the page token implementation.
  */
-export function parsePageToken<T extends string = string>(
+export function parse<T extends string = string>(
   schema: DescMessage,
   request: RequestMessage<T>,
   pageTokenChecksumMask = 0x9acb0442,
@@ -99,7 +99,7 @@ export function parsePageToken<T extends string = string>(
     }
     return new PageToken(offset, requestCheckSum);
   }
-  const pageToken = decodePageTokenStruct(request.pageToken);
+  const pageToken = decode(request.pageToken);
   if (pageToken.requestChecksum !== requestCheckSum) {
     throw new InvalidArgumentError({
       message: `invalid page token: checksum mismatch got 0x${pageToken.requestChecksum} but expected 0x${requestCheckSum}`,

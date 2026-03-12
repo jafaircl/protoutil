@@ -51,55 +51,49 @@ export function hasAnyFieldBehavior(field: DescField, behaviors: FieldBehavior[]
   return false;
 }
 
+export interface ClearFieldsOptions {
+  mutate?: boolean;
+}
+
 /**
- * ClearFields clears all fields annotated with any of the provided behaviors.
+ * Clears all fields annotated with any of the provided behaviors.
  * This can be used to ignore fields provided as input that have
  * field_behavior's such as OUTPUT_ONLY and IMMUTABLE.
  *
  * See: https://google.aip.dev/161#output-only-fields
- *
- * @param schema the message schema to clear fields from
- * @param message the message to clear fields from
- * @param behaviors the field behaviors to clear
- * @param shouldMutate whether to mutate the original message or return a clone
- * @returns a copy or the original message with the fields cleared depending on
- * the `shouldClone` parameter
  */
-export function clearFieldsWithBehaviors<Desc extends DescMessage>(
+export function clearFields<Desc extends DescMessage>(
   schema: Desc,
   message: MessageShape<Desc>,
   behaviors: FieldBehavior[],
-  shouldMutate = false,
+  opts?: ClearFieldsOptions,
 ) {
-  const copy = shouldMutate ? message : clone(schema, message);
+  const copy = opts?.mutate ? message : clone(schema, message);
   for (const field of schema.fields) {
     if (!isFieldSet(copy, field)) {
-      // If the field is not set, we don't need to clear it.
       continue;
     }
     if (hasAnyFieldBehavior(field, behaviors)) {
       clearField(copy, field);
-      // If we clear this field, we don't need to bother with any children since
-      // they will have been cleared as well.
       continue;
     }
     switch (field.fieldKind) {
       case "list":
         if (field.listKind === "message") {
           for (const item of getField(copy, field) as Message[]) {
-            clearFieldsWithBehaviors(field.message, item, behaviors, true);
+            clearFields(field.message, item, behaviors, { mutate: true });
           }
         }
         break;
       case "map":
         if (field.mapKind === "message") {
           for (const value of Object.values(getField(copy, field) as Record<string, Message>)) {
-            clearFieldsWithBehaviors(field.message, value, behaviors, true);
+            clearFields(field.message, value, behaviors, { mutate: true });
           }
         }
         break;
       case "message":
-        clearFieldsWithBehaviors(field.message, getField(copy, field) as Message, behaviors, true);
+        clearFields(field.message, getField(copy, field) as Message, behaviors, { mutate: true });
         break;
       default:
         break;

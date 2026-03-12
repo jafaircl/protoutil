@@ -1,36 +1,74 @@
 # AIP-203: Field Behavior
 
-This package provides primitives for implementing AIP fieldbehavior annotation as described by [AIP-203](https://google.aip.dev/203).
+This package provides primitives for implementing AIP field behavior annotations as described by [AIP-203](https://google.aip.dev/203).
 
-You can clear fields with specific field behaviors from a message. For instance, you can clear all fields annotated as `OUTPUT_ONLY` from a message before processing a request:
+## Clearing Fields by Behavior
+
+Clear fields with specific field behaviors from a message. For instance, clear all `OUTPUT_ONLY` fields before processing a request:
 
 ```ts
-import { clearFieldsWithBehaviors } from '@bearclaw/aip';
-import { FieldBehavior } from '@buf/googleapis_googleapis.bufbuild_es/google/api/field_behavior_pb.js';
+import { clearFields } from "@protoutil/aip/fieldbehavior";
+import { FieldBehavior } from "@buf/googleapis_googleapis.bufbuild_es/google/api/field_behavior_pb.js";
 
 const message = create(MyMessageSchema, { ... });
-const updated = clearFieldsWithBehaviors(MyMessageSchema, message, [FieldBehavior.OUTPUT_ONLY]);
+const updated = clearFields(MyMessageSchema, message, [FieldBehavior.OUTPUT_ONLY]);
 ```
 
-By default, this function will return a copy of the original message with the fields cleared. But, you can also choose to have it mutate the original message by passing `true` as the final parameter.
+By default, this function returns a copy of the original message with the fields cleared. Pass `{ mutate: true }` to mutate the original message instead.
 
-You can also validate that no immutable fields have been set on a message:
+## Querying Field Behaviors
 
 ```ts
-import { validateImmutableFields } from '@bearclaw/aip';
+import { getFieldBehavior, hasFieldBehavior, hasAnyFieldBehavior } from "@protoutil/aip/fieldbehavior";
 
-const message = create(MyMessageSchema, { ... })
-validateImmutableFields(MyMessageSchema, message); // will throw if any immutable fields are set
+// Get the field behaviors for a specific field
+const behaviors = getFieldBehavior(fieldDescriptor);
+
+// Check if a field has a specific behavior
+hasFieldBehavior(fieldDescriptor, FieldBehavior.REQUIRED); // true/false
+
+// Check if a field has any of the specified behaviors
+hasAnyFieldBehavior(fieldDescriptor, [FieldBehavior.REQUIRED, FieldBehavior.IMMUTABLE]);
 ```
 
-You may also provide a field mask in order to only check fields covered by the mask:
+## Validating Immutable Fields
+
+Validate that no immutable fields have been changed on a message:
 
 ```ts
-import { fieldMask, validateImmutableFieldsWithMask } from '@bearclaw/aip';
+import { validateImmutableFields } from "@protoutil/aip/fieldbehavior";
 
-const message = create(MyMessageSchema, { ... });
-// will throw if any immutable fields are set on a path specified by the field mask
-validateImmutableFieldsWithMask(MyMessageSchema, message, fieldMask(['immutable_field']));
+validateImmutableFields(MyMessageSchema, message); // throws if any immutable fields are set
 ```
 
-In addition to immutablility, you can also validate required fields with `validateRequiredFields` and `validateRequiredFieldsWithMask`.
+With a field mask to only check specific fields:
+
+```ts
+import { fieldMask } from "@protoutil/core/wkt";
+
+validateImmutableFields(MyMessageSchema, message, {
+  fieldMask: fieldMask(MyMessageSchema, ["immutable_field"]),
+});
+```
+
+## Validating Required Fields
+
+Similarly, validate that all required fields have been set:
+
+```ts
+import { validateRequiredFields } from "@protoutil/aip/fieldbehavior";
+
+validateRequiredFields(MyMessageSchema, message); // throws if any required fields are missing
+validateRequiredFields(MyMessageSchema, message, { fieldMask: mask }); // checks only masked fields
+```
+
+## API Reference
+
+| Export | Description |
+|--------|-------------|
+| `clearFields(schema, message, behaviors, opts?)` | Clear fields matching the given behaviors. Options: `{ mutate? }`. Returns a copy unless `mutate` is `true`. |
+| `getFieldBehavior(field)` | Get the list of `FieldBehavior` annotations for a field descriptor. |
+| `hasFieldBehavior(field, behavior)` | Check if a field has a specific `FieldBehavior`. |
+| `hasAnyFieldBehavior(field, behaviors)` | Check if a field has any of the specified `FieldBehavior` values. |
+| `validateImmutableFields(schema, message, opts?)` | Throws if any `IMMUTABLE` fields are set. Options: `{ fieldMask? }`. |
+| `validateRequiredFields(schema, message, opts?)` | Throws if any `REQUIRED` fields are missing. Options: `{ fieldMask? }`. |

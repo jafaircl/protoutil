@@ -72,7 +72,7 @@ const { sql, params } = sqlite(checked, {
 });
 ```
 
-Note that you will need to provide a function declaration to the checker 
+Note that you will need to register a `regexp` function in your SQLite database and provide a matching function declaration to the checker via `check(parsed, [yourDecl])`.
 
 ### MongoDB
 
@@ -137,6 +137,30 @@ The built-in string functions from CEL are supported:
 | `contains` | `ILIKE '%val%'` | `LIKE '%val%'` | `{ $regex: /val/i }` |
 | `matches` | `~ 'pattern'` | `REGEXP 'pattern'` | `{ $regex: /pattern/ }` |
 
+### `ago()` Function
+
+The `ago()` function creates time-relative filters, translating to server-side time arithmetic.
+
+Pass the `agoDecl` declaration to the checker:
+
+```typescript
+import { parse, check } from "@protoutil/aip/filtering";
+import { postgres, agoDecl } from "@protoutil/aipql";
+
+const parsed = parse('create_time > ago(24h)');
+const { checkedExpr } = check(parsed, [agoDecl]);
+const { sql, params } = postgres(checkedExpr);
+// sql:    '"create_time" > NOW() - INTERVAL $1'
+// params: ["86400000000 microseconds"]
+```
+
+| Dialect | Output | Precision |
+|---------|--------|-----------|
+| PostgreSQL | `NOW() - INTERVAL $1` | microseconds |
+| MySQL | `NOW(6) - INTERVAL ? MICROSECOND` | microseconds |
+| SQLite | `datetime('now', ?)` | seconds |
+| MongoDB | `new Date(...)` (computed at translation time) | milliseconds |
+
 ### Nested Fields
 
 Dotted field paths are supported:
@@ -197,6 +221,48 @@ Each SQL dialect function takes a `CheckedExpr` and optional config, returning `
 
 **`mongo(expr, opts?)`** — Returns `{ filter: MongoFilter }`. Supports `caseInsensitive` (default `true`).
 
-### Errors
+### Shared Utilities
 
-All translation errors throw `TranslationError`.
+- **`agoDecl`** — Checker declaration for the `ago()` function. Pass to `check()` as an extra declaration.
+- **`TranslationError`** — Error class thrown by all dialects on translation failure.
+
+### Standard Library Function Handlers
+
+Each dialect exports its default function handler map, allowing you to compose custom handlers on top of the defaults:
+
+```typescript
+import { postgres, stdlibPostgres } from "@protoutil/aipql";
+
+const { sql, params } = postgres(checked, {
+  functions: {
+    ...stdlibPostgres,
+    // Override a specific handler
+    string_contains(target, args, ctx) {
+      ctx.write(`${ctx.emitIdent(target!)} @@ plainto_tsquery(${ctx.pushParam(args[0])})`);
+    },
+  },
+});
+```
+
+| Export | Description |
+|--------|-------------|
+| `stdlibPostgres` | Default SQL function handlers for PostgreSQL |
+| `stdlibMysql` | Default SQL function handlers for MySQL |
+| `stdlibSqlite` | Default SQL function handlers for SQLite |
+| `stdlibMongo` | Default MongoDB function handlers |
+
+### Exported Types
+
+| Type | Description |
+|------|-------------|
+| `SqlOutput` | `{ sql: string; params: unknown[] }` — return type of SQL dialect functions |
+| `MongoOutput` | `{ filter: MongoFilter }` — return type of the `mongo()` function |
+| `MongoFilter` | `Record<string, unknown>` — a MongoDB filter document |
+| `SqlEmitContext` | Context passed to SQL function handlers (`emit`, `emitIdent`, `pushParam`, `quoteIdent`, `write`, `like`) |
+| `MongoEmitContext` | Context passed to MongoDB function handlers (`emit`, `fieldPath`, `caseInsensitive`) |
+| `SqlFunctionHandler` | `(target, args, ctx: SqlEmitContext) => void` |
+| `MongoFunctionHandler` | `(target, args, ctx: MongoEmitContext) => MongoFilter` |
+| `PostgresOptions` | Options for `postgres()` — `caseInsensitive?`, `functions?` |
+| `MysqlOptions` | Options for `mysql()` — `functions?` |
+| `SqliteOptions` | Options for `sqlite()` — `functions?` |
+| `MongoOptions` | Options for `mongo()` — `caseInsensitive?`, `functions?` |

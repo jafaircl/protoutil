@@ -13,12 +13,12 @@ import {
   roundTimestampNanos,
   temporalTimestampNow,
   timestamp,
-  timestampDateString,
-  timestampFromDateString,
   timestampFromInstant,
   timestampFromNanos,
+  timestampFromString,
   timestampInstant,
   timestampNanos,
+  timestampToString,
 } from "./timestamp.js";
 
 describe("timestamp", () => {
@@ -170,7 +170,7 @@ describe("timestamp", () => {
       const oneWeekDurationNanos = durationNanos(oneWeekDuration);
       expect(oneWeekDurationNanos).toBe(7n * 24n * 60n * 60n * 1_000_000_000n);
       const oneWeekAfterEpoch = timestampFromNanos(epochTimestampNanos + oneWeekDurationNanos);
-      const oneWeekAfterEpochString = timestampDateString(oneWeekAfterEpoch);
+      const oneWeekAfterEpochString = timestampToString(oneWeekAfterEpoch);
       expect(oneWeekAfterEpochString).toBe("1970-01-08T00:00:00Z");
     });
   });
@@ -225,121 +225,117 @@ describe("timestamp", () => {
     });
   });
 
-  describe("timestampFromDateString()", () => {
+  describe("timestampFromString()", () => {
     it("should parse", () => {
       // RFC9557 with offset
-      expect(timestampFromDateString("2024-03-02T08:48:00-05:00")).toStrictEqual(
+      expect(timestampFromString("2024-03-02T08:48:00-05:00")).toStrictEqual(
         timestamp(1709387280n),
       );
-      expect(timestampDateString(timestampFromDateString("2024-03-02T08:48:00-05:00"))).toEqual(
+      expect(timestampToString(timestampFromString("2024-03-02T08:48:00-05:00"))).toEqual(
         "2024-03-02T13:48:00Z",
       );
 
       // RFC9557 with timezone
-      expect(timestampFromDateString("2024-03-02T08:48:00Z[America/New_York]")).toStrictEqual(
+      expect(timestampFromString("2024-03-02T08:48:00Z[America/New_York]")).toStrictEqual(
         timestamp(1709387280n),
       );
       expect(
-        timestampDateString(timestampFromDateString("2024-03-02T08:48:00Z[America/New_York]")),
+        timestampToString(timestampFromString("2024-03-02T08:48:00Z[America/New_York]")),
       ).toEqual("2024-03-02T13:48:00Z");
 
       // RFC9557 with offset and timezone
-      expect(timestampFromDateString("2024-03-02T08:48:00-05:00[America/New_York]")).toStrictEqual(
+      expect(timestampFromString("2024-03-02T08:48:00-05:00[America/New_York]")).toStrictEqual(
         timestamp(1709387280n),
       );
       expect(
-        timestampDateString(timestampFromDateString("2024-03-02T08:48:00-05:00[America/New_York]")),
+        timestampToString(timestampFromString("2024-03-02T08:48:00-05:00[America/New_York]")),
       ).toEqual("2024-03-02T13:48:00Z");
 
       // RFC3339 without timezone
-      expect(timestampFromDateString("1970-01-01T00:00:00Z")).toStrictEqual(timestamp(0n, 0));
-      expect(timestampDateString(timestampFromDateString("1970-01-01T00:00:00Z"))).toEqual(
+      expect(timestampFromString("1970-01-01T00:00:00Z")).toStrictEqual(timestamp(0n, 0));
+      expect(timestampToString(timestampFromString("1970-01-01T00:00:00Z"))).toEqual(
         "1970-01-01T00:00:00Z",
       );
 
       // RFC3339 with timezone
-      expect(timestampFromDateString("1970-01-01T00:00:00-07:00")).toStrictEqual(
-        timestamp(25200n, 0),
-      );
-      expect(timestampDateString(timestampFromDateString("1970-01-01T00:00:00-07:00"))).toEqual(
+      expect(timestampFromString("1970-01-01T00:00:00-07:00")).toStrictEqual(timestamp(25200n, 0));
+      expect(timestampToString(timestampFromString("1970-01-01T00:00:00-07:00"))).toEqual(
         "1970-01-01T07:00:00Z",
       );
 
       // Iso8601 without timezone
-      expect(timestampFromDateString("2011-10-05T14:48:00.000Z")).toStrictEqual(
+      expect(timestampFromString("2011-10-05T14:48:00.000Z")).toStrictEqual(
         timestamp(1317826080n, 0),
       );
-      expect(timestampDateString(timestampFromDateString("2011-10-05T14:48:00.000Z"))).toEqual(
+      expect(timestampToString(timestampFromString("2011-10-05T14:48:00.000Z"))).toEqual(
         "2011-10-05T14:48:00Z",
       );
 
       // Iso8601 with timezone
-      expect(timestampFromDateString("2011-10-05T14:48:00.000-04:00")).toStrictEqual(
+      expect(timestampFromString("2011-10-05T14:48:00.000-04:00")).toStrictEqual(
         timestamp(1317840480n, 0),
       );
-      expect(timestampDateString(timestampFromDateString("2011-10-05T14:48:00.000-04:00"))).toEqual(
+      expect(timestampToString(timestampFromString("2011-10-05T14:48:00.000-04:00"))).toEqual(
         "2011-10-05T18:48:00Z",
       );
 
       // Nanos without timezone
-      expect(timestampFromDateString("1970-01-01T02:07:34.000000321Z")).toStrictEqual(
+      expect(timestampFromString("1970-01-01T02:07:34.000000321Z")).toStrictEqual(
         timestamp(7654n, 321),
       );
-      expect(
-        timestampDateString(timestampFromDateString("1970-01-01T02:07:34.000000321Z")),
-      ).toEqual("1970-01-01T02:07:34.000000321Z");
+      expect(timestampToString(timestampFromString("1970-01-01T02:07:34.000000321Z"))).toEqual(
+        "1970-01-01T02:07:34.000000321Z",
+      );
 
       // Nanos with timezone
-      expect(timestampFromDateString("1970-01-01T02:07:34.000000321-07:00")).toStrictEqual(
+      expect(timestampFromString("1970-01-01T02:07:34.000000321-07:00")).toStrictEqual(
         timestamp(32854n, 321),
       );
-      expect(
-        timestampDateString(timestampFromDateString("1970-01-01T02:07:34.000000321-07:00")),
-      ).toEqual("1970-01-01T09:07:34.000000321Z");
-      expect(timestampFromDateString("1970-01-01T02:07:34.000000321+07:00")).toStrictEqual(
+      expect(timestampToString(timestampFromString("1970-01-01T02:07:34.000000321-07:00"))).toEqual(
+        "1970-01-01T09:07:34.000000321Z",
+      );
+      expect(timestampFromString("1970-01-01T02:07:34.000000321+07:00")).toStrictEqual(
         timestamp(-17546n, 321),
       );
-      expect(
-        timestampDateString(timestampFromDateString("1970-01-01T02:07:34.000000321+07:00")),
-      ).toEqual("1969-12-31T19:07:34.000000321Z");
+      expect(timestampToString(timestampFromString("1970-01-01T02:07:34.000000321+07:00"))).toEqual(
+        "1969-12-31T19:07:34.000000321Z",
+      );
 
       // February 29th, 2020
-      expect(timestampFromDateString("2020-02-29T00:00:00.000Z")).toStrictEqual(
+      expect(timestampFromString("2020-02-29T00:00:00.000Z")).toStrictEqual(
         timestamp(1582934400n, 0),
       );
-      expect(timestampDateString(timestampFromDateString("2020-02-29T00:00:00.000Z"))).toEqual(
+      expect(timestampToString(timestampFromString("2020-02-29T00:00:00.000Z"))).toEqual(
         "2020-02-29T00:00:00Z",
       );
 
       // February 29th, 2021 was not a real date
-      expect(() => timestampFromDateString("2021-02-29T00:00:00.000Z")).toThrow("Invalid isoDay");
+      expect(() => timestampFromString("2021-02-29T00:00:00.000Z")).toThrow("Invalid isoDay");
     });
 
     it("should favor the offset over the timezone", () => {
       // RFC9557 with offset and timezone
+      expect(timestampFromString("2024-03-02T08:48:00-05:00[America/Los_Angeles]")).toStrictEqual(
+        timestamp(1709387280n),
+      );
       expect(
-        timestampFromDateString("2024-03-02T08:48:00-05:00[America/Los_Angeles]"),
-      ).toStrictEqual(timestamp(1709387280n));
-      expect(
-        timestampDateString(
-          timestampFromDateString("2024-03-02T08:48:00-05:00[America/Los_Angeles]"),
-        ),
+        timestampToString(timestampFromString("2024-03-02T08:48:00-05:00[America/Los_Angeles]")),
       ).toEqual("2024-03-02T13:48:00Z");
 
       // RFC9557 with timezone and offset
-      expect(timestampFromDateString("1970-01-01T00:00:00-07:00[America/New_York]")).toStrictEqual(
+      expect(timestampFromString("1970-01-01T00:00:00-07:00[America/New_York]")).toStrictEqual(
         timestamp(25200n, 0),
       );
       expect(
-        timestampDateString(timestampFromDateString("1970-01-01T00:00:00-07:00[America/New_York]")),
+        timestampToString(timestampFromString("1970-01-01T00:00:00-07:00[America/New_York]")),
       ).toEqual("1970-01-01T07:00:00Z");
     });
   });
 
-  describe("timestampDateString()", () => {
+  describe("timestampToString()", () => {
     it("should format", () => {
-      expect(timestampDateString(timestamp(1317826080n, 0))).toEqual("2011-10-05T14:48:00Z");
-      expect(timestampDateString(timestamp(1317826080n, 321))).toEqual(
+      expect(timestampToString(timestamp(1317826080n, 0))).toEqual("2011-10-05T14:48:00Z");
+      expect(timestampToString(timestamp(1317826080n, 321))).toEqual(
         "2011-10-05T14:48:00.000000321Z",
       );
     });

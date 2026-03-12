@@ -4,7 +4,7 @@ import { Scanner } from "./scanner.js";
  * Assert that a resource name conforms to the restrictions outlined in AIP-122.
  * See: https://google.aip.dev/122
  */
-export function assertValidResourceName(name: string) {
+export function assertValid(name: string) {
   if (name === "") {
     throw new Error("empty");
   }
@@ -33,9 +33,9 @@ export function assertValidResourceName(name: string) {
  * Validate that a resource name conforms to the restrictions outlined in AIP-122.
  * See: https://google.aip.dev/122
  */
-export function isValidResourceName(name: string): boolean {
+export function isValid(name: string): boolean {
   try {
-    assertValidResourceName(name);
+    assertValid(name);
   } catch {
     return false;
   }
@@ -46,7 +46,7 @@ export function isValidResourceName(name: string): boolean {
  * Assert that a resource name pattern conforms to the restrictions outlined in AIP-122.
  * See: https://google.aip.dev/122
  */
-export function assertValidResourcePattern(pattern: string) {
+export function assertValidPattern(pattern: string) {
   if (pattern === "") {
     throw new Error("empty");
   }
@@ -81,9 +81,9 @@ export function assertValidResourcePattern(pattern: string) {
  * Validate that a resource name pattern conforms to the restrictions outlined in AIP-122.
  * See: https://google.aip.dev/122
  */
-export function isValidResourcePattern(pattern: string): boolean {
+export function isValidPattern(pattern: string): boolean {
   try {
-    assertValidResourcePattern(pattern);
+    assertValidPattern(pattern);
   } catch {
     return false;
   }

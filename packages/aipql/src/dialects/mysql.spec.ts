@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: tests will catch any runtime errors */
 import { describe, expect, it } from "vitest";
+import { agoDecl } from "../ago.js";
 import { checked } from "../test-helpers.js";
 import { groups } from "./dialect-cases.js";
 import { mysql } from "./mysql.js";
@@ -92,5 +93,32 @@ describe("mysql — user-provided functions", () => {
 
   it("unknown function with no handler throws TranslationError", () => {
     expect(() => mysql(checked(`title.fuzzy("dragon")`))).toThrow(/No handler for "fuzzy"/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dialect-specific: ago() function
+// ---------------------------------------------------------------------------
+
+describe("mysql — ago()", () => {
+  it(`create_time > ago(24h)`, () => {
+    expect(mysql(checked(`create_time > ago(24h)`, [agoDecl]))).toEqual({
+      sql: "`create_time` > NOW(6) - INTERVAL ? MICROSECOND",
+      params: [86400000000],
+    });
+  });
+
+  it(`create_time > ago(30s)`, () => {
+    expect(mysql(checked(`create_time > ago(30s)`, [agoDecl]))).toEqual({
+      sql: "`create_time` > NOW(6) - INTERVAL ? MICROSECOND",
+      params: [30000000],
+    });
+  });
+
+  it(`create_time > ago(1.5s)`, () => {
+    expect(mysql(checked(`create_time > ago(1.5s)`, [agoDecl]))).toEqual({
+      sql: "`create_time` > NOW(6) - INTERVAL ? MICROSECOND",
+      params: [1500000],
+    });
   });
 });

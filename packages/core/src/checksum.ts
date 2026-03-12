@@ -8,7 +8,7 @@ import { crc32 } from "crc";
  * @param message the message to calculate the checksum for
  * @returns a checksum for the message
  */
-export function calculateMessageCheckSum<Desc extends DescMessage = DescMessage>(
+export function checksum<Desc extends DescMessage = DescMessage>(
   schema: Desc,
   message: MessageShape<Desc>,
 ) {

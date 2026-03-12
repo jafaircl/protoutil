@@ -1,5 +1,5 @@
 import { create } from "@bufbuild/protobuf";
-import { durationString, timestampDateString } from "@protoutil/core/wkt";
+import { durationToString, timestampToString } from "@protoutil/core/wkt";
 import {
   type Expr,
   type Expr_Call,
@@ -254,9 +254,9 @@ function unparseConstant(expr: Expr): string {
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("")}"`;
     case "durationValue":
-      return durationString(c.constantKind.value);
+      return durationToString(c.constantKind.value);
     case "timestampValue":
-      return timestampDateString(c.constantKind.value);
+      return timestampToString(c.constantKind.value);
     default:
       return "?";
   }

@@ -1,4 +1,5 @@
 export * from "./ancestor.js";
+export * from "./get.js";
 export * from "./hasparent.js";
 export * from "./join.js";
 export * from "./matches.js";

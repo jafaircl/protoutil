@@ -13,39 +13,24 @@ import { InvalidArgumentError } from "../errors/errors.js";
 import { FieldBehavior } from "../gen/google/api/field_behavior_pb.js";
 import { hasFieldBehavior } from "./fieldbehavior.js";
 
+export interface ValidateRequiredFieldsOptions {
+  fieldMask?: FieldMask;
+}
+
 /**
- * ValidateRequiredFields returns a validation error if any field annotated as
- * required does not have a value.
+ * Returns a validation error if any field annotated as required does not have
+ * a value. If a fieldMask is provided, only fields in the mask are checked.
+ * Otherwise, all fields are checked.
  *
  * See: https://aip.dev/203
- *
- * @param schema the schema of the message to validate
- * @param message the message to validate
- * @throws an error if any required fields are missing
  */
 export function validateRequiredFields<Desc extends DescMessage>(
   schema: Desc,
   message: MessageShape<Desc>,
+  opts?: ValidateRequiredFieldsOptions,
 ) {
-  return validateRequiredFieldsWithFieldMask(schema, message, fieldMask(schema, ["*"], false));
-}
-
-/**
- * ValidateRequiredFieldsWithFieldMask returns a validation error if any
- * field annotated as required does not have a value, and the field is
- * part of the update field mask.
- *
- * @param schema the schema of the message to validate
- * @param message the message to validate
- * @param fieldMask the field mask to use for validation
- * @throws an error if any required fields are missing
- */
-export function validateRequiredFieldsWithFieldMask<Desc extends DescMessage>(
-  schema: Desc,
-  message: MessageShape<Desc>,
-  fieldMask: FieldMask,
-) {
-  return _validateRequiredFields(schema, message, fieldMask);
+  const fm = opts?.fieldMask ?? fieldMask(schema, ["*"], false);
+  return _validateRequiredFields(schema, message, fm);
 }
 
 function _validateRequiredFields<Desc extends DescMessage>(

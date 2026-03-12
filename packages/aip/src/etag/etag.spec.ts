@@ -3,11 +3,11 @@ import { compileMessage } from "@bufbuild/protocompile";
 import { TestAllTypesSchema } from "@protoutil/core/unittest/proto3";
 import { fieldMask } from "@protoutil/core/wkt";
 import { describe, expect, it } from "vitest";
-import { calculateMessageEtag } from "./etag.js";
+import { etag } from "./etag.js";
 
 const TestEtagSchema = compileMessage(`
   syntax = "proto3";
-  
+
   message TestPaginationRequest {
     string foo = 1;
 
@@ -18,19 +18,16 @@ const TestEtagSchema = compileMessage(`
 `);
 
 describe("etag", () => {
-  describe("calculateMessageEtag()", () => {
+  describe("etag()", () => {
     it("should calculate the etag for a message", () => {
-      const etag = calculateMessageEtag(
-        TestAllTypesSchema,
-        create(TestAllTypesSchema, { optionalDouble: 3.14 }),
-      );
-      expect(typeof etag).toBe("string");
-      expect(etag.startsWith('W/"')).toBe(false);
-      expect(etag).toMatch(/^[A-Za-z0-9+/=]+$/);
+      const result = etag(TestAllTypesSchema, create(TestAllTypesSchema, { optionalDouble: 3.14 }));
+      expect(typeof result).toBe("string");
+      expect(result.startsWith('W/"')).toBe(false);
+      expect(result).toMatch(/^[A-Za-z0-9+/=]+$/);
     });
 
     it("should calculate a different etag for messages with different values", () => {
-      const etag1 = calculateMessageEtag(
+      const etag1 = etag(
         TestAllTypesSchema,
         create(TestAllTypesSchema, {
           optionalDouble: 3.14,
@@ -39,7 +36,7 @@ describe("etag", () => {
           optionalInt64: 1n,
         }),
       );
-      const etag2 = calculateMessageEtag(
+      const etag2 = etag(
         TestAllTypesSchema,
         create(TestAllTypesSchema, {
           optionalDouble: 2.71,
@@ -52,19 +49,19 @@ describe("etag", () => {
     });
 
     it("should mark the etag as weak for a message with a field mask", () => {
-      const etag = calculateMessageEtag(
+      const result = etag(
         TestAllTypesSchema,
         create(TestAllTypesSchema, { optionalDouble: 3.14 }),
-        fieldMask(TestAllTypesSchema, ["optional_double"]),
+        { fieldMask: fieldMask(TestAllTypesSchema, ["optional_double"]) },
       );
-      expect(etag.startsWith('W/"')).toBe(true);
-      expect(etag.endsWith('"')).toBe(true);
+      expect(result.startsWith('W/"')).toBe(true);
+      expect(result.endsWith('"')).toBe(true);
     });
 
     it("should not modify the original message when calculating the etag", () => {
       const message = create(TestAllTypesSchema, { optionalDouble: 3.14, optionalInt32: 42 });
       const fm = fieldMask(TestAllTypesSchema, ["optional_double"]);
-      calculateMessageEtag(TestAllTypesSchema, message, fm);
+      etag(TestAllTypesSchema, message, { fieldMask: fm });
       expect(
         equals(
           TestAllTypesSchema,
@@ -77,8 +74,8 @@ describe("etag", () => {
     it("should invert the field mask when specified", () => {
       const message = create(TestAllTypesSchema, { optionalDouble: 3.14, optionalInt32: 42 });
       const fm = fieldMask(TestAllTypesSchema, ["optional_double"]);
-      const etag1 = calculateMessageEtag(TestAllTypesSchema, message, fm, true);
-      const etag2 = calculateMessageEtag(TestAllTypesSchema, message, fm, false);
+      const etag1 = etag(TestAllTypesSchema, message, { fieldMask: fm, inverse: true });
+      const etag2 = etag(TestAllTypesSchema, message, { fieldMask: fm, inverse: false });
       expect(etag1).not.toBe(etag2);
     });
 
@@ -87,18 +84,18 @@ describe("etag", () => {
         foo: "foo",
         etag: "etag1",
       });
-      const etag1 = calculateMessageEtag(TestEtagSchema, message1);
+      const etag1 = etag(TestEtagSchema, message1);
       const message2 = create(TestEtagSchema, {
         foo: "foo",
         etag: "etag2",
       });
-      const etag2 = calculateMessageEtag(TestEtagSchema, message2);
+      const etag2 = etag(TestEtagSchema, message2);
       expect(etag1).toEqual(etag2);
       const message3 = create(TestEtagSchema, {
         foo: "bar",
         etag: "etag3",
       });
-      const etag3 = calculateMessageEtag(TestEtagSchema, message3);
+      const etag3 = etag(TestEtagSchema, message3);
       expect(etag1).not.toEqual(etag3);
       expect(etag2).not.toEqual(etag3);
     });

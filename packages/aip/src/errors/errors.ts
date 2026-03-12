@@ -397,7 +397,7 @@ export class DataLossError extends StatusError {
  * - `UnavailableError`
  * - `DataLossError`
  */
-export function parseStatusError(status: Status) {
+export function parseStatus(status: Status) {
   switch (status.code) {
     case Code.CANCELLED:
       return CancelledError.fromStatus(status);

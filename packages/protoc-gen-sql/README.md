@@ -471,5 +471,3 @@ Examples:
 | `myapp.v2.UserProfile` | `myapp_v2_user_profile` |
 
 This ensures table names are versioned alongside the proto package and never silently collide when you introduce a `v2` of a package. Override with `table_name` if needed.
-
----

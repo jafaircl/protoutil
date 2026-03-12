@@ -1,10 +1,10 @@
 import { Scanner } from "./scanner.js";
 
 /**
- * scanResourceName scans a resource name, storing segments into an object with keys
+ * Scans a resource name, storing segments into an object with keys
  * determined by the provided pattern.
  */
-export function scanResourceName(name: string, pattern: string) {
+export function scan(name: string, pattern: string) {
   const nameScanner = new Scanner(name);
   const patternScanner = new Scanner(pattern);
   const variables: Record<string, string> = {};

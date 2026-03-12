@@ -13,48 +13,27 @@ import { InvalidArgumentError } from "../errors/errors.js";
 import { FieldBehavior } from "../gen/google/api/field_behavior_pb.js";
 import { hasFieldBehavior } from "./fieldbehavior.js";
 
+export interface ValidateImmutableFieldsOptions {
+  fieldMask?: FieldMask;
+}
+
 /**
- * ValidateImmutableFields throws a validation error if the message
- * contains a field that is immutable and a change to an immutable field is
- * requested. This can be used when validating update requests and want to
- * return INVALID_ARGUMENT to the user. If you want to ignore immutable
- * fields rather than error then use clearFieldsWithBehaviors().
+ * Throws a validation error if the message contains a field that is immutable
+ * and a change to an immutable field is requested. This can be used when
+ * validating update requests and want to return INVALID_ARGUMENT to the user.
+ *
+ * If a fieldMask is provided, only fields in the mask are checked. Otherwise,
+ * all fields are checked.
  *
  * See: https://aip.dev/203
- *
- * @param schema the schema of the message to validate
- * @param message the message to validate
- * @throws an error if any immutable fields are in the specified message.
  */
 export function validateImmutableFields(
   schema: DescMessage,
   message: MessageShape<DescMessage>,
+  opts?: ValidateImmutableFieldsOptions,
 ): void {
-  _validateImmutableFields(schema, message, fieldMask(schema, ["*"], false));
-}
-
-/**
- * ValidateImmutableFieldsWithMask throws a validation error if the message
- * or field mask contains a field that is immutable and a change to an
- * immutable field is requested. This can be used when validating update
- * requests and want to return INVALID_ARGUMENT to the user. If you want to
- * ignore immutable fields rather than error then use
- * clearFieldsWithBehaviors().
- *
- * See: https://aip.dev/203
- *
- * @param schema the schema of the message to validate
- * @param message the message to validate
- * @param fieldMask the field mask to use for validation
- * @throws an error if any immutable fields are in the specified message or
- * field mask.
- */
-export function validateImmutableFieldsWithMask(
-  schema: DescMessage,
-  message: MessageShape<DescMessage>,
-  fieldMask: FieldMask,
-) {
-  return _validateImmutableFields(schema, message, fieldMask);
+  const fm = opts?.fieldMask ?? fieldMask(schema, ["*"], false);
+  _validateImmutableFields(schema, message, fm);
 }
 
 function _validateImmutableFields<Desc extends DescMessage>(

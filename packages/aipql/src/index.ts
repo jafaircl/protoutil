@@ -1,3 +1,4 @@
+export { agoDecl } from "./ago";
 export { mongo, stdlibMongo } from "./dialects/mongo";
 export { mysql, stdlibMysql } from "./dialects/mysql";
 export { postgres, stdlibPostgres } from "./dialects/postgres";

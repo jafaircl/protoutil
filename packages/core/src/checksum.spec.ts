@@ -1,12 +1,12 @@
 import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
-import { calculateMessageCheckSum } from "./checksum.js";
+import { checksum } from "./checksum.js";
 import { TestAllTypesSchema } from "./gen/google/protobuf/unittest_pb.js";
 
 describe("checksum", () => {
-  describe("calculateMessageCheckSum()", () => {
+  describe("checksum()", () => {
     it("should calculate checksum", () => {
-      const checkSum = calculateMessageCheckSum(
+      const checkSum = checksum(
         TestAllTypesSchema,
         create(TestAllTypesSchema, { optionalInt64: BigInt(1) }),
       );
@@ -14,11 +14,11 @@ describe("checksum", () => {
     });
 
     it("should calculate a different checksum for different requests", () => {
-      const checkSum1 = calculateMessageCheckSum(
+      const checkSum1 = checksum(
         TestAllTypesSchema,
         create(TestAllTypesSchema, { optionalInt64: BigInt(1) }),
       );
-      const checkSum2 = calculateMessageCheckSum(
+      const checkSum2 = checksum(
         TestAllTypesSchema,
         create(TestAllTypesSchema, { optionalInt64: BigInt(2) }),
       );
@@ -26,11 +26,11 @@ describe("checksum", () => {
     });
 
     it("should calculate the same checksum for the same request", () => {
-      const checkSum1 = calculateMessageCheckSum(
+      const checkSum1 = checksum(
         TestAllTypesSchema,
         create(TestAllTypesSchema, { optionalInt64: BigInt(1) }),
       );
-      const checkSum2 = calculateMessageCheckSum(
+      const checkSum2 = checksum(
         TestAllTypesSchema,
         create(TestAllTypesSchema, { optionalInt64: BigInt(1) }),
       );

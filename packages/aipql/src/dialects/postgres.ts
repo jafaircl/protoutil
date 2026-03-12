@@ -1,7 +1,7 @@
 import type { CheckedExpr } from "@protoutil/aip/filtering";
 import { TranslationError } from "../errors.js";
 import type { PostgresOptions, SqlFunctionHandler, SqlOutput } from "../types.js";
-import { constStringValue } from "../utils.js";
+import { constStringValue, durationConstNanos } from "../utils.js";
 import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 
 // ---------------------------------------------------------------------------
@@ -18,6 +18,13 @@ export const stdlibPostgres: Record<string, SqlFunctionHandler> = {
     if (!target || args.length !== 1)
       throw new TranslationError("matches: requires a target and one argument");
     ctx.write(`${ctx.emitIdent(target)} ~ ${ctx.pushParam(constStringValue(args[0], "matches"))}`);
+  },
+
+  ago_duration(_target, args, ctx) {
+    if (args.length !== 1) throw new TranslationError("ago: requires exactly one argument");
+    const nanos = durationConstNanos(args[0]);
+    const micros = nanos / 1000n;
+    ctx.write(`NOW() - INTERVAL ${ctx.pushParam(`${micros} microseconds`)}`);
   },
 };
 

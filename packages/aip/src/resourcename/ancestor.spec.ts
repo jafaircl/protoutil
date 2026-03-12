@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resourceNameAncestor } from "./ancestor.js";
+import { ancestor } from "./ancestor.js";
 
 describe("ancestor", () => {
-  describe("resourceNameAncestor()", () => {
+  describe("ancestor()", () => {
     const testCases = [
       {
         name: "empty all",
@@ -43,7 +43,7 @@ describe("ancestor", () => {
     ];
     for (const tc of testCases) {
       it(tc.name, () => {
-        const result = resourceNameAncestor(tc.input, tc.pattern);
+        const result = ancestor(tc.input, tc.pattern);
         expect(result).toEqual(tc.expected);
       });
     }

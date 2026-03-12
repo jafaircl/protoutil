@@ -1,6 +1,6 @@
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import type { CheckedExpr, Expr, Reference } from "@protoutil/aip/filtering";
-import { durationNanos, timestampDateString, timestampFromDateString } from "@protoutil/core/wkt";
+import { durationNanos, timestampFromString, timestampToString } from "@protoutil/core/wkt";
 import {
   FN_AND,
   FN_EQ,
@@ -295,7 +295,7 @@ export abstract class SqlTranslator {
       case "stringValue":
         if (isTimestampString(c.constantKind.value)) {
           this.parts.push(
-            this.pushParam(timestampDate(timestampFromDateString(c.constantKind.value))),
+            this.pushParam(timestampDate(timestampFromString(c.constantKind.value))),
           );
         } else {
           this.parts.push(this.pushParam(c.constantKind.value));
@@ -318,7 +318,7 @@ export abstract class SqlTranslator {
         break;
       }
       case "timestampValue": {
-        this.parts.push(this.pushParam(new Date(timestampDateString(c.constantKind.value))));
+        this.parts.push(this.pushParam(new Date(timestampToString(c.constantKind.value))));
         break;
       }
       default:

@@ -1,9 +1,9 @@
 import { Scanner } from "./scanner.js";
 
 /**
- * matchesResourcePattern reports whether the specified resource name matches the specified resource name pattern.
+ * Reports whether the specified resource name matches the specified resource name pattern.
  */
-export function matchesResourcePattern(pattern: string, name: string) {
+export function matches(pattern: string, name: string) {
   const nameScanner = new Scanner(name);
   const patternScanner = new Scanner(pattern);
   while (patternScanner.scan()) {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { agoDecl } from "../ago.js";
 import { checked } from "../test-helpers.js";
 import { groups } from "./dialect-cases.js";
 import { sqlite } from "./sqlite.js";
@@ -47,5 +48,32 @@ describe("sqlite — user-provided functions", () => {
         },
       }),
     ).toEqual({ sql: `regexp(?, "title")`, params: ["^The.*"] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dialect-specific: ago() function
+// ---------------------------------------------------------------------------
+
+describe("sqlite — ago()", () => {
+  it(`create_time > ago(24h)`, () => {
+    expect(sqlite(checked(`create_time > ago(24h)`, [agoDecl]))).toEqual({
+      sql: `"create_time" > datetime('now', ?)`,
+      params: ["-86400 seconds"],
+    });
+  });
+
+  it(`create_time > ago(30s)`, () => {
+    expect(sqlite(checked(`create_time > ago(30s)`, [agoDecl]))).toEqual({
+      sql: `"create_time" > datetime('now', ?)`,
+      params: ["-30 seconds"],
+    });
+  });
+
+  it(`create_time > ago(1.5s)`, () => {
+    expect(sqlite(checked(`create_time > ago(1.5s)`, [agoDecl]))).toEqual({
+      sql: `"create_time" > datetime('now', ?)`,
+      params: ["-1.5 seconds"],
+    });
   });
 });

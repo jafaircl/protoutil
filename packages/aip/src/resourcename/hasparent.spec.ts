@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resourceNameHasParent } from "./hasparent.js";
+import { hasParent } from "./hasparent.js";
 
 describe("hasparent", () => {
-  describe("resourceNameHasParent()", () => {
+  describe("hasParent()", () => {
     const testCases = [
       {
         test: "valid parent and child",
@@ -109,7 +109,7 @@ describe("hasparent", () => {
     ];
     for (const tc of testCases) {
       it(tc.test, () => {
-        const result = resourceNameHasParent(tc.name, tc.parent);
+        const result = hasParent(tc.name, tc.parent);
         expect(result).toEqual(tc.expected);
       });
     }

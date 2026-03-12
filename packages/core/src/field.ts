@@ -15,7 +15,9 @@ export function setField<Desc extends DescMessage>(
 ) {
   // TODO: validate that the value is of the correct type
   if (field.parent.typeName !== message.$typeName) {
-    return;
+    throw new Error(
+      `field '${field.name}' belongs to '${field.parent.typeName}', not '${message.$typeName}'`,
+    );
   }
   if (field.oneof) {
     message[field.oneof.localName as keyof MessageShape<Desc>] = {
@@ -39,7 +41,9 @@ type OneofADT =
  */
 export function getField<Desc extends DescMessage>(message: MessageShape<Desc>, field: DescField) {
   if (field.parent.typeName !== message.$typeName) {
-    return;
+    throw new Error(
+      `field '${field.name}' belongs to '${field.parent.typeName}', not '${message.$typeName}'`,
+    );
   }
   if (field.oneof) {
     const oneof = message[field.oneof.localName as keyof MessageShape<Desc>] as OneofADT;

@@ -1,9 +1,9 @@
 import { Scanner } from "./scanner.js";
 
 /**
- * joinResourceNames combines resource names, separating them by slashes.
+ * Combines resource names, separating them by slashes.
  */
-export function joinResourceNames(...elems: string[]) {
+export function join(...elems: string[]) {
   const segments: string[] = [];
   for (let i = 0; i < elems.length; i++) {
     const scanner = new Scanner(elems[i]);

@@ -1,6 +1,6 @@
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import type { CheckedExpr, Expr, Reference } from "@protoutil/aip/filtering";
-import { durationNanos, timestampFromDateString } from "@protoutil/core/wkt";
+import { durationNanos, timestampFromString } from "@protoutil/core/wkt";
 import {
   FN_AND,
   FN_EQ,
@@ -25,6 +25,7 @@ import type {
 } from "../types.js";
 import {
   constStringValue,
+  durationConstNanos,
   hasWildcard,
   isNullConst,
   isStringConst,
@@ -104,6 +105,15 @@ export const stdlibMongo: Record<string, MongoFunctionHandler> = {
       throw new TranslationError("matches: requires a target and one argument");
     // matches never applies caseInsensitive — caller controls via pattern
     return { [fieldPath(target)]: { $regex: constStringValue(args[0], "matches") } };
+  },
+
+  // ago() returns a scalar Date, not a filter. The $value wrapper signals to
+  // resolveValue() that this is a value-returning function.
+  ago_duration(_target, args, _ctx) {
+    if (args.length !== 1) throw new TranslationError("ago: requires exactly one argument");
+    const nanos = durationConstNanos(args[0]);
+    const ms = Number(nanos / 1_000_000n);
+    return { $value: new Date(Date.now() - ms) };
   },
 };
 
@@ -253,7 +263,7 @@ class MongoTranslator {
       return filter;
     }
 
-    return { [fieldPath(lhs)]: { [op]: this.constValue(rhs) } };
+    return { [fieldPath(lhs)]: { [op]: this.resolveValue(rhs) } };
   }
 
   // @in(collection, key) — args[0] is the field, args[1] is the value.
@@ -296,6 +306,30 @@ class MongoTranslator {
     return { [field]: { $exists: true } };
   }
 
+  // Resolve an expression to a scalar value for use in comparisons.
+  // Handles constants directly and delegates call expressions (e.g. ago())
+  // to the stdlib via overload ID resolution.
+  private resolveValue(expr: Expr): unknown {
+    if (expr.exprKind.case === "constExpr") return this.constValue(expr);
+    if (expr.exprKind.case === "callExpr") {
+      const call = expr.exprKind.value;
+      const handler = this.resolveHandler(expr.id, call.function);
+      if (handler) {
+        // Execute the handler and extract the scalar value from the filter.
+        // Value-returning functions like ago() produce { $value: <scalar> }.
+        const result = handler(call.target, call.args, this.makeContext());
+        if ("$value" in result) return result.$value;
+        throw new TranslationError(
+          `Function "${call.function}" cannot be used as a comparison value in MongoDB`,
+        );
+      }
+      throw new TranslationError(
+        `No handler for "${call.function}". Register a handler in options.functions.`,
+      );
+    }
+    throw new TranslationError(`Expected value expression, got ${expr.exprKind.case}`);
+  }
+
   private constValue(expr: Expr): unknown {
     if (expr.exprKind.case !== "constExpr")
       throw new TranslationError(`Expected constant, got ${expr.exprKind.case}`);
@@ -303,7 +337,7 @@ class MongoTranslator {
     switch (c.constantKind.case) {
       case "stringValue":
         if (isTimestampString(c.constantKind.value)) {
-          return timestampDate(timestampFromDateString(c.constantKind.value));
+          return timestampDate(timestampFromString(c.constantKind.value));
         }
         return c.constantKind.value;
       case "int64Value":

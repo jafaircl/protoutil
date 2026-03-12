@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { assertValidResourceName, assertValidResourcePattern } from "./validate.js";
+import { assertValid, assertValidPattern } from "./validate.js";
 
 describe("validate", () => {
-  describe("assertValidResourceName()", () => {
+  describe("assertValid()", () => {
     const testCases = [
       {
         name: "empty",
@@ -69,15 +69,15 @@ describe("validate", () => {
     for (const tc of testCases) {
       it(tc.name, () => {
         if (tc.errorContains) {
-          expect(() => assertValidResourceName(tc.input)).toThrow(tc.errorContains);
+          expect(() => assertValid(tc.input)).toThrow(tc.errorContains);
         } else {
-          expect(() => assertValidResourceName(tc.input)).not.toThrow();
+          expect(() => assertValid(tc.input)).not.toThrow();
         }
       });
     }
   });
 
-  describe("assertValidResourcePattern()", () => {
+  describe("assertValidPattern()", () => {
     const testCases = [
       {
         name: "empty",
@@ -157,9 +157,9 @@ describe("validate", () => {
     for (const tc of testCases) {
       it(tc.name, () => {
         if (tc.errorContains) {
-          expect(() => assertValidResourcePattern(tc.input)).toThrow(tc.errorContains);
+          expect(() => assertValidPattern(tc.input)).toThrow(tc.errorContains);
         } else {
-          expect(() => assertValidResourcePattern(tc.input)).not.toThrow();
+          expect(() => assertValidPattern(tc.input)).not.toThrow();
         }
       });
     }

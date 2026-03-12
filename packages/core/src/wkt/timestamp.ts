@@ -185,7 +185,7 @@ export function timestampNanos(timestamp: Timestamp) {
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime/from
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime#offset_ambiguity
  */
-export function timestampFromDateString(value: string) {
+export function timestampFromString(value: string) {
   // If there is no timezone (i.e. 2024-03-02T08:48:00Z[America/New_York]), we
   // can just use Temporal.Instant. If the value has an offset, Temporal.Instant
   // will parse it correctly. Since we favor the offset over the timezone, we
@@ -212,7 +212,7 @@ function dateStringHasBrackets(value: string) {
  * Converts a google.protobuf.Timestamp value to a string. The string will be
  * in RFC3339 format and will always be in UTC.
  */
-export function timestampDateString(ts: Timestamp) {
+export function timestampToString(ts: Timestamp) {
   return timestampInstant(ts).toString();
 }
 

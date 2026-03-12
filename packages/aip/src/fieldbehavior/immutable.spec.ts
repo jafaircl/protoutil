@@ -2,7 +2,7 @@ import { create } from "@bufbuild/protobuf";
 import { fieldMask } from "@protoutil/core/wkt";
 import { describe, expect, it } from "vitest";
 import { TestImmutableFieldBehaviorSchema } from "../gen/protoutil/aip/v1/fieldbehavior_pb.js";
-import { validateImmutableFields, validateImmutableFieldsWithMask } from "./immutable.js";
+import { validateImmutableFields } from "./immutable.js";
 
 describe("immutable", () => {
   it("validateImmutableFields should not throw if an immutable field is not set", () => {
@@ -89,11 +89,9 @@ describe("immutable", () => {
       normal: "normal",
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["*"], false),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["*"], false),
+      }),
     ).not.toThrow();
   });
 
@@ -103,11 +101,9 @@ describe("immutable", () => {
       immutable: "immutable",
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["normal"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["normal"]),
+      }),
     ).not.toThrow();
   });
 
@@ -117,11 +113,9 @@ describe("immutable", () => {
       immutable: "immutable",
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["*"], false),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["*"], false),
+      }),
     ).toThrow("field is immutable: immutable");
   });
 
@@ -131,11 +125,9 @@ describe("immutable", () => {
       immutable: "immutable",
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["immutable"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["immutable"]),
+      }),
     ).toThrow("field is immutable: immutable");
   });
 
@@ -148,11 +140,9 @@ describe("immutable", () => {
       },
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["child"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["child"]),
+      }),
     ).toThrow("field is immutable: child.immutable");
   });
 
@@ -164,11 +154,9 @@ describe("immutable", () => {
       },
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["child"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["child"]),
+      }),
     ).not.toThrow();
   });
 
@@ -178,11 +166,9 @@ describe("immutable", () => {
       repeatedChild: [{ normal: "normal" }, { normal: "normal" }],
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["repeated_child"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["repeated_child"]),
+      }),
     ).not.toThrow();
   });
 
@@ -192,11 +178,9 @@ describe("immutable", () => {
       repeatedChild: [{ normal: "normal" }, { immutable: "immutable" }],
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["repeated_child"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["repeated_child"]),
+      }),
     ).toThrow("field is immutable: repeated_child.1.immutable");
   });
 
@@ -206,11 +190,9 @@ describe("immutable", () => {
       repeatedChild: [{ normal: "normal" }, { immutable: "immutable" }],
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["repeated_child.*"], false),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["repeated_child.*"], false),
+      }),
     ).toThrow("field is immutable: repeated_child.1.immutable");
   });
 
@@ -220,11 +202,13 @@ describe("immutable", () => {
       repeatedChild: [{ normal: "normal" }, { immutable: "immutable" }],
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["repeated_child.*.immutable"], false),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(
+          TestImmutableFieldBehaviorSchema,
+          ["repeated_child.*.immutable"],
+          false,
+        ),
+      }),
     ).toThrow("field is immutable: repeated_child.1.immutable");
   });
 
@@ -234,11 +218,9 @@ describe("immutable", () => {
       mapChild: { key1: { normal: "normal" }, key2: { normal: "normal" } },
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["map_child"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["map_child"]),
+      }),
     ).not.toThrow();
   });
 
@@ -251,11 +233,9 @@ describe("immutable", () => {
       },
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["map_child"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["map_child"]),
+      }),
     ).toThrow("field is immutable: map_child.key2.immutable");
   });
 
@@ -268,11 +248,9 @@ describe("immutable", () => {
       },
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["map_child.*"], false),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["map_child.*"], false),
+      }),
     ).toThrow("field is immutable: map_child.key2.immutable");
   });
 
@@ -285,11 +263,9 @@ describe("immutable", () => {
       },
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["map_child.*.immutable"], false),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["map_child.*.immutable"], false),
+      }),
     ).toThrow("field is immutable: map_child.key2.immutable");
   });
 
@@ -302,11 +278,9 @@ describe("immutable", () => {
       },
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["child"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["child"]),
+      }),
     ).toThrow("field is immutable: child.immutable");
   });
 
@@ -315,11 +289,9 @@ describe("immutable", () => {
       normal: "normal",
     });
     expect(() =>
-      validateImmutableFieldsWithMask(
-        TestImmutableFieldBehaviorSchema,
-        message,
-        fieldMask(TestImmutableFieldBehaviorSchema, ["child"]),
-      ),
+      validateImmutableFields(TestImmutableFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestImmutableFieldBehaviorSchema, ["child"]),
+      }),
     ).not.toThrow();
   });
 });

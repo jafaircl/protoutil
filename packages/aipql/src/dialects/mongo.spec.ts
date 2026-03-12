@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: tests will catch any runtime errors */
 import { describe, expect, it } from "vitest";
+import { agoDecl } from "../ago.js";
 import { checked } from "../test-helpers.js";
 import { groups } from "./dialect-cases.js";
 import { mongo } from "./mongo.js";
@@ -114,5 +115,38 @@ describe("mongo — user-provided functions", () => {
 
   it("unknown function with no handler throws TranslationError", () => {
     expect(() => mongo(checked(`title.fuzzy("dragon")`))).toThrow(/No handler for "fuzzy"/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dialect-specific: ago() function
+// ---------------------------------------------------------------------------
+
+describe("mongo — ago()", () => {
+  it(`create_time > ago(24h)`, () => {
+    const before = Date.now();
+    const { filter } = mongo(checked(`create_time > ago(24h)`, [agoDecl]));
+    const after = Date.now();
+
+    const gt = (filter as any).create_time.$gt;
+    expect(gt).toBeInstanceOf(Date);
+
+    // The Date should be approximately 24h ago (within 1s tolerance)
+    const expected = 24 * 60 * 60 * 1000;
+    expect(before - gt.getTime()).toBeGreaterThanOrEqual(expected - 1000);
+    expect(after - gt.getTime()).toBeLessThanOrEqual(expected + 1000);
+  });
+
+  it(`create_time > ago(30s)`, () => {
+    const before = Date.now();
+    const { filter } = mongo(checked(`create_time > ago(30s)`, [agoDecl]));
+    const after = Date.now();
+
+    const gt = (filter as any).create_time.$gt;
+    expect(gt).toBeInstanceOf(Date);
+
+    const expected = 30 * 1000;
+    expect(before - gt.getTime()).toBeGreaterThanOrEqual(expected - 1000);
+    expect(after - gt.getTime()).toBeLessThanOrEqual(expected + 1000);
   });
 });

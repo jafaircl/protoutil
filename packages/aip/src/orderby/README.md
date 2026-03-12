@@ -2,20 +2,45 @@
 
 This package provides primitives for implementing AIP ordering as described in [AIP-132](https://google.aip.dev/132#ordering).
 
-An order by value should be a string which is a comma-separated list of fields (i.e. `foo, bar`). Fields must be valid field names for protobuf messages. For example, `foo!?#` would not be a valid field. You may also specify subfields with the `.` character i.e. `foo.bar`.
+An order-by value is a comma-separated list of fields (e.g. `foo, bar`). Each field may optionally have a direction suffix (`asc` or `desc`). Fields must be valid protobuf field names and may include subfields using dot notation (e.g. `foo.bar`).
 
-You can create an `OrderBy` object in 3 ways:
+## Usage
 
 ```ts
-import { Field, OrderBy, parseOrderBy, parseAndValidateOrderBy } from '@bearclaw/aip';
+import { Field, OrderBy, parse, validate } from "@protoutil/aip/orderby";
 
-// 1. Class API:
-const orderBy = new OrderBy([new Field('foo'), new Field('bar', true)]);
+// 1. Class API
+const orderBy = new OrderBy([new Field("foo"), new Field("bar", true)]);
+orderBy.toString(); // "foo, bar desc"
 
-// 2. From a string with the `parseOrderBy` function:
-const orderBy = parseOrderBar('foo, bar desc');
+// 2. Parse from a string
+const orderBy = parse("foo, bar desc");
 
-// 3. Parse and validate with the `parseAndValidateOrderBy` function:
-parseAndValidateOrderBy('foo', MyMessageSchema); // returns an OrderBy object
-parseAndValidateOrderBy('invalid', MyMessageSchema); // throws an error
+// 3. Parse and validate against a message schema
+const orderBy = parse("foo");
+validate(orderBy, MyMessageSchema); // throws InvalidArgumentError if invalid
 ```
+
+## API Reference
+
+| Export | Description |
+|--------|-------------|
+| `Field` | Represents a single ordering field with `path` and `desc` properties. |
+| `OrderBy` | Represents a complete ordering directive with a list of `Field` entries. |
+| `parse(str)` | Parses an order-by string into an `OrderBy` object. Throws `InvalidArgumentError` on invalid syntax. |
+| `validate(orderBy, desc)` | Validates that all field paths exist on the given message descriptor. Throws `InvalidArgumentError` if validation fails. |
+
+### Field
+
+| Member | Description |
+|--------|-------------|
+| `path` | The field path, including dot-separated subfields. |
+| `desc` | Whether the ordering is descending (`true`) or ascending (`false`, default). |
+| `subFields()` | Returns the individual parts of the field path (e.g. `["foo", "bar"]` for `"foo.bar"`). |
+
+### OrderBy
+
+| Member | Description |
+|--------|-------------|
+| `fields` | The array of `Field` entries. |
+| `toString()` | Converts back to a canonical order-by string (e.g. `"foo, bar desc"`). |

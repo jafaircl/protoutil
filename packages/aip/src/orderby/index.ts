@@ -1,1 +1,1 @@
-export { Field, OrderBy, parseAndValidateOrderBy, parseOrderBy } from "./orderby.js";
+export { Field, OrderBy, parse, validate } from "./orderby.js";

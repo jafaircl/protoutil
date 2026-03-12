@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { matchesResourcePattern } from "./matches.js";
+import { matches } from "./matches.js";
 
 describe("matches", () => {
-  describe("matchesResourcePattern()", () => {
+  describe("matches()", () => {
     const testCases = [
       {
         test: "valid pattern",
@@ -67,7 +67,7 @@ describe("matches", () => {
     ];
     for (const tc of testCases) {
       it(tc.test, () => {
-        const result = matchesResourcePattern(tc.pattern, tc.name);
+        const result = matches(tc.pattern, tc.name);
         expect(result).toEqual(tc.expected);
       });
     }

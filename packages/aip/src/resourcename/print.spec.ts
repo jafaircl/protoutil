@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { printResourceName } from "./print.js";
+import { print } from "./print.js";
 
 describe("print", () => {
-  describe("printResourceName()", () => {
+  describe("print()", () => {
     const testCases = [
       {
         name: "no variables",
@@ -52,7 +52,7 @@ describe("print", () => {
       it(tc.name, () => {
         const expected = tc.expected;
         const pattern = tc.pattern;
-        const result = printResourceName(pattern, (tc.variables as Record<string, string>) ?? {});
+        const result = print(pattern, (tc.variables as Record<string, string>) ?? {});
         expect(result).toEqual(expected);
       });
     }

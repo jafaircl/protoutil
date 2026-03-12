@@ -1,9 +1,9 @@
 import { Scanner } from "./scanner.js";
 
 /**
- * printResourceName formats resource name variables according to a pattern and returns the resulting string.
+ * Formats resource name variables according to a pattern and returns the resulting string.
  */
-export function printResourceName(pattern: string, variables: Record<string, string>) {
+export function print(pattern: string, variables: Record<string, string>) {
   let result = "";
   const patternScanner = new Scanner(pattern);
   while (patternScanner.scan()) {

@@ -1,7 +1,7 @@
 import type { CheckedExpr } from "@protoutil/aip/filtering";
 import { TranslationError } from "../errors.js";
 import type { MysqlOptions, SqlFunctionHandler, SqlOutput } from "../types.js";
-import { constStringValue } from "../utils.js";
+import { constStringValue, durationConstNanos } from "../utils.js";
 import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 
 // ---------------------------------------------------------------------------
@@ -20,6 +20,13 @@ export const stdlibMysql: Record<string, SqlFunctionHandler> = {
     ctx.write(
       `${ctx.emitIdent(target)} REGEXP ${ctx.pushParam(constStringValue(args[0], "matches"))}`,
     );
+  },
+
+  ago_duration(_target, args, ctx) {
+    if (args.length !== 1) throw new TranslationError("ago: requires exactly one argument");
+    const nanos = durationConstNanos(args[0]);
+    const micros = nanos / 1000n;
+    ctx.write(`NOW(6) - INTERVAL ${ctx.pushParam(Number(micros))} MICROSECOND`);
   },
 };
 

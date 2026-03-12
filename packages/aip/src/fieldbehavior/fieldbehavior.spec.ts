@@ -2,7 +2,7 @@ import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { FieldBehavior } from "../gen/google/api/field_behavior_pb.js";
 import { TestFieldBehaviorSchema } from "../gen/protoutil/aip/v1/fieldbehavior_pb.js";
-import { clearFieldsWithBehaviors } from "./fieldbehavior.js";
+import { clearFields } from "./fieldbehavior.js";
 
 describe("fieldbehavior", () => {
   it("should return a clone if no field with the behavior is present", () => {
@@ -10,9 +10,7 @@ describe("fieldbehavior", () => {
       normal: "normal",
       required: "required",
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(message);
     expect(cleared === message).toBe(false);
   });
@@ -27,9 +25,7 @@ describe("fieldbehavior", () => {
       },
       repeatedOutputOnly: ["outputOnly1", "outputOnly2"],
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -50,9 +46,7 @@ describe("fieldbehavior", () => {
         outputOnly: "outputOnly",
       },
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -82,9 +76,7 @@ describe("fieldbehavior", () => {
         },
       },
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -115,9 +107,7 @@ describe("fieldbehavior", () => {
         },
       ],
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -153,9 +143,7 @@ describe("fieldbehavior", () => {
         },
       ],
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -184,9 +172,7 @@ describe("fieldbehavior", () => {
       outputOnly: "outputOnly",
       repeatedOutputOnly: ["outputOnly1", "outputOnly2"],
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -209,9 +195,7 @@ describe("fieldbehavior", () => {
         },
       },
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -247,9 +231,7 @@ describe("fieldbehavior", () => {
         },
       },
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -291,9 +273,7 @@ describe("fieldbehavior", () => {
         },
       },
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -325,9 +305,7 @@ describe("fieldbehavior", () => {
         key2: "outputOnly2",
       },
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -351,9 +329,7 @@ describe("fieldbehavior", () => {
         },
       },
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
-      FieldBehavior.OUTPUT_ONLY,
-    ]);
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY]);
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -376,12 +352,9 @@ describe("fieldbehavior", () => {
       required: "required",
       outputOnly: "outputOnly",
     });
-    const cleared = clearFieldsWithBehaviors(
-      TestFieldBehaviorSchema,
-      message,
-      [FieldBehavior.OUTPUT_ONLY],
-      true,
-    );
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [FieldBehavior.OUTPUT_ONLY], {
+      mutate: true,
+    });
     expect(cleared).toEqual(
       create(TestFieldBehaviorSchema, {
         normal: "normal",
@@ -398,7 +371,7 @@ describe("fieldbehavior", () => {
       outputOnly: "outputOnly",
       immutable: "immutable",
     });
-    const cleared = clearFieldsWithBehaviors(TestFieldBehaviorSchema, message, [
+    const cleared = clearFields(TestFieldBehaviorSchema, message, [
       FieldBehavior.OUTPUT_ONLY,
       FieldBehavior.IMMUTABLE,
     ]);

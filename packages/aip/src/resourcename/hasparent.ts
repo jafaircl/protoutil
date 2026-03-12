@@ -1,10 +1,10 @@
 import { Scanner } from "./scanner.js";
 
 /**
- * resourceNameHasParent tests whether name has the specified parent. Wildcard segments (-) are considered.
+ * Tests whether name has the specified parent. Wildcard segments (-) are considered.
  * Resource names without revisions are considered parents of the same resource name with a revision.
  */
-export function resourceNameHasParent(name: string, parent: string) {
+export function hasParent(name: string, parent: string) {
   if (name === "" || parent === "" || name === parent) {
     return false;
   }

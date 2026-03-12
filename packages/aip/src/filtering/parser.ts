@@ -1,6 +1,6 @@
 import { create, type MessageInitShape } from "@bufbuild/protobuf";
 import { NullValue } from "@bufbuild/protobuf/wkt";
-import { durationFromString, timestampFromDateString } from "@protoutil/core/wkt";
+import { durationFromString, timestampFromString } from "@protoutil/core/wkt";
 import {
   type ConstantSchema,
   type Expr_CallSchema,
@@ -532,7 +532,7 @@ function parseDuration(s: string): ConstantInit | undefined {
 
 function parseTimestamp(s: string): ConstantInit | undefined {
   try {
-    const t = timestampFromDateString(s);
+    const t = timestampFromString(s);
     return { constantKind: { case: "timestampValue", value: t } };
   } catch {
     return undefined;

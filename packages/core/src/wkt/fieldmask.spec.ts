@@ -902,13 +902,10 @@ describe("fieldmask", () => {
         FieldMaskSchema,
         tc.fieldMask,
       )} to ${tc.schema.typeName}`, () => {
-        const result = applyFieldMask(
-          tc.schema,
-          tc.message,
-          tc.fieldMask,
-          tc.inverse,
-          tc.strict !== false,
-        );
+        const result = applyFieldMask(tc.schema, tc.message, tc.fieldMask, {
+          inverse: tc.inverse,
+          strict: tc.strict !== false,
+        });
         expect(result).toEqual(tc.expected);
       });
     }

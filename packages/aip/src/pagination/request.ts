@@ -1,5 +1,5 @@
 import { clearField, clone, type DescMessage, type Message } from "@bufbuild/protobuf";
-import { calculateMessageCheckSum } from "@protoutil/core";
+import { checksum } from "@protoutil/core";
 
 /**
  * Request is an interface for paginated request messages.
@@ -46,5 +46,5 @@ export function calculateRequestCheckSum<T extends string = string>(
   if (schema.field.skip) {
     clearField(clonedRequest, schema.field.skip);
   }
-  return calculateMessageCheckSum(schema, clonedRequest);
+  return checksum(schema, clonedRequest);
 }

@@ -11,8 +11,8 @@ import {
   durationFromString,
   durationFromTemporal,
   durationNanos,
-  durationString,
   durationTemporal,
+  durationToString,
   isValidDuration,
   MAX_DURATION_SECONDS,
   MIN_DURATION_SECONDS,
@@ -107,13 +107,13 @@ describe("duration", () => {
     });
   });
 
-  describe("durationString()", () => {
+  describe("durationToString()", () => {
     it("should convert a duration to a string", () => {
-      expect(durationString(duration(0n, 0))).toBe("0s");
-      expect(durationString(duration(-1n, 0))).toBe("-1s");
-      expect(durationString(duration(1n, 0))).toBe("1s");
-      expect(durationString(duration(1n, 1))).toBe("1.000000001s");
-      expect(durationString(duration(-1n, -1))).toBe("-1.000000001s");
+      expect(durationToString(duration(0n, 0))).toBe("0s");
+      expect(durationToString(duration(-1n, 0))).toBe("-1s");
+      expect(durationToString(duration(1n, 0))).toBe("1s");
+      expect(durationToString(duration(1n, 1))).toBe("1.000000001s");
+      expect(durationToString(duration(-1n, -1))).toBe("-1.000000001s");
     });
   });
 

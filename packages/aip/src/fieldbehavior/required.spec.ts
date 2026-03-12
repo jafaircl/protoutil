@@ -2,7 +2,7 @@ import { create } from "@bufbuild/protobuf";
 import { fieldMask } from "@protoutil/core/wkt";
 import { describe, expect, it } from "vitest";
 import { TestRequiredFieldBehaviorSchema } from "../gen/protoutil/aip/v1/fieldbehavior_pb.js";
-import { validateRequiredFields, validateRequiredFieldsWithFieldMask } from "./required.js";
+import { validateRequiredFields } from "./required.js";
 
 describe("required", () => {
   it("should not throw an error if no required fields are missing", () => {
@@ -62,11 +62,9 @@ describe("required", () => {
       required: "required",
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, []),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, []),
+      });
     }).not.toThrow();
   });
 
@@ -76,11 +74,9 @@ describe("required", () => {
       required: "required",
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["*"], false),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["*"], false),
+      });
     }).not.toThrow();
   });
 
@@ -89,11 +85,9 @@ describe("required", () => {
       normal: "normal",
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["*"], false),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["*"], false),
+      });
     }).toThrow("missing required field: required");
   });
 
@@ -102,11 +96,9 @@ describe("required", () => {
       normal: "normal",
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["normal"]),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["normal"]),
+      });
     }).not.toThrow();
   });
 
@@ -115,11 +107,9 @@ describe("required", () => {
       normal: "normal",
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["required"]),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["required"]),
+      });
     }).toThrow("missing required field: required");
   });
 
@@ -128,11 +118,9 @@ describe("required", () => {
       normal: "normal",
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["normal", "required"]),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["normal", "required"]),
+      });
     }).toThrow("missing required field: required");
   });
 
@@ -142,11 +130,9 @@ describe("required", () => {
       repeatedChild: [{ normal: "normal" }],
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["repeated_child.*.required"], false),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["repeated_child.*.required"], false),
+      });
     }).toThrow("missing required field: repeated_child.0.required");
   });
 
@@ -156,11 +142,9 @@ describe("required", () => {
       repeatedChild: [{ normal: "normal" }],
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["repeated_child.*"], false),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["repeated_child.*"], false),
+      });
     }).toThrow("missing required field: repeated_child.0.required");
   });
 
@@ -170,11 +154,9 @@ describe("required", () => {
       repeatedChild: [{ normal: "normal" }],
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["repeated_child"]),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["repeated_child"]),
+      });
     }).toThrow("missing required field: repeated_child.0.required");
   });
 
@@ -184,11 +166,9 @@ describe("required", () => {
       mapChild: { key1: { normal: "normal" } },
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["map_child.*.required"], false),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["map_child.*.required"], false),
+      });
     }).toThrow("missing required field: map_child.key1.required");
   });
 
@@ -198,11 +178,9 @@ describe("required", () => {
       mapChild: { key1: { normal: "normal" } },
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["map_child.*"], false),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["map_child.*"], false),
+      });
     }).toThrow("missing required field: map_child.key1.required");
   });
 
@@ -212,11 +190,9 @@ describe("required", () => {
       mapChild: { key1: { normal: "normal" } },
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["map_child"]),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["map_child"]),
+      });
     }).toThrow("missing required field: map_child.key1.required");
   });
 
@@ -228,11 +204,9 @@ describe("required", () => {
       },
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["child"]),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["child"]),
+      });
     }).toThrow("missing required field: child.required");
   });
 
@@ -244,11 +218,9 @@ describe("required", () => {
       },
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["child"]),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["child"]),
+      });
     }).toThrow("missing required field: child.required");
   });
 
@@ -257,11 +229,9 @@ describe("required", () => {
       normal: "normal",
     });
     expect(() => {
-      validateRequiredFieldsWithFieldMask(
-        TestRequiredFieldBehaviorSchema,
-        message,
-        fieldMask(TestRequiredFieldBehaviorSchema, ["child"]),
-      );
+      validateRequiredFields(TestRequiredFieldBehaviorSchema, message, {
+        fieldMask: fieldMask(TestRequiredFieldBehaviorSchema, ["child"]),
+      });
     }).not.toThrow();
   });
 });

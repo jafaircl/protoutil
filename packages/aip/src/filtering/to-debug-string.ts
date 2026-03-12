@@ -1,4 +1,4 @@
-import { durationString, timestampDateString } from "@protoutil/core/wkt";
+import { durationToString, timestampToString } from "@protoutil/core/wkt";
 import type { CheckedExpr, Type } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
 import {
   Type_PrimitiveType,
@@ -423,9 +423,9 @@ function formatConstant(expr: Expr): string {
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("")}"`;
     case "durationValue":
-      return durationString(c.value);
+      return durationToString(c.value);
     case "timestampValue":
-      return timestampDateString(c.value);
+      return timestampToString(c.value);
     default:
       return "?";
   }

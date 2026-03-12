@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { scanResourceName } from "./scan.js";
+import { scan } from "./scan.js";
 
 describe("scan", () => {
-  describe("scanResourceName()", () => {
+  describe("scan()", () => {
     it("no variables", () => {
-      const variables = scanResourceName("publishers", "publishers");
+      const variables = scan("publishers", "publishers");
       expect(variables).toEqual({});
     });
 
     it("single variable", () => {
-      const variables = scanResourceName("publishers/foo", "publishers/{publisher}");
+      const variables = scan("publishers/foo", "publishers/{publisher}");
       expect(variables).toEqual({ publisher: "foo" });
     });
 
     it("two variables", () => {
-      const variables = scanResourceName(
+      const variables = scan(
         "publishers/foo/books/bar",
         "publishers/{publisher}/books/{book}",
       );
@@ -22,7 +22,7 @@ describe("scan", () => {
     });
 
     it("two variables singleton", () => {
-      const variables = scanResourceName(
+      const variables = scan(
         "publishers/foo/books/bar/settings",
         "publishers/{publisher}/books/{book}/settings",
       );
@@ -31,7 +31,7 @@ describe("scan", () => {
 
     it("trailing segments", () => {
       expect(() => {
-        scanResourceName(
+        scan(
           "publishers/foo/books/bar/settings",
           "publishers/{publisher}/books/{book}",
         );

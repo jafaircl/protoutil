@@ -195,13 +195,19 @@ export function fieldMaskHasPath(fieldMask: FieldMask, path: string, strict = tr
  * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
  * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
+export interface ApplyFieldMaskOptions {
+  inverse?: boolean;
+  strict?: boolean;
+}
+
 export function applyFieldMask<Desc extends DescMessage>(
   schema: Desc,
   message: MessageShape<Desc>,
   fieldMask: FieldMask,
-  inverse = false,
-  strict = true,
+  opts?: ApplyFieldMaskOptions,
 ) {
+  const inverse = opts?.inverse ?? false;
+  const strict = opts?.strict ?? true;
   assertValidFieldMask(schema, fieldMask, strict);
   const copy = inverse ? clone(schema, message) : create(schema);
   for (const path of fieldMask.paths) {
