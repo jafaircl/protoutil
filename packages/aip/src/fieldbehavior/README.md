@@ -62,13 +62,49 @@ validateRequiredFields(MyMessageSchema, message); // throws if any required fiel
 validateRequiredFields(MyMessageSchema, message, { fieldMask: mask }); // checks only masked fields
 ```
 
+## Building Field Masks from Behaviors
+
+Build a `FieldMask` that excludes fields with specific behavior annotations. This is useful for constructing default read or update masks for a repository or service layer.
+
+```ts
+import { fieldMaskFromBehavior, outputOnlyMask, inputOnlyMask, immutableMask } from "@protoutil/aip/fieldbehavior";
+import { FieldBehavior } from "@buf/googleapis_googleapis.bufbuild_es/google/api/field_behavior_pb.js";
+
+// Exclude OUTPUT_ONLY fields (useful for write operations)
+const writeMask = outputOnlyMask(MyMessageSchema);
+
+// Exclude INPUT_ONLY fields (useful for read operations)
+const readMask = inputOnlyMask(MyMessageSchema);
+
+// Exclude IMMUTABLE fields (useful for update operations)
+const updateMask = immutableMask(MyMessageSchema);
+
+// Exclude multiple behaviors at once
+const mask = fieldMaskFromBehavior(MyMessageSchema, [
+  FieldBehavior.OUTPUT_ONLY,
+  FieldBehavior.IMMUTABLE,
+]);
+```
+
+The function recursively traverses nested message, repeated message, and map-of-message fields, producing dotted paths (e.g. `parent.field`) and wildcard paths for collections (e.g. `children.*.field`). A `maxDepth` option (default: `5`) controls recursion depth and handles self-referential schemas. When the limit is reached, the parent field path is included as-is, preserving the entire subtree.
+
+```ts
+// Control recursion depth
+const shallow = outputOnlyMask(MyMessageSchema, { maxDepth: 0 }); // top-level fields only
+const deep = outputOnlyMask(MyMessageSchema, { maxDepth: 3 });    // recurse up to 3 levels
+```
+
 ## API Reference
 
 | Export | Description |
 |--------|-------------|
 | `clearFields(schema, message, behaviors, opts?)` | Clear fields matching the given behaviors. Options: `{ mutate? }`. Returns a copy unless `mutate` is `true`. |
+| `fieldMaskFromBehavior(schema, exclude, opts?)` | Build a `FieldMask` excluding fields with any of the specified behaviors. Recurses into nested messages. Options: `{ maxDepth? }`. |
 | `getFieldBehavior(field)` | Get the list of `FieldBehavior` annotations for a field descriptor. |
 | `hasFieldBehavior(field, behavior)` | Check if a field has a specific `FieldBehavior`. |
 | `hasAnyFieldBehavior(field, behaviors)` | Check if a field has any of the specified `FieldBehavior` values. |
+| `immutableMask(schema, opts?)` | Shorthand for `fieldMaskFromBehavior(schema, [IMMUTABLE], opts)`. |
+| `inputOnlyMask(schema, opts?)` | Shorthand for `fieldMaskFromBehavior(schema, [INPUT_ONLY], opts)`. |
+| `outputOnlyMask(schema, opts?)` | Shorthand for `fieldMaskFromBehavior(schema, [OUTPUT_ONLY], opts)`. |
 | `validateImmutableFields(schema, message, opts?)` | Throws if any `IMMUTABLE` fields are set. Options: `{ fieldMask? }`. |
 | `validateRequiredFields(schema, message, opts?)` | Throws if any `REQUIRED` fields are missing. Options: `{ fieldMask? }`. |
