@@ -242,7 +242,7 @@ function assertUniqueIds(expr: ReturnType<typeof parse>["expr"]) {
 describe("inline — ident replacement", () => {
   for (const tc of inlineCases) {
     it(tc.description, () => {
-      const { checkedExpr } = check(parse(tc.filter), tc.decls);
+      const { checkedExpr } = check(parse(tc.filter), { decls: tc.decls });
       const result = optimize(
         checkedExpr,
         inline(Object.fromEntries(Object.entries(tc.replacements).map(([k, v]) => [k, parse(v)]))),
@@ -258,14 +258,14 @@ describe("inline — ident replacement", () => {
   // appears multiple times in the filter.
 
   it("replacement nodes get unique ids — ident appears twice", () => {
-    const { checkedExpr } = check(parse("x AND x"), [ident("x", BOOL)]);
+    const { checkedExpr } = check(parse("x AND x"), { decls: [ident("x", BOOL)] });
     const result = optimize(checkedExpr, inline({ x: parse("a.b") }));
     assert.isDefined(result.expr);
     assertUniqueIds(result.expr);
   });
 
   it("replacement nodes get unique ids — ident appears three times", () => {
-    const { checkedExpr } = check(parse("x AND x AND x"), [ident("x", BOOL)]);
+    const { checkedExpr } = check(parse("x AND x AND x"), { decls: [ident("x", BOOL)] });
     const result = optimize(checkedExpr, inline({ x: parse("a.b") }));
     assert.isDefined(result.expr);
     assertUniqueIds(result.expr);
@@ -280,7 +280,7 @@ describe("inline — ident replacement", () => {
 describe("optimize — composition", () => {
   for (const tc of compositionCases) {
     it(tc.description, () => {
-      const { checkedExpr } = check(parse(tc.filter), tc.decls);
+      const { checkedExpr } = check(parse(tc.filter), { decls: tc.decls });
       const result = optimize(checkedExpr, ...buildOptimizers(tc.steps));
       assert.isDefined(result.expr);
       assert.equal(unparse(result.expr), tc.expected);
@@ -292,7 +292,7 @@ describe("optimize — composition", () => {
   // optimizer passes run.
 
   it("preserves sourceInfo through optimization", () => {
-    const { checkedExpr } = check(parse("retries < 10"), [ident("retries", INT64)]);
+    const { checkedExpr } = check(parse("retries < 10"), { decls: [ident("retries", INT64)] });
     const result = optimize(checkedExpr, fold({ retries: 3n }));
     assert.isDefined(result.sourceInfo);
     assert.equal(result.sourceInfo?.location, "<input>");

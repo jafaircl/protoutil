@@ -712,6 +712,38 @@ c^#3:*expr.Expr_IdentExpr#
 )^#4:*expr.Expr_CallExpr#
 )^#5:*expr.Expr_CallExpr#`,
   },
+
+  // ── Struct literals ──────────────────────────────────────────────────────
+  {
+    description: "struct literal: Foo{a: 1}",
+    input: `Foo{a: 1}`,
+    P: `Foo{
+a:1^#2:*expr.Constant_Int64Value#^#3:*expr.Expr_CreateStruct_Entry#
+}^#4:*expr.Expr_StructExpr#`,
+  },
+  {
+    description: "struct literal: empty",
+    input: `Foo{}`,
+    P: `Foo{}^#2:*expr.Expr_StructExpr#`,
+  },
+  {
+    description: "struct literal: qualified name",
+    input: `google.rpc.Status{code: 1, message: "hello"}`,
+    P: `google.rpc.Status{
+code:1^#4:*expr.Constant_Int64Value#^#5:*expr.Expr_CreateStruct_Entry#,
+message:"hello"^#6:*expr.Constant_StringValue#^#7:*expr.Expr_CreateStruct_Entry#
+}^#8:*expr.Expr_StructExpr#`,
+  },
+  {
+    description: "struct literal in comparison",
+    input: `x = Foo{a: 1}`,
+    P: `_==_(
+x^#1:*expr.Expr_IdentExpr#,
+Foo{
+a:1^#3:*expr.Constant_Int64Value#^#4:*expr.Expr_CreateStruct_Entry#
+}^#5:*expr.Expr_StructExpr#
+)^#6:*expr.Expr_CallExpr#`,
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import type { CheckedExpr } from "@protoutil/aip/filtering";
 import { TranslationError } from "../errors.js";
 import type { PostgresOptions, SqlFunctionHandler, SqlOutput } from "../types.js";
-import { constStringValue, durationConstNanos } from "../utils.js";
+import { assertBoolOutput, constStringValue, durationConstNanos } from "../utils.js";
 import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 
 // ---------------------------------------------------------------------------
@@ -54,5 +54,6 @@ class PgTranslator extends SqlTranslator {
 // ---------------------------------------------------------------------------
 
 export function postgres(expr: CheckedExpr, opts?: PostgresOptions): SqlOutput {
+  assertBoolOutput(expr);
   return new PgTranslator(expr, opts).translate(expr.expr);
 }

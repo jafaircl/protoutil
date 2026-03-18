@@ -14,10 +14,7 @@ describe("scan", () => {
     });
 
     it("two variables", () => {
-      const variables = scan(
-        "publishers/foo/books/bar",
-        "publishers/{publisher}/books/{book}",
-      );
+      const variables = scan("publishers/foo/books/bar", "publishers/{publisher}/books/{book}");
       expect(variables).toEqual({ publisher: "foo", book: "bar" });
     });
 
@@ -31,10 +28,7 @@ describe("scan", () => {
 
     it("trailing segments", () => {
       expect(() => {
-        scan(
-          "publishers/foo/books/bar/settings",
-          "publishers/{publisher}/books/{book}",
-        );
+        scan("publishers/foo/books/bar/settings", "publishers/{publisher}/books/{book}");
       }).toThrow("got trailing segments in name");
     });
   });

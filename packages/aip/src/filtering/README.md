@@ -9,13 +9,15 @@ The AST uses the [`google.api.expr.v1alpha1`](https://github.com/google/cel-spec
 The typical flow is: **parse** → **check** → **optimize** (optional) → use or **unparse**.
 
 ```typescript
-import { parse, check, optimize, fold, unparse } from "@protoutil/aip/filtering";
+import { parse, check, optimize, fold, unparse, ident, STRING, INT64 } from "@protoutil/aip/filtering";
 
 // 1. Parse a filter string into a ParsedExpr
 const parsed = parse('status = "active" AND rating > 3');
 
-// 2. Type-check (built-in declarations are included automatically)
-const { checkedExpr, errors } = check(parsed);
+// 2. Type-check with declarations
+const { checkedExpr, errors } = check(parsed, {
+  decls: [ident("status", STRING), ident("rating", INT64)],
+});
 
 // 3. Optionally optimize the AST
 const optimized = optimize(checkedExpr, fold({ min_rating: 3n }));
@@ -76,10 +78,13 @@ author.name.contains("Smith")
 
 ## Type Checking
 
-`check()` validates a parsed expression against type declarations and produces a `CheckedExpr` with type and reference annotations. Built-in declarations (comparison operators, logical operators, string methods, type coercion, etc.) are always included.
+`check()` validates a parsed expression against type declarations and produces a `CheckedExpr` with type and reference annotations. Built-in declarations (comparison operators, logical operators, string methods, type coercion, etc.) are always included. Pass an options object with `decls`, `registry`, and/or `source`:
 
 ```typescript
-const { checkedExpr, errors } = check(parsed);
+const { checkedExpr, errors } = check(parsed, {
+  decls: [ident("status", STRING)],
+  source: filterString,
+});
 
 if (errors.length > 0) {
   for (const err of errors) {
@@ -105,20 +110,74 @@ The following are always available without configuration:
 
 ### Custom Declarations
 
-Extend the type system by passing additional declarations as the second argument to `check()`:
+Extend the type system by passing declarations via the options object:
 
 ```typescript
 import { check, ident, func, overload, BOOL, STRING } from "@protoutil/aip/filtering";
 
-const { checkedExpr } = check(parsed, [
-  // Declare a known field with a specific type
-  ident("status", STRING),
-  // Declare a custom function
-  func("customMatch",
-    overload("custom_match_string", [STRING, STRING], BOOL),
-  ),
-]);
+const { checkedExpr } = check(parsed, {
+  decls: [
+    // Declare a known field with a specific type
+    ident("status", STRING),
+    // Declare a custom function
+    func("customMatch",
+      overload("custom_match_string", [STRING, STRING], BOOL),
+    ),
+  ],
+  source: filterString, // optional — enables source pointers in errors
+});
 ```
+
+### Context Declarations from Protobuf Messages
+
+`contextDecls()` generates field declarations from a protobuf message descriptor, making all fields available as top-level identifiers in filter expressions:
+
+```typescript
+import { parse, check, contextDecls } from "@protoutil/aip/filtering";
+import { TimestampSchema } from "@bufbuild/protobuf/wkt";
+
+const decls = contextDecls(TimestampSchema);
+// → [ident("seconds", INT64), ident("nanos", INT64)]
+
+const { checkedExpr } = check(parse("seconds > 100 AND nanos < 500"), { decls });
+```
+
+This is useful when your resource type is defined as a protobuf message — you get type-safe filtering for free without manually declaring each field.
+
+### Registry-Based Type Checking
+
+Pass a `@bufbuild/protobuf` `Registry` to enable field resolution on message types. When the checker encounters a select expression on a `messageType` (e.g., `ts.seconds`), it looks up the message in the registry, finds the field, and resolves its type:
+
+```typescript
+import { createRegistry } from "@bufbuild/protobuf";
+import { TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { parse, check, ident } from "@protoutil/aip/filtering";
+
+const registry = createRegistry(TimestampSchema);
+
+const { checkedExpr, errors } = check(parse("ts.seconds > 100"), {
+  decls: [ident("ts", messageType(TimestampSchema))],
+  registry,
+});
+// ts.seconds resolves to INT64 via the registry
+```
+
+Without a registry, select expressions on message types fall back to `DYN` (dynamic type). With a registry, unknown fields produce type errors instead of silently succeeding.
+
+### Struct Literals
+
+The parser supports struct literal syntax for constructing protobuf messages in filter expressions:
+
+```
+proto3_unittest.TestAllTypes{optional_string: "hello", optional_int32: 42}
+```
+
+When a registry is provided, the checker validates that:
+- The message type exists in the registry
+- Each field name exists on the message
+- Each field value matches the expected type
+
+Without a registry, struct literals are accepted without validation.
 
 ### Type Builders
 
@@ -131,6 +190,8 @@ Special types: `DYN`, `NULL`, `ERROR`
 Composite builders: `listType()`, `mapType()`, `messageType()`, `typeType()`, `abstractType()`
 
 Declaration builders: `ident()`, `func()`, `overload()`, `memberOverload()`
+
+Protobuf helpers: `contextDecls()`, `descFieldToType()`
 
 ### Output Type
 

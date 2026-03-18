@@ -19,7 +19,7 @@ import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/mater
 import { MatSort, MatSortModule, type Sort } from "@angular/material/sort";
 import { MatTableModule } from "@angular/material/table";
 import { check, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
-import { Field, OrderBy, parseOrderBy } from "@protoutil/aip/orderby";
+import { Field, OrderBy, parse as parseOrderBy } from "@protoutil/aip/orderby";
 import { exprToFilterNode, type FilterNode, filterNodeToExpr } from "@protoutil/angular";
 import { linkedQueryParam, paramToNumber } from "ngxtension/linked-query-param";
 import type { ListShelvesResponse } from "../../../gen/library/v1/library_pb";
@@ -66,7 +66,7 @@ export class ShelfListComponent implements AfterViewInit {
     if (!filterStr) return undefined;
     try {
       const parsed = parse(filterStr);
-      const { checkedExpr, errors } = check(parsed, this.decls(), filterStr);
+      const { checkedExpr, errors } = check(parsed, { decls: this.decls(), source: filterStr });
       if (checkedExpr.expr && errors.length === 0) {
         return exprToFilterNode(checkedExpr.expr);
       }

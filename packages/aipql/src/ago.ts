@@ -11,7 +11,7 @@ import { DURATION, func, overload, TIMESTAMP } from "@protoutil/aip/filtering";
  * import { postgres, agoDecl } from "@protoutil/aipql";
  *
  * const parsed = parse('create_time > ago(24h)');
- * const { checkedExpr } = check(parsed, [agoDecl]);
+ * const { checkedExpr } = check(parsed, { decls: [agoDecl] });
  * const { sql, params } = postgres(checkedExpr);
  * ```
  */

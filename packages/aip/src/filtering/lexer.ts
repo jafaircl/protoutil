@@ -16,6 +16,8 @@ export enum TokenType {
   AND,
   OR,
   NOT,
+  LBRACE,
+  RBRACE,
   WS,
   EOF,
   UNTERMINATED_STRING,
@@ -108,6 +110,16 @@ export function tokenize(input: string): Token[] {
     }
     if (ch === ":") {
       tokens.push({ type: TokenType.HAS, value: ":", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === "{") {
+      tokens.push({ type: TokenType.LBRACE, value: "{", offset: i });
+      i++;
+      continue;
+    }
+    if (ch === "}") {
+      tokens.push({ type: TokenType.RBRACE, value: "}", offset: i });
       i++;
       continue;
     }
@@ -218,7 +230,7 @@ export function tokenize(input: string): Token[] {
 }
 
 function isTextChar(ch: string): boolean {
-  return !/[\s.,()\-<>=!:"'`]/.test(ch);
+  return !/[\s.,()\-<>=!:"'`{}]/.test(ch);
 }
 
 function isDurationPrefix(ch: string): boolean {

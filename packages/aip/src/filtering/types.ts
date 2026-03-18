@@ -1,6 +1,12 @@
 /** biome-ignore-all lint/correctness/noSwitchDeclarations: TODO */
 /** biome-ignore-all lint/style/noNonNullAssertion: TODO */
-import { create, type MessageInitShape } from "@bufbuild/protobuf";
+import {
+  create,
+  type DescField,
+  type DescMessage,
+  type MessageInitShape,
+  ScalarType,
+} from "@bufbuild/protobuf";
 import { NullValue } from "@bufbuild/protobuf/wkt";
 import type {
   Decl,
@@ -81,11 +87,11 @@ export function mapType(keyType: TypeInit, valueType: TypeInit): TypeInit {
   };
 }
 
-export function messageType(typeName: string): TypeInit {
+export function messageType(desc: DescMessage): TypeInit {
   return {
     typeKind: {
       case: "messageType",
-      value: typeName,
+      value: desc.typeName,
     },
   };
 }
@@ -273,4 +279,101 @@ export function func(name: string, ...overloads: OverloadInit[]): Decl {
       },
     },
   });
+}
+
+// ── Proto descriptor → filter type mapping ────────────────────────────────────
+
+const WELL_KNOWN_MESSAGE_TYPES: Record<string, TypeInit> = {
+  "google.protobuf.Timestamp": TIMESTAMP,
+  "google.protobuf.Duration": DURATION,
+  "google.protobuf.Any": ANY,
+  "google.protobuf.Struct": mapType(STRING, DYN),
+  "google.protobuf.Value": DYN,
+  "google.protobuf.ListValue": listType(DYN),
+  "google.protobuf.BoolValue": BOOL,
+  "google.protobuf.BytesValue": BYTES,
+  "google.protobuf.DoubleValue": DOUBLE,
+  "google.protobuf.FloatValue": DOUBLE,
+  "google.protobuf.Int32Value": INT64,
+  "google.protobuf.Int64Value": INT64,
+  "google.protobuf.UInt32Value": UINT64,
+  "google.protobuf.UInt64Value": UINT64,
+  "google.protobuf.StringValue": STRING,
+};
+
+function scalarToType(scalar: ScalarType): TypeInit {
+  switch (scalar) {
+    case ScalarType.DOUBLE:
+    case ScalarType.FLOAT:
+      return DOUBLE;
+    case ScalarType.INT32:
+    case ScalarType.INT64:
+    case ScalarType.SINT32:
+    case ScalarType.SINT64:
+    case ScalarType.SFIXED32:
+    case ScalarType.SFIXED64:
+      return INT64;
+    case ScalarType.UINT32:
+    case ScalarType.UINT64:
+    case ScalarType.FIXED32:
+    case ScalarType.FIXED64:
+      return UINT64;
+    case ScalarType.BOOL:
+      return BOOL;
+    case ScalarType.STRING:
+      return STRING;
+    case ScalarType.BYTES:
+      return BYTES;
+  }
+}
+
+/**
+ * Convert a protobuf field descriptor to a filter type. Handles scalar,
+ * message (including well-known types), enum, list, and map fields.
+ */
+export function descFieldToType(field: DescField): TypeInit {
+  switch (field.fieldKind) {
+    case "scalar":
+      return scalarToType(field.scalar);
+
+    case "enum":
+      return INT64;
+
+    case "message": {
+      const wkt = WELL_KNOWN_MESSAGE_TYPES[field.message.typeName];
+      if (wkt) return wkt;
+      return messageType(field.message);
+    }
+
+    case "list":
+      switch (field.listKind) {
+        case "scalar":
+          return listType(scalarToType(field.scalar));
+        case "enum":
+          return listType(INT64);
+        case "message": {
+          const wkt = WELL_KNOWN_MESSAGE_TYPES[field.message.typeName];
+          return listType(wkt ?? messageType(field.message));
+        }
+      }
+
+    case "map": {
+      const keyType = scalarToType(field.mapKey);
+      let valueType: TypeInit;
+      switch (field.mapKind) {
+        case "scalar":
+          valueType = scalarToType(field.scalar);
+          break;
+        case "enum":
+          valueType = INT64;
+          break;
+        case "message": {
+          const wkt = WELL_KNOWN_MESSAGE_TYPES[field.message.typeName];
+          valueType = wkt ?? messageType(field.message);
+          break;
+        }
+      }
+      return mapType(keyType, valueType);
+    }
+  }
 }

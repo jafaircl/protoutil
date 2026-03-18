@@ -1,6 +1,7 @@
+import { ident, STRING } from "@protoutil/aip/filtering";
 import { describe, expect, it } from "vitest";
 import { agoDecl } from "../ago.js";
-import { checked } from "../test-helpers.js";
+import { checked, fuzzyDecls } from "../test-helpers.js";
 import { groups } from "./dialect-cases.js";
 import { sqlite } from "./sqlite.js";
 
@@ -54,6 +55,42 @@ describe("sqlite — user-provided functions", () => {
 // ---------------------------------------------------------------------------
 // Dialect-specific: ago() function
 // ---------------------------------------------------------------------------
+
+describe("sqlite — user-provided custom function (fuzzy)", () => {
+  it("custom function not in stdlib is dispatched correctly", () => {
+    expect(
+      sqlite(checked(`title.fuzzy("dragon")`, fuzzyDecls), {
+        functions: {
+          fuzzy(target, args, ctx) {
+            if (!target || args.length !== 1) throw new Error("missing args");
+            const col = `"${target.exprKind.case === "identExpr" ? target.exprKind.value.name : "?"}"`;
+            ctx.write(`editdist3(${col}, `);
+            ctx.emit(args[0]);
+            ctx.write(`) < 400`);
+          },
+        },
+      }),
+    ).toEqual({
+      sql: `editdist3("title", ?) < 400`,
+      params: ["dragon"],
+    });
+  });
+
+  it("unknown function with no handler throws TranslationError", () => {
+    expect(() => sqlite(checked(`title.fuzzy("dragon")`, fuzzyDecls))).toThrow(
+      /No handler for "fuzzy"/,
+    );
+  });
+});
+
+describe("sqlite — non-boolean output type", () => {
+  it("rejects a filter expression that does not evaluate to a boolean", () => {
+    const decls = [ident("name", STRING)];
+    expect(() => sqlite(checked("name", decls))).toThrow(
+      /filter expression must evaluate to a boolean, got string/,
+    );
+  });
+});
 
 describe("sqlite — ago()", () => {
   it(`create_time > ago(24h)`, () => {

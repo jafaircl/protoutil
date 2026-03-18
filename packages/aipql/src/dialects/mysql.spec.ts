@@ -1,7 +1,8 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: tests will catch any runtime errors */
+import { ident, STRING } from "@protoutil/aip/filtering";
 import { describe, expect, it } from "vitest";
 import { agoDecl } from "../ago.js";
-import { checked } from "../test-helpers.js";
+import { checked, fuzzyDecls } from "../test-helpers.js";
 import { groups } from "./dialect-cases.js";
 import { mysql } from "./mysql.js";
 
@@ -75,7 +76,7 @@ describe("mysql — user-provided functions", () => {
 
   it("custom function not in stdlib is dispatched correctly", () => {
     expect(
-      mysql(checked(`title.fuzzy("dragon")`), {
+      mysql(checked(`title.fuzzy("dragon")`, fuzzyDecls), {
         functions: {
           fuzzy(target, args, ctx) {
             if (!target || args.length !== 1) throw new Error("missing args");
@@ -92,13 +93,24 @@ describe("mysql — user-provided functions", () => {
   });
 
   it("unknown function with no handler throws TranslationError", () => {
-    expect(() => mysql(checked(`title.fuzzy("dragon")`))).toThrow(/No handler for "fuzzy"/);
+    expect(() => mysql(checked(`title.fuzzy("dragon")`, fuzzyDecls))).toThrow(
+      /No handler for "fuzzy"/,
+    );
   });
 });
 
 // ---------------------------------------------------------------------------
 // Dialect-specific: ago() function
 // ---------------------------------------------------------------------------
+
+describe("mysql — non-boolean output type", () => {
+  it("rejects a filter expression that does not evaluate to a boolean", () => {
+    const decls = [ident("name", STRING)];
+    expect(() => mysql(checked("name", decls))).toThrow(
+      /filter expression must evaluate to a boolean, got string/,
+    );
+  });
+});
 
 describe("mysql — ago()", () => {
   it(`create_time > ago(24h)`, () => {

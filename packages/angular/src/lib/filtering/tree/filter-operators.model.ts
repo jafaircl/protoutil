@@ -12,7 +12,7 @@
  * from method operators (member calls like `x.startsWith(y)`).
  */
 
-import type { Type } from "@protoutil/aip/filtering";
+import { type Type, Type_WellKnownType } from "@protoutil/aip/filtering";
 
 // ---------------------------------------------------------------------------
 // Operator descriptor
@@ -118,7 +118,10 @@ export function operatorsForType(type: Type | undefined): FilterOperator[] {
   }
 
   // Timestamps and durations support ordering.
-  if (kind.case === "wellKnown" && (kind.value === 2 || kind.value === 3)) {
+  if (
+    kind.case === "wellKnown" &&
+    (kind.value === Type_WellKnownType.TIMESTAMP || kind.value === Type_WellKnownType.DURATION)
+  ) {
     return NUMERIC_OPS;
   }
 

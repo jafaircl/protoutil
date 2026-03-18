@@ -4,6 +4,7 @@ import { durationFromString, timestampFromString } from "@protoutil/core/wkt";
 import {
   type ConstantSchema,
   type Expr_CallSchema,
+  type Expr_CreateStruct_EntrySchema,
   type ExprSchema,
   type ParsedExpr,
   ParsedExprSchema,
@@ -16,6 +17,7 @@ import { MAX_EXPR_DEPTH } from "./utils.js";
 export type ExprInit = MessageInitShape<typeof ExprSchema>;
 export type ConstantInit = MessageInitShape<typeof ConstantSchema>;
 export type Expr_CallInit = MessageInitShape<typeof Expr_CallSchema>;
+export type EntryInit = MessageInitShape<typeof Expr_CreateStruct_EntrySchema>;
 
 /**
  * Compute lineOffsets for v1alpha1 SourceInfo.
@@ -326,7 +328,100 @@ class Parser {
         };
       }
     }
+
+    // After a dot-chain, check for struct literal: `Name{...}` or `a.b.Name{...}`
+    if (this.peekRaw().type === TokenType.LBRACE) {
+      const messageName = this.collectMessageName(current);
+      if (messageName !== undefined) {
+        return this.parseStructLiteral(messageName, Number(current.id));
+      }
+    }
+
     return current;
+  }
+
+  /**
+   * Extract a qualified message name from an ident/select chain.
+   * Returns undefined if the expression is not a simple name chain.
+   */
+  private collectMessageName(expr: ExprInit): string | undefined {
+    const kind = expr.exprKind;
+    if (!kind) return undefined;
+    if (kind.case === "identExpr") {
+      return (kind.value as { name: string }).name;
+    }
+    if (kind.case === "selectExpr") {
+      const sel = kind.value as { operand?: ExprInit; field?: string };
+      if (!sel.operand) return undefined;
+      const prefix = this.collectMessageName(sel.operand);
+      if (prefix === undefined) return undefined;
+      return `${prefix}.${sel.field}`;
+    }
+    return undefined;
+  }
+
+  /**
+   * Parse a struct literal: `{ field: value, field2: value2 }`.
+   * The message name and offset have already been determined.
+   */
+  private parseStructLiteral(messageName: string, offset: number): ExprInit {
+    this.expect(TokenType.LBRACE);
+    this.#depth++;
+    if (this.#depth > this.#maxDepth) {
+      throw new ParseError(
+        ErrorCode.PARSE_DEPTH_EXCEEDED,
+        `Expression depth exceeds maximum allowed depth of ${this.#maxDepth}`,
+        this.input,
+        this.peek().offset,
+      );
+    }
+    this.skipWS();
+    const entries: EntryInit[] = [];
+    if (this.peek().type !== TokenType.RBRACE) {
+      entries.push(this.parseStructEntry());
+      this.skipWS();
+      while (this.peek().type === TokenType.COMMA) {
+        this.consume();
+        this.skipWS();
+        entries.push(this.parseStructEntry());
+        this.skipWS();
+      }
+    }
+    this.expect(TokenType.RBRACE);
+    this.#depth--;
+
+    const id = this.nextId();
+    this.register(id, offset);
+    return {
+      id,
+      exprKind: {
+        case: "structExpr",
+        value: { messageName, entries },
+      },
+    };
+  }
+
+  private parseStructEntry(): EntryInit {
+    const keyTok = this.consume();
+    if (keyTok.type !== TokenType.TEXT && !isKeyword(keyTok.type)) {
+      throw new ParseError(
+        ErrorCode.PARSE_UNEXPECTED_TOKEN,
+        `Expected field name in struct literal, got ${TokenType[keyTok.type]} ("${keyTok.value}") at offset ${keyTok.offset}`,
+        this.input,
+        keyTok.offset,
+      );
+    }
+    this.skipWS();
+    this.expect(TokenType.HAS); // `:` token
+    this.skipWS();
+    const value = this.parseExpression();
+    const id = this.nextId();
+    this.register(id, keyTok.offset);
+    return {
+      id,
+      keyKind: { case: "fieldKey", value: keyTok.value },
+      value,
+    };
   }
 
   private lookaheadDotChain(): { segments: string[]; endsInCall: boolean } {

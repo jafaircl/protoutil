@@ -10,18 +10,43 @@ npm install @protoutil/aipql @protoutil/aip
 
 ## Usage
 
-Filter strings are first parsed and type-checked by `@protoutil/aip`, then translated into a dialect-specific query.
+Filter strings are first parsed and type-checked by `@protoutil/aip/filtering`, then translated into a dialect-specific query. The filter expression must evaluate to a boolean — all dialect functions throw a `TranslationError` if the checked expression has a non-boolean output type.
 
 ```typescript
-import { parse, check } from "@protoutil/aip/filtering";
+import { parse, check, ident, STRING, INT64 } from "@protoutil/aip/filtering";
 import { postgres } from "@protoutil/aipql";
 
 const parsed = parse('title = "hello" AND rating > 3');
-const { checkedExpr } = check(parsed);
+const { checkedExpr } = check(parsed, {
+  decls: [ident("title", STRING), ident("rating", INT64)],
+});
 const { sql, params } = postgres(checkedExpr);
 
 // sql:    '"title" = $1 AND "rating" > $2'
 // params: ["hello", 3]
+```
+
+If your resource type is defined as a protobuf message, use `contextDecls()` to generate declarations automatically:
+
+```typescript
+import { parse, check, contextDecls } from "@protoutil/aip/filtering";
+import { postgres } from "@protoutil/aipql";
+import { BookSchema } from "./gen/library_pb.js";
+
+const parsed = parse('title = "hello" AND rating > 3');
+const { checkedExpr } = check(parsed, { decls: contextDecls(BookSchema) });
+const { sql, params } = postgres(checkedExpr);
+```
+
+Expressions that don't evaluate to a boolean are rejected:
+
+```typescript
+import { parse, check, ident, STRING } from "@protoutil/aip/filtering";
+import { postgres } from "@protoutil/aipql";
+
+const parsed = parse("name");
+const { checkedExpr } = check(parsed, { decls: [ident("name", STRING)] });
+postgres(checkedExpr); // throws TranslationError: filter expression must evaluate to a boolean
 ```
 
 ### PostgreSQL
@@ -72,7 +97,7 @@ const { sql, params } = sqlite(checked, {
 });
 ```
 
-Note that you will need to register a `regexp` function in your SQLite database and provide a matching function declaration to the checker via `check(parsed, [yourDecl])`.
+Note that you will need to register a `regexp` function in your SQLite database and provide a matching function declaration to the checker via `check(parsed, { decls: [yourDecl] })`.
 
 ### MongoDB
 
@@ -148,7 +173,7 @@ import { parse, check } from "@protoutil/aip/filtering";
 import { postgres, agoDecl } from "@protoutil/aipql";
 
 const parsed = parse('create_time > ago(24h)');
-const { checkedExpr } = check(parsed, [agoDecl]);
+const { checkedExpr } = check(parsed, { decls: [agoDecl] });
 const { sql, params } = postgres(checkedExpr);
 // sql:    '"create_time" > NOW() - INTERVAL $1'
 // params: ["86400000000 microseconds"]
@@ -211,7 +236,7 @@ const { filter } = mongo(checked, {
 
 ### SQL Dialects
 
-Each SQL dialect function takes a `CheckedExpr` and optional config, returning `{ sql: string; params: unknown[] }`.
+Each SQL dialect function takes a `CheckedExpr` and optional config, returning `{ sql: string; params: unknown[] }`. All dialect functions validate that the expression evaluates to a boolean and throw `TranslationError` if it does not.
 
 - **`postgres(expr, opts?)`** — `$1`, `$2` placeholders. Supports `caseInsensitive` (default `true`).
 - **`mysql(expr, opts?)`** — `?` placeholders. Case sensitivity via collation.
@@ -223,7 +248,7 @@ Each SQL dialect function takes a `CheckedExpr` and optional config, returning `
 
 ### Shared Utilities
 
-- **`agoDecl`** — Checker declaration for the `ago()` function. Pass to `check()` as an extra declaration.
+- **`agoDecl`** — Checker declaration for the `ago()` function. Pass via `check(parsed, { decls: [agoDecl] })`.
 - **`TranslationError`** — Error class thrown by all dialects on translation failure.
 
 ### Standard Library Function Handlers
@@ -266,3 +291,43 @@ const { sql, params } = postgres(checked, {
 | `MysqlOptions` | Options for `mysql()` — `functions?` |
 | `SqliteOptions` | Options for `sqlite()` — `functions?` |
 | `MongoOptions` | Options for `mongo()` — `caseInsensitive?`, `functions?` |
+
+## Tips
+
+### NULL columns in SQL WHERE clauses
+
+In SQL, any comparison against a `NULL` column evaluates to `NULL` (not `false`), which means the row is silently excluded from results. This affects both equality and inequality:
+
+```
+status = "active"   →  rows where status is NULL are excluded
+status != "active"  →  rows where status is NULL are also excluded
+```
+
+If you need to include `NULL` rows in inequality checks, combine with an explicit null test:
+
+```
+status != "active" OR status = null
+→  "status" <> $1 OR "status" IS NULL
+```
+
+Use the has operator (`field:*`) to check for field presence, which translates to `IS NOT NULL`:
+
+```
+status:*  →  "status" IS NOT NULL
+```
+
+### Missing/null fields in MongoDB
+
+MongoDB handles missing and null fields differently from SQL. Notably, `$ne` **includes** documents where the field is missing or null, while SQL's `<>` excludes them:
+
+| Filter | SQL behavior (NULL rows) | MongoDB behavior (missing/null docs) |
+|--------|--------------------------|--------------------------------------|
+| `status = "active"` | excluded | excluded |
+| `status != "active"` | excluded | **included** |
+
+This means the same AIP-160 filter can return different results across dialects when fields are nullable or missing. Use `field:*` to explicitly check for field presence:
+
+```
+status:*  →  SQL: "status" IS NOT NULL
+          →  Mongo: { status: { $exists: true } }
+```

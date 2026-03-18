@@ -1,4 +1,9 @@
-import { create, type MessageInitShape, type MessageShape } from "@bufbuild/protobuf";
+import {
+  create,
+  type MessageInitShape,
+  type MessageShape,
+  type Registry,
+} from "@bufbuild/protobuf";
 import {
   type CheckedExpr,
   CheckedExprSchema,
@@ -16,6 +21,7 @@ import {
   DOUBLE,
   DURATION,
   DYN,
+  descFieldToType,
   ERROR,
   func,
   INT64,
@@ -25,7 +31,6 @@ import {
   MAP_OF_A_B,
   mapType,
   memberOverload,
-  messageType,
   NULL,
   type OverloadInit,
   overload,
@@ -33,6 +38,7 @@ import {
   STRING,
   TIMESTAMP,
   type TypeInit,
+  typeToString,
   UINT64,
 } from "./types.js";
 
@@ -383,6 +389,17 @@ function inferConstantType(expr: Expr): TypeInit {
   }
 }
 
+// ── Options ───────────────────────────────────────────────────────────────────
+
+export interface CheckOptions {
+  /** Additional ident and function declarations for the filter environment. */
+  decls?: Decl[];
+  /** Protobuf registry for resolving message field types during type checking. */
+  registry?: Registry;
+  /** Original source text, used for error reporting. */
+  source?: string;
+}
+
 // ── Checker ───────────────────────────────────────────────────────────────────
 
 export class Checker {
@@ -390,12 +407,14 @@ export class Checker {
   #referenceMap: Map<bigint, ReferenceInit> = new Map();
   #errors: TypeCheckError[] = [];
   #decls: Decl[];
+  #registry?: Registry;
   #sourceInfo?: ParsedExpr["sourceInfo"];
   #source?: string;
 
-  constructor(extraDecls: Decl[] = [], source?: string) {
-    this.#decls = [...BUILTIN_DECLS, ...extraDecls];
-    this.#source = source;
+  constructor(options: CheckOptions = {}) {
+    this.#decls = [...BUILTIN_DECLS, ...(options.decls ?? [])];
+    this.#registry = options.registry;
+    this.#source = options.source;
   }
 
   check(parsed: ParsedExpr): { checkedExpr: CheckedExpr; errors: TypeCheckError[] } {
@@ -465,10 +484,27 @@ export class Checker {
           break;
         }
         const baseType = this.#visit(operand);
+        const fieldName = kind.value.field;
         if (baseType.typeKind?.case === "mapType") {
           result = baseType.typeKind.value.valueType ?? DYN;
         } else if (baseType.typeKind?.case === "messageType") {
-          result = DYN;
+          const msgName = baseType.typeKind.value as string;
+          const desc = this.#registry?.getMessage(msgName);
+          if (desc && fieldName) {
+            const field = desc.fields.find((f) => f.name === fieldName);
+            if (field) {
+              result = descFieldToType(field);
+            } else {
+              this.#addError(
+                ErrorCode.CHECK_UNDECLARED_IDENT,
+                expr.id,
+                `Field '${fieldName}' not found on message '${msgName}'`,
+              );
+              result = ERROR;
+            }
+          } else {
+            result = DYN;
+          }
         } else if (isDyn(baseType)) {
           result = DYN;
         } else if (isError(baseType)) {
@@ -509,6 +545,14 @@ export class Checker {
       case "structExpr": {
         const { messageName, entries } = kind.value;
         if (messageName) {
+          const msgDesc = this.#registry?.getMessage(messageName);
+          if (this.#registry && !msgDesc) {
+            this.#addError(
+              ErrorCode.CHECK_UNDECLARED_IDENT,
+              expr.id,
+              `Unknown message type '${messageName}'`,
+            );
+          }
           for (const e of entries) {
             if (e.keyKind.case === "mapKey") {
               this.#visit(e.keyKind.value);
@@ -521,9 +565,29 @@ export class Checker {
               );
               continue;
             }
-            this.#visit(e.value);
+            const valueType = this.#visit(e.value);
+            // Validate field exists and type matches when registry is available
+            if (msgDesc && e.keyKind.case === "fieldKey") {
+              const field = msgDesc.fields.find((f) => f.name === e.keyKind.value);
+              if (!field) {
+                this.#addError(
+                  ErrorCode.CHECK_UNDECLARED_IDENT,
+                  e.id,
+                  `Field '${e.keyKind.value}' not found on message '${messageName}'`,
+                );
+              } else {
+                const expectedType = descFieldToType(field);
+                if (!typeCompatible(expectedType, valueType)) {
+                  this.#addError(
+                    ErrorCode.CHECK_INVALID_EXPRESSION,
+                    e.id,
+                    `Type mismatch for field '${e.keyKind.value}': expected ${typeToString(expectedType)}, got ${typeToString(valueType)}`,
+                  );
+                }
+              }
+            }
           }
-          result = messageType(messageName);
+          result = { typeKind: { case: "messageType", value: messageName } };
           this.#referenceMap.set(expr.id, { name: messageName });
         } else {
           const keyTypes: TypeInit[] = [];
@@ -648,17 +712,24 @@ export class Checker {
 }
 
 /**
- * Type check a parsed AIP-160 filter expression. You can provide additional
- * declarations for idents and functions via `extraDecls`. Returns the checked
+ * Type check a parsed AIP-160 filter expression. Returns the checked
  * expression along with any type errors encountered. The checked expression will
  * include a type map and reference map that you can use for evaluation.
+ *
+ * @example
+ * ```typescript
+ * const { checkedExpr, errors } = check(parsed, {
+ *   decls: [ident("title", STRING)],
+ *   registry: createRegistry(TimestampSchema),
+ *   source: filterString,
+ * });
+ * ```
  */
 export function check(
   parsed: ParsedExpr,
-  extraDecls: Decl[] = [],
-  source?: string,
+  options?: CheckOptions,
 ): { checkedExpr: CheckedExpr; errors: TypeCheckError[] } {
-  return new Checker(extraDecls, source).check(parsed);
+  return new Checker(options).check(parsed);
 }
 
 /**

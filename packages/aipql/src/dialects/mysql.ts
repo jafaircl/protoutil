@@ -1,7 +1,7 @@
 import type { CheckedExpr } from "@protoutil/aip/filtering";
 import { TranslationError } from "../errors.js";
 import type { MysqlOptions, SqlFunctionHandler, SqlOutput } from "../types.js";
-import { constStringValue, durationConstNanos } from "../utils.js";
+import { assertBoolOutput, constStringValue, durationConstNanos } from "../utils.js";
 import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 
 // ---------------------------------------------------------------------------
@@ -51,5 +51,6 @@ class MysqlTranslator extends SqlTranslator {
 // ---------------------------------------------------------------------------
 
 export function mysql(expr: CheckedExpr, opts?: MysqlOptions): SqlOutput {
+  assertBoolOutput(expr);
   return new MysqlTranslator(expr, opts).translate(expr.expr);
 }

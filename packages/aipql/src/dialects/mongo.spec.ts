@@ -1,7 +1,8 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: tests will catch any runtime errors */
+import { ident, STRING } from "@protoutil/aip/filtering";
 import { describe, expect, it } from "vitest";
 import { agoDecl } from "../ago.js";
-import { checked } from "../test-helpers.js";
+import { checked, fuzzyDecls } from "../test-helpers.js";
 import { groups } from "./dialect-cases.js";
 import { mongo } from "./mongo.js";
 
@@ -101,7 +102,7 @@ describe("mongo — user-provided functions", () => {
 
   it("custom function not in stdlib is dispatched correctly", () => {
     expect(
-      mongo(checked(`title.fuzzy("dragon")`), {
+      mongo(checked(`title.fuzzy("dragon")`, fuzzyDecls), {
         functions: {
           fuzzy(target, args, ctx) {
             if (!target) throw new Error("missing target");
@@ -114,13 +115,24 @@ describe("mongo — user-provided functions", () => {
   });
 
   it("unknown function with no handler throws TranslationError", () => {
-    expect(() => mongo(checked(`title.fuzzy("dragon")`))).toThrow(/No handler for "fuzzy"/);
+    expect(() => mongo(checked(`title.fuzzy("dragon")`, fuzzyDecls))).toThrow(
+      /No handler for "fuzzy"/,
+    );
   });
 });
 
 // ---------------------------------------------------------------------------
 // Dialect-specific: ago() function
 // ---------------------------------------------------------------------------
+
+describe("mongo — non-boolean output type", () => {
+  it("rejects a filter expression that does not evaluate to a boolean", () => {
+    const decls = [ident("name", STRING)];
+    expect(() => mongo(checked("name", decls))).toThrow(
+      /filter expression must evaluate to a boolean, got string/,
+    );
+  });
+});
 
 describe("mongo — ago()", () => {
   it(`create_time > ago(24h)`, () => {

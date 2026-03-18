@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
 import type { ConnectRouter } from "@connectrpc/connect";
-import { parseOrderBy } from "@protoutil/aip/orderby";
+import { parse } from "@protoutil/aip/orderby";
 import { LibraryService, ShelfSchema } from "./gen/library/v1/library_pb.js";
 import { db as sqlitedb } from "./kysely.js";
 
@@ -13,7 +13,7 @@ export default (router: ConnectRouter) => {
     listShelves: async (req) => {
       const shelves = await sqlitedb.selectFrom("library_v1_shelf").selectAll().execute();
       console.log({ shelves });
-      const orderBy = parseOrderBy(req.orderBy);
+      const orderBy = parse(req.orderBy);
       if (orderBy.fields.length > 0) {
         console.log(
           `Ordering by ${orderBy.fields[0].path} in ${orderBy.fields[0].desc ? "descending" : "ascending"} order`,

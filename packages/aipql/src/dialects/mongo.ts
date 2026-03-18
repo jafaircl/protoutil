@@ -24,6 +24,7 @@ import type {
   MongoOutput,
 } from "../types.js";
 import {
+  assertBoolOutput,
   constStringValue,
   durationConstNanos,
   hasWildcard,
@@ -371,5 +372,6 @@ class MongoTranslator {
 // ---------------------------------------------------------------------------
 
 export function mongo(expr: CheckedExpr, opts?: MongoOptions): MongoOutput {
+  assertBoolOutput(expr);
   return new MongoTranslator(expr, opts).translate(expr.expr);
 }

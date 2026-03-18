@@ -1,6 +1,31 @@
-import type { Expr } from "@protoutil/aip/filtering";
+import { create } from "@bufbuild/protobuf";
+import {
+  BOOL,
+  type CheckedExpr,
+  type Expr,
+  outputType,
+  TypeSchema,
+  typeToString,
+} from "@protoutil/aip/filtering";
 import { durationNanos } from "@protoutil/core/wkt";
 import { TranslationError } from "./errors";
+
+/**
+ * Asserts that the checked expression evaluates to a boolean type.
+ * Throws a {@link TranslationError} if the output type is not `BOOL`.
+ */
+export function assertBoolOutput(checkedExpr: CheckedExpr): void {
+  const type = outputType(checkedExpr);
+  if (
+    !type ||
+    type.typeKind?.case !== "primitive" ||
+    type.typeKind.value !== BOOL.typeKind?.value
+  ) {
+    throw new TranslationError(
+      `filter expression must evaluate to a boolean, got ${typeToString(create(TypeSchema, type))}`,
+    );
+  }
+}
 
 export function quoteIdent(name: string, quoteStyle = `"`): string {
   const escaped = name.replaceAll(quoteStyle, quoteStyle + quoteStyle);

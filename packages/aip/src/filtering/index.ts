@@ -1,6 +1,7 @@
 export * from "./../gen/google/api/expr/v1alpha1/checked_pb.js";
 export * from "./../gen/google/api/expr/v1alpha1/syntax_pb.js";
-export { BUILTIN_DECLS, check, outputType } from "./checker.js";
+export { BUILTIN_DECLS, type CheckOptions, check, outputType } from "./checker.js";
+export { contextDecls } from "./context.js";
 export {
   AipFilterError,
   ErrorCode,
@@ -28,6 +29,7 @@ export {
   DOUBLE,
   DURATION,
   DYN,
+  descFieldToType,
   ERROR,
   func,
   functionType,

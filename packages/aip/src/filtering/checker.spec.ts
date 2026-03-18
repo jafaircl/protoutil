@@ -1,13 +1,19 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: TODO */
 /** biome-ignore-all lint/style/noNonNullAssertion: TODO */
 
+import { createRegistry } from "@bufbuild/protobuf";
+import { TimestampSchema } from "@bufbuild/protobuf/wkt";
+import {
+  TestAllTypes_NestedMessageSchema,
+  TestAllTypesSchema,
+} from "@protoutil/core/unittest/proto3";
 import { assert, describe, it } from "vitest";
 import type { Decl } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
 import { check, outputType } from "./checker.js";
+import { contextDecls } from "./context.js";
 import { AipFilterError, ErrorCode, TypeCheckError } from "./errors.js";
 import { parse } from "./parser.js";
 import { SemanticAdorner, toDebugString } from "./to-debug-string.js";
-import type { TypeInit } from "./types.js";
 import {
   BOOL,
   BYTES,
@@ -21,14 +27,19 @@ import {
   listType,
   mapType,
   memberOverload,
-  messageType,
   NULL,
   overload,
   STRING,
   TIMESTAMP,
+  type TypeInit,
   typeToString,
   UINT64,
 } from "./types.js";
+
+/** Inline messageType for tests where we only have a string name (no real descriptor). */
+function messageTypeName(name: string): TypeInit {
+  return { typeKind: { case: "messageType", value: name } };
+}
 
 // ── Test table ────────────────────────────────────────────────────────────────
 //
@@ -289,7 +300,7 @@ const cases: Case[] = [
   {
     description: "select on message type → dyn (no schema)",
     in: "r.field",
-    decls: [ident("r", messageType("Request"))],
+    decls: [ident("r", messageTypeName("Request"))],
     out: "r~Request^r.field",
     outType: undefined,
   },
@@ -372,7 +383,7 @@ const cases: Case[] = [
     description: "custom member overload",
     in: `r.cohort("vip")`,
     decls: [
-      ident("r", messageType("Request")),
+      ident("r", messageTypeName("Request")),
       func("cohort", memberOverload("request_cohort_string", [STRING], BOOL)),
     ],
     out: `r~Request^r.cohort(
@@ -793,7 +804,7 @@ describe("check", () => {
     const label = tc.description ?? `check: "${tc.in}"`;
     it(label, () => {
       const parsed = parse(tc.in);
-      const { checkedExpr, errors } = check(parsed, tc.decls ?? []);
+      const { checkedExpr, errors } = check(parsed, { decls: tc.decls });
 
       if (tc.err !== undefined) {
         assert.ok(errors.length > 0, "expected at least one error");
@@ -861,7 +872,7 @@ describe("TypeCheckError", () => {
 
   it("multi-line: error on line 2 has correct line number", () => {
     // "a\nbadIdent" — badIdent is on line 2
-    const { errors } = check(parse("a\nbadIdent"), [ident("a", BOOL)]);
+    const { errors } = check(parse("a\nbadIdent"), { decls: [ident("a", BOOL)] });
     const err = errors.find((e) => e.message.includes("badIdent"));
     assert.ok(err);
     assert.equal(err!.position?.line, 2);
@@ -870,7 +881,7 @@ describe("TypeCheckError", () => {
 
   it("embeds source when passed to check()", () => {
     const source = "badIdent";
-    const { errors } = check(parse(source), [], source);
+    const { errors } = check(parse(source), { source });
     assert.equal(errors[0].source, source);
   });
 
@@ -883,7 +894,7 @@ describe("TypeCheckError", () => {
 
   it("toString() with source — full CEL block with pointer", () => {
     const source = "badIdent";
-    const { errors } = check(parse(source), [], source);
+    const { errors } = check(parse(source), { source });
     const str = String(errors[0]);
     assert.match(str, /^ERROR: <input>:1:1:/);
     assert.include(str, `| ${source}`);
@@ -915,5 +926,200 @@ describe("typeToString", () => {
   it("map(STRING, INT64) → 'map(string, int64)'", () =>
     assert.equal(typeToString(mapType(STRING, INT64)), "map(string, int64)"));
   it("messageType → fully qualified name", () =>
-    assert.equal(typeToString(messageType("google.type.Date")), "google.type.Date"));
+    assert.equal(typeToString(messageTypeName("google.type.Date")), "google.type.Date"));
+});
+
+// ── Registry-based type checking ──────────────────────────────────────────────
+
+describe("check with registry", () => {
+  const registry = createRegistry(
+    TimestampSchema,
+    TestAllTypesSchema,
+    TestAllTypes_NestedMessageSchema,
+  );
+
+  it("resolves message field via registry — ts.seconds → int", () => {
+    const parsed = parse("ts.seconds");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("ts", messageTypeName("google.protobuf.Timestamp"))],
+      registry,
+    });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), INT64);
+  });
+
+  it("resolves message field via registry — ts.nanos → int", () => {
+    const parsed = parse("ts.nanos");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("ts", messageTypeName("google.protobuf.Timestamp"))],
+      registry,
+    });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), INT64);
+  });
+
+  it("errors on unknown field with registry", () => {
+    const parsed = parse("ts.bogus");
+    const { errors } = check(parsed, {
+      decls: [ident("ts", messageTypeName("google.protobuf.Timestamp"))],
+      registry,
+    });
+    assert.ok(errors.length > 0);
+    assert.ok(errors[0].message.includes("bogus"));
+  });
+
+  it("falls back to DYN without registry", () => {
+    const parsed = parse("ts.seconds");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("ts", messageTypeName("google.protobuf.Timestamp"))],
+    });
+    assert.equal(errors.length, 0);
+    assert.equal(outputType(checkedExpr), undefined); // DYN
+  });
+
+  it("resolves scalar fields on TestAllTypes", () => {
+    const parsed = parse("msg.optional_string");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("msg", messageTypeName("proto3_unittest.TestAllTypes"))],
+      registry,
+    });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), STRING);
+  });
+
+  it("resolves bool field on TestAllTypes", () => {
+    const parsed = parse("msg.optional_bool");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("msg", messageTypeName("proto3_unittest.TestAllTypes"))],
+      registry,
+    });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), BOOL);
+  });
+
+  it("resolves enum field as INT64", () => {
+    const parsed = parse("msg.optional_nested_enum");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("msg", messageTypeName("proto3_unittest.TestAllTypes"))],
+      registry,
+    });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), INT64);
+  });
+
+  it("resolves nested message field via chained select", () => {
+    const parsed = parse("msg.optional_nested_message.bb");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("msg", messageTypeName("proto3_unittest.TestAllTypes"))],
+      registry,
+    });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), INT64);
+  });
+
+  it("resolves repeated field as list type", () => {
+    const parsed = parse("msg.repeated_string");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("msg", messageTypeName("proto3_unittest.TestAllTypes"))],
+      registry,
+    });
+    assert.equal(errors.length, 0);
+    const out = outputType(checkedExpr);
+    assert.equal(out?.typeKind?.case, "listType");
+    assert.equal(typeToString(out!), "list(string)");
+  });
+
+  it("field comparison with registry — ts.seconds > 3", () => {
+    const parsed = parse("ts.seconds > 3");
+    const { checkedExpr, errors } = check(parsed, {
+      decls: [ident("ts", messageTypeName("google.protobuf.Timestamp"))],
+      registry,
+    });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), BOOL);
+  });
+});
+
+// ── contextDecls ──────────────────────────────────────────────────────────────
+
+describe("contextDecls", () => {
+  it("generates ident decls from TimestampSchema", () => {
+    const decls = contextDecls(TimestampSchema);
+    assert.equal(decls.length, 2);
+    const names = decls.map((d) => d.name);
+    assert.include(names, "seconds");
+    assert.include(names, "nanos");
+  });
+
+  it("allows filtering by field names directly", () => {
+    const decls = contextDecls(TimestampSchema);
+    const parsed = parse("seconds > 100");
+    const { checkedExpr, errors } = check(parsed, { decls });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), BOOL);
+  });
+
+  it("generates decls for all scalar types on TestAllTypes", () => {
+    const decls = contextDecls(TestAllTypesSchema);
+    const names = decls.map((d) => d.name);
+    assert.include(names, "optional_int32");
+    assert.include(names, "optional_string");
+    assert.include(names, "optional_bool");
+    assert.include(names, "optional_double");
+    assert.include(names, "optional_bytes");
+    assert.include(names, "repeated_string");
+    assert.include(names, "optional_nested_enum");
+  });
+
+  it("contextDecls + filter with compound expression", () => {
+    const decls = contextDecls(TimestampSchema);
+    const parsed = parse("seconds > 100 AND nanos < 500");
+    const { checkedExpr, errors } = check(parsed, { decls });
+    assert.equal(errors.length, 0);
+    assert.deepEqual(outputType(checkedExpr), BOOL);
+  });
+});
+
+// ── Struct literal checking ───────────────────────────────────────────────────
+
+describe("check struct literals", () => {
+  const registry = createRegistry(
+    TimestampSchema,
+    TestAllTypesSchema,
+    TestAllTypes_NestedMessageSchema,
+  );
+
+  it("validates known struct fields with registry", () => {
+    const parsed = parse('proto3_unittest.TestAllTypes{optional_string: "hello"}');
+    const { errors } = check(parsed, { registry });
+    assert.equal(errors.length, 0);
+  });
+
+  it("errors on unknown struct field with registry", () => {
+    const parsed = parse("proto3_unittest.TestAllTypes{nonexistent: 1}");
+    const { errors } = check(parsed, { registry });
+    assert.ok(errors.length > 0);
+    assert.ok(errors.some((e) => e.message.includes("nonexistent")));
+  });
+
+  it("errors on unknown message type with registry", () => {
+    const parsed = parse("com.example.Bogus{field: 1}");
+    const { errors } = check(parsed, { registry });
+    assert.ok(errors.length > 0);
+    assert.ok(errors.some((e) => e.message.includes("com.example.Bogus")));
+  });
+
+  it("struct without registry falls back gracefully", () => {
+    const parsed = parse("SomeMessage{a: 1}");
+    const { errors } = check(parsed);
+    assert.equal(errors.length, 0);
+  });
+
+  it("struct type-checks field values against expected types", () => {
+    // optional_int32 is INT64, assigning a string should error
+    const parsed = parse('proto3_unittest.TestAllTypes{optional_int32: "wrong"}');
+    const { errors } = check(parsed, { registry });
+    assert.ok(errors.length > 0);
+    assert.ok(errors.some((e) => e.message.includes("Type mismatch")));
+  });
 });

@@ -294,9 +294,7 @@ export abstract class SqlTranslator {
     switch (c.constantKind.case) {
       case "stringValue":
         if (isTimestampString(c.constantKind.value)) {
-          this.parts.push(
-            this.pushParam(timestampDate(timestampFromString(c.constantKind.value))),
-          );
+          this.parts.push(this.pushParam(timestampDate(timestampFromString(c.constantKind.value))));
         } else {
           this.parts.push(this.pushParam(c.constantKind.value));
         }

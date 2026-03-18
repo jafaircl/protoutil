@@ -32,7 +32,7 @@ export function validateAipFilter<TPathKind extends PathKind = PathKind.Root>(
     const filter = ctx.value();
     if (!filter) return;
     try {
-      const { checkedExpr, errors } = check(parse(filter), declarations ? declarations() : []);
+      const { checkedExpr, errors } = check(parse(filter), { decls: declarations?.() });
       if (errors.length > 0) {
         return {
           kind: "invalidFilter",

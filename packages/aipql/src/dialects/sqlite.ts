@@ -1,7 +1,7 @@
 import type { CheckedExpr } from "@protoutil/aip/filtering";
 import { TranslationError } from "../errors.js";
 import type { SqlFunctionHandler, SqliteOptions, SqlOutput } from "../types.js";
-import { durationConstNanos } from "../utils.js";
+import { assertBoolOutput, durationConstNanos } from "../utils.js";
 import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 
 // ---------------------------------------------------------------------------
@@ -52,5 +52,6 @@ class SqliteTranslator extends SqlTranslator {
 // ---------------------------------------------------------------------------
 
 export function sqlite(expr: CheckedExpr, opts?: SqliteOptions): SqlOutput {
+  assertBoolOutput(expr);
   return new SqliteTranslator(expr, opts).translate(expr.expr);
 }

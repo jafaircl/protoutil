@@ -91,7 +91,7 @@ export class FilterTextInputComponent {
 
     try {
       const parsed = parse(text);
-      const { checkedExpr } = check(parsed, this.declarations(), text);
+      const { checkedExpr } = check(parsed, { decls: this.declarations(), source: text });
 
       if (checkedExpr.expr) {
         this.exprAdd.emit(checkedExpr.expr);

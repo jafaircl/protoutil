@@ -558,7 +558,7 @@ const stringMethodCases: FoldCase[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 function runFoldCase({ filter, decls, bindings, expected }: FoldCase) {
-  const { checkedExpr } = check(parse(filter), decls);
+  const { checkedExpr } = check(parse(filter), { decls });
   const result = optimize(checkedExpr, fold(bindings));
   assert.isDefined(result.expr);
   assert.equal(unparse(result.expr), expected);

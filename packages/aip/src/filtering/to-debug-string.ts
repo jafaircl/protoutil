@@ -10,6 +10,7 @@ import type {
   Expr_Comprehension,
   Expr_CreateList,
   Expr_CreateStruct,
+  Expr_CreateStruct_Entry,
   Expr_Select,
 } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
 
@@ -287,11 +288,18 @@ class Writer {
         }
         this.append(":");
         this.buffer(entry.value);
+        this.appendEntryMetadata(entry);
       }
       this.removeIndent();
       this.appendLine();
     }
     this.append("}");
+  }
+
+  private appendEntryMetadata(entry: Expr_CreateStruct_Entry): void {
+    if (this.adorner instanceof KindAdorner) {
+      this.append(`^#${entry.id}:*expr.Expr_CreateStruct_Entry#`);
+    }
   }
 
   private appendComprehension(c: Expr_Comprehension): void {
