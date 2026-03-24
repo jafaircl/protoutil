@@ -81,11 +81,16 @@ enum TimestampBehavior {
 // an explicit type for multi-engine schemas.
 // ---------------------------------------------------------------------------
 enum EnumStrategy {
-  ENUM_STRATEGY_UNSPECIFIED = 0; // falls back to ENUM_STRATEGY_NAME
-  ENUM_STRATEGY_NAME = 1; // store the proto enum value name as TEXT (default)
-  ENUM_STRATEGY_INT = 2; // store the integer value as INTEGER / INT
-  ENUM_STRATEGY_CHECK_CONSTRAINT = 3; // TEXT with CHECK ("col" IN ('VALUE_A', 'VALUE_B', ...))
-  ENUM_STRATEGY_NATIVE_TYPE = 4; // CREATE TYPE ... AS ENUM + use as column type (postgres only)
+  // falls back to ENUM_STRATEGY_NAME
+  ENUM_STRATEGY_UNSPECIFIED = 0;
+  // store the proto enum value name as TEXT (default)
+  ENUM_STRATEGY_NAME = 1;
+  // store the integer value as INTEGER / INT
+  ENUM_STRATEGY_INT = 2;
+  // TEXT with CHECK ("col" IN ('VALUE_A', 'VALUE_B', ...))
+  ENUM_STRATEGY_CHECK_CONSTRAINT = 3;
+  // CREATE TYPE ... AS ENUM + use as column type (postgres only)
+  ENUM_STRATEGY_NATIVE_TYPE = 4;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,17 +99,20 @@ enum EnumStrategy {
 // Set per-message via MessageOptions.primary_key.
 // ---------------------------------------------------------------------------
 enum PrimaryKeyType {
-  PRIMARY_KEY_TYPE_UNSPECIFIED = 0; // falls back to PRIMARY_KEY_TYPE_SERIAL
-  PRIMARY_KEY_TYPE_SERIAL = 1; // auto-increment integer (default)
+  // falls back to PRIMARY_KEY_TYPE_SERIAL
+  PRIMARY_KEY_TYPE_UNSPECIFIED = 0;
+  // auto-increment integer (default)
   //   postgres:   BIGSERIAL
   //   mysql:      BIGINT UNSIGNED AUTO_INCREMENT
   //   sqlite:     INTEGER (autoincrement alias)
   //   sqlserver:  BIGINT IDENTITY(1,1)
-  PRIMARY_KEY_TYPE_UUID = 2; // database-generated UUID
+  PRIMARY_KEY_TYPE_SERIAL = 1;
+  // database-generated UUID
   //   postgres:   UUID DEFAULT gen_random_uuid()
   //   mysql:      CHAR(36) DEFAULT (UUID())
   //   sqlite:     TEXT DEFAULT (lower(hex(randomblob(16))))
   //   sqlserver:  UNIQUEIDENTIFIER DEFAULT NEWID()
+  PRIMARY_KEY_TYPE_UUID = 2;
   // FK columns referencing a UUID table automatically
   // use the matching UUID column type.
 }

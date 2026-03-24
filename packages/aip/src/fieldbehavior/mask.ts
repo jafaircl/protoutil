@@ -7,14 +7,14 @@ import { hasAnyFieldBehavior } from "./fieldbehavior.js";
 const DEFAULT_MAX_DEPTH = 5;
 
 export interface FieldMaskFromBehaviorOptions {
-	/**
-	 * Maximum depth to recurse into nested message fields. When the limit is
-	 * reached the parent field path is included as-is, meaning the entire
-	 * subtree is kept without further behaviour filtering.
-	 *
-	 * @default 5
-	 */
-	maxDepth?: number;
+  /**
+   * Maximum depth to recurse into nested message fields. When the limit is
+   * reached the parent field path is included as-is, meaning the entire
+   * subtree is kept without further behaviour filtering.
+   *
+   * @default 5
+   */
+  maxDepth?: number;
 }
 
 /**
@@ -36,92 +36,92 @@ export interface FieldMaskFromBehaviorOptions {
  * @returns A validated {@link FieldMask} with excluded-behaviour fields removed.
  */
 export function fieldMaskFromBehavior(
-	schema: DescMessage,
-	exclude: FieldBehavior[],
-	opts?: FieldMaskFromBehaviorOptions,
+  schema: DescMessage,
+  exclude: FieldBehavior[],
+  opts?: FieldMaskFromBehaviorOptions,
 ): FieldMask {
-	const maxDepth = opts?.maxDepth ?? DEFAULT_MAX_DEPTH;
-	const paths: string[] = [];
-	collectPaths(schema, exclude, "", paths, maxDepth, 0, new Set());
-	return fieldMask(schema, paths, false);
+  const maxDepth = opts?.maxDepth ?? DEFAULT_MAX_DEPTH;
+  const paths: string[] = [];
+  collectPaths(schema, exclude, "", paths, maxDepth, 0, new Set());
+  return fieldMask(schema, paths, false);
 }
 
 function collectPaths(
-	schema: DescMessage,
-	exclude: FieldBehavior[],
-	prefix: string,
-	paths: string[],
-	maxDepth: number,
-	depth: number,
-	visited: Set<string>,
+  schema: DescMessage,
+  exclude: FieldBehavior[],
+  prefix: string,
+  paths: string[],
+  maxDepth: number,
+  depth: number,
+  visited: Set<string>,
 ): void {
-	for (const field of schema.fields) {
-		if (hasAnyFieldBehavior(field, exclude)) {
-			continue;
-		}
-		const path = prefix ? `${prefix}.${field.name}` : field.name;
-		switch (field.fieldKind) {
-			case "message": {
-				if (depth >= maxDepth || visited.has(field.message.typeName)) {
-					paths.push(path);
-				} else {
-					const nextVisited = new Set(visited);
-					nextVisited.add(schema.typeName);
-					collectPaths(field.message, exclude, path, paths, maxDepth, depth + 1, nextVisited);
-				}
-				break;
-			}
-			case "list": {
-				if (field.listKind === "message") {
-					const wildcardPath = `${path}.*`;
-					if (depth >= maxDepth || visited.has(field.message.typeName)) {
-						paths.push(path);
-					} else {
-						const nextVisited = new Set(visited);
-						nextVisited.add(schema.typeName);
-						collectPaths(
-							field.message,
-							exclude,
-							wildcardPath,
-							paths,
-							maxDepth,
-							depth + 1,
-							nextVisited,
-						);
-					}
-				} else {
-					paths.push(path);
-				}
-				break;
-			}
-			case "map": {
-				if (field.mapKind === "message") {
-					const wildcardPath = `${path}.*`;
-					if (depth >= maxDepth || visited.has(field.message.typeName)) {
-						paths.push(path);
-					} else {
-						const nextVisited = new Set(visited);
-						nextVisited.add(schema.typeName);
-						collectPaths(
-							field.message,
-							exclude,
-							wildcardPath,
-							paths,
-							maxDepth,
-							depth + 1,
-							nextVisited,
-						);
-					}
-				} else {
-					paths.push(path);
-				}
-				break;
-			}
-			default:
-				paths.push(path);
-				break;
-		}
-	}
+  for (const field of schema.fields) {
+    if (hasAnyFieldBehavior(field, exclude)) {
+      continue;
+    }
+    const path = prefix ? `${prefix}.${field.name}` : field.name;
+    switch (field.fieldKind) {
+      case "message": {
+        if (depth >= maxDepth || visited.has(field.message.typeName)) {
+          paths.push(path);
+        } else {
+          const nextVisited = new Set(visited);
+          nextVisited.add(schema.typeName);
+          collectPaths(field.message, exclude, path, paths, maxDepth, depth + 1, nextVisited);
+        }
+        break;
+      }
+      case "list": {
+        if (field.listKind === "message") {
+          const wildcardPath = `${path}.*`;
+          if (depth >= maxDepth || visited.has(field.message.typeName)) {
+            paths.push(path);
+          } else {
+            const nextVisited = new Set(visited);
+            nextVisited.add(schema.typeName);
+            collectPaths(
+              field.message,
+              exclude,
+              wildcardPath,
+              paths,
+              maxDepth,
+              depth + 1,
+              nextVisited,
+            );
+          }
+        } else {
+          paths.push(path);
+        }
+        break;
+      }
+      case "map": {
+        if (field.mapKind === "message") {
+          const wildcardPath = `${path}.*`;
+          if (depth >= maxDepth || visited.has(field.message.typeName)) {
+            paths.push(path);
+          } else {
+            const nextVisited = new Set(visited);
+            nextVisited.add(schema.typeName);
+            collectPaths(
+              field.message,
+              exclude,
+              wildcardPath,
+              paths,
+              maxDepth,
+              depth + 1,
+              nextVisited,
+            );
+          }
+        } else {
+          paths.push(path);
+        }
+        break;
+      }
+      default:
+        paths.push(path);
+        break;
+    }
+  }
 }
 
 /**
@@ -135,10 +135,10 @@ function collectPaths(
  * @param opts   Optional settings (e.g. maxDepth).
  */
 export function outputOnlyMask(
-	schema: DescMessage,
-	opts?: FieldMaskFromBehaviorOptions,
+  schema: DescMessage,
+  opts?: FieldMaskFromBehaviorOptions,
 ): FieldMask {
-	return fieldMaskFromBehavior(schema, [FieldBehavior.OUTPUT_ONLY], opts);
+  return fieldMaskFromBehavior(schema, [FieldBehavior.OUTPUT_ONLY], opts);
 }
 
 /**
@@ -151,11 +151,8 @@ export function outputOnlyMask(
  * @param schema The message descriptor to inspect.
  * @param opts   Optional settings (e.g. maxDepth).
  */
-export function inputOnlyMask(
-	schema: DescMessage,
-	opts?: FieldMaskFromBehaviorOptions,
-): FieldMask {
-	return fieldMaskFromBehavior(schema, [FieldBehavior.INPUT_ONLY], opts);
+export function inputOnlyMask(schema: DescMessage, opts?: FieldMaskFromBehaviorOptions): FieldMask {
+  return fieldMaskFromBehavior(schema, [FieldBehavior.INPUT_ONLY], opts);
 }
 
 /**
@@ -168,9 +165,6 @@ export function inputOnlyMask(
  * @param schema The message descriptor to inspect.
  * @param opts   Optional settings (e.g. maxDepth).
  */
-export function immutableMask(
-	schema: DescMessage,
-	opts?: FieldMaskFromBehaviorOptions,
-): FieldMask {
-	return fieldMaskFromBehavior(schema, [FieldBehavior.IMMUTABLE], opts);
+export function immutableMask(schema: DescMessage, opts?: FieldMaskFromBehaviorOptions): FieldMask {
+  return fieldMaskFromBehavior(schema, [FieldBehavior.IMMUTABLE], opts);
 }

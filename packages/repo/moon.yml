@@ -1,0 +1,46 @@
+language: 'javascript'
+
+tasks:
+  protogen:
+    command: 'pnpm run protogen'
+    inputs:
+    - 'proto/**/*'
+    - 'buf.yaml'
+    - 'buf.gen.yaml'
+    outputs:
+    - 'src/gen'
+  typecheck:
+    command: 'pnpm run typecheck'
+    dependsOn:
+    - protogen
+    inputs:
+    - '@globs(sources)'
+    - 'tsconfig.json'
+  services-up:
+    command: 'docker compose up -d --wait'
+    inputs:
+    - 'docker-compose.yml'
+  services-down:
+    command: 'docker compose down'
+  test:
+    command: 'pnpm run test'
+    dependsOn:
+    - typecheck
+    - check
+    - services-up
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+  build:
+    command: 'pnpm run build'
+    dependsOn:
+    - test
+    inputs:
+    - '@globs(sources)'
+    - 'tsdown.config.ts'
+    outputs:
+    - 'dist'
+  pack:
+    command: 'pnpm pack'
+    dependsOn:
+    - build
