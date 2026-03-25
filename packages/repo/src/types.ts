@@ -7,6 +7,174 @@ import type { Engine } from "./engine.js";
 /** A filter string (AIP-160) or a partial resource used to query the database. */
 export type QueryInput<Desc extends DescMessage> = string | Partial<MessageShape<Desc>>;
 
+/**
+ * Per-field configuration for database column behavior.
+ *
+ * Keys in the `columns` record are proto field names (snake_case).
+ *
+ * ```ts
+ * const repo = createRepository(UserSchema, {
+ *   engine,
+ *   columns: {
+ *     uid: { name: "user_id" },
+ *     computed_score: { ignore: true },
+ *     settings: { serialize: "json" },
+ *     create_time: { timestamp: "create" },
+ *     update_time: { timestamp: "update" },
+ *   },
+ * });
+ * ```
+ */
+export interface ColumnConfig {
+  /**
+   * Override the database column name for this field. Defaults to
+   * the field's JSON name (camelCase).
+   *
+   * ```ts
+   * { name: "user_id" }  // proto field "uid" → DB column "user_id"
+   * ```
+   */
+  name?: string;
+
+  /**
+   * When `true`, the field is excluded from database serialization
+   * entirely. On reads, the field will have its proto3 default value.
+   *
+   * Useful for fields that exist in the proto schema but have no
+   * corresponding database column (e.g. computed or virtual fields).
+   */
+  ignore?: boolean;
+
+  /**
+   * Serialize nested messages or repeated fields for storage in a
+   * single database column.
+   *
+   * - `"json"` — uses `toJsonString` / `fromJsonString` from
+   *   `@bufbuild/protobuf` for human-readable JSON storage.
+   * - `"binary"` — uses `toBinary` / `fromBinary` from
+   *   `@bufbuild/protobuf` for compact binary storage.
+   */
+  serialize?: "json" | "binary";
+
+  /**
+   * Auto-populate this `google.protobuf.Timestamp` field on the
+   * specified lifecycle event using `timestampNow()`.
+   *
+   * - `"create"` — set on `create` and `batchCreate` only.
+   * - `"update"` — set on `create`, `batchCreate`, `update`, and
+   *   `batchUpdate`.
+   */
+  timestamp?: "create" | "update";
+}
+
+/** Base fields shared by every {@link InterceptorContext} variant. */
+interface InterceptorContextBase<Desc extends DescMessage> {
+  /** The proto schema this repository manages. */
+  schema: Desc;
+  /** The database table or collection name. */
+  tableName: string;
+}
+
+/**
+ * Context passed to each {@link Interceptor} in the chain.
+ *
+ * This is a discriminated union keyed on `operation`. Narrowing on
+ * `ctx.operation` gives access to the operation-specific fields
+ * (`query`, `resource`, `options`, etc.).
+ */
+export type InterceptorContext<Desc extends DescMessage> =
+  | (InterceptorContextBase<Desc> & {
+      operation: "get";
+      query: QueryInput<Desc>;
+      options?: GetOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "create";
+      resource: MessageInitShape<Desc>;
+      options?: CreateOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "list";
+      query?: QueryInput<Desc>;
+      options?: ListOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "update";
+      query: QueryInput<Desc>;
+      resource: MessageInitShape<Desc>;
+      options?: UpdateOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "delete";
+      query: QueryInput<Desc>;
+      options?: DeleteOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "count";
+      query?: QueryInput<Desc>;
+      options?: CountOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "batchGet";
+      queries: QueryInput<Desc>[];
+      options?: BatchGetOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "batchCreate";
+      resources: MessageInitShape<Desc>[];
+      options?: BatchCreateOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "batchUpdate";
+      updates: BatchUpdateItem<Desc>[];
+      options?: BatchUpdateOptions;
+    })
+  | (InterceptorContextBase<Desc> & {
+      operation: "batchDelete";
+      queries: QueryInput<Desc>[];
+      options?: BatchDeleteOptions;
+    });
+
+/**
+ * The inner function that an {@link Interceptor} wraps.
+ */
+export type InterceptorFn<Desc extends DescMessage> = (
+  ctx: InterceptorContext<Desc>,
+) => Promise<unknown>;
+
+/**
+ * A connectrpc-style interceptor for repository operations.
+ *
+ * Interceptors form a middleware chain around every repository method.
+ * Each interceptor receives a `next` function and returns a new function
+ * that can run logic before and/or after calling `next`.
+ *
+ * ```ts
+ * const logger: Interceptor<any> = (next) => async (ctx) => {
+ *   const start = performance.now();
+ *   try {
+ *     const result = await next(ctx);
+ *     console.log(`${ctx.operation}: ${performance.now() - start}ms`);
+ *     return result;
+ *   } catch (err) {
+ *     console.error(`${ctx.operation} failed:`, err);
+ *     throw err;
+ *   }
+ * };
+ *
+ * // Narrowing on operation:
+ * const auditor: Interceptor<any> = (next) => async (ctx) => {
+ *   if (ctx.operation === "create") {
+ *     console.log("Creating resource:", ctx.resource);
+ *   }
+ *   return next(ctx);
+ * };
+ * ```
+ */
+export type Interceptor<Desc extends DescMessage> = (
+  next: InterceptorFn<Desc>,
+) => InterceptorFn<Desc>;
+
 export interface RepositoryOptions<Desc extends DescMessage> {
   /** The database engine to use. */
   engine: Engine;
@@ -19,54 +187,19 @@ export interface RepositoryOptions<Desc extends DescMessage> {
   tableName?: string;
 
   /**
-   * Map proto field names (snake_case) to database column names.
-   * Keys are proto field names, values are database column names.
+   * Per-field column configuration. Keys are proto field names
+   * (snake_case). See {@link ColumnConfig} for available options.
    *
    * ```ts
-   * { uid: "user_id", display_name: "name" }
+   * columns: {
+   *   uid: { name: "user_id" },
+   *   display_name: { name: "name" },
+   *   settings: { serialize: "json" },
+   *   create_time: { timestamp: "create" },
+   * }
    * ```
    */
-  columnMap?: Record<string, string>;
-
-  /**
-   * The proto field name (snake_case) of the etag field. When set, the
-   * repository will compute and store an etag on create and update
-   * operations. Defaults to `"etag"`.
-   */
-  etagField?: string;
-
-  /**
-   * A {@link FieldMask} applied to the resource before calculating its
-   * etag. Useful for excluding fields like `update_time` that change
-   * on every write but don't represent a semantic change.
-   */
-  etagMask?: FieldMask;
-
-  /**
-   * Custom etag generation function. Defaults to the `etag` function
-   * from `@protoutil/aip/etag`.
-   */
-  etag?: (schema: Desc, msg: MessageShape<Desc>) => string;
-
-  /**
-   * Default {@link FieldMask} applied to read operations (get, list).
-   * Per-call `readMask` options override this. Defaults to `"*"` (all
-   * fields).
-   */
-  defaultReadMask?: FieldMask;
-
-  /**
-   * Default {@link FieldMask} applied to update operations.
-   * Per-call `updateMask` options override this. Defaults to `"*"` (all
-   * fields).
-   */
-  defaultUpdateMask?: FieldMask;
-
-  /** Default page size for list operations. Defaults to 30. */
-  defaultPageSize?: number;
-
-  /** Maximum page size for list operations. Defaults to 100. */
-  maxPageSize?: number;
+  columns?: Record<string, ColumnConfig>;
 
   /**
    * Additional AIP-160 filter declarations merged with the auto-generated
@@ -74,12 +207,96 @@ export interface RepositoryOptions<Desc extends DescMessage> {
    * functions (e.g. `ago()`) or additional identifiers.
    */
   filterDecls?: Decl[];
+
+  /**
+   * Interceptors applied to every repository operation. Forms a
+   * middleware chain in array order (first interceptor is outermost).
+   * See {@link Interceptor} for the function signature.
+   *
+   * ```ts
+   * interceptors: [loggingInterceptor, otelInterceptor]
+   * ```
+   */
+  interceptors?: Interceptor<Desc>[];
+
+  /**
+   * Etag configuration. When the proto schema has an etag field,
+   * the repository computes and stores etags on create and update.
+   *
+   * ```ts
+   * etag: {
+   *   field: "etag",
+   *   mask: fieldMask(MySchema, ["update_time"]),
+   *   fn: (schema, msg) => customEtag(schema, msg),
+   * }
+   * ```
+   */
+  etag?: {
+    /**
+     * Proto field name (snake_case) of the etag field. Defaults to
+     * `"etag"`.
+     */
+    field?: string;
+
+    /**
+     * A {@link FieldMask} applied to the resource before calculating
+     * its etag. Useful for excluding fields like `update_time` that
+     * change on every write but don't represent a semantic change.
+     */
+    mask?: FieldMask;
+
+    /**
+     * Custom etag generation function. Defaults to the `etag`
+     * function from `@protoutil/aip/etag`.
+     */
+    fn?: (schema: Desc, msg: MessageShape<Desc>) => string;
+  };
+
+  /**
+   * Pagination defaults for list operations.
+   *
+   * ```ts
+   * pagination: { defaultSize: 25, maxSize: 200 }
+   * ```
+   */
+  pagination?: {
+    /** Default number of results per page. Defaults to 30. */
+    defaultSize?: number;
+
+    /** Maximum allowed page size. Defaults to 100. */
+    maxSize?: number;
+  };
+
+  /**
+   * Default field masks applied to operations when no per-call mask
+   * is provided.
+   *
+   * ```ts
+   * fieldMasks: {
+   *   read: fieldMask(MySchema, ["uid", "display_name", "email"]),
+   *   update: fieldMask(MySchema, ["display_name", "email"]),
+   * }
+   * ```
+   */
+  fieldMasks?: {
+    /**
+     * Default {@link FieldMask} for read operations (get, list).
+     * Per-call `readMask` overrides this. Defaults to `"*"` (all fields).
+     */
+    read?: FieldMask;
+
+    /**
+     * Default {@link FieldMask} for update operations.
+     * Per-call `updateMask` overrides this. Defaults to `"*"` (all fields).
+     */
+    update?: FieldMask;
+  };
 }
 
 export interface GetOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned. Overrides
-   * the repository's `defaultReadMask`. Defaults to `"*"`.
+   * the repository's default read mask. Defaults to `"*"`.
    */
   readMask?: FieldMask;
 
@@ -90,7 +307,7 @@ export interface GetOptions {
 export interface CreateOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned on the
-   * created resource. Overrides the repository's `defaultReadMask`.
+   * created resource. Overrides the repository's default read mask.
    * Defaults to `"*"`.
    */
   readMask?: FieldMask;
@@ -111,7 +328,7 @@ export interface CreateOptions {
 export interface ListOptions {
   /**
    * Maximum number of results to return per page. Clamped to the
-   * repository's `maxPageSize`. Defaults to `defaultPageSize`.
+   * repository's `maxSize`. Defaults to `defaultSize`.
    */
   pageSize?: number;
 
@@ -136,7 +353,7 @@ export interface ListOptions {
 
   /**
    * A {@link FieldMask} controlling which fields are returned.
-   * Overrides the repository's `defaultReadMask`. Defaults to `"*"`.
+   * Overrides the repository's default read mask. Defaults to `"*"`.
    */
   readMask?: FieldMask;
 
@@ -148,13 +365,13 @@ export interface UpdateOptions {
   /**
    * A {@link FieldMask} controlling which fields from the input are
    * applied to the existing resource. Overrides the repository's
-   * `defaultUpdateMask`. Defaults to `"*"` (all non-OUTPUT_ONLY fields).
+   * default update mask. Defaults to `"*"` (all non-OUTPUT_ONLY fields).
    */
   updateMask?: FieldMask;
 
   /**
    * A {@link FieldMask} controlling which fields are returned.
-   * Overrides the repository's `defaultReadMask`. Defaults to `"*"`.
+   * Overrides the repository's default read mask. Defaults to `"*"`.
    */
   readMask?: FieldMask;
 
@@ -192,7 +409,7 @@ export interface CountOptions {
 export interface BatchGetOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned. Overrides
-   * the repository's `defaultReadMask`. Defaults to `"*"`.
+   * the repository's default read mask. Defaults to `"*"`.
    */
   readMask?: FieldMask;
 
@@ -208,7 +425,7 @@ export interface BatchGetOptions {
 export interface BatchCreateOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned on the
-   * created resources. Overrides the repository's `defaultReadMask`.
+   * created resources. Overrides the repository's default read mask.
    * Defaults to `"*"`.
    */
   readMask?: FieldMask;
@@ -241,7 +458,7 @@ export interface BatchUpdateItem<Desc extends DescMessage> {
   /**
    * A {@link FieldMask} controlling which fields from the input are
    * applied to the existing resource. Overrides the repository's
-   * `defaultUpdateMask`. Defaults to `"*"` (all non-OUTPUT_ONLY fields).
+   * default update mask. Defaults to `"*"` (all non-OUTPUT_ONLY fields).
    */
   updateMask?: FieldMask;
 }
@@ -249,7 +466,7 @@ export interface BatchUpdateItem<Desc extends DescMessage> {
 export interface BatchUpdateOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned.
-   * Overrides the repository's `defaultReadMask`. Defaults to `"*"`.
+   * Overrides the repository's default read mask. Defaults to `"*"`.
    */
   readMask?: FieldMask;
 

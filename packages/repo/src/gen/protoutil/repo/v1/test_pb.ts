@@ -5,13 +5,15 @@
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import { file_google_api_field_behavior } from "../../../google/api/field_behavior_pb.js";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file protoutil/repo/v1/test.proto.
  */
 export const file_protoutil_repo_v1_test: GenFile = /*@__PURE__*/
-  fileDesc("Chxwcm90b3V0aWwvcmVwby92MS90ZXN0LnByb3RvEhFwcm90b3V0aWwucmVwby52MSKpAQoIVGVzdFVzZXISEAoDdWlkGAEgASgJQgPgQQgSFAoMZGlzcGxheV9uYW1lGAIgASgJEhIKBWVtYWlsGAMgASgJQgPgQQISCwoDYWdlGAQgASgFEg4KBmFjdGl2ZRgFIAEoCBIRCgRldGFnGAYgASgJQgPgQQMSEwoGc2VjcmV0GAcgASgJQgPgQQQSHAoPaW1tdXRhYmxlX2ZpZWxkGAggASgJQgPgQQViBnByb3RvMw", [file_google_api_field_behavior]);
+  fileDesc("Chxwcm90b3V0aWwvcmVwby92MS90ZXN0LnByb3RvEhFwcm90b3V0aWwucmVwby52MSKTAwoIVGVzdFVzZXISEAoDdWlkGAEgASgJQgPgQQgSFAoMZGlzcGxheV9uYW1lGAIgASgJEhIKBWVtYWlsGAMgASgJQgPgQQISCwoDYWdlGAQgASgFEg4KBmFjdGl2ZRgFIAEoCBIRCgRldGFnGAYgASgJQgPgQQMSEwoGc2VjcmV0GAcgASgJQgPgQQQSHAoPaW1tdXRhYmxlX2ZpZWxkGAggASgJQgPgQQUSNwoLY3JlYXRlX3RpbWUYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQgbgQQPgQQUSNAoLdXBkYXRlX3RpbWUYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQgPgQQMSNAoLZGVsZXRlX3RpbWUYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQgPgQQMSNQoIc2V0dGluZ3MYDCABKAsyIy5wcm90b3V0aWwucmVwby52MS5UZXN0VXNlclNldHRpbmdzEgwKBHRhZ3MYDSADKAkiUgoQVGVzdFVzZXJTZXR0aW5ncxINCgV0aGVtZRgBIAEoCRIdChVub3RpZmljYXRpb25zX2VuYWJsZWQYAiABKAgSEAoIbGFuZ3VhZ2UYAyABKAliBnByb3RvMw", [file_google_api_field_behavior, file_google_protobuf_timestamp]);
 
 /**
  * @generated from message protoutil.repo.v1.TestUser
@@ -56,6 +58,31 @@ export type TestUser = Message<"protoutil.repo.v1.TestUser"> & {
    * @generated from field: string immutable_field = 8;
    */
   immutableField: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp create_time = 9;
+   */
+  createTime?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp update_time = 10;
+   */
+  updateTime?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp delete_time = 11;
+   */
+  deleteTime?: Timestamp;
+
+  /**
+   * @generated from field: protoutil.repo.v1.TestUserSettings settings = 12;
+   */
+  settings?: TestUserSettings;
+
+  /**
+   * @generated from field: repeated string tags = 13;
+   */
+  tags: string[];
 };
 
 /**
@@ -64,4 +91,31 @@ export type TestUser = Message<"protoutil.repo.v1.TestUser"> & {
  */
 export const TestUserSchema: GenMessage<TestUser> = /*@__PURE__*/
   messageDesc(file_protoutil_repo_v1_test, 0);
+
+/**
+ * @generated from message protoutil.repo.v1.TestUserSettings
+ */
+export type TestUserSettings = Message<"protoutil.repo.v1.TestUserSettings"> & {
+  /**
+   * @generated from field: string theme = 1;
+   */
+  theme: string;
+
+  /**
+   * @generated from field: bool notifications_enabled = 2;
+   */
+  notificationsEnabled: boolean;
+
+  /**
+   * @generated from field: string language = 3;
+   */
+  language: string;
+};
+
+/**
+ * Describes the message protoutil.repo.v1.TestUserSettings.
+ * Use `create(TestUserSettingsSchema)` to create a new message.
+ */
+export const TestUserSettingsSchema: GenMessage<TestUserSettings> = /*@__PURE__*/
+  messageDesc(file_protoutil_repo_v1_test, 1);
 

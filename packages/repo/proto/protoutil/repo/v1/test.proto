@@ -3,6 +3,7 @@ syntax = "proto3";
 package protoutil.repo.v1;
 
 import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
 
 message TestUser {
   string uid = 1 [(google.api.field_behavior) = IDENTIFIER];
@@ -20,4 +21,23 @@ message TestUser {
   string secret = 7 [(google.api.field_behavior) = INPUT_ONLY];
 
   string immutable_field = 8 [(google.api.field_behavior) = IMMUTABLE];
+
+  google.protobuf.Timestamp create_time = 9 [
+    (google.api.field_behavior) = OUTPUT_ONLY,
+    (google.api.field_behavior) = IMMUTABLE
+  ];
+
+  google.protobuf.Timestamp update_time = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  google.protobuf.Timestamp delete_time = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  TestUserSettings settings = 12;
+
+  repeated string tags = 13;
+}
+
+message TestUserSettings {
+  string theme = 1;
+  bool notifications_enabled = 2;
+  string language = 3;
 }

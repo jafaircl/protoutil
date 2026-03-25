@@ -235,15 +235,15 @@ describe("createSQLiteEngine", () => {
     });
 
     it("should reject non-integer limit", async () => {
-      await expect(
-        engine.findMany({ table: "users", limit: 1.5 }),
-      ).rejects.toThrow(InvalidArgumentError);
+      await expect(engine.findMany({ table: "users", limit: 1.5 })).rejects.toThrow(
+        InvalidArgumentError,
+      );
     });
 
     it("should reject negative limit", async () => {
-      await expect(
-        engine.findMany({ table: "users", limit: -1 }),
-      ).rejects.toThrow(InvalidArgumentError);
+      await expect(engine.findMany({ table: "users", limit: -1 })).rejects.toThrow(
+        InvalidArgumentError,
+      );
     });
 
     it("should reject non-number limit", async () => {
@@ -253,15 +253,15 @@ describe("createSQLiteEngine", () => {
     });
 
     it("should reject non-integer offset", async () => {
-      await expect(
-        engine.findMany({ table: "users", offset: 2.7 }),
-      ).rejects.toThrow(InvalidArgumentError);
+      await expect(engine.findMany({ table: "users", offset: 2.7 })).rejects.toThrow(
+        InvalidArgumentError,
+      );
     });
 
     it("should reject negative offset", async () => {
-      await expect(
-        engine.findMany({ table: "users", offset: -3 }),
-      ).rejects.toThrow(InvalidArgumentError);
+      await expect(engine.findMany({ table: "users", offset: -3 })).rejects.toThrow(
+        InvalidArgumentError,
+      );
     });
 
     it("should reject non-number offset", async () => {

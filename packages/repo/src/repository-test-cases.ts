@@ -10,7 +10,7 @@ import type {
   RepositoryTestContext,
   UserSeed,
 } from "./repository-test-backends.js";
-import type { RepositoryOptions } from "./types.js";
+import type { Interceptor, RepositoryOptions } from "./types.js";
 
 export type RepositoryCase = {
   name: string;
@@ -33,13 +33,13 @@ const EXTRA_USERS: UserSeed[] = [
   { uid: "u5", displayName: "Eve", email: "eve@test.com", age: 28, active: true },
 ];
 
-const COLUMN_MAP = {
-  uid: "user_id",
-  display_name: "name",
-  email: "email_addr",
-  age: "user_age",
-  active: "is_active",
-  immutable_field: "immutable",
+const COLUMNS = {
+  uid: { name: "user_id" },
+  display_name: { name: "name" },
+  email: { name: "email_addr" },
+  age: { name: "user_age" },
+  active: { name: "is_active" },
+  immutable_field: { name: "immutable" },
 } as const;
 
 const MAPPED_USER: MappedUserSeed = {
@@ -132,21 +132,21 @@ export const groups: RepositoryCaseGroup[] = [
       {
         name: "should use defaultReadMask when no per-call readMask",
         async run(ctx) {
-          const defaultReadMask = fieldMask(TestUserSchema, ["uid", "email"]);
-          const user = await repo(ctx, { defaultReadMask }).get({ uid: "u1" });
+          const readMask = fieldMask(TestUserSchema, ["uid", "email"]);
+          const user = await repo(ctx, { fieldMasks: { read: readMask } }).get({ uid: "u1" });
           expect(user.uid).toBe("u1");
           expect(user.email).toBe("alice@test.com");
           expect(user.displayName).toBe("");
         },
       },
       {
-        name: "should support columnMap for remapping field names",
+        name: "should support columns name mapping for remapping field names",
         async run(ctx) {
           await ctx.setupMappedUsers(REPO_MAPPED_USERS_TABLE, [MAPPED_USER]);
           const user = await createRepository(TestUserSchema, {
             engine: ctx.engine,
             tableName: REPO_MAPPED_USERS_TABLE,
-            columnMap: COLUMN_MAP,
+            columns: COLUMNS,
           }).get('uid = "u1"');
           expect(user.uid).toBe("u1");
           expect(user.displayName).toBe("Alice");
@@ -161,7 +161,7 @@ export const groups: RepositoryCaseGroup[] = [
           const user = await createRepository(TestUserSchema, {
             engine: ctx.engine,
             tableName: REPO_MAPPED_USERS_TABLE,
-            columnMap: COLUMN_MAP,
+            columns: COLUMNS,
             filterDecls: [ident("name", STRING)],
           }).get('name = "Alice"');
           expect(user.uid).toBe("u1");
@@ -228,7 +228,7 @@ export const groups: RepositoryCaseGroup[] = [
       {
         name: "should use a custom etag function when provided",
         async run(ctx) {
-          const user = await repo(ctx, { etag: () => "custom-etag-value" }).create({
+          const user = await repo(ctx, { etag: { fn: () => "custom-etag-value" } }).create({
             uid: "u3",
             email: "charlie@test.com",
           });
@@ -238,8 +238,8 @@ export const groups: RepositoryCaseGroup[] = [
       {
         name: "should support etagMask when computing an etag",
         async run(ctx) {
-          const etagMask = fieldMask(TestUserSchema, ["uid", "email"]);
-          const maskedRepo = repo(ctx, { etagMask });
+          const mask = fieldMask(TestUserSchema, ["uid", "email"]);
+          const maskedRepo = repo(ctx, { etag: { mask } });
 
           const user1 = await maskedRepo.create(
             { uid: "u3", displayName: "Charlie", email: "charlie@test.com" },
@@ -257,13 +257,13 @@ export const groups: RepositoryCaseGroup[] = [
       {
         name: "should support a custom etagField",
         async run(ctx) {
-          const user = await repo(ctx, { etagField: "secret" }).create({
+          const user = await repo(ctx, { etag: { field: "secret" } }).create({
             uid: "u3",
             email: "charlie@test.com",
           });
           expect(user.secret).toBeTruthy();
           expect(user.etag).toBe("");
-          expect((await repo(ctx, { etagField: "secret" }).get({ uid: "u3" })).secret).toBe(
+          expect((await repo(ctx, { etag: { field: "secret" } }).get({ uid: "u3" })).secret).toBe(
             user.secret,
           );
         },
@@ -347,13 +347,13 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
-        name: "should support columnMap on create",
+        name: "should support columns name mapping on create",
         async run(ctx) {
           await ctx.setupMappedUsers(REPO_MAPPED_USERS_TABLE);
           const mappedRepo = createRepository(TestUserSchema, {
             engine: ctx.engine,
             tableName: REPO_MAPPED_USERS_TABLE,
-            columnMap: COLUMN_MAP,
+            columns: COLUMNS,
           });
           const user = await mappedRepo.create({
             uid: "u3",
@@ -453,7 +453,9 @@ export const groups: RepositoryCaseGroup[] = [
         name: "should clamp pageSize to maxPageSize",
         async run(ctx) {
           await ctx.insertUsers(EXTRA_USERS);
-          const result = await repo(ctx, { maxPageSize: 3 }).list(undefined, { pageSize: 100 });
+          const result = await repo(ctx, { pagination: { maxSize: 3 } }).list(undefined, {
+            pageSize: 100,
+          });
           expect(result.results).toHaveLength(3);
           expect(result.nextPageToken).not.toBe("");
         },
@@ -462,7 +464,7 @@ export const groups: RepositoryCaseGroup[] = [
         name: "should use defaultPageSize when not specified",
         async run(ctx) {
           await ctx.insertUsers(EXTRA_USERS);
-          const result = await repo(ctx, { defaultPageSize: 2 }).list();
+          const result = await repo(ctx, { pagination: { defaultSize: 2 } }).list();
           expect(result.results).toHaveLength(2);
           expect(result.nextPageToken).not.toBe("");
         },
@@ -500,7 +502,7 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
-        name: "should support columnMap on list",
+        name: "should support columns name mapping on list",
         async run(ctx) {
           await ctx.setupMappedUsers(REPO_MAPPED_USERS_TABLE, [
             MAPPED_USER,
@@ -515,7 +517,7 @@ export const groups: RepositoryCaseGroup[] = [
           const mappedRepo = createRepository(TestUserSchema, {
             engine: ctx.engine,
             tableName: REPO_MAPPED_USERS_TABLE,
-            columnMap: COLUMN_MAP,
+            columns: COLUMNS,
           });
           const result = await mappedRepo.list(undefined, { orderBy: "display_name desc" });
           expect(result.results.map((r) => r.displayName)).toEqual(["Bob", "Alice"]);
@@ -630,7 +632,7 @@ export const groups: RepositoryCaseGroup[] = [
         name: "should use defaultUpdateMask when not specified",
         async run(ctx) {
           const mask = fieldMask(TestUserSchema, ["display_name"]);
-          const user = await repo(ctx, { defaultUpdateMask: mask }).update(
+          const user = await repo(ctx, { fieldMasks: { update: mask } }).update(
             { uid: "u1" },
             { displayName: "Default Mask", age: 99, email: "new@test.com" },
           );
@@ -711,13 +713,13 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
-        name: "should support columnMap",
+        name: "should support columns name mapping",
         async run(ctx) {
           await ctx.setupMappedUsers(REPO_MAPPED_USERS_TABLE_2, [MAPPED_USER]);
           const mappedRepo = createRepository(TestUserSchema, {
             engine: ctx.engine,
             tableName: REPO_MAPPED_USERS_TABLE_2,
-            columnMap: COLUMN_MAP,
+            columns: COLUMNS,
           });
           const user = await mappedRepo.update(
             { uid: "u1" },
@@ -730,7 +732,7 @@ export const groups: RepositoryCaseGroup[] = [
       {
         name: "should use a custom etag function on update",
         async run(ctx) {
-          const user = await repo(ctx, { etag: () => "custom-update-etag" }).update(
+          const user = await repo(ctx, { etag: { fn: () => "custom-update-etag" } }).update(
             { uid: "u1" },
             { displayName: "Alice Updated", email: "alice@test.com" },
           );
@@ -741,7 +743,7 @@ export const groups: RepositoryCaseGroup[] = [
       {
         name: "should support a custom etagField on update",
         async run(ctx) {
-          const customRepo = repo(ctx, { etagField: "secret" });
+          const customRepo = repo(ctx, { etag: { field: "secret" } });
           const created = await customRepo.create({ uid: "u3", email: "charlie@test.com" });
           const updated = await customRepo.update(
             { uid: "u3" },
@@ -796,13 +798,13 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
-        name: "should support columnMap",
+        name: "should support columns name mapping",
         async run(ctx) {
           await ctx.setupMappedUsers(REPO_MAPPED_USERS_TABLE, [MAPPED_USER]);
           const mappedRepo = createRepository(TestUserSchema, {
             engine: ctx.engine,
             tableName: REPO_MAPPED_USERS_TABLE,
-            columnMap: COLUMN_MAP,
+            columns: COLUMNS,
           });
           await mappedRepo.delete({ uid: "u1" });
           await expect(mappedRepo.get({ uid: "u1" })).rejects.toThrow(NotFoundError);
@@ -850,7 +852,7 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
-        name: "should support columnMap",
+        name: "should support columns name mapping",
         async run(ctx) {
           await ctx.setupMappedUsers(REPO_MAPPED_USERS_TABLE, [
             MAPPED_USER,
@@ -865,7 +867,7 @@ export const groups: RepositoryCaseGroup[] = [
           const mappedRepo = createRepository(TestUserSchema, {
             engine: ctx.engine,
             tableName: REPO_MAPPED_USERS_TABLE,
-            columnMap: COLUMN_MAP,
+            columns: COLUMNS,
           });
           expect(await mappedRepo.count("age >= 30")).toBe(1);
         },
@@ -1350,6 +1352,355 @@ export const groups: RepositoryCaseGroup[] = [
           ).rejects.toThrow("force rollback");
           // Should still exist after rollback
           expect((await repo(ctx).get({ uid: "u1" })).uid).toBe("u1");
+        },
+      },
+    ],
+  },
+  {
+    group: "columns: ignore",
+    cases: [
+      {
+        name: "should not include ignored fields in serialized rows",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: { secret: { ignore: true } },
+          });
+          await r.create({ uid: "ig1", email: "ig@test.com", secret: "hidden" });
+          // The ignored field should get proto3 default on read-back
+          const fetched = await r.get({ uid: "ig1" });
+          expect(fetched.secret).toBe("");
+          expect(fetched.uid).toBe("ig1");
+          expect(fetched.email).toBe("ig@test.com");
+        },
+      },
+      {
+        name: "should work with update on ignored fields",
+        async run(ctx) {
+          const r = repo(ctx, {
+            columns: { secret: { ignore: true } },
+          });
+          await r.create({ uid: "ig2", email: "ig2@test.com" });
+          const updated = await r.update(
+            { uid: "ig2" },
+            { displayName: "Updated", email: "ig2@test.com" },
+          );
+          expect(updated.displayName).toBe("Updated");
+          expect(updated.secret).toBe("");
+        },
+      },
+      {
+        name: "should work with list on ignored fields",
+        async run(ctx) {
+          const r = repo(ctx, {
+            columns: { secret: { ignore: true } },
+          });
+          await r.create({ uid: "ig3", email: "ig3@test.com", secret: "hidden" });
+          const { results } = await r.list();
+          expect(results.length).toBeGreaterThanOrEqual(1);
+          const found = results.find((u) => u.uid === "ig3");
+          expect(found).toBeDefined();
+          expect(found!.secret).toBe("");
+        },
+      },
+    ],
+  },
+  {
+    group: "columns: serialize",
+    cases: [
+      {
+        name: "should JSON-serialize nested message fields on write and read",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: { settings: { serialize: "json" } },
+          });
+          const created = await r.create({
+            uid: "ser1",
+            email: "ser@test.com",
+            settings: { theme: "dark", notificationsEnabled: true, language: "en" },
+          });
+          expect(created.settings).toBeDefined();
+          expect(created.settings!.theme).toBe("dark");
+          expect(created.settings!.notificationsEnabled).toBe(true);
+          expect(created.settings!.language).toBe("en");
+
+          // Read back
+          const fetched = await r.get({ uid: "ser1" });
+          expect(fetched.settings!.theme).toBe("dark");
+          expect(fetched.settings!.notificationsEnabled).toBe(true);
+          expect(fetched.settings!.language).toBe("en");
+        },
+      },
+      {
+        name: "should handle null nested message with serialize json",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: { settings: { serialize: "json" } },
+          });
+          await r.create({ uid: "ser2", email: "ser2@test.com" });
+          const fetched = await r.get({ uid: "ser2" });
+          expect(fetched.settings).toBeUndefined();
+        },
+      },
+      {
+        name: "should update nested message with serialize json",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: { settings: { serialize: "json" } },
+          });
+          await r.create({
+            uid: "ser3",
+            email: "ser3@test.com",
+            settings: { theme: "light", notificationsEnabled: false, language: "en" },
+          });
+          const updated = await r.update(
+            { uid: "ser3" },
+            {
+              email: "ser3@test.com",
+              settings: { theme: "dark", notificationsEnabled: true, language: "fr" },
+            },
+          );
+          expect(updated.settings!.theme).toBe("dark");
+          expect(updated.settings!.notificationsEnabled).toBe(true);
+          expect(updated.settings!.language).toBe("fr");
+        },
+      },
+    ],
+  },
+  {
+    group: "timestamp auto-population",
+    cases: [
+      {
+        name: "should set create_time on create",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: {
+              create_time: { timestamp: "create" },
+              update_time: { timestamp: "update" },
+            },
+          });
+          const before = Date.now();
+          const created = await r.create({ uid: "ts1", email: "ts@test.com" });
+          const after = Date.now();
+
+          expect(created.createTime).toBeDefined();
+          const createMs = Number(created.createTime!.seconds) * 1000;
+          expect(createMs).toBeGreaterThanOrEqual(before - 1000);
+          expect(createMs).toBeLessThanOrEqual(after + 1000);
+        },
+      },
+      {
+        name: "should set update_time on both create and update",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: {
+              create_time: { timestamp: "create" },
+              update_time: { timestamp: "update" },
+            },
+          });
+          const created = await r.create({ uid: "ts2", email: "ts2@test.com" });
+          expect(created.updateTime).toBeDefined();
+
+          // Wait a tiny bit to ensure different timestamps
+          await new Promise((resolve) => setTimeout(resolve, 10));
+
+          const updated = await r.update(
+            { uid: "ts2" },
+            { displayName: "Updated", email: "ts2@test.com" },
+          );
+          expect(updated.updateTime).toBeDefined();
+          // update_time should be >= create_time
+          expect(updated.updateTime!.seconds).toBeGreaterThanOrEqual(created.updateTime!.seconds);
+        },
+      },
+      {
+        name: "should not modify create_time on update",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: {
+              create_time: { timestamp: "create" },
+              update_time: { timestamp: "update" },
+            },
+          });
+          const created = await r.create({ uid: "ts3", email: "ts3@test.com" });
+          const createTimeSeconds = created.createTime!.seconds;
+
+          const updated = await r.update(
+            { uid: "ts3" },
+            { displayName: "Updated", email: "ts3@test.com" },
+          );
+          expect(updated.createTime!.seconds).toBe(createTimeSeconds);
+        },
+      },
+      {
+        name: "should set create timestamps on batchCreate",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: {
+              create_time: { timestamp: "create" },
+              update_time: { timestamp: "update" },
+            },
+          });
+          const results = await r.batchCreate([
+            { uid: "ts4", email: "ts4@test.com" },
+            { uid: "ts5", email: "ts5@test.com" },
+          ]);
+          for (const result of results) {
+            expect(result.createTime).toBeDefined();
+            expect(result.updateTime).toBeDefined();
+          }
+        },
+      },
+      {
+        name: "should set update timestamps on batchUpdate",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: {
+              create_time: { timestamp: "create" },
+              update_time: { timestamp: "update" },
+            },
+          });
+          await r.batchCreate([
+            { uid: "ts6", email: "ts6@test.com" },
+            { uid: "ts7", email: "ts7@test.com" },
+          ]);
+
+          const results = await r.batchUpdate([
+            { query: { uid: "ts6" }, resource: { displayName: "Six", email: "ts6@test.com" } },
+            { query: { uid: "ts7" }, resource: { displayName: "Seven", email: "ts7@test.com" } },
+          ]);
+          for (const result of results) {
+            expect(result.updateTime).toBeDefined();
+          }
+        },
+      },
+    ],
+  },
+  {
+    group: "interceptors",
+    cases: [
+      {
+        name: "should call interceptors with correct operation name",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const operations: string[] = [];
+          const interceptor: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            operations.push(ictx.operation);
+            return next(ictx);
+          };
+          const r = repo(ctx, { interceptors: [interceptor] });
+
+          await r.create({ uid: "int1", email: "int@test.com" });
+          await r.get({ uid: "int1" });
+          await r.list();
+          await r.count();
+          await r.update({ uid: "int1" }, { displayName: "Updated", email: "int@test.com" });
+          await r.delete({ uid: "int1" });
+
+          expect(operations).toEqual(["create", "get", "list", "count", "update", "delete"]);
+        },
+      },
+      {
+        name: "should chain interceptors in order (first = outermost)",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const order: string[] = [];
+          const first: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            order.push("first-in");
+            const result = await next(ictx);
+            order.push("first-out");
+            return result;
+          };
+          const second: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            order.push("second-in");
+            const result = await next(ictx);
+            order.push("second-out");
+            return result;
+          };
+          const r = repo(ctx, { interceptors: [first, second] });
+
+          await r.create({ uid: "int2", email: "int2@test.com" });
+          expect(order).toEqual(["first-in", "second-in", "second-out", "first-out"]);
+        },
+      },
+      {
+        name: "should propagate errors through interceptors",
+        async run(ctx) {
+          const errors: unknown[] = [];
+          const interceptor: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            try {
+              return await next(ictx);
+            } catch (err) {
+              errors.push(err);
+              throw err;
+            }
+          };
+          const r = repo(ctx, { interceptors: [interceptor] });
+
+          await expect(r.get({ uid: "nonexistent" })).rejects.toThrow(NotFoundError);
+          expect(errors).toHaveLength(1);
+          expect(errors[0]).toBeInstanceOf(NotFoundError);
+        },
+      },
+      {
+        name: "should allow interceptors to measure timing",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          let duration = 0;
+          const timer: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            const start = performance.now();
+            const result = await next(ictx);
+            duration = performance.now() - start;
+            return result;
+          };
+          const r = repo(ctx, { interceptors: [timer] });
+
+          await r.create({ uid: "int3", email: "int3@test.com" });
+          expect(duration).toBeGreaterThan(0);
+        },
+      },
+      {
+        name: "should pass call arguments in context",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const captured: Array<{ op: string; hasQuery?: boolean; hasResource?: boolean }> = [];
+          const spy: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation === "create") {
+              captured.push({ op: "create", hasResource: ictx.resource !== undefined });
+            } else if (ictx.operation === "get") {
+              captured.push({ op: "get", hasQuery: ictx.query !== undefined });
+            } else if (ictx.operation === "update") {
+              captured.push({
+                op: "update",
+                hasQuery: ictx.query !== undefined,
+                hasResource: ictx.resource !== undefined,
+              });
+            } else if (ictx.operation === "list") {
+              captured.push({ op: "list", hasQuery: ictx.query !== undefined });
+            }
+            return next(ictx);
+          };
+          const r = repo(ctx, { interceptors: [spy] });
+
+          await r.create({ uid: "int4", email: "int4@test.com" });
+          await r.get({ uid: "int4" });
+          await r.update({ uid: "int4" }, { displayName: "Updated", email: "int4@test.com" });
+          await r.list('uid = "int4"');
+
+          expect(captured).toEqual([
+            { op: "create", hasResource: true },
+            { op: "get", hasQuery: true },
+            { op: "update", hasQuery: true, hasResource: true },
+            { op: "list", hasQuery: true },
+          ]);
         },
       },
     ],

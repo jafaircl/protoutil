@@ -57,7 +57,12 @@ function sqliteUsersTable(tableName: string): string {
     active INTEGER DEFAULT 0,
     etag TEXT,
     secret TEXT,
-    immutableField TEXT
+    immutableField TEXT,
+    createTime TEXT,
+    updateTime TEXT,
+    deleteTime TEXT,
+    settings TEXT,
+    tags TEXT
   )
 `;
 }
@@ -72,7 +77,12 @@ function postgresUsersTable(tableName: string): string {
     active BOOLEAN DEFAULT FALSE,
     etag TEXT,
     secret TEXT,
-    "immutableField" TEXT
+    "immutableField" TEXT,
+    "createTime" TEXT,
+    "updateTime" TEXT,
+    "deleteTime" TEXT,
+    settings TEXT,
+    tags TEXT
   )
 `;
 }
@@ -87,7 +97,12 @@ function mysqlUsersTable(tableName: string): string {
     active TINYINT(1) DEFAULT 0,
     etag TEXT,
     secret TEXT,
-    immutableField TEXT
+    immutableField TEXT,
+    createTime TEXT,
+    updateTime TEXT,
+    deleteTime TEXT,
+    settings TEXT,
+    tags TEXT
   )
 `;
 }

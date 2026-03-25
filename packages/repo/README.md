@@ -160,15 +160,12 @@ const users = createRepository(UserSchema, {
 |--------|------|-------------|
 | `engine` | `Engine` | The database engine to use. **Required.** |
 | `tableName` | `string` | Override the table name. Defaults to the proto type name in snake_case. |
-| `columnMap` | `Record<string, string>` | Map proto field names to database column names. |
-| `etagField` | `string` | Proto field name of the etag field. Defaults to `"etag"`. |
-| `etagMask` | `FieldMask` | Fields to include when computing etags. |
-| `etag` | `function` | Custom etag generation function. |
-| `defaultReadMask` | `FieldMask` | Default field mask for read operations. Defaults to `"*"`. |
-| `defaultUpdateMask` | `FieldMask` | Default field mask for update operations. Defaults to `"*"`. |
-| `defaultPageSize` | `number` | Default page size for list operations. Defaults to 30. |
-| `maxPageSize` | `number` | Maximum page size for list operations. Defaults to 100. |
+| `columns` | `Record<string, ColumnConfig>` | Per-field column configuration. See [Column Configuration](#column-configuration). |
 | `filterDecls` | `Decl[]` | Additional AIP-160 filter declarations. |
+| `interceptors` | `Interceptor[]` | Middleware chain for all operations. See [Interceptors](#interceptors). |
+| `etag` | `object` | Etag configuration: `{ field?, mask?, fn? }`. See [Etag Configuration](#etag-configuration). |
+| `pagination` | `object` | Pagination defaults: `{ defaultSize?, maxSize? }`. |
+| `fieldMasks` | `object` | Default field masks: `{ read?, update? }`. |
 
 ### `get(query, options?)`
 
@@ -334,34 +331,143 @@ await engine.transaction(async (tx) => {
 });
 ```
 
-### Column Mapping
+### Column Configuration
 
-When your database column names differ from proto field names, use `columnMap`:
+The `columns` option provides per-field control over how proto fields map to database columns. Keys are proto field names (snake_case).
 
 ```typescript
 const users = createRepository(UserSchema, {
   engine,
   tableName: "users",
-  columnMap: {
-    uid: "user_id",
-    display_name: "name",
-    email: "email_addr",
+  columns: {
+    // Rename: proto field "uid" → DB column "user_id"
+    uid: { name: "user_id" },
+    display_name: { name: "name" },
+
+    // Ignore: field exists in proto but not in DB
+    computed_score: { ignore: true },
+
+    // Serialize: store nested messages as JSON strings
+    settings: { serialize: "json" },
+
+    // Timestamps: auto-populate on lifecycle events
+    create_time: { timestamp: "create" },
+    update_time: { timestamp: "update" },
   },
 });
+```
 
-// Queries use proto field names — the repository handles the mapping
-const user = await users.get({ uid: "abc-123" });
+#### `ColumnConfig` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Override the DB column name. Defaults to the field's JSON name (camelCase). |
+| `ignore` | `boolean` | Exclude this field from DB serialization. On reads, the field gets its proto3 default. |
+| `serialize` | `"json" \| "binary"` | Serialize nested messages for storage in a single column. `"json"` uses `toJsonString`/`fromJsonString`; `"binary"` uses `toBinary`/`fromBinary`. |
+| `timestamp` | `"create" \| "update"` | Auto-populate this `Timestamp` field using `timestampNow()`. |
+
+#### Timestamp behavior
+
+- **`"create"`** — set on `create` and `batchCreate` only.
+- **`"update"`** — set on `create`, `batchCreate`, `update`, and `batchUpdate`.
+
+### Etag Configuration
+
+```typescript
+const users = createRepository(UserSchema, {
+  engine,
+  etag: {
+    field: "etag",           // proto field name (default: "etag")
+    mask: fieldMask(UserSchema, ["uid", "email"]),  // fields to hash
+    fn: (schema, msg) => customHash(schema, msg),   // custom function
+  },
+});
+```
+
+### Interceptors
+
+Interceptors provide a middleware chain around every repository operation. Each interceptor receives a `next` function and returns a new function that can run logic before and/or after the core operation.
+
+```typescript
+import type { Interceptor } from "@protoutil/repo";
+
+const logger: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
+  const start = performance.now();
+  try {
+    const result = await next(ctx);
+    console.log(`${ctx.operation} on ${ctx.tableName}: ${performance.now() - start}ms`);
+    return result;
+  } catch (err) {
+    console.error(`${ctx.operation} on ${ctx.tableName} failed:`, err);
+    throw err;
+  }
+};
+
+const otel: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
+  return tracer.startActiveSpan(`repo.${ctx.operation}`, async (span) => {
+    span.setAttribute("table", ctx.tableName);
+    try {
+      return await next(ctx);
+    } catch (err) {
+      span.recordException(err);
+      throw err;
+    } finally {
+      span.end();
+    }
+  });
+};
+
+const users = createRepository(UserSchema, {
+  engine,
+  interceptors: [logger, otel],  // first = outermost
+});
+```
+
+`InterceptorContext` is a discriminated union keyed on `operation`. All variants share `schema` and `tableName`. Narrowing on `operation` gives typed access to the call arguments:
+
+| Operation | Fields |
+|-----------|--------|
+| `get` | `query`, `options?` |
+| `create` | `resource`, `options?` |
+| `list` | `query?`, `options?` |
+| `update` | `query`, `resource`, `options?` |
+| `delete` | `query`, `options?` |
+| `count` | `query?`, `options?` |
+| `batchGet` | `queries`, `options?` |
+| `batchCreate` | `resources`, `options?` |
+| `batchUpdate` | `updates`, `options?` |
+| `batchDelete` | `queries`, `options?` |
+
+```typescript
+// Narrowing example — access operation-specific fields
+const auditor: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
+  if (ctx.operation === "create") {
+    console.log("Creating resource:", ctx.resource);
+  } else if (ctx.operation === "update") {
+    console.log("Updating with query:", ctx.query);
+  }
+  return next(ctx);
+};
 ```
 
 ## Serialization
 
-The `serializeMessage` and `deserializeRow` helpers convert between protobuf messages and plain database row objects. They use `@bufbuild/protobuf`'s `toJson`/`fromJson` for type-safe conversion (bigints as strings, Timestamps as RFC 3339, etc.) and support column name remapping.
+The `serializeMessage` and `deserializeRow` helpers convert between protobuf messages and plain database row objects. They use `@bufbuild/protobuf`'s `toJson`/`fromJson` for type-safe conversion (bigints as strings, Timestamps as RFC 3339, etc.) and support column name remapping and `ColumnConfig` for `ignore`, `serialize: "json"`, and `serialize: "binary"`.
 
 ```typescript
 import { serializeMessage, deserializeRow } from "@protoutil/repo";
 
+// Basic usage with column name mapping
 const row = serializeMessage(UserSchema, user, columnMap);
 const message = deserializeRow(UserSchema, row, columnMap);
+
+// With ColumnConfig for ignore/serialize support
+const columns = {
+  settings: { serialize: "json" },
+  computed: { ignore: true },
+};
+const row = serializeMessage(UserSchema, user, columnMap, columns);
+const message = deserializeRow(UserSchema, row, columnMap, columns);
 ```
 
 ## Filter Pipeline
@@ -389,18 +495,28 @@ const expr = buildFilter(UserSchema, 'uid = "abc"', {
 |--------|-------------|
 | `createRepository(schema, opts)` | Create a repository for a protobuf message type. |
 | `buildFilter(schema, query, opts?)` | Build a checked filter expression from a string or partial resource. |
+| `buildBatchFilter(schema, queries, opts?)` | Build a checked filter from multiple queries combined with OR. |
 | `partialToFilter(schema, partial)` | Convert a partial resource to an AIP-160 filter string. |
-| `serializeMessage(schema, msg, columnMap?)` | Serialize a message to a database row object. |
-| `deserializeRow(schema, row, columnMap?)` | Deserialize a database row to a message. |
+| `serializeMessage(schema, msg, columnMap?, columns?)` | Serialize a message to a database row object. |
+| `deserializeRow(schema, row, columnMap?, columns?)` | Deserialize a database row to a message. |
 | `Engine` | Database engine interface. |
 | `Repository` | Repository interface. |
-| `RepositoryOptions` | Repository configuration. |
-| `GetOptions` | Options for `get` calls. |
+| `RepositoryOptions` | Repository configuration (grouped: `columns`, `etag`, `pagination`, `fieldMasks`, `interceptors`). |
+| `ColumnConfig` | Per-field column configuration (`name`, `ignore`, `serialize`, `timestamp`). |
+| `Interceptor` | Middleware interceptor type: `(next) => (ctx) => Promise<unknown>`. |
+| `InterceptorContext` | Discriminated union context passed to interceptors, keyed on `operation`. |
+| `InterceptorFn` | Inner function type wrapped by interceptors. |
+| `GetOptions` | Options for `get` calls (`readMask`, `transaction`). |
 | `CreateOptions` | Options for `create` calls (`readMask`, `validateOnly`, `transaction`). |
 | `ListOptions` | Options for `list` calls (`pageSize`, `pageToken`, `orderBy`, `showTotalSize`, `readMask`, `transaction`). |
 | `ListResult` | Result of `list` calls (`results`, `nextPageToken`, `totalSize?`). |
 | `UpdateOptions` | Options for `update` calls (`updateMask`, `readMask`, `validateOnly`, `transaction`). |
-| `DeleteOptions` | Options for `delete` calls (`transaction`). |
+| `DeleteOptions` | Options for `delete` calls (`validateOnly`, `transaction`). |
 | `CountOptions` | Options for `count` calls (`transaction`). |
+| `BatchGetOptions` | Options for `batchGet` calls (`readMask`, `transaction`). |
+| `BatchCreateOptions` | Options for `batchCreate` calls (`readMask`, `validateOnly`, `transaction`). |
+| `BatchUpdateOptions` | Options for `batchUpdate` calls (`readMask`, `validateOnly`, `transaction`). |
+| `BatchDeleteOptions` | Options for `batchDelete` calls (`validateOnly`, `transaction`). |
+| `BatchUpdateItem` | Per-item input for `batchUpdate` (`query`, `resource`, `updateMask?`). |
 | `QueryInput` | Filter string or partial resource type. |
 | `Dialect` | Filter expression translator type. |

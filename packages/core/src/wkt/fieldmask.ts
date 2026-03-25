@@ -272,12 +272,17 @@ function applyPath<Desc extends DescMessage>(
       }
       break;
     case "message": {
-      const sourceValue = getField(source, field) as Message;
+      const sourceValue = getField(source, field) as Message | undefined;
+      if (!sourceValue && !inverse) {
+        break;
+      }
       if (!isFieldSet(target, field) && !inverse) {
         setField(target, field, create(field.message));
       }
       const targetValue = getField(target, field) as Message;
-      applyPath(field.message, targetValue, sourceValue, segments.slice(1), inverse, strict);
+      if (sourceValue) {
+        applyPath(field.message, targetValue, sourceValue, segments.slice(1), inverse, strict);
+      }
       break;
     }
     default:
