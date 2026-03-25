@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Interceptor } from "@connectrpc/connect";
 import { fastifyConnectPlugin } from "@connectrpc/connect-fastify";
 import AutoLoad, { type AutoloadPluginOptions } from "@fastify/autoload";
 import cors from "@fastify/cors";
@@ -16,11 +17,28 @@ export type AppOptions = {
 // Pass --options via CLI arguments in command to enable these options.
 const options: AppOptions = {};
 
+/** ConnectRPC interceptor that logs every RPC call with its duration. */
+const connectLogger: Interceptor = (next) => async (req) => {
+  const start = performance.now();
+  try {
+    const res = await next(req);
+    console.log(`[rpc] ${req.method.name} (${(performance.now() - start).toFixed(1)}ms)`);
+    return res;
+  } catch (err) {
+    console.error(
+      `[rpc] ${req.method.name} FAILED (${(performance.now() - start).toFixed(1)}ms)`,
+      err,
+    );
+    throw err;
+  }
+};
+
 const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void> => {
   // Place here your custom code!
   fastify.register(cors);
   fastify.register(fastifyConnectPlugin, {
     routes,
+    interceptors: [connectLogger],
   });
 
   // Do not touch the following lines

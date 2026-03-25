@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import app from "./app.js";
+import { closeEngines } from "./engines.js";
 
 const server = Fastify({ logger: true });
 
@@ -17,6 +18,7 @@ const start = async () => {
 // tsx watch sends SIGTERM on reload
 process.on("SIGTERM", async () => {
   await server.close();
+  await closeEngines();
   process.exit(0);
 });
 

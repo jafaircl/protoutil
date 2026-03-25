@@ -14,10 +14,8 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build",
     "protogen": "buf generate",
-    "sqlcgen": "sqlc generate",
-    "dbgen": "tsx scripts/sqlite-init-db.ts",
-    "dbseed": "tsx scripts/sqlite-seed-db.ts",
-    "kyselygen": "kysely-codegen --dialect sqlite --url data/library.db --out-file src/gen/kysely/sqlite/types.ts"
+    "dbgen": "tsx scripts/init-db.ts",
+    "dbseed": "tsx scripts/seed-db.ts"
   },
   "keywords": [],
   "author": "",
@@ -30,17 +28,17 @@
     "@fastify/autoload": "^6.3.1",
     "@fastify/cors": "^11.2.0",
     "@fastify/sensible": "^6.0.4",
+    "@bufbuild/protovalidate": "^1.1.1",
     "@protoutil/aip": "workspace:*",
-    "better-sqlite3": "^12.6.2",
+    "@protoutil/core": "workspace:*",
+    "@protoutil/repo": "workspace:*",
     "fastify": "^5.7.4",
     "fastify-plugin": "^5.1.0",
-    "kysely": "^0.28.11",
+    "mongodb": "^6.16.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/pg": "^8.18.0",
-    "kysely-codegen": "^0.20.0",
     "tsx": "^4.21.0",
     "vitest": "^4.0.18"
   },

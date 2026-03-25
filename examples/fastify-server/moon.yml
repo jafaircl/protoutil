@@ -9,44 +9,28 @@ tasks:
       - 'buf.gen.yaml'
     outputs:
     - 'src/gen'
+  db:
+    command: 'docker compose up -d --wait'
+    options:
+      cache: false
   dbgen:
     command: 'pnpm run dbgen'
     dependsOn:
     - protogen
+    - db
     inputs:
-    - 'src/gen/sqlite/schema.sql'
-    - 'scripts/*-init-db.ts'
-    outputs:
-    - 'src/gen'
+    - 'src/gen/postgres/schema.sql'
+    - 'scripts/init-db.ts'
   dbseed:
     command: 'pnpm run dbseed'
     dependsOn:
     - dbgen
     inputs:
-    - 'data/library.db'
-    - 'scripts/*-seed-db.ts'
-  kyselygen:
-    command: 'pnpm run kyselygen'
-    dependsOn:
-    - dbgen
-    inputs:
-    - src/gen/sqlite/schema.sql
-    outputs:
-    - src/gen/kysely/sqlite/types.ts
-  sqlcgen:
-    command: 'pnpm run sqlcgen'
-    dependsOn:
-    - protogen
-    inputs:
-    - 'src/gen/postgres/schema.sql'
-    - 'sqlc.yaml'
-    outputs:
-    - 'src/gen/sqlc/postgres'
+    - 'scripts/seed-db.ts'
   typecheck:
     command: 'pnpm run typecheck'
     dependsOn:
-    - kyselygen
-    - sqlcgen
+    - protogen
     inputs:
     - '@globs(sources)'
     - 'tsconfig.json'
