@@ -1,0 +1,21 @@
+/* filter-text-input.component.css */
+
+:host {
+  --filter-text-input-min-width: 20rem;
+  --filter-text-input-gap: 0.5rem;
+}
+
+.filter-text-input {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--filter-text-input-gap);
+}
+
+.filter-text-field {
+  flex: 1;
+  min-width: var(--filter-text-input-min-width);
+}
+
+.filter-text-submit {
+  margin-top: 0.25rem;
+}

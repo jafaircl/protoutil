@@ -1,0 +1,362 @@
+// Custom proto options for protoc-gen-sql.
+// Import this file and annotate your messages and fields to control
+// how the plugin generates SQL schema and CRUD queries.
+//
+// Table names default to the fully-qualified message name in snake_case,
+// e.g. library.v1.Book -> library_v1_book.
+// This ensures generated schema is versioned alongside the proto package
+// and never silently collides across package versions.
+
+syntax = "proto3";
+
+package protoutil.sql.v1;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/protoutil/protoc-gen-sql/options/sql/v1;sqlv1";
+
+// ---------------------------------------------------------------------------
+// QueryType
+// Identifies a standard generated CRUD query by kind.
+// Used in MessageOptions.skip_queries and FieldOptions.skip_queries to suppress specific queries.
+// ---------------------------------------------------------------------------
+enum QueryType {
+  QUERY_TYPE_UNSPECIFIED = 0;
+  QUERY_TYPE_GET = 1; // SELECT ... WHERE id = $1 LIMIT 1
+  QUERY_TYPE_LIST = 2; // SELECT ... ORDER BY id
+  QUERY_TYPE_CREATE = 3; // INSERT ...
+  QUERY_TYPE_UPDATE = 4; // UPDATE ... WHERE id = $1
+  QUERY_TYPE_DELETE = 5; // DELETE ... WHERE id = $1
+  QUERY_TYPE_ALL = 6; // suppress all query generation for this message
+}
+
+// ---------------------------------------------------------------------------
+// ForeignKeyAction
+// ON DELETE / ON UPDATE behavior for a foreign key constraint.
+// ---------------------------------------------------------------------------
+enum ForeignKeyAction {
+  FOREIGN_KEY_ACTION_UNSPECIFIED = 0; // falls back to engine default (typically NO ACTION)
+  FOREIGN_KEY_ACTION_CASCADE = 1;
+  FOREIGN_KEY_ACTION_RESTRICT = 2;
+  FOREIGN_KEY_ACTION_SET_NULL = 3;
+  FOREIGN_KEY_ACTION_NO_ACTION = 4;
+}
+
+// ---------------------------------------------------------------------------
+// OneofStrategy
+// How a oneof group is mapped to SQL columns.
+// Set globally via plugin opt, or per-oneof via OneofOptions.
+// ---------------------------------------------------------------------------
+enum OneofStrategy {
+  ONEOF_STRATEGY_UNSPECIFIED = 0; // falls back to plugin opt or built-in default
+  ONEOF_STRATEGY_NULLABLE_COLS = 1; // one nullable column per variant + CHECK constraint
+  ONEOF_STRATEGY_TYPE_COLUMN = 2; // discriminator column + single value column
+  ONEOF_STRATEGY_JSON_COLUMN = 3; // entire oneof serialized into one JSON column
+}
+
+// ---------------------------------------------------------------------------
+// TimestampBehavior
+// Controls whether and which timestamp columns are injected into a table.
+// The plugin injects both created_at and updated_at by default.
+//
+// Validation: if a proto field or extra_column declares a column_name of
+// "created_at" or "updated_at", the plugin will error unless the
+// corresponding timestamp injection is disabled via this option.
+// ---------------------------------------------------------------------------
+enum TimestampBehavior {
+  TIMESTAMP_BEHAVIOR_UNSPECIFIED = 0; // default: inject both created_at and updated_at
+  TIMESTAMP_BEHAVIOR_BOTH = 1; // explicit form of the default
+  TIMESTAMP_BEHAVIOR_CREATED_ONLY = 2; // inject created_at only; updated_at is not reserved
+  TIMESTAMP_BEHAVIOR_UPDATED_ONLY = 3; // inject updated_at only; created_at is not reserved
+  TIMESTAMP_BEHAVIOR_NONE = 4; // inject neither; neither name is reserved
+}
+
+// ---------------------------------------------------------------------------
+// EnumStrategy
+// How a proto enum field is stored in SQL.
+// Set per-field via FieldOptions.enum_strategy.
+//
+// Validation [V14]: ENUM_STRATEGY_NATIVE_TYPE is postgres-only. On any other
+// engine the plugin will error. Use column_type or type_overrides to specify
+// an explicit type for multi-engine schemas.
+// ---------------------------------------------------------------------------
+enum EnumStrategy {
+  // falls back to ENUM_STRATEGY_NAME
+  ENUM_STRATEGY_UNSPECIFIED = 0;
+  // store the proto enum value name as TEXT (default)
+  ENUM_STRATEGY_NAME = 1;
+  // store the integer value as INTEGER / INT
+  ENUM_STRATEGY_INT = 2;
+  // TEXT with CHECK ("col" IN ('VALUE_A', 'VALUE_B', ...))
+  ENUM_STRATEGY_CHECK_CONSTRAINT = 3;
+  // CREATE TYPE ... AS ENUM + use as column type (postgres only)
+  ENUM_STRATEGY_NATIVE_TYPE = 4;
+}
+
+// ---------------------------------------------------------------------------
+// PrimaryKeyType
+// Controls the type and generation strategy of the injected "id" column.
+// Set per-message via MessageOptions.primary_key.
+// ---------------------------------------------------------------------------
+enum PrimaryKeyType {
+  // falls back to PRIMARY_KEY_TYPE_SERIAL
+  PRIMARY_KEY_TYPE_UNSPECIFIED = 0;
+  // auto-increment integer (default)
+  //   postgres:   BIGSERIAL
+  //   mysql:      BIGINT UNSIGNED AUTO_INCREMENT
+  //   sqlite:     INTEGER (autoincrement alias)
+  //   sqlserver:  BIGINT IDENTITY(1,1)
+  PRIMARY_KEY_TYPE_SERIAL = 1;
+  // database-generated UUID
+  //   postgres:   UUID DEFAULT gen_random_uuid()
+  //   mysql:      CHAR(36) DEFAULT (UUID())
+  //   sqlite:     TEXT DEFAULT (lower(hex(randomblob(16))))
+  //   sqlserver:  UNIQUEIDENTIFIER DEFAULT NEWID()
+  PRIMARY_KEY_TYPE_UUID = 2;
+  // FK columns referencing a UUID table automatically
+  // use the matching UUID column type.
+}
+
+// ---------------------------------------------------------------------------
+// ForeignKey
+// Declares an explicit foreign key column on a table.
+// There is no implicit detection of relationships — every FK must be
+// declared here. This is intentional: explicit is safer than magic.
+//
+// Validation:
+//   [V01] column is required; the plugin will error if empty.
+//   [V02] references_table is required; the plugin will error if empty.
+//   [V03] column must not be a reserved injected column name.
+//   [V04] column must not duplicate any other column name in the table.
+// ---------------------------------------------------------------------------
+message ForeignKey {
+  // The column name to generate on this table. Required.
+  string column = 1;
+
+  // The table being referenced. Required.
+  string references_table = 2;
+
+  // The column on the referenced table. Default: "id"
+  string references_column = 3;
+
+  // Behavior when the referenced row is deleted. Default: engine default (NO ACTION)
+  ForeignKeyAction on_delete = 4;
+
+  // Behavior when the referenced column is updated. Default: engine default (NO ACTION)
+  ForeignKeyAction on_update = 5;
+
+  // Skip the automatic index on the FK column.
+  // By default an index is always created. Set skip_index = true to suppress it.
+  //
+  // Useful when you know the FK column is always queried as part of a composite
+  // index that already covers it — e.g. if MessageOptions.indexes already
+  // includes this column, the single-column index is redundant:
+  //
+  //   option (protoutil.sql.v1.message) = {
+  //     generate: true
+  //     indexes: ["shelf_id,created_at"]   // composite index already covers shelf_id
+  //     foreign_keys: [{ column: "shelf_id", references_table: "...", skip_index: true }]
+  //   };
+  bool skip_index = 6;
+
+  // Suppress this FK column from specific generated queries.
+  // Uses the same QueryType enum as MessageOptions.omit_queries.
+  //
+  // Common patterns:
+  //   skip_queries: [QUERY_TYPE_UPDATE]
+  //     — FK appears in INSERT but not UPDATE. Use for immutable relationships
+  //       (e.g. tenant_id that must never change after creation).
+  //   skip_queries: [QUERY_TYPE_CREATE, QUERY_TYPE_UPDATE]
+  //     — FK excluded from both INSERT and UPDATE. Use when the FK value is
+  //       always managed by a trigger or DEFAULT expression.
+  //   skip_queries: [QUERY_TYPE_GET, QUERY_TYPE_LIST]
+  //     — FK column excluded from SELECT column lists. Use for internal columns
+  //       that should never be returned to callers (e.g. internal shard keys).
+  //
+  // QUERY_TYPE_DELETE and QUERY_TYPE_ALL have no effect at the column level.
+  repeated QueryType skip_queries = 7;
+}
+
+// ---------------------------------------------------------------------------
+// MessageOptions
+// Controls table-level generation for a proto message.
+// ---------------------------------------------------------------------------
+message MessageOptions {
+  // Opt this message into SQL schema and query generation.
+  // Only messages explicitly marked generate = true will produce a table.
+  bool generate = 1;
+
+  // Override the generated table name.
+  // Default: fully-qualified message name in snake_case.
+  // e.g. library.v1.Book -> library_v1_book
+  string table_name = 2;
+
+  // Composite indexes, each as a comma-separated list of column names.
+  // All referenced names must exist in the table. [V10]
+  repeated string indexes = 3;
+
+  // Composite unique constraints, each as a comma-separated list of column names.
+  // All referenced names must exist in the table. [V11]
+  repeated string unique_constraints = 4;
+
+  // Suppress specific generated query types.
+  // QUERY_TYPE_ALL suppresses all query generation while still producing schema DDL.
+  repeated QueryType skip_queries = 5;
+
+  // Explicit foreign key declarations. See ForeignKey for validation rules.
+  repeated ForeignKey foreign_keys = 6;
+
+  // Controls which timestamp columns (created_at, updated_at) are injected.
+  // Default: TIMESTAMP_BEHAVIOR_BOTH
+  TimestampBehavior timestamps = 7;
+
+  // Extra columns with no proto field. Uses FieldOptions.
+  // Validation:
+  //   [V05] column_name required
+  //   [V06] column_type required (or type_overrides must be non-empty)
+  //   [V07] omit must not be true
+  //   [V08] column_name must not be a reserved column
+  //   [V09] column_name must not duplicate another column
+  repeated FieldOptions extra_columns = 8;
+
+  // Storage type for the injected "id" primary key column.
+  // Default: PRIMARY_KEY_TYPE_SERIAL
+  PrimaryKeyType primary_key = 9;
+}
+
+// ---------------------------------------------------------------------------
+// FieldOptions
+// Controls column-level generation for a proto field.
+// Also used as the element type for MessageOptions.extra_columns —
+// see that field for additional validation rules.
+// ---------------------------------------------------------------------------
+message FieldOptions {
+  // Override the generated column name. Default: field name in snake_case.
+  // Required when used in extra_columns. [V05]
+  string column_name = 1;
+
+  // Override the SQL type for all engines.
+  // Acts as a fallback when type_overrides does not have a key for the target
+  // engine. Required when used in extra_columns unless type_overrides has an
+  // entry for every engine you generate for. [V06]
+  string column_type = 2;
+
+  // Per-engine SQL type overrides.
+  // Valid keys: "postgres", "mysql", "sqlite", "sqlserver".
+  // Takes precedence over column_type and the built-in type mapping.
+  // Validation: [V15] keys must be recognised engine names.
+  //
+  // Because the same proto is often run through the plugin once per engine,
+  // you can cover all engines without a column_type fallback:
+  //
+  //   bool active = 1 [(protoutil.sql.v1.field).type_overrides = { key: "postgres"  value: "BOOLEAN"    },
+  //                    (protoutil.sql.v1.field).type_overrides = { key: "mysql"     value: "TINYINT(1)"  },
+  //                    (protoutil.sql.v1.field).type_overrides = { key: "sqlite"    value: "INTEGER"     },
+  //                    (protoutil.sql.v1.field).type_overrides = { key: "sqlserver" value: "BIT"         }];
+  //
+  // Or use column_type as a universal fallback and only override where needed:
+  //
+  //   bool active = 1 [(protoutil.sql.v1.field) = {
+  //     column_type:    "BOOLEAN"   // default for postgres, mysql
+  //     type_overrides: { key: "sqlite" value: "INTEGER" }
+  //   }];
+  map<string, string> type_overrides = 3;
+
+  // Allow NULL values. Default: false (NOT NULL).
+  bool nullable = 4;
+
+  // SQL DEFAULT expression, written verbatim. e.g. "now()", "0", "''"
+  string default = 5;
+
+  // Add a single-column index. For composite indexes use MessageOptions.indexes.
+  bool index = 6;
+
+  // Add a UNIQUE constraint. For composite constraints use MessageOptions.unique_constraints.
+  bool unique = 7;
+
+  // Exclude this field from schema and query generation entirely.
+  // Must not be true when used in extra_columns. [V07]
+  bool omit = 8;
+
+  // How to store a proto enum field.
+  // Only meaningful on enum-typed fields; ignored on all other field kinds.
+  // Default: ENUM_STRATEGY_NAME (store as TEXT)
+  // Validation: ENUM_STRATEGY_NATIVE_TYPE requires postgres. [V14]
+  EnumStrategy enum_strategy = 9;
+
+  // Inline CHECK constraint expression, written verbatim (without the CHECK keyword).
+  // Appended directly to the column definition.
+  // Examples:
+  //   check: "price_cents > 0"
+  //   check: "status IN ('active', 'inactive')"
+  // Note: ENUM_STRATEGY_CHECK_CONSTRAINT generates its own CHECK automatically;
+  // setting check on an enum field with that strategy results in two CHECK clauses.
+  string check = 10;
+
+  // Suppress this column from specific generated queries.
+  // Uses the same QueryType enum as MessageOptions.omit_queries.
+  // Meaningful on both proto-derived fields and extra_columns.
+  //
+  // Common patterns:
+  //   skip_queries: [QUERY_TYPE_CREATE, QUERY_TYPE_UPDATE]
+  //     — column excluded from INSERT and UPDATE. Use for extra columns managed
+  //       entirely by the database (triggers, DEFAULT expressions).
+  //   skip_queries: [QUERY_TYPE_GET, QUERY_TYPE_LIST]
+  //     — column excluded from SELECT lists. Use for sensitive fields
+  //       (e.g. password_hash) that should never be returned by generated queries.
+  //
+  // QUERY_TYPE_DELETE and QUERY_TYPE_ALL have no effect at the column level.
+  repeated QueryType skip_queries = 11;
+}
+
+// ---------------------------------------------------------------------------
+// OneofOptions
+// Controls how a oneof group is represented in SQL.
+// Apply to the oneof declaration itself, not to individual fields within it.
+// ---------------------------------------------------------------------------
+message OneofOptions {
+  // Strategy for mapping this oneof to SQL columns.
+  // Overrides the global oneof_strategy plugin option for this oneof only.
+  //
+  // ONEOF_STRATEGY_NULLABLE_COLS (default):
+  //   One nullable column per variant + CHECK ensuring at most one is non-null.
+  //   oneof contact { string email = 1; string phone = 2; }
+  //   -> "email" TEXT NULL, "phone" TEXT NULL, CHECK (NOT ("email" IS NOT NULL AND "phone" IS NOT NULL))
+  //
+  // ONEOF_STRATEGY_TYPE_COLUMN:
+  //   A string discriminator + single value column.
+  //   -> "contact_type" TEXT NULL, "contact_value" TEXT NULL
+  //
+  // ONEOF_STRATEGY_JSON_COLUMN:
+  //   Entire oneof serialized to one JSON column.
+  //   -> "contact" JSONB / JSON / TEXT (engine-dependent)
+  OneofStrategy strategy = 1;
+
+  // Suppress this oneof's columns from specific generated queries.
+  // Uses the same QueryType enum as MessageOptions.omit_queries.
+  //
+  // Common patterns:
+  //   skip_queries: [QUERY_TYPE_CREATE, QUERY_TYPE_UPDATE]
+  //     — oneof columns excluded from INSERT and UPDATE. Use when the oneof
+  //       is always managed through custom queries or database logic.
+  //   skip_queries: [QUERY_TYPE_GET, QUERY_TYPE_LIST]
+  //     — oneof columns excluded from SELECT lists.
+  //
+  // QUERY_TYPE_DELETE and QUERY_TYPE_ALL have no effect at the column level.
+  repeated QueryType skip_queries = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Extension registrations
+// ---------------------------------------------------------------------------
+extend google.protobuf.MessageOptions {
+  MessageOptions message = 60000;
+}
+
+extend google.protobuf.FieldOptions {
+  FieldOptions field = 60000;
+}
+
+extend google.protobuf.OneofOptions {
+  OneofOptions oneof = 60000;
+}

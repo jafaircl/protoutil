@@ -1,0 +1,27 @@
+{
+  "name": "@protoutil/angular",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "ng build",
+    "dev": "ng serve",
+    "test": "ng test",
+    "typecheck": "tsc --project tsconfig.lib.prod.json --noEmit",
+    "prepublishOnly": "pnpm run build",
+    "protogen": "buf generate"
+  },
+  "peerDependencies": {
+    "@angular/common": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@bufbuild/protobuf": "^2.11.0",
+    "@bufbuild/protovalidate": "^1.1.1",
+    "@protoutil/aip": "workspace:*"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/platform-browser": "^21.2.0"
+  },
+  "sideEffects": false
+}

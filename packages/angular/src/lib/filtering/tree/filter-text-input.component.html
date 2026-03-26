@@ -1,0 +1,34 @@
+<!--
+  filter-text-input.component.html
+
+  Free-text filter input with signal forms validation.
+  Submit is disabled until the expression is valid.
+  Errors display inline as the user types (debounced).
+-->
+
+<div class="filter-text-input">
+  <mat-form-field class="filter-text-field" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>{{ label() }}</mat-label>
+    <input
+      matInput
+      type="text"
+      [placeholder]="placeholder()"
+      [formField]="filterForm"
+      (keydown.enter)="onSubmit()"
+    />
+    @if (filterForm().errors().length > 0) {
+      <mat-error>{{ filterForm().errors()[0].message }}</mat-error>
+    }
+  </mat-form-field>
+
+  <button
+    mat-flat-button
+    color="primary"
+    class="filter-text-submit"
+    [disabled]="!canSubmit()"
+    (click)="onSubmit()"
+  >
+    <mat-icon>add</mat-icon>
+    {{ submitLabel() }}
+  </button>
+</div>

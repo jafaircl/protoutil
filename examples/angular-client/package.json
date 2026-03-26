@@ -1,0 +1,21 @@
+{
+  "name": "angular-client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "ng build",
+    "dev": "ng serve",
+    "test": "ng test",
+    "typecheck": "tsc --project tsconfig.app.json --noEmit",
+    "prepublishOnly": "pnpm run build",
+    "protogen": "buf generate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@protoutil/aip": "workspace:*",
+    "@protoutil/angular": "workspace:*"
+  }
+}

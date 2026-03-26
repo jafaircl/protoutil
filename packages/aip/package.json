@@ -1,29 +1,77 @@
 {
   "name": "@protoutil/aip",
+  "type": "module",
   "version": "0.2.5",
-  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/aip",
+  "description": "A starter for creating a TypeScript package.",
+  "author": "Author Name <author.name@mail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/aip#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jafaircl/protoutil"
+    "url": "git+https://github.com/jafaircl/protoutil.git"
   },
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "bugs": {
+    "url": "https://github.com/jafaircl/protoutil/issues"
+  },
   "exports": {
-    "./package.json": "./package.json",
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.mjs"
+    },
+    "./errors": {
+      "require": "./dist/errors/index.cjs",
+      "import": "./dist/errors/index.mjs"
+    },
+    "./etag": {
+      "require": "./dist/etag/index.cjs",
+      "import": "./dist/etag/index.mjs"
+    },
+    "./fieldbehavior": {
+      "require": "./dist/fieldbehavior/index.cjs",
+      "import": "./dist/fieldbehavior/index.mjs"
+    },
+    "./filtering": {
+      "require": "./dist/filtering/index.cjs",
+      "import": "./dist/filtering/index.mjs"
+    },
+    "./orderby": {
+      "require": "./dist/orderby/index.cjs",
+      "import": "./dist/orderby/index.mjs"
+    },
+    "./pagination": {
+      "require": "./dist/pagination/index.cjs",
+      "import": "./dist/pagination/index.mjs"
+    },
+    "./resourcename": {
+      "require": "./dist/resourcename/index.cjs",
+      "import": "./dist/resourcename/index.mjs"
+    },
+    "./package.json": "./package.json"
   },
+  "types": "./dist/index.d.cts",
   "files": [
-    "dist",
-    "!**/*.tsbuildinfo"
+    "dist"
   ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build",
+    "protogen": "buf generate"
+  },
+  "devDependencies": {
+    "@bufbuild/protocompile": "^0.0.1",
+    "@types/node": "^25.0.3",
+    "bumpp": "^10.3.2",
+    "tsdown": "^0.18.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
   "dependencies": {
-    "@bufbuild/protobuf": "^2.2.5",
-    "@protoutil/core": "0.2.5"
+    "@bufbuild/protobuf": "^2.11.0",
+    "@protoutil/core": "workspace:*"
   }
 }

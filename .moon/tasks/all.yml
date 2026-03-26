@@ -1,0 +1,50 @@
+fileGroups:
+  configs:
+    - '*.{js,json,yml,yaml}'
+  sources:
+    - 'src/**/*'
+    - 'types/**/*'
+  tests:
+    - 'tests/**/*.test.*'
+    - '**/__tests__/**/*'
+
+tasks:
+  format:
+    command:
+    - 'pnpm'
+    - 'exec'
+    - 'biome'
+    - 'format'
+    - '--write'
+    dependsOn:
+    - protogen
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+    - '@globs(configs)'
+  lint:
+    command:
+    - 'pnpm'
+    - 'exec'
+    - 'biome'
+    - 'lint'
+    - '--write'
+    dependsOn:
+    - protogen
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+    - '@globs(configs)'
+  check:
+    command:
+    - 'pnpm'
+    - 'exec'
+    - 'biome'
+    - 'check'
+    - '--write'
+    dependsOn:
+    - protogen
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+    - '@globs(configs)'

@@ -1,0 +1,72 @@
+<!--
+  filter-stepper.component.html
+
+  Inline stepper: Field → Operator → Value → Add
+  Each step appears when the previous step has a selection.
+-->
+
+<div class="filter-stepper">
+  <!-- Step 1: Field -->
+  <mat-form-field class="stepper-field" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>{{ fieldLabel() }}</mat-label>
+    <mat-select
+      [value]="selectedFieldName()"
+      (selectionChange)="selectedFieldName.set($event.value)"
+    >
+      @for (field of fields(); track field.name) {
+        <mat-option [value]="field.name">{{ field.name }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <!-- Step 2: Operator (visible once field is selected) -->
+  @if (showOperator()) {
+    <mat-form-field class="stepper-field" appearance="outline" subscriptSizing="dynamic">
+      <mat-label>{{ operatorLabel() }}</mat-label>
+      <mat-select
+        [value]="selectedOperatorFn()"
+        (selectionChange)="selectedOperatorFn.set($event.value)"
+      >
+        @for (op of availableOperators(); track op.filterFn) {
+          <mat-option [value]="op.filterFn">{{ operatorLabels()[op.filterFn] ?? op.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  }
+
+  <!-- Step 3: Value (visible once operator is selected) -->
+  @if (showValue()) {
+    @if (valueKind() === 'boolean') {
+      <mat-slide-toggle
+        class="stepper-toggle"
+        [checked]="valueBool()"
+        (change)="valueBool.set($event.checked)"
+      >
+        {{ valueBool() ? boolTrueLabel() : boolFalseLabel() }}
+      </mat-slide-toggle>
+    } @else {
+      <mat-form-field class="stepper-field" appearance="outline" subscriptSizing="dynamic">
+        <mat-label>{{ valueLabel() }}</mat-label>
+        <input
+          matInput
+          [type]="valueKind() === 'number' ? 'number' : 'text'"
+          [value]="valueText()"
+          (input)="valueText.set($any($event.target).value)"
+          (keydown.enter)="onAdd()"
+        />
+      </mat-form-field>
+    }
+  }
+
+  <!-- Add button -->
+  <button
+    mat-flat-button
+    color="primary"
+    class="stepper-add"
+    [disabled]="!canAdd()"
+    (click)="onAdd()"
+  >
+    <mat-icon>add</mat-icon>
+    {{ addLabel() }}
+  </button>
+</div>

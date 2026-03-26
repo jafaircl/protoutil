@@ -1,19 +1,12 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compileOnSave": false,
   "files": [],
   "references": [
-    {
-      "path": "./packages/core"
-    },
-    {
-      "path": "./packages/aip"
-    },
-    {
-      "path": "./packages/cel"
-    },
-    {
-      "path": "./packages/celql"
-    }
+    { "path": "./packages/aip" },
+    { "path": "./packages/core" },
+    { "path": "./examples/fastify-server" },
+    { "path": "./packages/angular/tsconfig.lib.json" },
+    { "path": "./packages/angular/tsconfig.spec.json" },
+    { "path": "./examples/angular-client/tsconfig.app.json" },
+    { "path": "./examples/angular-client/tsconfig.spec.json" }
   ]
 }

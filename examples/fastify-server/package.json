@@ -1,0 +1,58 @@
+{
+  "type": "module",
+  "name": "fastify-server",
+  "version": "1.0.0",
+  "description": "This project was bootstrapped with Fastify-CLI.",
+  "main": "./dist/app.cjs",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "lsof -ti:8080 | xargs kill -9 2>/dev/null; FASTIFY_AUTOLOAD_TYPESCRIPT=1 tsx watch --import tsx/esm src/server.ts",
+    "test": "NODE_OPTIONS=\"--import tsx/esm\" vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build",
+    "protogen": "buf generate",
+    "dbgen": "tsx scripts/init-db.ts",
+    "dbseed": "tsx scripts/seed-db.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0",
+    "@connectrpc/connect": "^2.1.1",
+    "@connectrpc/connect-fastify": "^2.1.1",
+    "@connectrpc/connect-node": "^2.1.1",
+    "@fastify/autoload": "^6.3.1",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/sensible": "^6.0.4",
+    "@bufbuild/protovalidate": "^1.1.1",
+    "@protoutil/aip": "workspace:*",
+    "@protoutil/core": "workspace:*",
+    "@protoutil/repo": "workspace:*",
+    "fastify": "^5.7.4",
+    "fastify-plugin": "^5.1.0",
+    "mongodb": "^6.16.0",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.18.0",
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.18"
+  },
+  "module": "./dist/app.mjs",
+  "types": "./dist/app.d.cts",
+  "exports": {
+    "./app": {
+      "import": "./dist/app.mjs",
+      "require": "./dist/app.cjs"
+    },
+    "./server": {
+      "import": "./dist/server.mjs",
+      "require": "./dist/server.cjs"
+    },
+    "./package.json": "./package.json"
+  }
+}

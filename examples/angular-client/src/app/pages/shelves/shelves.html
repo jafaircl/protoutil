@@ -1,0 +1,57 @@
+<div class="page">
+<h1>Shelves</h1>
+<div class="mat-elevation-z2 table-card">
+  <div class="toolbar">
+    <button mat-stroked-button [color]="hasActiveFilter() ? 'primary' : undefined" (click)="openFilterDialog()">
+      <mat-icon>filter_list</mat-icon>
+      {{ hasActiveFilter() ? 'Edit Filter' : 'Add Filter' }}
+    </button>
+    <span class="toolbar-spacer"></span>
+    <button mat-flat-button color="primary" (click)="openCreateShelfDialog()">
+      <mat-icon>add</mat-icon>
+      Add Shelf
+    </button>
+  </div>
+
+  <table
+    mat-table
+    matSort
+    [dataSource]="shelves()"
+    [class.loading]="shelvesResource.isLoading()"
+    (matSortChange)="handleSortChangeEvent($event)"
+  >
+    <ng-container matColumnDef="theme">
+      <th mat-header-cell *matHeaderCellDef>
+        <div class="header-cell">
+          <span mat-sort-header>Theme</span>
+          <button mat-icon-button class="column-filter-btn" (click)="openFilterForField('theme')" aria-label="Filter by theme">
+            <mat-icon>filter_list</mat-icon>
+          </button>
+        </div>
+      </th>
+      <td mat-cell *matCellDef="let element">{{ element.theme }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let element">
+        <button mat-icon-button (click)="openDeleteShelfDialog(element, $event)" aria-label="Delete shelf">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns" class="clickable-row" (click)="navigateToShelf(row)"></tr>
+  </table>
+
+  <mat-paginator
+    [pageSizeOptions]="[5, 10, 20]"
+    [pageIndex]="pageIndex()"
+    [pageSize]="pageSize()"
+    [length]="totalSize()"
+    showFirstLastButtons
+    (page)="handlePageEvent($event)"
+  />
+</div>
+</div>

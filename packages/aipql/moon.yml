@@ -1,0 +1,39 @@
+language: 'javascript'
+
+tasks:
+  protogen:
+    command: 'echo "nothing to generate"'
+    # inputs:
+    # - 'proto/**/*'
+    # - 'buf.yaml'
+    # - 'buf.gen.yaml'
+    # outputs:
+    # - 'src/gen'
+  typecheck:
+    command: 'pnpm run typecheck'
+    dependsOn:
+    - protogen
+    inputs:
+    - '@globs(sources)'
+    - 'tsconfig.json'
+  test:
+    command: 'pnpm run test'
+    dependsOn:
+    - typecheck
+    - check
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+  build:
+    command: 'pnpm run build'
+    dependsOn:
+    - test
+    inputs:
+    - '@globs(sources)'
+    - 'tsdown.config.ts'
+    outputs:
+    - 'dist'
+  pack:
+    command: 'pnpm pack'
+    dependsOn:
+    - build

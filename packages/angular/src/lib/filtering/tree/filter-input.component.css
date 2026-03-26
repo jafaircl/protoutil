@@ -1,0 +1,29 @@
+/* filter-input.component.css */
+
+:host {
+  display: block;
+}
+
+.filter-input {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.filter-input-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-input-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  flex-shrink: 0;
+  padding-top: 0.25rem;
+}
+
+.filter-input-toggle button {
+  color: var(--mat-sys-on-surface-variant, #49454f);
+  transition: color 100ms ease;
+}

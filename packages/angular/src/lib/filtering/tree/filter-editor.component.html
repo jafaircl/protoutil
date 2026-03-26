@@ -1,0 +1,22 @@
+<!--
+  filter-editor.component.html
+
+  Combines the filter tree with the input wrapper below it.
+  The tree stays mounted (preserving undo/redo history) but is
+  hidden when empty and no undo history is available.
+-->
+
+<div class="filter-editor">
+  <aip-filter-tree
+    [initialTree]="root()"
+    [hidden]="!showTree()"
+    (treeChange)="onTreeChange($event)"
+  />
+
+  <aip-filter-input
+    [declarations]="declarations()"
+    [initialField]="initialField()"
+    [initialMode]="initialInputMode()"
+    (exprAdd)="onExprAdd($event)"
+  />
+</div>

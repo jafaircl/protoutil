@@ -1,0 +1,64 @@
+language: 'javascript'
+
+tasks:
+  protogen:
+    command: 'pnpm run protogen'
+    inputs:
+      - '/examples/proto/**/*'
+      - '/examples/buf.yaml'
+      - 'buf.gen.yaml'
+    outputs:
+    - 'src/gen'
+  db:
+    command: 'docker compose up -d --wait'
+    options:
+      cache: false
+  dbgen:
+    command: 'pnpm run dbgen'
+    dependsOn:
+    - protogen
+    - db
+    inputs:
+    - 'src/gen/postgres/schema.sql'
+    - 'scripts/init-db.ts'
+  dbseed:
+    command: 'pnpm run dbseed'
+    dependsOn:
+    - dbgen
+    inputs:
+    - 'scripts/seed-db.ts'
+  typecheck:
+    command: 'pnpm run typecheck'
+    dependsOn:
+    - protogen
+    inputs:
+    - '@globs(sources)'
+    - 'tsconfig.json'
+  test:
+    command: 'pnpm run test'
+    dependsOn:
+    - typecheck
+    - check
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+  build:
+    command: 'pnpm run build'
+    dependsOn:
+    - test
+    inputs:
+    - '@globs(sources)'
+    - 'tsdown.config.ts'
+    outputs:
+    - 'dist'
+  dev:
+    command: 'pnpm run dev'
+    dependsOn:
+    - dbseed
+    options:
+      persistent: true
+      cache: false
+  pack:
+    command: 'pnpm pack'
+    dependsOn:
+    - build

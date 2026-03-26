@@ -1,0 +1,35 @@
+language: 'javascript'
+
+tasks:
+  protogen:
+    command: 'pnpm run protogen'
+    inputs:
+      - '/examples/proto/**/*'
+      - '/examples/buf.yaml'
+      - 'buf.gen.yaml'
+    outputs:
+    - 'src/gen'
+  typecheck:
+    command: 'pnpm run typecheck'
+    dependsOn:
+    - protogen
+  test:
+    command: 'pnpm run test'
+    dependsOn:
+    - typecheck
+    - check
+  build:
+    command: 'pnpm run build'
+    dependsOn:
+    - test
+    outputs:
+    - 'dist'
+  dev:
+    command: 'pnpm run dev'
+    options:
+      persistent: true
+      cache: false
+  pack:
+    command: 'pnpm pack'
+    dependsOn:
+    - build

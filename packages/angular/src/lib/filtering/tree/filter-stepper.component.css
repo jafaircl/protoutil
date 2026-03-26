@@ -1,0 +1,25 @@
+/* filter-stepper.component.css */
+
+:host {
+  --filter-stepper-gap: 0.5rem;
+  --filter-stepper-field-width: 10rem;
+}
+
+.filter-stepper {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--filter-stepper-gap);
+}
+
+.stepper-field {
+  width: var(--filter-stepper-field-width);
+}
+
+.stepper-toggle {
+  align-self: center;
+}
+
+.stepper-add {
+  align-self: center;
+}
