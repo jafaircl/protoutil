@@ -13,7 +13,8 @@
       "!**/gen",
       "!**/node_modules",
       "!examples/angular-client/**/*.html",
-      "!packages/angular/**/*.html"
+      "!packages/angular/**/*.html",
+      "!docs/**/*.astro"
     ]
   },
   "formatter": {

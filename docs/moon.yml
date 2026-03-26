@@ -1,0 +1,75 @@
+language: 'javascript'
+
+tasks:
+  # No-op to satisfy .moon/tasks/all.yml inheritance (format/lint/check depend on protogen)
+  protogen:
+    command: 'echo "no protogen for docs"'
+
+  # Override global biome tasks — Biome does not support .astro files
+  format:
+    command:
+      - 'pnpm'
+      - 'exec'
+      - 'biome'
+      - 'format'
+      - '--write'
+      - 'src/**/*.ts'
+      - 'astro.config.mjs'
+    inputs:
+      - 'src/**/*.ts'
+      - 'astro.config.mjs'
+
+  lint:
+    command:
+      - 'pnpm'
+      - 'exec'
+      - 'biome'
+      - 'lint'
+      - '--write'
+      - 'src/**/*.ts'
+      - 'astro.config.mjs'
+    inputs:
+      - 'src/**/*.ts'
+      - 'astro.config.mjs'
+
+  check:
+    command:
+      - 'pnpm'
+      - 'exec'
+      - 'biome'
+      - 'check'
+      - '--write'
+      - 'src/**/*.ts'
+      - 'astro.config.mjs'
+    inputs:
+      - 'src/**/*.ts'
+      - 'astro.config.mjs'
+
+  build:
+    command: 'pnpm run build'
+    dependsOn:
+      - 'core:build'
+      - 'aip:build'
+      - 'aipql:build'
+      - 'repo:build'
+      - 'angular:build'
+    inputs:
+      - 'src/**/*'
+      - 'astro.config.mjs'
+      - 'package.json'
+    outputs:
+      - 'dist'
+
+  dev:
+    command: 'pnpm run dev'
+    options:
+      persistent: true
+      cache: false
+
+  preview:
+    command: 'pnpm run preview'
+    dependsOn:
+      - build
+    options:
+      persistent: true
+      cache: false

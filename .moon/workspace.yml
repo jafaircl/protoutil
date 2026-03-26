@@ -5,6 +5,7 @@ projects:
   - packages/*
   - examples/angular-client
   - examples/fastify-server
+  - docs
 
 # Configures the version control system (VCS). Also known as
 # source code management (SCM).

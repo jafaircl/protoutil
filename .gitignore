@@ -49,5 +49,11 @@ Thumbs.db
 # angular
 .angular/cache
 
+# astro
+.astro
+
+# starlight-typedoc generated API docs (rebuilt on each build)
+docs/src/content/docs/api
+
 # build artifacts
 *.tgz
