@@ -1,3 +1,14 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
 .table-card {
   border-radius: 12px;
   overflow: hidden;
@@ -33,10 +44,10 @@ th .column-filter-btn:hover {
   flex: 1;
 }
 
-tr.clickable-row {
-  cursor: pointer;
+.read-icon {
+  color: var(--mat-sys-outline);
 }
 
-tr.clickable-row:hover {
-  background: var(--mat-sys-surface-container-low);
+.read-icon.read {
+  color: var(--mat-sys-primary);
 }

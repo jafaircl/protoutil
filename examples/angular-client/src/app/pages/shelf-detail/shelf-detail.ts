@@ -4,37 +4,38 @@ import {
   computed,
   effect,
   inject,
+  input,
   linkedSignal,
   resource,
   signal,
   viewChild,
 } from "@angular/core";
-import { FormsModule } from "@angular/forms";
 import { MatButtonModule } from "@angular/material/button";
 import { MatDialog } from "@angular/material/dialog";
 import { MatIconModule } from "@angular/material/icon";
 import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatSort, MatSortModule, type Sort } from "@angular/material/sort";
 import { MatTableModule } from "@angular/material/table";
-import { check, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
+import { Router } from "@angular/router";
+import { BOOL, check, ident, parse, STRING, unparse } from "@protoutil/aip/filtering";
 import { Field, OrderBy, parse as parseOrderBy } from "@protoutil/aip/orderby";
 import { exprToFilterNode, type FilterNode, filterNodeToExpr } from "@protoutil/angular";
-import { Router } from "@angular/router";
 import { linkedQueryParam, paramToNumber } from "ngxtension/linked-query-param";
-import type { ListShelvesResponse, Shelf } from "../../../gen/library/v1/library_pb";
+import type { Book, ListBooksResponse } from "../../../gen/library/v1/library_pb";
 import { LibraryService } from "../../services/library";
 import { DEFAULT_PAGE_SIZE } from "../../utils/defaults";
 import { stringifyQueryParam } from "../../utils/query-params";
-import { CreateShelfDialogComponent } from "./create-shelf-dialog";
-import { DeleteShelfDialogComponent, type DeleteShelfDialogData } from "./delete-shelf-dialog";
-import { FilterDialogComponent, type FilterDialogData } from "./filter-dialog";
+import { FilterDialogComponent, type FilterDialogData } from "../shelves/filter-dialog";
+import { CreateBookDialogComponent, type CreateBookDialogData } from "./create-book-dialog";
+import { DeleteBookDialogComponent, type DeleteBookDialogData } from "./delete-book-dialog";
+import { EditBookDialogComponent, type EditBookDialogData } from "./edit-book-dialog";
 
 @Component({
-  selector: "app-shelves",
-  templateUrl: "./shelves.html",
-  styleUrls: ["./shelves.css"],
+  selector: "app-shelf-detail",
+  standalone: true,
+  templateUrl: "./shelf-detail.html",
+  styleUrls: ["./shelf-detail.css"],
   imports: [
-    FormsModule,
     MatButtonModule,
     MatIconModule,
     MatPaginatorModule,
@@ -42,11 +43,23 @@ import { FilterDialogComponent, type FilterDialogData } from "./filter-dialog";
     MatTableModule,
   ],
 })
-export class ShelfListComponent implements AfterViewInit {
-  library = inject(LibraryService);
+export class ShelfDetailComponent implements AfterViewInit {
+  private library = inject(LibraryService);
   private dialog = inject(MatDialog);
   private router = inject(Router);
 
+  // Route param bound via withComponentInputBinding()
+  shelfId = input.required<string>();
+  shelfName = computed(() => `shelves/${this.shelfId()}`);
+
+  // Shelf header
+  shelfResource = resource({
+    params: () => ({ name: this.shelfName() }),
+    loader: ({ params, abortSignal }) => this.library.getShelf(params, abortSignal),
+  });
+  shelf = computed(() => this.shelfResource.value());
+
+  // Books table — same pattern as shelves list
   pageSizeParam = linkedQueryParam("page_size", {
     parse: paramToNumber({ defaultValue: DEFAULT_PAGE_SIZE }),
     stringify: stringifyQueryParam({ defaultValue: DEFAULT_PAGE_SIZE }),
@@ -59,7 +72,7 @@ export class ShelfListComponent implements AfterViewInit {
     parse: (str) => (!str ? null : parseOrderBy(str)),
     stringify: (param) => (!param ? null : param.toString()),
   });
-  decls = signal([ident("theme", STRING)]);
+  decls = signal([ident("author", STRING), ident("title", STRING), ident("read", BOOL)]);
   filterParam = linkedQueryParam("filter");
   filterTree = computed<FilterNode | undefined>(() => {
     const filterStr = this.filterParam();
@@ -71,7 +84,7 @@ export class ShelfListComponent implements AfterViewInit {
         return exprToFilterNode(checkedExpr.expr);
       }
     } catch {
-      // Invalid filter in URL — ignore
+      return undefined;
     }
     return undefined;
   });
@@ -82,42 +95,39 @@ export class ShelfListComponent implements AfterViewInit {
   orderBy = computed(() => this.orderByParam()?.toString());
   filter = computed(() => this.filterParam() ?? "");
 
-  shelvesResource = resource({
+  booksResource = resource({
     params: () => ({
+      parent: this.shelfName(),
       pageSize: this.pageSize(),
       skip: this.skip(),
       orderBy: this.orderBy(),
       filter: this.filter(),
     }),
-    loader: ({ params, abortSignal }) => this.library.listShelves(params, abortSignal),
+    loader: ({ params, abortSignal }) => this.library.listBooks(params, abortSignal),
   });
-  shelvesResponse = linkedSignal({
+  booksResponse = linkedSignal({
     source: () => ({
-      value: this.shelvesResource.value(),
-      isLoading: this.shelvesResource.isLoading(),
+      value: this.booksResource.value(),
+      isLoading: this.booksResource.isLoading(),
     }),
-    computation: (current, previous): ListShelvesResponse | undefined => {
-      // While loading, return the previous value so the table doesn't flash empty
+    computation: (current, previous): ListBooksResponse | undefined => {
       if (current.isLoading && previous) return previous.value;
       return current.value;
     },
   });
-  shelves = computed(() => this.shelvesResponse()?.shelves ?? []);
-  nextPagetoken = computed(() => this.shelvesResponse()?.nextPageToken ?? null);
-  previousPagetoken = computed(() => this.shelvesResponse()?.previousPageToken ?? null);
-  totalSize = computed(() => this.shelvesResponse()?.totalSize ?? 0);
+  books = computed(() => this.booksResponse()?.books ?? []);
+  totalSize = computed(() => this.booksResponse()?.totalSize ?? 0);
 
   hasActiveFilter = computed(() => !!this.filterParam());
 
-  readonly displayedColumns = ["theme", "actions"] as const;
+  readonly displayedColumns = ["title", "author", "read", "actions"] as const;
   paginator = viewChild.required(MatPaginator);
   sort = viewChild.required(MatSort);
 
   private initialized = false;
 
   filterEffect = effect(() => {
-    this.filterParam(); // track
-    // Reset to first page when filter changes, but only after initial load
+    this.filterParam();
     if (this.initialized) {
       this.skipParam.set(0);
     }
@@ -145,9 +155,7 @@ export class ShelfListComponent implements AfterViewInit {
   }
 
   handleSortChangeEvent(state: Sort) {
-    if (this.initialized) {
-      this.skipParam.set(0);
-    }
+    if (this.initialized) this.skipParam.set(0);
     if (!state.active || !state.direction) {
       this.orderByParam.set(null);
       return;
@@ -161,7 +169,6 @@ export class ShelfListComponent implements AfterViewInit {
       initialTree: this.filterTree(),
       initialField: initialField ?? null,
     };
-
     this.dialog
       .open(FilterDialogComponent, { data, width: "600px", maxHeight: "80vh" })
       .afterClosed()
@@ -177,31 +184,42 @@ export class ShelfListComponent implements AfterViewInit {
     this.openFilterDialog(fieldName);
   }
 
-  navigateToShelf(shelf: Shelf): void {
-    const shelfId = shelf.name.split("/")[1];
-    this.router.navigate(["/shelves", shelfId]);
+  navigateBack(): void {
+    this.router.navigate(["/shelves"]);
   }
 
-  openCreateShelfDialog(): void {
+  openCreateBookDialog(): void {
+    const data: CreateBookDialogData = { parent: this.shelfName() };
     this.dialog
-      .open(CreateShelfDialogComponent, { width: "480px" })
+      .open(CreateBookDialogComponent, { data, width: "480px" })
       .afterClosed()
       .subscribe((result) => {
         if (result) {
-          this.library.createShelf(result).then(() => this.shelvesResource.reload());
+          this.library.createBook(result).then(() => this.booksResource.reload());
         }
       });
   }
 
-  openDeleteShelfDialog(shelf: Shelf, event: Event): void {
-    event.stopPropagation();
-    const data: DeleteShelfDialogData = { shelfName: shelf.name, shelfTheme: shelf.theme };
+  openEditBookDialog(book: Book): void {
+    const data: EditBookDialogData = { book };
     this.dialog
-      .open(DeleteShelfDialogComponent, { data, width: "400px" })
+      .open(EditBookDialogComponent, { data, width: "480px" })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result) {
+          this.library.updateBook(result).then(() => this.booksResource.reload());
+        }
+      });
+  }
+
+  openDeleteBookDialog(book: Book): void {
+    const data: DeleteBookDialogData = { bookName: book.name, bookTitle: book.title };
+    this.dialog
+      .open(DeleteBookDialogComponent, { data, width: "400px" })
       .afterClosed()
       .subscribe((confirmed: boolean) => {
         if (confirmed) {
-          this.library.deleteShelf({ name: shelf.name }).then(() => this.shelvesResource.reload());
+          this.library.deleteBook({ name: book.name }).then(() => this.booksResource.reload());
         }
       });
   }
