@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/core",
   "type": "module",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "A starter for creating a TypeScript package.",
   "author": "Author Name <author.name@mail.com>",
   "license": "MIT",
@@ -202,7 +202,6 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
-    "bumpp": "^10.3.2",
     "tsdown": "^0.18.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"

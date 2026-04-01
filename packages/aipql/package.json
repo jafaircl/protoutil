@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/aipql",
   "type": "module",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "A starter for creating a TypeScript package.",
   "author": "Author Name <author.name@mail.com>",
   "license": "MIT",

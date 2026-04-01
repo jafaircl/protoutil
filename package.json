@@ -1,9 +1,13 @@
 {
   "name": "protoutil",
-  "version": "1.0.0",
+  "version": "0.2.5",
   "description": "",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "changeset": "changeset",
+    "bump": "changeset version",
+    "release": "pnpm -r --filter='./packages/*' run build && changeset publish"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -30,6 +34,7 @@
     "@bufbuild/protobuf": "^2.11.0",
     "@bufbuild/protoc-gen-es": "^2.11.0",
     "@bufbuild/protovalidate": "^1.1.1",
+    "@changesets/cli": "^2.30.0",
     "@connectrpc/connect": "^2.1.1",
     "@connectrpc/connect-web": "^2.1.1",
     "@vitest/browser": "^4.0.18",

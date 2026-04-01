@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "fastify-server",
-  "version": "1.0.0",
+  "version": "0.2.5",
   "description": "This project was bootstrapped with Fastify-CLI.",
   "main": "./dist/app.cjs",
   "directories": {

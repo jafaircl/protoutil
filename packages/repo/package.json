@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/repo",
   "type": "module",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "Database-agnostic protobuf resource persistence using AIP patterns.",
   "author": "Author Name <author.name@mail.com>",
   "license": "MIT",
