@@ -1,16 +1,17 @@
+import type { MessageShape } from "@bufbuild/protobuf";
+import { fromBinary, fromJsonString, toBinary, toJsonString } from "@bufbuild/protobuf";
+import { timestampNow } from "@bufbuild/protobuf/wkt";
 import { AlreadyExistsError, InvalidArgumentError, NotFoundError } from "@protoutil/aip/errors";
+import { etag as defaultEtagFn } from "@protoutil/aip/etag";
 import { ident, STRING } from "@protoutil/aip/filtering";
 import { decode as decodePageToken } from "@protoutil/aip/pagination";
 import { fieldMask } from "@protoutil/core/wkt";
 import { expect } from "vitest";
-import { TestUserSchema } from "./gen/protoutil/repo/v1/test_pb.js";
+import { createContextKey, withReentryGuard } from "./context-values.js";
+import { TestUserSchema, TestUserSettingsSchema } from "./gen/protoutil/repo/v1/test_pb.js";
 import { createRepository } from "./repository.js";
-import type {
-  MappedUserSeed,
-  RepositoryTestContext,
-  UserSeed,
-} from "./repository-test-backends.js";
-import type { Interceptor, RepositoryOptions } from "./types.js";
+import type { MappedUserSeed, RepositoryTestContext, UserSeed } from "./test-backends.js";
+import type { ColumnConfigMap, Interceptor, RepositoryOptions } from "./types.js";
 
 export type RepositoryCase = {
   name: string;
@@ -33,14 +34,14 @@ const EXTRA_USERS: UserSeed[] = [
   { uid: "u5", displayName: "Eve", email: "eve@test.com", age: 28, active: true },
 ];
 
-const COLUMNS = {
+const COLUMNS: ColumnConfigMap<typeof TestUserSchema> = {
   uid: { name: "user_id" },
-  display_name: { name: "name" },
+  displayName: { name: "name" },
   email: { name: "email_addr" },
   age: { name: "user_age" },
   active: { name: "is_active" },
-  immutable_field: { name: "immutable" },
-} as const;
+  immutableField: { name: "immutable" },
+};
 
 const MAPPED_USER: MappedUserSeed = {
   user_id: "u1",
@@ -53,6 +54,31 @@ const MAPPED_USER: MappedUserSeed = {
 const REPO_USERS_TABLE = "repo_users";
 const REPO_MAPPED_USERS_TABLE = "repo_mapped_users";
 const REPO_MAPPED_USERS_TABLE_2 = "repo_mapped_users2";
+
+function asBinary(value: unknown): Uint8Array | undefined {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+  if (value instanceof ArrayBuffer) {
+    return new Uint8Array(value);
+  }
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+  if (typeof value === "object" && value !== null) {
+    const binary = value as { buffer?: unknown; value?: unknown };
+    if (binary.buffer instanceof Uint8Array) {
+      return binary.buffer;
+    }
+    if (binary.buffer instanceof ArrayBuffer) {
+      return new Uint8Array(binary.buffer);
+    }
+    if (binary.value instanceof Uint8Array) {
+      return binary.value;
+    }
+  }
+  return undefined;
+}
 
 function repo(
   ctx: RepositoryTestContext,
@@ -236,10 +262,14 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
-        name: "should support etagMask when computing an etag",
+        name: "should allow custom etag functions to apply a field mask",
         async run(ctx) {
           const mask = fieldMask(TestUserSchema, ["uid", "email"]);
-          const maskedRepo = repo(ctx, { etag: { mask } });
+          const maskedRepo = repo(ctx, {
+            etag: {
+              fn: (schema, msg) => defaultEtagFn(schema, msg, { fieldMask: mask }),
+            },
+          });
 
           const user1 = await maskedRepo.create(
             { uid: "u3", displayName: "Charlie", email: "charlie@test.com" },
@@ -1080,6 +1110,30 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
+        name: "should match and return results in query order when update payloads omit identifiers",
+        async run(ctx) {
+          const results = await repo(ctx).batchUpdate([
+            {
+              query: { uid: "u2" },
+              resource: { displayName: "Bob Reordered", email: "bob@test.com" },
+            },
+            {
+              query: { uid: "u1" },
+              resource: { displayName: "Alice Reordered", email: "alice@test.com" },
+            },
+          ]);
+
+          expect(results).toHaveLength(2);
+          expect(results[0].uid).toBe("u2");
+          expect(results[0].displayName).toBe("Bob Reordered");
+          expect(results[1].uid).toBe("u1");
+          expect(results[1].displayName).toBe("Alice Reordered");
+
+          expect((await repo(ctx).get({ uid: "u2" })).displayName).toBe("Bob Reordered");
+          expect((await repo(ctx).get({ uid: "u1" })).displayName).toBe("Alice Reordered");
+        },
+      },
+      {
         name: "should not clobber unrelated fields",
         async run(ctx) {
           // u1 has age=30, active=true; u2 has age=25, active=false
@@ -1125,6 +1179,78 @@ export const groups: RepositoryCaseGroup[] = [
           expect(results).toHaveLength(2);
           expect((await repo(ctx).get({ uid: "u1" })).displayName).toBe("Alice Filtered");
           expect((await repo(ctx).get({ uid: "u2" })).displayName).toBe("Bob Filtered");
+        },
+      },
+      {
+        name: "should match the correct records for non-identifier partial queries",
+        async run(ctx) {
+          const results = await repo(ctx).batchUpdate([
+            {
+              query: { email: "bob@test.com" },
+              resource: { displayName: "Bob By Email", email: "bob@test.com" },
+            },
+            {
+              query: { email: "alice@test.com" },
+              resource: { displayName: "Alice By Email", email: "alice@test.com" },
+            },
+          ]);
+
+          expect(results).toHaveLength(2);
+          expect(results[0].uid).toBe("u2");
+          expect(results[0].displayName).toBe("Bob By Email");
+          expect(results[1].uid).toBe("u1");
+          expect(results[1].displayName).toBe("Alice By Email");
+
+          expect((await repo(ctx).get({ uid: "u2" })).displayName).toBe("Bob By Email");
+          expect((await repo(ctx).get({ uid: "u1" })).displayName).toBe("Alice By Email");
+        },
+      },
+      {
+        name: "should return results in filter-string query order",
+        async run(ctx) {
+          const results = await repo(ctx).batchUpdate([
+            {
+              query: 'email = "bob@test.com"',
+              resource: { displayName: "Bob String Ordered", email: "bob@test.com" },
+            },
+            {
+              query: 'email = "alice@test.com"',
+              resource: { displayName: "Alice String Ordered", email: "alice@test.com" },
+            },
+          ]);
+
+          expect(results).toHaveLength(2);
+          expect(results[0].uid).toBe("u2");
+          expect(results[0].displayName).toBe("Bob String Ordered");
+          expect(results[1].uid).toBe("u1");
+          expect(results[1].displayName).toBe("Alice String Ordered");
+
+          expect((await repo(ctx).get({ uid: "u2" })).displayName).toBe("Bob String Ordered");
+          expect((await repo(ctx).get({ uid: "u1" })).displayName).toBe("Alice String Ordered");
+        },
+      },
+      {
+        name: "should return results in order for mixed string and partial-object queries",
+        async run(ctx) {
+          const results = await repo(ctx).batchUpdate([
+            {
+              query: 'email = "bob@test.com"',
+              resource: { displayName: "Bob Mixed Ordered", email: "bob@test.com" },
+            },
+            {
+              query: { uid: "u1" },
+              resource: { displayName: "Alice Mixed Ordered", email: "alice@test.com" },
+            },
+          ]);
+
+          expect(results).toHaveLength(2);
+          expect(results[0].uid).toBe("u2");
+          expect(results[0].displayName).toBe("Bob Mixed Ordered");
+          expect(results[1].uid).toBe("u1");
+          expect(results[1].displayName).toBe("Alice Mixed Ordered");
+
+          expect((await repo(ctx).get({ uid: "u2" })).displayName).toBe("Bob Mixed Ordered");
+          expect((await repo(ctx).get({ uid: "u1" })).displayName).toBe("Alice Mixed Ordered");
         },
       },
       {
@@ -1409,11 +1535,22 @@ export const groups: RepositoryCaseGroup[] = [
     group: "columns: serialize",
     cases: [
       {
-        name: "should JSON-serialize nested message fields on write and read",
+        name: "should use custom serialize/deserialize functions on write and read",
         async run(ctx) {
           await ctx.insertUsers([]);
           const r = repo(ctx, {
-            columns: { settings: { serialize: "json" } },
+            columns: {
+              settings: {
+                serialize: ({ field, value }) =>
+                  value == null || !field.message ? null : toJsonString(field.message, value),
+                deserialize: ({ field, value }) =>
+                  value == null ||
+                  typeof value !== "string" ||
+                  field.message !== TestUserSettingsSchema
+                    ? undefined
+                    : fromJsonString(TestUserSettingsSchema, value),
+              },
+            },
           });
           const created = await r.create({
             uid: "ser1",
@@ -1433,11 +1570,59 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
-        name: "should handle null nested message with serialize json",
+        name: "should use protobuf binary codecs on write and read",
         async run(ctx) {
           await ctx.insertUsers([]);
           const r = repo(ctx, {
-            columns: { settings: { serialize: "json" } },
+            columns: {
+              settings: {
+                name: "settingsBin",
+                serialize: ({ field, value }) =>
+                  value == null || !field.message ? null : toBinary(field.message, value),
+                deserialize: ({ field, value }) => {
+                  const bytes = asBinary(value);
+                  return field.message !== TestUserSettingsSchema || bytes == null
+                    ? undefined
+                    : fromBinary(TestUserSettingsSchema, bytes);
+                },
+              },
+            },
+          });
+          const created = await r.create({
+            uid: "ser-bin-1",
+            email: "ser-bin@test.com",
+            settings: { theme: "dark", notificationsEnabled: true, language: "en" },
+          });
+
+          expect(created.settings).toBeDefined();
+          expect(created.settings!.theme).toBe("dark");
+          expect(created.settings!.notificationsEnabled).toBe(true);
+          expect(created.settings!.language).toBe("en");
+
+          const fetched = await r.get({ uid: "ser-bin-1" });
+          expect(fetched.settings).toBeDefined();
+          expect(fetched.settings!.theme).toBe("dark");
+          expect(fetched.settings!.notificationsEnabled).toBe(true);
+          expect(fetched.settings!.language).toBe("en");
+        },
+      },
+      {
+        name: "should handle null nested message with custom serialization hooks",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: {
+              settings: {
+                serialize: ({ field, value }) =>
+                  value == null || !field.message ? null : toJsonString(field.message, value),
+                deserialize: ({ field, value }) =>
+                  value == null ||
+                  typeof value !== "string" ||
+                  field.message !== TestUserSettingsSchema
+                    ? undefined
+                    : fromJsonString(TestUserSettingsSchema, value),
+              },
+            },
           });
           await r.create({ uid: "ser2", email: "ser2@test.com" });
           const fetched = await r.get({ uid: "ser2" });
@@ -1445,17 +1630,38 @@ export const groups: RepositoryCaseGroup[] = [
         },
       },
       {
-        name: "should update nested message with serialize json",
+        name: "should pass read and write operations to column hooks",
         async run(ctx) {
           await ctx.insertUsers([]);
+          const serializeOps: string[] = [];
+          const deserializeOps: string[] = [];
           const r = repo(ctx, {
-            columns: { settings: { serialize: "json" } },
+            columns: {
+              settings: {
+                serialize: ({ field, operation, value }) => {
+                  serializeOps.push(operation);
+                  return value == null || !field.message
+                    ? null
+                    : toJsonString(field.message, value);
+                },
+                deserialize: ({ field, operation, value }) => {
+                  deserializeOps.push(operation);
+                  return value == null ||
+                    typeof value !== "string" ||
+                    field.message !== TestUserSettingsSchema
+                    ? undefined
+                    : fromJsonString(TestUserSettingsSchema, value);
+                },
+              },
+            },
           });
           await r.create({
             uid: "ser3",
             email: "ser3@test.com",
             settings: { theme: "light", notificationsEnabled: false, language: "en" },
           });
+          await r.get({ uid: "ser3" });
+          await r.list({ uid: "ser3" });
           const updated = await r.update(
             { uid: "ser3" },
             {
@@ -1466,108 +1672,112 @@ export const groups: RepositoryCaseGroup[] = [
           expect(updated.settings!.theme).toBe("dark");
           expect(updated.settings!.notificationsEnabled).toBe(true);
           expect(updated.settings!.language).toBe("fr");
+          expect(serializeOps).toEqual(["create", "update"]);
+          expect(deserializeOps).toEqual(["get", "get", "list", "get", "get"]);
+        },
+      },
+      {
+        name: "should allow clearing a custom-serialized nested message on update",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const r = repo(ctx, {
+            columns: {
+              settings: {
+                serialize: ({ field, value }) =>
+                  value == null || !field.message ? null : toJsonString(field.message, value),
+                deserialize: ({ field, value }) =>
+                  value == null ||
+                  typeof value !== "string" ||
+                  field.message !== TestUserSettingsSchema
+                    ? undefined
+                    : fromJsonString(TestUserSettingsSchema, value),
+              },
+            },
+          });
+          await r.create({
+            uid: "ser4",
+            email: "ser4@test.com",
+            settings: { theme: "dark", notificationsEnabled: true, language: "en" },
+          });
+
+          const updated = await r.update(
+            { uid: "ser4" },
+            { settings: undefined },
+            { updateMask: fieldMask(TestUserSchema, ["settings"]) },
+          );
+
+          expect(updated.settings).toBeUndefined();
+          expect((await r.get({ uid: "ser4" })).settings).toBeUndefined();
         },
       },
     ],
   },
   {
-    group: "timestamp auto-population",
+    group: "interceptors: timestamps",
     cases: [
       {
-        name: "should set create_time on create",
+        name: "should allow interceptors to populate timestamps on create and update",
         async run(ctx) {
           await ctx.insertUsers([]);
-          const r = repo(ctx, {
-            columns: {
-              create_time: { timestamp: "create" },
-              update_time: { timestamp: "update" },
-            },
-          });
+          const timestamps: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation === "create") {
+              const now = timestampNow();
+              ictx.resource = { ...ictx.resource, createTime: now, updateTime: now };
+            } else if (ictx.operation === "update") {
+              ictx.resource = { ...ictx.resource, updateTime: timestampNow() };
+            }
+            return next(ictx);
+          };
+          const r = repo(ctx, { interceptors: [timestamps] });
+
           const before = Date.now();
           const created = await r.create({ uid: "ts1", email: "ts@test.com" });
           const after = Date.now();
 
           expect(created.createTime).toBeDefined();
+          expect(created.updateTime).toBeDefined();
           const createMs = Number(created.createTime!.seconds) * 1000;
           expect(createMs).toBeGreaterThanOrEqual(before - 1000);
           expect(createMs).toBeLessThanOrEqual(after + 1000);
-        },
-      },
-      {
-        name: "should set update_time on both create and update",
-        async run(ctx) {
-          await ctx.insertUsers([]);
-          const r = repo(ctx, {
-            columns: {
-              create_time: { timestamp: "create" },
-              update_time: { timestamp: "update" },
-            },
-          });
-          const created = await r.create({ uid: "ts2", email: "ts2@test.com" });
-          expect(created.updateTime).toBeDefined();
-
-          // Wait a tiny bit to ensure different timestamps
-          await new Promise((resolve) => setTimeout(resolve, 10));
 
           const updated = await r.update(
-            { uid: "ts2" },
-            { displayName: "Updated", email: "ts2@test.com" },
+            { uid: "ts1" },
+            { displayName: "Updated", email: "ts@test.com" },
           );
           expect(updated.updateTime).toBeDefined();
-          // update_time should be >= create_time
           expect(updated.updateTime!.seconds).toBeGreaterThanOrEqual(created.updateTime!.seconds);
+          expect(updated.createTime!.seconds).toBe(created.createTime!.seconds);
         },
       },
       {
-        name: "should not modify create_time on update",
+        name: "should allow interceptors to populate timestamps for batch writes",
         async run(ctx) {
           await ctx.insertUsers([]);
-          const r = repo(ctx, {
-            columns: {
-              create_time: { timestamp: "create" },
-              update_time: { timestamp: "update" },
-            },
-          });
-          const created = await r.create({ uid: "ts3", email: "ts3@test.com" });
-          const createTimeSeconds = created.createTime!.seconds;
+          const timestamps: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation === "batchCreate") {
+              ictx.resources = ictx.resources.map((resource) => {
+                const now = timestampNow();
+                return { ...resource, createTime: now, updateTime: now };
+              });
+            } else if (ictx.operation === "batchUpdate") {
+              ictx.updates = ictx.updates.map((update) => ({
+                ...update,
+                resource: { ...update.resource, updateTime: timestampNow() },
+              }));
+            }
+            return next(ictx);
+          };
+          const r = repo(ctx, { interceptors: [timestamps] });
 
-          const updated = await r.update(
-            { uid: "ts3" },
-            { displayName: "Updated", email: "ts3@test.com" },
-          );
-          expect(updated.createTime!.seconds).toBe(createTimeSeconds);
-        },
-      },
-      {
-        name: "should set create timestamps on batchCreate",
-        async run(ctx) {
-          await ctx.insertUsers([]);
-          const r = repo(ctx, {
-            columns: {
-              create_time: { timestamp: "create" },
-              update_time: { timestamp: "update" },
-            },
-          });
-          const results = await r.batchCreate([
+          const created = await r.batchCreate([
             { uid: "ts4", email: "ts4@test.com" },
             { uid: "ts5", email: "ts5@test.com" },
           ]);
-          for (const result of results) {
+          for (const result of created) {
             expect(result.createTime).toBeDefined();
             expect(result.updateTime).toBeDefined();
           }
-        },
-      },
-      {
-        name: "should set update timestamps on batchUpdate",
-        async run(ctx) {
-          await ctx.insertUsers([]);
-          const r = repo(ctx, {
-            columns: {
-              create_time: { timestamp: "create" },
-              update_time: { timestamp: "update" },
-            },
-          });
+
           await r.batchCreate([
             { uid: "ts6", email: "ts6@test.com" },
             { uid: "ts7", email: "ts7@test.com" },
@@ -1580,6 +1790,200 @@ export const groups: RepositoryCaseGroup[] = [
           for (const result of results) {
             expect(result.updateTime).toBeDefined();
           }
+        },
+      },
+    ],
+  },
+  {
+    group: "interceptors: contextValues",
+    cases: [
+      {
+        name: "should allow interceptors to set context values for downstream interceptors and column hooks",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const kSecretPrefix = createContextKey("", { description: "secret prefix" });
+          const seen: string[] = [];
+          const setPrefix: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            ictx.contextValues.set(kSecretPrefix, "shared-ctx");
+            return next(ictx);
+          };
+          const observe: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            seen.push(ictx.contextValues.get(kSecretPrefix));
+            return next(ictx);
+          };
+          const r = repo(ctx, {
+            columns: {
+              secret: {
+                serialize: ({ value, contextValues }) =>
+                  typeof value !== "string" || value === ""
+                    ? value
+                    : `${contextValues.get(kSecretPrefix)}:${value}`,
+                deserialize: ({ value, contextValues }) =>
+                  typeof value !== "string"
+                    ? ""
+                    : value.replace(`${contextValues.get(kSecretPrefix)}:`, ""),
+              },
+            },
+            interceptors: [setPrefix, observe],
+          });
+
+          const created = await r.create({
+            uid: "ctx1",
+            email: "ctx1@test.com",
+            secret: "secret-value",
+          });
+          expect(created.secret).toBe("secret-value");
+
+          const fetched = await r.get({ uid: "ctx1" });
+          expect(fetched.secret).toBe("secret-value");
+          expect(seen).toEqual(["shared-ctx", "shared-ctx"]);
+        },
+      },
+      {
+        name: "should expose default context values to interceptors and column hooks",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const kSecretPrefix = createContextKey("default-ctx", { description: "secret prefix" });
+          const seen: string[] = [];
+          const observe: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            seen.push(ictx.contextValues.get(kSecretPrefix));
+            return next(ictx);
+          };
+          const r = repo(ctx, {
+            columns: {
+              secret: {
+                serialize: ({ value, contextValues }) =>
+                  typeof value !== "string" || value === ""
+                    ? value
+                    : `${contextValues.get(kSecretPrefix)}:${value}`,
+                deserialize: ({ value, contextValues }) =>
+                  typeof value !== "string"
+                    ? ""
+                    : value.replace(`${contextValues.get(kSecretPrefix)}:`, ""),
+              },
+            },
+            interceptors: [observe],
+          });
+
+          const created = await r.create({
+            uid: "ctx2",
+            email: "ctx2@test.com",
+            secret: "defaulted-secret",
+          });
+          expect(created.secret).toBe("defaulted-secret");
+
+          const fetched = await r.get({ uid: "ctx2" });
+          expect(fetched.secret).toBe("defaulted-secret");
+          expect(seen).toEqual(["default-ctx", "default-ctx"]);
+        },
+      },
+      {
+        name: "should let later interceptors override context values",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const kSecretPrefix = createContextKey("", { description: "secret prefix" });
+          const seen: string[] = [];
+          const first: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            ictx.contextValues.set(kSecretPrefix, "first");
+            return next(ictx);
+          };
+          const second: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            ictx.contextValues.set(kSecretPrefix, "second");
+            return next(ictx);
+          };
+          const observe: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            seen.push(ictx.contextValues.get(kSecretPrefix));
+            return next(ictx);
+          };
+          const r = repo(ctx, {
+            columns: {
+              secret: {
+                serialize: ({ value, contextValues }) =>
+                  typeof value !== "string" || value === ""
+                    ? value
+                    : `${contextValues.get(kSecretPrefix)}:${value}`,
+                deserialize: ({ value, contextValues }) =>
+                  typeof value !== "string"
+                    ? ""
+                    : value.replace(`${contextValues.get(kSecretPrefix)}:`, ""),
+              },
+            },
+            interceptors: [first, second, observe],
+          });
+
+          const created = await r.create({
+            uid: "ctx3",
+            email: "ctx3@test.com",
+            secret: "overridden-secret",
+          });
+          expect(created.secret).toBe("overridden-secret");
+
+          const fetched = await r.get({ uid: "ctx3" });
+          expect(fetched.secret).toBe("overridden-secret");
+          expect(seen).toEqual(["second", "second"]);
+        },
+      },
+      {
+        name: "should create a fresh context bag for each operation",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const kSeenCreate = createContextKey(false, { description: "create marker" });
+          const seen: boolean[] = [];
+          const marker: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation === "create") {
+              ictx.contextValues.set(kSeenCreate, true);
+            }
+            seen.push(ictx.contextValues.get(kSeenCreate));
+            return next(ictx);
+          };
+          const r = repo(ctx, { interceptors: [marker] });
+
+          await r.create({ uid: "ctx4", email: "ctx4@test.com" });
+          await r.get({ uid: "ctx4" });
+
+          expect(seen).toEqual([true, false]);
+        },
+      },
+      {
+        name: "should share context values across batch operations and column hooks",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const kSecretPrefix = createContextKey("batch", { description: "secret prefix" });
+          const observed: string[] = [];
+          const setPrefix: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation === "batchCreate") {
+              ictx.contextValues.set(kSecretPrefix, "batch-create");
+            }
+            return next(ictx);
+          };
+          const observe: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            observed.push(ictx.contextValues.get(kSecretPrefix));
+            return next(ictx);
+          };
+          const r = repo(ctx, {
+            columns: {
+              secret: {
+                serialize: ({ value, contextValues }) =>
+                  typeof value !== "string" || value === ""
+                    ? value
+                    : `${contextValues.get(kSecretPrefix)}:${value}`,
+                deserialize: ({ value, contextValues }) =>
+                  typeof value !== "string"
+                    ? ""
+                    : value.replace(`${contextValues.get(kSecretPrefix)}:`, ""),
+              },
+            },
+            interceptors: [setPrefix, observe],
+          });
+
+          const created = await r.batchCreate([
+            { uid: "ctx5", email: "ctx5@test.com", secret: "first-secret" },
+            { uid: "ctx6", email: "ctx6@test.com", secret: "second-secret" },
+          ]);
+
+          expect(created[0].secret).toBe("first-secret");
+          expect(created[1].secret).toBe("second-secret");
+          expect(observed).toEqual(["batch-create"]);
         },
       },
     ],
@@ -1700,6 +2104,162 @@ export const groups: RepositoryCaseGroup[] = [
             { op: "get", hasQuery: true },
             { op: "update", hasQuery: true, hasResource: true },
             { op: "list", hasQuery: true },
+          ]);
+        },
+      },
+      {
+        name: "should allow interceptors to rewrite create and update inputs",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const rewrite: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation === "create") {
+              ictx.resource = {
+                ...ictx.resource,
+                displayName: "Created by interceptor",
+              };
+            } else if (ictx.operation === "update") {
+              ictx.resource = {
+                ...ictx.resource,
+                displayName: "Updated by interceptor",
+              };
+            }
+            return next(ictx);
+          };
+          const r = repo(ctx, { interceptors: [rewrite] });
+
+          const created = await r.create({ uid: "int5", email: "int5@test.com" });
+          expect(created.displayName).toBe("Created by interceptor");
+
+          const updated = await r.update(
+            { uid: "int5" },
+            { displayName: "Ignored", email: "int5@test.com" },
+          );
+          expect(updated.displayName).toBe("Updated by interceptor");
+        },
+      },
+      {
+        name: "should allow interceptors to inspect the result returned by next",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const seen: Array<Pick<MessageShape<typeof TestUserSchema>, "displayName" | "etag">> = [];
+          const audit: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation !== "create") {
+              return next(ictx);
+            }
+            const result = (await next(ictx)) as MessageShape<typeof TestUserSchema>;
+            seen.push({ displayName: result.displayName, etag: result.etag });
+            return result;
+          };
+          const rewrite: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation === "create") {
+              ictx.resource = {
+                ...ictx.resource,
+                displayName: "Created by inner interceptor",
+              };
+            }
+            return next(ictx);
+          };
+          const r = repo(ctx, { interceptors: [audit, rewrite] });
+
+          const created = await r.create({ uid: "int6", email: "int6@test.com" });
+
+          expect(created.displayName).toBe("Created by inner interceptor");
+          expect(created.etag).toBeTruthy();
+          expect(seen).toEqual([
+            { displayName: "Created by inner interceptor", etag: created.etag },
+          ]);
+        },
+      },
+      {
+        name: "should allow an interceptor to call a separate repo after next",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          await ctx.setupMappedUsers(REPO_MAPPED_USERS_TABLE_2, []);
+          const auditRepo = createRepository(TestUserSchema, {
+            engine: ctx.engine,
+            tableName: REPO_MAPPED_USERS_TABLE_2,
+            columns: COLUMNS,
+          });
+          const audit: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation !== "create") {
+              return next(ictx);
+            }
+            const result = (await next(ictx)) as MessageShape<typeof TestUserSchema>;
+            await auditRepo.create({
+              uid: `audit-${result.uid}`,
+              email: `audit-${result.uid}@test.com`,
+              displayName: result.displayName,
+              secret: result.etag,
+            });
+            return result;
+          };
+          const rewrite: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation === "create") {
+              ictx.resource = {
+                ...ictx.resource,
+                displayName: "Created for audit",
+              };
+            }
+            return next(ictx);
+          };
+          const r = repo(ctx, { interceptors: [audit, rewrite] });
+
+          const created = await r.create({ uid: "int7", email: "int7@test.com" });
+          const auditRecord = await auditRepo.get({ uid: "audit-int7" });
+
+          expect(created.displayName).toBe("Created for audit");
+          expect(created.email).toBe("int7@test.com");
+          expect(auditRecord.displayName).toBe("Created for audit");
+          expect(auditRecord.email).toBe("audit-int7@test.com");
+          expect(auditRecord.secret).toBe(created.etag);
+        },
+      },
+      {
+        name: "should allow an interceptor to call the same repo with a reentry guard",
+        async run(ctx) {
+          await ctx.insertUsers([]);
+          const kNormalizeGuard = createContextKey(false, { description: "normalize guard" });
+          const seen: Array<{ operation: string; guarded: boolean }> = [];
+          let r!: ReturnType<typeof repo>;
+          const normalize: Interceptor<typeof TestUserSchema> = (next) => async (ictx) => {
+            if (ictx.operation !== "create" && ictx.operation !== "update") {
+              return next(ictx);
+            }
+            const result = (await next(ictx)) as MessageShape<typeof TestUserSchema>;
+            const guarded = ictx.contextValues.get(kNormalizeGuard);
+            seen.push({ operation: ictx.operation, guarded });
+            if (guarded || ictx.operation !== "create") {
+              return result;
+            }
+            await withReentryGuard(ictx.contextValues, kNormalizeGuard, async () => {
+              await r.update(
+                { uid: result.uid },
+                {
+                  displayName: `${result.displayName} normalized`,
+                  email: result.email,
+                },
+                {
+                  contextValues: ictx.contextValues,
+                },
+              );
+            });
+            return result;
+          };
+          r = repo(ctx, { interceptors: [normalize] });
+
+          const created = await r.create({
+            uid: "int8",
+            email: "int8@test.com",
+            displayName: "Created",
+          });
+          const fetched = await r.get({ uid: "int8" });
+
+          expect(created.displayName).toBe("Created");
+          expect(fetched.displayName).toBe("Created normalized");
+          expect(fetched.email).toBe("int8@test.com");
+          expect(seen).toEqual([
+            { operation: "create", guarded: false },
+            { operation: "update", guarded: true },
           ]);
         },
       },

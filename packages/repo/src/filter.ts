@@ -9,6 +9,19 @@ import {
   parse,
 } from "@protoutil/aip/filtering";
 
+type FilterMetadata = {
+  decls: Decl[];
+  replacements?: Record<string, ReturnType<typeof parse>>;
+};
+
+type FilterCacheEntry = {
+  columnMap?: Record<string, string>;
+  extraDecls?: Decl[];
+  metadata: FilterMetadata;
+};
+
+const filterMetadataCache = new WeakMap<DescMessage, FilterCacheEntry[]>();
+
 /**
  * Options for building a checked filter expression from user input.
  */
@@ -18,6 +31,45 @@ export interface BuildFilterOptions {
 
   /** Additional declarations merged with contextDecls(schema). */
   extraDecls?: Decl[];
+}
+
+function buildFilterMetadata<Desc extends DescMessage>(
+  schema: Desc,
+  opts?: BuildFilterOptions,
+): FilterMetadata {
+  const decls = [...contextDecls(schema), ...(opts?.extraDecls ?? [])];
+  let replacements: Record<string, ReturnType<typeof parse>> | undefined;
+
+  if (opts?.columnMap && Object.keys(opts.columnMap).length > 0) {
+    replacements = {};
+    for (const [protoField, dbColumn] of Object.entries(opts.columnMap)) {
+      replacements[protoField] = parse(dbColumn);
+    }
+  }
+
+  return { decls, replacements };
+}
+
+function getFilterMetadata<Desc extends DescMessage>(
+  schema: Desc,
+  opts?: BuildFilterOptions,
+): FilterMetadata {
+  const entries = filterMetadataCache.get(schema) ?? [];
+  const match = entries.find(
+    (entry) => entry.columnMap === opts?.columnMap && entry.extraDecls === opts?.extraDecls,
+  );
+  if (match) {
+    return match.metadata;
+  }
+
+  const metadata = buildFilterMetadata(schema, opts);
+  entries.push({
+    columnMap: opts?.columnMap,
+    extraDecls: opts?.extraDecls,
+    metadata,
+  });
+  filterMetadataCache.set(schema, entries);
+  return metadata;
 }
 
 /**
@@ -78,18 +130,12 @@ export function buildFilter<Desc extends DescMessage>(
   opts?: BuildFilterOptions,
 ): CheckedExpr {
   const filterString = typeof query === "string" ? query : partialToFilter(schema, query);
-
+  const metadata = getFilterMetadata(schema, opts);
   const parsed = parse(filterString);
+  const { checkedExpr } = check(parsed, { decls: metadata.decls });
 
-  const decls = [...contextDecls(schema), ...(opts?.extraDecls ?? [])];
-  const { checkedExpr } = check(parsed, { decls });
-
-  if (opts?.columnMap && Object.keys(opts.columnMap).length > 0) {
-    const replacements: Record<string, ReturnType<typeof parse>> = {};
-    for (const [protoField, dbColumn] of Object.entries(opts.columnMap)) {
-      replacements[protoField] = parse(dbColumn);
-    }
-    return optimize(checkedExpr, inline(replacements));
+  if (metadata.replacements) {
+    return optimize(checkedExpr, inline(metadata.replacements));
   }
 
   return checkedExpr;
@@ -117,15 +163,11 @@ export function buildBatchFilter<Desc extends DescMessage>(
   const combined = parts.join(" OR ");
 
   const parsed = parse(combined);
-  const decls = [...contextDecls(schema), ...(opts?.extraDecls ?? [])];
-  const { checkedExpr } = check(parsed, { decls });
+  const metadata = getFilterMetadata(schema, opts);
+  const { checkedExpr } = check(parsed, { decls: metadata.decls });
 
-  if (opts?.columnMap && Object.keys(opts.columnMap).length > 0) {
-    const replacements: Record<string, ReturnType<typeof parse>> = {};
-    for (const [protoField, dbColumn] of Object.entries(opts.columnMap)) {
-      replacements[protoField] = parse(dbColumn);
-    }
-    return optimize(checkedExpr, inline(replacements));
+  if (metadata.replacements) {
+    return optimize(checkedExpr, inline(metadata.replacements));
   }
 
   return checkedExpr;

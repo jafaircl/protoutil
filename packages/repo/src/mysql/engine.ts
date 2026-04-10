@@ -151,6 +151,36 @@ function unionKeys(rows: Record<string, unknown>[]): string[] {
   return [...set];
 }
 
+function buildRowMatchWhere(
+  keys: string[],
+  row: Record<string, unknown>,
+): { sql: string; params: unknown[] } {
+  const params: unknown[] = [];
+  const clauses = keys.map((key) => {
+    const value = row[key];
+    if (value === null || value === undefined) {
+      return `${quoteIdent(key)} IS NULL`;
+    }
+    params.push(value);
+    return `${quoteIdent(key)} = ?`;
+  });
+  return {
+    sql: clauses.join(" AND "),
+    params,
+  };
+}
+
+function buildRowsMatchWhere(
+  keys: string[],
+  rows: Record<string, unknown>[],
+): { sql: string; params: unknown[] } {
+  const matches = rows.map((row) => buildRowMatchWhere(keys, row));
+  return {
+    sql: matches.map((match) => `(${match.sql})`).join(" OR "),
+    params: matches.flatMap((match) => match.params),
+  };
+}
+
 function createMySQLEngineImpl(pool: Pool, dialect: Dialect, conn?: PoolConnection): Engine {
   const queryable: Queryable = (conn ?? pool) as Queryable;
 
@@ -182,7 +212,7 @@ function createMySQLEngineImpl(pool: Pool, dialect: Dialect, conn?: PoolConnecti
       const keys = Object.keys(opts.row);
       const cols = keys.map(quoteIdent).join(", ");
       const placeholders = keys.map(() => "?").join(", ");
-      const values = keys.map((k) => opts.row[k]);
+      const values = keys.map((k) => opts.row[k] ?? null);
 
       // MySQL doesn't support RETURNING — insert then fetch back
       const insertSql = `INSERT INTO ${quoteIdent(opts.table)} (${cols}) VALUES (${placeholders})`;
@@ -191,9 +221,9 @@ function createMySQLEngineImpl(pool: Pool, dialect: Dialect, conn?: PoolConnecti
 
         // Fetch the inserted row back using LAST_INSERT_ID or the provided values
         // Build a filter from the inserted values to fetch it back
-        const whereClauses = keys.map((k) => `${quoteIdent(k)} = ?`).join(" AND ");
-        const selectSql = `SELECT * FROM ${quoteIdent(opts.table)} WHERE ${whereClauses} LIMIT 1`;
-        const [rows] = await queryable.execute<RowDataPacket[]>(selectSql, values);
+        const match = buildRowMatchWhere(keys, opts.row);
+        const selectSql = `SELECT * FROM ${quoteIdent(opts.table)} WHERE ${match.sql} LIMIT 1`;
+        const [rows] = await queryable.execute<RowDataPacket[]>(selectSql, match.params);
         return rows[0] as T;
       } catch (err) {
         wrapDbError(err);
@@ -257,13 +287,9 @@ function createMySQLEngineImpl(pool: Pool, dialect: Dialect, conn?: PoolConnecti
           await queryable.execute<ResultSetHeader>(insertSql, values);
 
           // MySQL has no RETURNING — fetch back using all inserted values
-          // Build WHERE (col1, col2, ...) IN ((?, ?), (?, ?)) for each chunk
-          const wherePlaceholders = chunk
-            .map(() => `(${keys.map(() => "?").join(", ")})`)
-            .join(", ");
-          const selectSql = `SELECT * FROM ${quoteIdent(opts.table)} WHERE (${cols}) IN (${wherePlaceholders})`;
-          const selectValues = chunk.flatMap((row) => keys.map((k) => row[k] ?? null));
-          const [rows] = await queryable.execute<RowDataPacket[]>(selectSql, selectValues);
+          const match = buildRowsMatchWhere(keys, chunk);
+          const selectSql = `SELECT * FROM ${quoteIdent(opts.table)} WHERE ${match.sql}`;
+          const [rows] = await queryable.execute<RowDataPacket[]>(selectSql, match.params);
           results.push(...(rows as T[]));
         } catch (err) {
           wrapDbError(err);

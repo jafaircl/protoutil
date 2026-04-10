@@ -42,10 +42,13 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "build:verified": "tsdown && node ./scripts/pack-check.mjs",
+    "bench": "node --import tsx src/repository.bench.ts",
     "dev": "tsdown --watch",
+    "pack-check": "node ./scripts/pack-check.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm run build",
+    "prepublishOnly": "pnpm run build:verified",
     "protogen": "buf generate"
   },
   "peerDependencies": {

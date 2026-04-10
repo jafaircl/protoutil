@@ -16,6 +16,28 @@ tasks:
     inputs:
     - '@globs(sources)'
     - 'tsconfig.json'
+  bench:
+    command: 'pnpm run bench'
+    dependsOn:
+    - protogen
+    inputs:
+    - '@globs(sources)'
+    - 'package.json'
+    outputs:
+    - 'BENCHMARKS.md'
+    - 'benchmarks/results.json'
+  pack-check:
+    command: 'pnpm run pack-check'
+    dependsOn:
+    - test
+    - core:build
+    - aip:build
+    - aipql:build
+    inputs:
+    - '@globs(sources)'
+    - 'package.json'
+    - 'scripts/pack-check.mjs'
+    - 'tsdown.config.ts'
   services-up:
     command: 'docker compose up -d --wait'
     inputs:
@@ -25,6 +47,7 @@ tasks:
   test:
     command: 'pnpm run test'
     dependsOn:
+    - bench
     - typecheck
     - check
     - services-up
@@ -32,11 +55,15 @@ tasks:
     - '@globs(sources)'
     - '@globs(tests)'
   build:
-    command: 'pnpm run build'
+    command: 'pnpm run build:verified'
     dependsOn:
     - test
+    - core:build
+    - aip:build
+    - aipql:build
     inputs:
     - '@globs(sources)'
+    - 'scripts/pack-check.mjs'
     - 'tsdown.config.ts'
     outputs:
     - 'dist'

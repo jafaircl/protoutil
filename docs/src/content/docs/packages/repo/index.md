@@ -5,6 +5,10 @@ description: Database-agnostic protobuf resource persistence using AIP patterns
 
 Database-agnostic protobuf resource persistence using [AIP](https://aip.dev) patterns. Define your resources as protobuf messages and persist them to any supported database without changing application code.
 
+## Benchmarking
+
+Generated benchmark results are available in the [benchmark report](/packages/repo/benchmarks/).
+
 ## Install
 
 ```bash
@@ -281,19 +285,28 @@ const activeCount = await users.count('active = true');
 
 ### Column Configuration
 
-The `columns` option provides per-field control over how proto fields map to database columns. Keys are proto field names (snake_case).
+The `columns` option provides per-field control over how proto fields map to database columns. Keys are generated message field names like `displayName` and `createTime`, not proto snake_case names.
 
 ```typescript
+import { fromJsonString, toJsonString } from "@bufbuild/protobuf";
+
 const users = createRepository(UserSchema, {
   engine,
   tableName: "users",
   columns: {
     uid: { name: "user_id" },
-    display_name: { name: "name" },
-    computed_score: { ignore: true },
-    settings: { serialize: "json" },
-    create_time: { timestamp: "create" },
-    update_time: { timestamp: "update" },
+    displayName: { name: "name" },
+    computedScore: { ignore: true },
+    settings: {
+      serialize: ({ field, value }) =>
+        value == null || !field.message
+          ? null
+          : toJsonString(field.message, value),
+      deserialize: ({ field, value }) =>
+        value == null || !field.message
+          ? undefined
+          : fromJsonString(field.message, value),
+    },
   },
 });
 ```
@@ -304,8 +317,10 @@ const users = createRepository(UserSchema, {
 |-------|------|-------------|
 | `name` | `string` | Override the DB column name. Defaults to the field's JSON name (camelCase). |
 | `ignore` | `boolean` | Exclude this field from DB serialization. On reads, the field gets its proto3 default. |
-| `serialize` | `"json" \| "binary"` | Serialize nested messages for storage in a single column. |
-| `timestamp` | `"create" \| "update"` | Auto-populate this `Timestamp` field using `timestampNow()`. |
+| `serialize` | `(ctx) => DB` | Transform a field value before it is written. The context includes the strongly typed `field`, `operation` (`"create"` or `"update"`), and field `value`. |
+| `deserialize` | `(ctx) => FieldValue` | Transform a database value before it is assigned to the protobuf field. The context includes the strongly typed `field`, `operation` (`"get"` or `"list"`), and serialized `value`. |
+
+Use column hooks for storage concerns such as encryption, compression, or packing nested messages into a single column. Use interceptors for lifecycle concerns such as timestamps, defaults, or request-derived values.
 
 ### Etag Configuration
 
@@ -314,8 +329,24 @@ const users = createRepository(UserSchema, {
   engine,
   etag: {
     field: "etag",
-    mask: fieldMask(UserSchema, ["uid", "email"]),
     fn: (schema, msg) => customHash(schema, msg),
+  },
+});
+```
+
+If you want mask-like behavior, apply it inside `fn`:
+
+```typescript
+import { etag as defaultEtag } from "@protoutil/aip/etag";
+import { fieldMask } from "@protoutil/core/wkt";
+
+const users = createRepository(UserSchema, {
+  engine,
+  etag: {
+    fn: (schema, msg) =>
+      defaultEtag(schema, msg, {
+        fieldMask: fieldMask(UserSchema, ["uid", "email"]),
+      }),
   },
 });
 ```
@@ -344,6 +375,79 @@ const users = createRepository(UserSchema, {
   interceptors: [logger],
 });
 ```
+
+### Context Values
+
+Repository operations create a fresh `ContextValues` bag for each call. Interceptors can set values on it, and downstream interceptors plus column hooks can read them.
+
+```typescript
+import {
+  createContextKey,
+  withReentryGuard,
+  type Interceptor,
+} from "@protoutil/repo";
+
+const kActorId = createContextKey<string | undefined>(undefined, {
+  description: "current actor id",
+});
+
+const actorContext: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
+  if (ctx.operation === "create" || ctx.operation === "update") {
+    ctx.contextValues.set(kActorId, "user-123");
+  }
+  return next(ctx);
+};
+
+const users = createRepository(UserSchema, {
+  engine,
+  interceptors: [actorContext],
+  columns: {
+    secret: {
+      serialize: ({ value, contextValues }) =>
+        typeof value !== "string"
+          ? value
+          : `${contextValues.get(kActorId) ?? "anonymous"}:${value}`,
+    },
+  },
+});
+```
+
+Use `withReentryGuard()` when an interceptor needs to make a nested repository call without re-entering the same side effect:
+
+```typescript
+const kAuditGuard = createContextKey(false, { description: "audit guard" });
+
+const audit: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
+  if (ctx.operation !== "create") {
+    return next(ctx);
+  }
+
+  const result = await next(ctx);
+
+  await withReentryGuard(ctx.contextValues, kAuditGuard, async () => {
+    await users.update(
+      { uid: result.uid },
+      { displayName: `${result.displayName} normalized` },
+      { contextValues: ctx.contextValues },
+    );
+  });
+
+  return result;
+};
+```
+
+Each repository call gets a fresh context bag by default. Pass
+`contextValues: ctx.contextValues` when a nested call should share the
+same guard state.
+
+### Recommended Patterns
+
+- Use `columns` for storage concerns only: renaming columns, ignoring fields, encrypting values, or storing a nested message as JSON/binary in one column.
+- Use interceptors for lifecycle concerns: timestamps, defaults, audit fields, tenant scoping, and other request-derived values.
+- Prefer protobuf-aware codecs such as `toJsonString` / `fromJsonString` or `toBinary` / `fromBinary` over plain JSON helpers.
+- Return `null` from `serialize` when you want to clear a nullable database column, and return `undefined` from `deserialize` when you want the protobuf field to stay unset.
+- Keep column hooks field-local. If the behavior depends on multiple fields or business rules, it usually belongs in an interceptor instead.
+- Keep etag logic deterministic. If you need to exclude fields, do it inside `etag.fn` rather than making writes conditional in column hooks.
 
 ## Serialization
 

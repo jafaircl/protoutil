@@ -2,6 +2,7 @@ import type { DescMessage, MessageInitShape, MessageShape } from "@bufbuild/prot
 import type { FieldMask } from "@bufbuild/protobuf/wkt";
 import type { Decl } from "@protoutil/aip/filtering";
 import type { PageToken } from "@protoutil/aip/pagination";
+import type { ContextValues } from "./context-values.js";
 import type { Engine } from "./engine.js";
 
 /** A filter string (AIP-160) or a partial resource used to query the database. */
@@ -10,22 +11,76 @@ export type QueryInput<Desc extends DescMessage> = string | Partial<MessageShape
 /**
  * Per-field configuration for database column behavior.
  *
- * Keys in the `columns` record are proto field names (snake_case).
+ * Keys in the `columns` record are generated message field names
+ * (camelCase / localName), matching the runtime message shape.
  *
  * ```ts
  * const repo = createRepository(UserSchema, {
  *   engine,
  *   columns: {
  *     uid: { name: "user_id" },
- *     computed_score: { ignore: true },
- *     settings: { serialize: "json" },
- *     create_time: { timestamp: "create" },
- *     update_time: { timestamp: "update" },
+ *     computedScore: { ignore: true },
+ *     settings: {
+ *       serialize: ({ field, value }) =>
+ *         value == null || !field.message ? null : toJsonString(field.message, value),
+ *       deserialize: ({ field, value }) =>
+ *         value == null || !field.message ? undefined : fromJsonString(field.message, value),
+ *     },
  *   },
  * });
  * ```
  */
-export interface ColumnConfig {
+export type ColumnSerializeOperation = "create" | "update";
+
+export type ColumnDeserializeOperation = "get" | "list";
+
+export type ColumnKey<Desc extends DescMessage> = Extract<keyof Desc["field"], string>;
+
+export type ColumnFieldValue<
+  Desc extends DescMessage,
+  K extends ColumnKey<Desc>,
+> = K extends keyof MessageShape<Desc> ? MessageShape<Desc>[K] : unknown;
+
+export interface ColumnSerializeContext<
+  Desc extends DescMessage = DescMessage,
+  K extends ColumnKey<Desc> = ColumnKey<Desc>,
+> {
+  /** Descriptor for the configured proto field. */
+  field: Desc["field"][K];
+
+  /** Whether the field is being prepared for create or update. */
+  operation: ColumnSerializeOperation;
+
+  /** The current field value from the protobuf message. */
+  value: ColumnFieldValue<Desc, K>;
+
+  /** Per-operation context values shared with interceptors. */
+  contextValues: ContextValues;
+}
+
+export interface ColumnDeserializeContext<
+  Desc extends DescMessage = DescMessage,
+  K extends ColumnKey<Desc> = ColumnKey<Desc>,
+  DB = unknown,
+> {
+  /** Descriptor for the configured proto field. */
+  field: Desc["field"][K];
+
+  /** Whether the row is being hydrated for a single read or list-style read. */
+  operation: ColumnDeserializeOperation;
+
+  /** The raw database value for the configured column. */
+  value: DB;
+
+  /** Per-operation context values shared with interceptors. */
+  contextValues: ContextValues;
+}
+
+export interface ColumnConfig<
+  Desc extends DescMessage = DescMessage,
+  K extends ColumnKey<Desc> = ColumnKey<Desc>,
+  DB = unknown,
+> {
   /**
    * Override the database column name for this field. Defaults to
    * the field's JSON name (camelCase).
@@ -46,26 +101,25 @@ export interface ColumnConfig {
   ignore?: boolean;
 
   /**
-   * Serialize nested messages or repeated fields for storage in a
-   * single database column.
+   * Transform this field's value before it is written to the database.
    *
-   * - `"json"` — uses `toJsonString` / `fromJsonString` from
-   *   `@bufbuild/protobuf` for human-readable JSON storage.
-   * - `"binary"` — uses `toBinary` / `fromBinary` from
-   *   `@bufbuild/protobuf` for compact binary storage.
+   * This is intended for storage-level concerns such as encryption,
+   * compression, or packing a nested message into a single column.
+   * Prefer protobuf-aware codecs like `toJsonString` / `fromJsonString`
+   * over plain `JSON.stringify`, which can break protobuf semantics.
    */
-  serialize?: "json" | "binary";
+  serialize?: (ctx: ColumnSerializeContext<Desc, K>) => DB;
 
   /**
-   * Auto-populate this `google.protobuf.Timestamp` field on the
-   * specified lifecycle event using `timestampNow()`.
-   *
-   * - `"create"` — set on `create` and `batchCreate` only.
-   * - `"update"` — set on `create`, `batchCreate`, `update`, and
-   *   `batchUpdate`.
+   * Transform a database value before it is assigned to the protobuf
+   * field on read.
    */
-  timestamp?: "create" | "update";
+  deserialize?: (ctx: ColumnDeserializeContext<Desc, K, DB>) => ColumnFieldValue<Desc, K>;
 }
+
+export type ColumnConfigMap<Desc extends DescMessage> = Partial<{
+  [K in ColumnKey<Desc>]: ColumnConfig<Desc, K, unknown>;
+}>;
 
 /** Base fields shared by every {@link InterceptorContext} variant. */
 interface InterceptorContextBase<Desc extends DescMessage> {
@@ -73,6 +127,8 @@ interface InterceptorContextBase<Desc extends DescMessage> {
   schema: Desc;
   /** The database table or collection name. */
   tableName: string;
+  /** Per-operation context values shared across interceptors and column hooks. */
+  contextValues: ContextValues;
 }
 
 /**
@@ -150,7 +206,7 @@ export type InterceptorFn<Desc extends DescMessage> = (
  * that can run logic before and/or after calling `next`.
  *
  * ```ts
- * const logger: Interceptor<any> = (next) => async (ctx) => {
+ * const logger: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
  *   const start = performance.now();
  *   try {
  *     const result = await next(ctx);
@@ -163,7 +219,7 @@ export type InterceptorFn<Desc extends DescMessage> = (
  * };
  *
  * // Narrowing on operation:
- * const auditor: Interceptor<any> = (next) => async (ctx) => {
+ * const auditor: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
  *   if (ctx.operation === "create") {
  *     console.log("Creating resource:", ctx.resource);
  *   }
@@ -187,19 +243,24 @@ export interface RepositoryOptions<Desc extends DescMessage> {
   tableName?: string;
 
   /**
-   * Per-field column configuration. Keys are proto field names
-   * (snake_case). See {@link ColumnConfig} for available options.
+   * Per-field column configuration. Keys are generated message field
+   * names (camelCase / localName). See {@link ColumnConfig} for
+   * available options.
    *
    * ```ts
    * columns: {
    *   uid: { name: "user_id" },
-   *   display_name: { name: "name" },
-   *   settings: { serialize: "json" },
-   *   create_time: { timestamp: "create" },
+   *   displayName: { name: "name" },
+   *   settings: {
+   *     serialize: ({ field, value }) =>
+   *       value == null || !field.message ? null : toJsonString(field.message, value),
+   *     deserialize: ({ field, value }) =>
+   *       value == null || !field.message ? undefined : fromJsonString(field.message, value),
+   *   },
    * }
    * ```
    */
-  columns?: Record<string, ColumnConfig>;
+  columns?: ColumnConfigMap<Desc>;
 
   /**
    * Additional AIP-160 filter declarations merged with the auto-generated
@@ -226,7 +287,6 @@ export interface RepositoryOptions<Desc extends DescMessage> {
    * ```ts
    * etag: {
    *   field: "etag",
-   *   mask: fieldMask(MySchema, ["update_time"]),
    *   fn: (schema, msg) => customEtag(schema, msg),
    * }
    * ```
@@ -237,13 +297,6 @@ export interface RepositoryOptions<Desc extends DescMessage> {
      * `"etag"`.
      */
     field?: string;
-
-    /**
-     * A {@link FieldMask} applied to the resource before calculating
-     * its etag. Useful for excluding fields like `update_time` that
-     * change on every write but don't represent a semantic change.
-     */
-    mask?: FieldMask;
 
     /**
      * Custom etag generation function. Defaults to the `etag`
@@ -302,6 +355,12 @@ export interface GetOptions {
 
   /** Run the operation within a transaction. */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface CreateOptions {
@@ -323,6 +382,12 @@ export interface CreateOptions {
 
   /** Run the operation within a transaction. */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface ListOptions {
@@ -359,6 +424,12 @@ export interface ListOptions {
 
   /** Run the operation within a transaction. */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface UpdateOptions {
@@ -386,6 +457,12 @@ export interface UpdateOptions {
 
   /** Run the operation within a transaction. */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface DeleteOptions {
@@ -399,11 +476,23 @@ export interface DeleteOptions {
 
   /** Run the operation within a transaction. */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface CountOptions {
   /** Run the operation within a transaction. */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface BatchGetOptions {
@@ -420,6 +509,12 @@ export interface BatchGetOptions {
    * rolling back.
    */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface BatchCreateOptions {
@@ -446,6 +541,12 @@ export interface BatchCreateOptions {
    * rolling back.
    */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface BatchUpdateItem<Desc extends DescMessage> {
@@ -486,6 +587,12 @@ export interface BatchUpdateOptions {
    * rolling back.
    */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface BatchDeleteOptions {
@@ -504,6 +611,12 @@ export interface BatchDeleteOptions {
    * rolling back.
    */
   transaction?: Engine;
+
+  /**
+   * Advanced: reuse an existing context bag for a nested repository call.
+   * When omitted, the repository creates a fresh bag for this operation.
+   */
+  contextValues?: ContextValues;
 }
 
 export interface ListResult<Desc extends DescMessage> {
