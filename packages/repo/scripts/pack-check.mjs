@@ -29,21 +29,35 @@ const PACKAGE_FIXTURES = [
 ];
 
 async function packPackage(pkg, tarballsDir) {
-  const { stdout } = await run("pnpm", ["pack", "--pack-destination", tarballsDir], {
+  const { stdout } = await run("pnpm", ["pack", "--json", "--pack-destination", tarballsDir], {
     cwd: pkg.dir,
   });
-  const filename = stdout
-    .trim()
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .at(-1);
+
+  const filename = parsePackedTarballFilename(stdout);
 
   if (!filename) {
     throw new Error(`Failed to determine packed tarball name for ${pkg.name}.`);
   }
 
   return path.isAbsolute(filename) ? filename : path.join(tarballsDir, filename);
+}
+
+function parsePackedTarballFilename(stdout) {
+  const start = stdout.indexOf("{");
+  const end = stdout.lastIndexOf("}");
+
+  if (start === -1 || end === -1 || end < start) {
+    return undefined;
+  }
+
+  const jsonText = stdout.slice(start, end + 1);
+
+  try {
+    const parsed = JSON.parse(jsonText);
+    return typeof parsed?.filename === "string" ? parsed.filename : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function findInstalledDependency(pkgDir, dependency) {

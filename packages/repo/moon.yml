@@ -29,6 +29,7 @@ tasks:
   pack-check:
     command: 'pnpm run pack-check'
     dependsOn:
+    - build
     - test
     - core:build
     - aip:build
@@ -55,7 +56,7 @@ tasks:
     - '@globs(sources)'
     - '@globs(tests)'
   build:
-    command: 'pnpm run build:verified'
+    command: 'pnpm run build'
     dependsOn:
     - test
     - core:build
@@ -63,7 +64,6 @@ tasks:
     - aipql:build
     inputs:
     - '@globs(sources)'
-    - 'scripts/pack-check.mjs'
     - 'tsdown.config.ts'
     outputs:
     - 'dist'
