@@ -1,6 +1,7 @@
 {
   "name": "@protoutil/angular",
   "version": "0.3.1",
+  "description": "Angular components and validators for AIP-160 filters and protovalidate-backed forms.",
   "scripts": {
     "build": "ng build",
     "dev": "ng serve",

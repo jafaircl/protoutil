@@ -2,7 +2,7 @@
   "name": "@protoutil/repo",
   "type": "module",
   "version": "0.3.1",
-  "description": "Database-agnostic protobuf resource persistence using AIP patterns.",
+  "description": "AIP-style protobuf repositories for SQLite, Postgres, MySQL, and MongoDB.",
   "author": "Author Name <author.name@mail.com>",
   "license": "MIT",
   "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/repo#readme",
