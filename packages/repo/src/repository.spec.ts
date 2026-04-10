@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, it } from "vitest";
-import type { RepositoryTestContext } from "./repository-test-backends.js";
-import { repositoryTestBackends } from "./repository-test-backends.js";
-import { backendSpecificGroups, groups, setupBaseUsers } from "./repository-test-cases.js";
+import type { RepositoryTestContext } from "./test-backends.js";
+import { repositoryTestBackends } from "./test-backends.js";
+import { backendSpecificGroups, groups, setupBaseUsers } from "./test-cases.js";
 
 describe("createRepository", () => {
   for (const backend of repositoryTestBackends) {

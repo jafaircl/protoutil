@@ -1,3 +1,5 @@
+export type { ContextKey, ContextValues } from "./context-values.js";
+export { createContextKey, createContextValues, withReentryGuard } from "./context-values.js";
 export type {
   Dialect,
   Engine,
@@ -22,6 +24,13 @@ export type {
   BatchUpdateItem,
   BatchUpdateOptions,
   ColumnConfig,
+  ColumnConfigMap,
+  ColumnDeserializeContext,
+  ColumnDeserializeOperation,
+  ColumnFieldValue,
+  ColumnKey,
+  ColumnSerializeContext,
+  ColumnSerializeOperation,
   CountOptions,
   CreateOptions,
   DeleteOptions,

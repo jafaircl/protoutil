@@ -129,7 +129,9 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "packages/repo" },
+                { slug: "packages/repo/benchmarks" },
                 { slug: "packages/repo/sqlite" },
+                // TODO: add other backends as separate pages
               ],
             },
             {

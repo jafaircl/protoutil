@@ -62,6 +62,7 @@ function sqliteUsersTable(tableName: string): string {
     updateTime TEXT,
     deleteTime TEXT,
     settings TEXT,
+    settingsBin BLOB,
     tags TEXT
   )
 `;
@@ -82,6 +83,7 @@ function postgresUsersTable(tableName: string): string {
     "updateTime" TEXT,
     "deleteTime" TEXT,
     settings TEXT,
+    "settingsBin" BYTEA,
     tags TEXT
   )
 `;
@@ -102,6 +104,7 @@ function mysqlUsersTable(tableName: string): string {
     updateTime TEXT,
     deleteTime TEXT,
     settings TEXT,
+    settingsBin BLOB,
     tags TEXT
   )
 `;

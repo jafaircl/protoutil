@@ -1,31 +1,83 @@
 import type { DescField, DescMessage, JsonValue, MessageShape } from "@bufbuild/protobuf";
-import {
-  fromBinary,
-  fromJson,
-  fromJsonString,
-  ScalarType,
-  toBinary,
-  toJson,
-  toJsonString,
-} from "@bufbuild/protobuf";
-import type { ColumnConfig } from "./types.js";
+import { fromJson, ScalarType, toJson } from "@bufbuild/protobuf";
+import { getField } from "@protoutil/core";
+import { type ContextValues, createContextValues } from "./context-values.js";
+import type {
+  ColumnConfigMap,
+  ColumnDeserializeOperation,
+  ColumnFieldValue,
+  ColumnKey,
+  ColumnSerializeOperation,
+} from "./types.js";
 
-/**
- * Build a reverse mapping from database column names back to proto field
- * descriptors, keyed by the database column name.
- */
-function buildReverseMap(
-  schema: DescMessage,
+type SerializeFieldEntry = {
+  key: string;
+  dbCol: string;
+  jsonKey: string;
+};
+
+type SerializationMetadata = {
+  serializeFields: SerializeFieldEntry[];
+  reverseMap: Record<string, DescField>;
+};
+
+type SerializationCacheEntry = {
+  columnMap?: Record<string, string>;
+  columns?: ColumnConfigMap<DescMessage>;
+  metadata: SerializationMetadata;
+};
+
+const metadataCache = new WeakMap<DescMessage, SerializationCacheEntry[]>();
+
+function getSchemaField<Desc extends DescMessage, K extends ColumnKey<Desc>>(
+  schema: Desc,
+  key: K,
+): Desc["field"][K] {
+  return schema.field[key] as Desc["field"][K];
+}
+
+function buildSerializationMetadata<Desc extends DescMessage>(
+  schema: Desc,
   columnMap?: Record<string, string>,
-  ignored?: Set<string>,
-): Record<string, DescField> {
-  const reverse: Record<string, DescField> = {};
-  for (const field of schema.fields) {
-    if (ignored?.has(field.name)) continue;
-    const dbCol = columnMap?.[field.name] ?? field.jsonName;
-    reverse[dbCol] = field;
+  columns?: ColumnConfigMap<Desc>,
+): SerializationMetadata {
+  const serializeFields: SerializeFieldEntry[] = [];
+  const reverseMap: Record<string, DescField> = {};
+  for (const schemaField of schema.fields) {
+    const key = schemaField.localName as ColumnKey<Desc>;
+    const config = columns?.[key];
+    if (config?.ignore) {
+      continue;
+    }
+    const dbCol = columnMap?.[schemaField.name] ?? schemaField.jsonName;
+    serializeFields.push({
+      key,
+      dbCol,
+      jsonKey: schemaField.jsonName,
+    });
+    reverseMap[dbCol] = schemaField;
   }
-  return reverse;
+  return { serializeFields, reverseMap };
+}
+
+function getSerializationMetadata<Desc extends DescMessage>(
+  schema: Desc,
+  columnMap?: Record<string, string>,
+  columns?: ColumnConfigMap<Desc>,
+): SerializationMetadata {
+  const entries = metadataCache.get(schema) ?? [];
+  const match = entries.find((entry) => entry.columnMap === columnMap && entry.columns === columns);
+  if (match) {
+    return match.metadata;
+  }
+  const metadata = buildSerializationMetadata(schema, columnMap, columns);
+  entries.push({
+    columnMap,
+    columns: columns as ColumnConfigMap<DescMessage> | undefined,
+    metadata,
+  });
+  metadataCache.set(schema, entries);
+  return metadata;
 }
 
 /**
@@ -48,8 +100,7 @@ function coerceValue(field: DescField, value: unknown): unknown {
  *
  * When a `columns` config is provided:
  * - Fields with `ignore: true` are excluded from the output.
- * - Fields with `serialize: "json"` are stored as JSON strings via `toJsonString`.
- * - Fields with `serialize: "binary"` are stored as `Uint8Array` via `toBinary`.
+ * - Fields with `serialize` are transformed before being written.
  * - Fields with `name` overrides use the specified database column name.
  *
  * @param schema    The message descriptor.
@@ -61,40 +112,37 @@ export function serializeMessage<Desc extends DescMessage>(
   schema: Desc,
   message: MessageShape<Desc>,
   columnMap?: Record<string, string>,
-  columns?: Record<string, ColumnConfig>,
+  columns?: ColumnConfigMap<Desc>,
+  operation: ColumnSerializeOperation = "create",
+  contextValues: ContextValues = createContextValues(),
 ): Record<string, unknown> {
   const json = toJson(schema, message) as Record<string, unknown>;
   if (!columnMap && !columns) {
     return json;
   }
+  const metadata = getSerializationMetadata(schema, columnMap, columns);
   const row: Record<string, unknown> = {};
-  for (const field of schema.fields) {
-    const config = columns?.[field.name];
-    if (config?.ignore) continue;
+  for (const entry of metadata.serializeFields) {
+    const key = entry.key as ColumnKey<Desc>;
+    const field = getSchemaField(schema, key);
+    const { dbCol, jsonKey } = entry;
+    const config = columns?.[key];
+    const rawValue = getField(message, field) as ColumnFieldValue<Desc, typeof key>;
 
-    const jsonKey = field.jsonName;
-    if (!(jsonKey in json)) {
+    if (config?.serialize) {
+      row[dbCol] = config.serialize({
+        field,
+        operation,
+        value: rawValue,
+        contextValues,
+      });
       continue;
     }
 
-    const dbCol = columnMap?.[field.name] ?? jsonKey;
-
-    if (config?.serialize && field.message) {
-      const value = json[jsonKey];
-      if (value === null || value === undefined) {
-        row[dbCol] = null;
-      } else {
-        // Reconstruct the sub-message from its JSON representation
-        const subMsg = fromJson(field.message, value as JsonValue);
-        if (config.serialize === "json") {
-          row[dbCol] = toJsonString(field.message, subMsg);
-        } else {
-          row[dbCol] = toBinary(field.message, subMsg);
-        }
-      }
-    } else {
-      row[dbCol] = json[jsonKey];
+    if (!(jsonKey in json)) {
+      continue;
     }
+    row[dbCol] = json[jsonKey];
   }
   return row;
 }
@@ -110,8 +158,7 @@ export function serializeMessage<Desc extends DescMessage>(
  *
  * When a `columns` config is provided:
  * - Fields with `ignore: true` are skipped (they get proto3 defaults).
- * - Fields with `serialize: "json"` are parsed from JSON strings via `fromJsonString`.
- * - Fields with `serialize: "binary"` are parsed from `Uint8Array` via `fromBinary`.
+ * - Fields with `deserialize` are transformed before being assigned.
  *
  * @param schema    The message descriptor.
  * @param row       The database row as a plain object.
@@ -122,43 +169,42 @@ export function deserializeRow<Desc extends DescMessage>(
   schema: Desc,
   row: Record<string, unknown>,
   columnMap?: Record<string, string>,
-  columns?: Record<string, ColumnConfig>,
+  columns?: ColumnConfigMap<Desc>,
+  operation: ColumnDeserializeOperation = "get",
+  contextValues: ContextValues = createContextValues(),
 ): MessageShape<Desc> {
-  const ignored = columns
-    ? new Set(
-        Object.entries(columns)
-          .filter(([, c]) => c.ignore)
-          .map(([k]) => k),
-      )
-    : undefined;
-  const reverseMap = buildReverseMap(schema, columnMap, ignored);
+  const metadata = getSerializationMetadata(schema, columnMap, columns);
   const json: Record<string, unknown> = {};
+  const transformed: Array<{ field: DescField; value: unknown }> = [];
   for (const [colName, value] of Object.entries(row)) {
-    const field = reverseMap[colName];
+    const field = metadata.reverseMap[colName];
     if (!field) {
       continue;
     }
+    const key = field.localName as ColumnKey<Desc>;
+    const typedField = getSchemaField(schema, key);
+    const config = columns?.[key];
+
+    if (config?.deserialize) {
+      transformed.push({
+        field,
+        value: config.deserialize({ field: typedField, operation, value, contextValues }),
+      });
+      continue;
+    }
+
     if (value === null || value === undefined) {
       continue;
     }
 
-    const config = columns?.[field.name];
-
-    if (config?.serialize && field.message) {
-      if (config.serialize === "json") {
-        // Parse JSON string back into a message, then convert to JSON representation
-        const str = typeof value === "string" ? value : String(value);
-        const subMsg = fromJsonString(field.message, str);
-        json[field.jsonName] = toJson(field.message, subMsg);
-      } else {
-        // binary: parse Uint8Array back into a message
-        const bytes = value instanceof Uint8Array ? value : Buffer.from(value as string);
-        const subMsg = fromBinary(field.message, bytes);
-        json[field.jsonName] = toJson(field.message, subMsg);
-      }
-    } else {
-      json[field.jsonName] = coerceValue(field, value);
-    }
+    json[field.jsonName] = coerceValue(field, value);
   }
-  return fromJson(schema, json as JsonValue);
+  const message = fromJson(schema, json as JsonValue);
+  for (const item of transformed) {
+    if (item.value === null || item.value === undefined) {
+      continue;
+    }
+    (message as Record<string, unknown>)[item.field.localName] = item.value;
+  }
+  return message;
 }

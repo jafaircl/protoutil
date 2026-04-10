@@ -322,6 +322,26 @@ describe("createMySQLEngine", () => {
       const rows = await engine.execute<{ uid: string }>("SELECT uid FROM users");
       expect(rows).toEqual([{ uid: "u1" }]);
     });
+
+    it("should insert and return the row when nullable columns are null", async () => {
+      const row = await engine.insertOne<{
+        uid: string;
+        display_name: string | null;
+        email: string;
+      }>({
+        table: "users",
+        row: {
+          uid: "u1",
+          display_name: null,
+          email: "alice@test.com",
+        },
+      });
+      expect(row).toMatchObject({
+        uid: "u1",
+        display_name: null,
+        email: "alice@test.com",
+      });
+    });
   });
 
   describe("updateOne", () => {

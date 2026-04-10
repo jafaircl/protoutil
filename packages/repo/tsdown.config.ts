@@ -4,6 +4,10 @@ export default defineConfig({
   entry: [
     "!src/*.spec.ts",
     "!src/**/*.spec.ts",
+    "!src/*.bench.ts",
+    "!src/**/*.bench.ts",
+    "!src/test-cases.ts",
+    "!src/test-backends.ts",
     "src/index.ts",
     "src/sqlite/index.ts",
     "src/postgres/index.ts",

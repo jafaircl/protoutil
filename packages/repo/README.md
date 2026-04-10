@@ -2,6 +2,10 @@
 
 Database-agnostic protobuf resource persistence using [AIP](https://aip.dev) patterns. Define your resources as protobuf messages and persist them to any supported database without changing application code.
 
+## Benchmarking
+
+Generated benchmark results live in [BENCHMARKS.md](./BENCHMARKS.md). Regenerate them with `moon run repo:bench`.
+
 ## Install
 
 ```bash
@@ -160,10 +164,10 @@ const users = createRepository(UserSchema, {
 |--------|------|-------------|
 | `engine` | `Engine` | The database engine to use. **Required.** |
 | `tableName` | `string` | Override the table name. Defaults to the proto type name in snake_case. |
-| `columns` | `Record<string, ColumnConfig>` | Per-field column configuration. See [Column Configuration](#column-configuration). |
+| `columns` | `ColumnConfigMap<Desc>` | Per-field column configuration. See [Column Configuration](#column-configuration). |
 | `filterDecls` | `Decl[]` | Additional AIP-160 filter declarations. |
 | `interceptors` | `Interceptor[]` | Middleware chain for all operations. See [Interceptors](#interceptors). |
-| `etag` | `object` | Etag configuration: `{ field?, mask?, fn? }`. See [Etag Configuration](#etag-configuration). |
+| `etag` | `object` | Etag configuration: `{ field?, fn? }`. See [Etag Configuration](#etag-configuration). |
 | `pagination` | `object` | Pagination defaults: `{ defaultSize?, maxSize? }`. |
 | `fieldMasks` | `object` | Default field masks: `{ read?, update? }`. |
 
@@ -333,26 +337,33 @@ await engine.transaction(async (tx) => {
 
 ### Column Configuration
 
-The `columns` option provides per-field control over how proto fields map to database columns. Keys are proto field names (snake_case).
+The `columns` option provides per-field control over how proto fields map to database columns. Keys are generated message field names like `displayName` and `createTime`, not proto snake_case names.
 
 ```typescript
+import { fromJsonString, toJsonString } from "@bufbuild/protobuf";
+
 const users = createRepository(UserSchema, {
   engine,
   tableName: "users",
   columns: {
     // Rename: proto field "uid" → DB column "user_id"
     uid: { name: "user_id" },
-    display_name: { name: "name" },
+    displayName: { name: "name" },
 
     // Ignore: field exists in proto but not in DB
-    computed_score: { ignore: true },
+    computedScore: { ignore: true },
 
-    // Serialize: store nested messages as JSON strings
-    settings: { serialize: "json" },
-
-    // Timestamps: auto-populate on lifecycle events
-    create_time: { timestamp: "create" },
-    update_time: { timestamp: "update" },
+    // Store a nested message in a single JSON column
+    settings: {
+      serialize: ({ field, value }) =>
+        value == null || !field.message
+          ? null
+          : toJsonString(field.message, value),
+      deserialize: ({ field, value }) =>
+        value == null || !field.message
+          ? undefined
+          : fromJsonString(field.message, value),
+    },
   },
 });
 ```
@@ -363,13 +374,10 @@ const users = createRepository(UserSchema, {
 |-------|------|-------------|
 | `name` | `string` | Override the DB column name. Defaults to the field's JSON name (camelCase). |
 | `ignore` | `boolean` | Exclude this field from DB serialization. On reads, the field gets its proto3 default. |
-| `serialize` | `"json" \| "binary"` | Serialize nested messages for storage in a single column. `"json"` uses `toJsonString`/`fromJsonString`; `"binary"` uses `toBinary`/`fromBinary`. |
-| `timestamp` | `"create" \| "update"` | Auto-populate this `Timestamp` field using `timestampNow()`. |
+| `serialize` | `(ctx) => DB` | Transform a field value before it is written. The context includes the strongly typed `field`, `operation` (`"create"` or `"update"`), and field `value`. |
+| `deserialize` | `(ctx) => FieldValue` | Transform a database value before it is assigned to the protobuf field. The context includes the strongly typed `field`, `operation` (`"get"` or `"list"`), and serialized `value`. |
 
-#### Timestamp behavior
-
-- **`"create"`** — set on `create` and `batchCreate` only.
-- **`"update"`** — set on `create`, `batchCreate`, `update`, and `batchUpdate`.
+Use column hooks for storage concerns such as encryption, compression, or packing nested messages into a single column. Use interceptors for lifecycle concerns such as timestamps, defaults, or request-derived values.
 
 ### Etag Configuration
 
@@ -377,9 +385,25 @@ const users = createRepository(UserSchema, {
 const users = createRepository(UserSchema, {
   engine,
   etag: {
-    field: "etag",           // proto field name (default: "etag")
-    mask: fieldMask(UserSchema, ["uid", "email"]),  // fields to hash
-    fn: (schema, msg) => customHash(schema, msg),   // custom function
+    field: "etag",         // proto field name (default: "etag")
+    fn: (schema, msg) => customHash(schema, msg),
+  },
+});
+```
+
+If you want mask-like behavior, apply it inside `fn`:
+
+```typescript
+import { etag as defaultEtag } from "@protoutil/aip/etag";
+import { fieldMask } from "@protoutil/core/wkt";
+
+const users = createRepository(UserSchema, {
+  engine,
+  etag: {
+    fn: (schema, msg) =>
+      defaultEtag(schema, msg, {
+        fieldMask: fieldMask(UserSchema, ["uid", "email"]),
+      }),
   },
 });
 ```
@@ -450,24 +474,121 @@ const auditor: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
 };
 ```
 
-## Serialization
-
-The `serializeMessage` and `deserializeRow` helpers convert between protobuf messages and plain database row objects. They use `@bufbuild/protobuf`'s `toJson`/`fromJson` for type-safe conversion (bigints as strings, Timestamps as RFC 3339, etc.) and support column name remapping and `ColumnConfig` for `ignore`, `serialize: "json"`, and `serialize: "binary"`.
+Interceptors can also rewrite operation inputs, which makes them a good fit for timestamps and defaults:
 
 ```typescript
+import { timestampNow } from "@bufbuild/protobuf/wkt";
+
+const timestamps: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
+  if (ctx.operation === "create") {
+    const now = timestampNow();
+    ctx.resource = { ...ctx.resource, createTime: now, updateTime: now };
+  } else if (ctx.operation === "update") {
+    ctx.resource = { ...ctx.resource, updateTime: timestampNow() };
+  }
+  return next(ctx);
+};
+```
+
+### Context Values
+
+Repository operations create a fresh `ContextValues` bag for each call. Interceptors can set values on it, and downstream interceptors plus column hooks can read them.
+
+```typescript
+import {
+  createContextKey,
+  withReentryGuard,
+  type Interceptor,
+} from "@protoutil/repo";
+
+const kActorId = createContextKey<string | undefined>(undefined, {
+  description: "current actor id",
+});
+
+const actorContext: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
+  if (ctx.operation === "create" || ctx.operation === "update") {
+    ctx.contextValues.set(kActorId, "user-123");
+  }
+  return next(ctx);
+};
+
+const users = createRepository(UserSchema, {
+  engine,
+  interceptors: [actorContext],
+  columns: {
+    secret: {
+      serialize: ({ value, contextValues }) =>
+        typeof value !== "string"
+          ? value
+          : `${contextValues.get(kActorId) ?? "anonymous"}:${value}`,
+    },
+  },
+});
+```
+
+Use `withReentryGuard()` when an interceptor needs to make a nested repository call without re-entering the same side effect:
+
+```typescript
+const kAuditGuard = createContextKey(false, { description: "audit guard" });
+
+const audit: Interceptor<typeof UserSchema> = (next) => async (ctx) => {
+  if (ctx.operation !== "create") {
+    return next(ctx);
+  }
+
+  const result = await next(ctx);
+
+  await withReentryGuard(ctx.contextValues, kAuditGuard, async () => {
+    await users.update(
+      { uid: result.uid },
+      { displayName: `${result.displayName} normalized` },
+      { contextValues: ctx.contextValues },
+    );
+  });
+
+  return result;
+};
+```
+
+Each repository call gets a fresh context bag by default. Pass
+`contextValues: ctx.contextValues` when a nested call should share the
+same guard state.
+
+### Recommended Patterns
+
+- Use `columns` for storage concerns only: renaming columns, ignoring fields, encrypting values, or storing a nested message as JSON/binary in one column.
+- Use interceptors for lifecycle concerns: timestamps, defaults, audit fields, tenant scoping, and other request-derived values.
+- Prefer protobuf-aware codecs such as `toJsonString` / `fromJsonString` or `toBinary` / `fromBinary` over plain JSON helpers.
+- Return `null` from `serialize` when you want to clear a nullable database column, and return `undefined` from `deserialize` when you want the protobuf field to stay unset.
+- Keep column hooks field-local. If the behavior depends on multiple fields or business rules, it usually belongs in an interceptor instead.
+- Keep etag logic deterministic. If you need to exclude fields, do it inside `etag.fn` rather than making writes conditional in column hooks.
+
+## Serialization
+
+The `serializeMessage` and `deserializeRow` helpers convert between protobuf messages and plain database row objects. They use `@bufbuild/protobuf`'s `toJson`/`fromJson` for standard fields (bigints as strings, Timestamps as RFC 3339, etc.) and support column name remapping plus `ColumnConfig` hooks for custom storage transforms.
+
+```typescript
+import { fromJsonString, toJsonString } from "@bufbuild/protobuf";
 import { serializeMessage, deserializeRow } from "@protoutil/repo";
 
 // Basic usage with column name mapping
 const row = serializeMessage(UserSchema, user, columnMap);
 const message = deserializeRow(UserSchema, row, columnMap);
 
-// With ColumnConfig for ignore/serialize support
+// With ColumnConfig for ignore/custom serialization support
 const columns = {
-  settings: { serialize: "json" },
+  settings: {
+    serialize: ({ field, value }) =>
+      value == null || !field.message ? null : toJsonString(field.message, value),
+    deserialize: ({ field, value }) =>
+      value == null || !field.message
+        ? undefined
+        : fromJsonString(field.message, value),
+  },
   computed: { ignore: true },
 };
-const row = serializeMessage(UserSchema, user, columnMap, columns);
-const message = deserializeRow(UserSchema, row, columnMap, columns);
+const row = serializeMessage(UserSchema, user, columnMap, columns, "create");
+const message = deserializeRow(UserSchema, row, columnMap, columns, "get");
 ```
 
 ## Filter Pipeline
@@ -497,12 +618,19 @@ const expr = buildFilter(UserSchema, 'uid = "abc"', {
 | `buildFilter(schema, query, opts?)` | Build a checked filter expression from a string or partial resource. |
 | `buildBatchFilter(schema, queries, opts?)` | Build a checked filter from multiple queries combined with OR. |
 | `partialToFilter(schema, partial)` | Convert a partial resource to an AIP-160 filter string. |
-| `serializeMessage(schema, msg, columnMap?, columns?)` | Serialize a message to a database row object. |
-| `deserializeRow(schema, row, columnMap?, columns?)` | Deserialize a database row to a message. |
+| `serializeMessage(schema, msg, columnMap?, columns?, operation?)` | Serialize a message to a database row object. |
+| `deserializeRow(schema, row, columnMap?, columns?, operation?)` | Deserialize a database row to a message. |
 | `Engine` | Database engine interface. |
 | `Repository` | Repository interface. |
 | `RepositoryOptions` | Repository configuration (grouped: `columns`, `etag`, `pagination`, `fieldMasks`, `interceptors`). |
-| `ColumnConfig` | Per-field column configuration (`name`, `ignore`, `serialize`, `timestamp`). |
+| `ColumnConfig` | Per-field column configuration (`name`, `ignore`, `serialize`, `deserialize`). |
+| `ColumnConfigMap` | Strongly typed map of column configs keyed by generated field names. |
+| `ColumnSerializeContext` | Context passed to `ColumnConfig.serialize` (`field`, `operation`, `value`). |
+| `ColumnDeserializeContext` | Context passed to `ColumnConfig.deserialize` (`field`, `operation`, `value`). |
+| `ColumnKey` | Union of generated field names for a schema. |
+| `ColumnFieldValue` | Runtime field value type for a schema key. |
+| `ColumnSerializeOperation` | Write operation passed to `serialize` hooks (`"create"` or `"update"`). |
+| `ColumnDeserializeOperation` | Read operation passed to `deserialize` hooks (`"get"` or `"list"`). |
 | `Interceptor` | Middleware interceptor type: `(next) => (ctx) => Promise<unknown>`. |
 | `InterceptorContext` | Discriminated union context passed to interceptors, keyed on `operation`. |
 | `InterceptorFn` | Inner function type wrapped by interceptors. |
