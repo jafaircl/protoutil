@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/protoc-gen-sql",
   "type": "module",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A starter for creating a TypeScript package.",
   "author": "Author Name <author.name@mail.com>",
   "license": "MIT",
