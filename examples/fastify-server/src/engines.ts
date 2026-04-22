@@ -15,16 +15,14 @@ import pg from "pg";
 
 const pgPool = new pg.Pool({
   connectionString:
-    process.env.POSTGRES_URL ?? "postgresql://library:library@localhost:5432/library",
+    process.env.POSTGRES_URL ?? "postgresql://library:library@localhost:5433/library",
 });
 
 export const postgresEngine = createPostgresEngine({ client: pgPool });
 
 // --- MongoDB (Books) ---
 
-const mongoClient = new MongoClient(
-  process.env.MONGODB_URI ?? "mongodb://localhost:27017",
-);
+const mongoClient = new MongoClient(process.env.MONGODB_URI ?? "mongodb://localhost:27018");
 
 await mongoClient.connect();
 

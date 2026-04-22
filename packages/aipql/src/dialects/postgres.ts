@@ -11,6 +11,9 @@ import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 //   string_starts_with, string_ends_with, string_contains, string_matches
 // ---------------------------------------------------------------------------
 
+/**
+ * Built-in PostgreSQL function handlers for translating supported AIP-160 functions.
+ */
 export const stdlibPostgres: Record<string, SqlFunctionHandler> = {
   ...sqlStdlib,
 
@@ -53,6 +56,12 @@ class PgTranslator extends SqlTranslator {
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * Translates a checked AIP-160 filter expression into PostgreSQL SQL and bind parameters.
+ *
+ * Uses numbered `$N` placeholders and enables case-insensitive string matching
+ * by default via `ILIKE`.
+ */
 export function postgres(expr: CheckedExpr, opts?: PostgresOptions): SqlOutput {
   assertBoolOutput(expr);
   return new PgTranslator(expr, opts).translate(expr.expr);

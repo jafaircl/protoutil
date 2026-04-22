@@ -15,6 +15,9 @@ import { type Expr, ExprSchema } from "@protoutil/aip/filtering";
 /** Brand symbol — must be present on every FilterNode instance. */
 const privateSymbol = Symbol.for("FilterNode");
 
+/**
+ * A node in the interactive filter tree.
+ */
 export interface FilterNode {
   [privateSymbol]: unknown;
   id: string;

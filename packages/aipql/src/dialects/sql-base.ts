@@ -36,6 +36,9 @@ import {
 //   string_starts_with, string_ends_with, string_contains
 // ---------------------------------------------------------------------------
 
+/**
+ * Shared SQL function handlers used by multiple SQL dialect translators.
+ */
 export const sqlStdlib: Record<string, SqlFunctionHandler> = {
   string_starts_with(target, args, ctx) {
     if (!target || args.length !== 1)
@@ -77,6 +80,9 @@ function isOrCall(expr: Expr): boolean {
 // Base SQL Translator
 // ---------------------------------------------------------------------------
 
+/**
+ * Base class for SQL dialect translators.
+ */
 export abstract class SqlTranslator {
   protected parts: string[] = [];
   protected params: unknown[] = [];

@@ -14,6 +14,9 @@ import { ExprDepthError } from "./errors.js";
 // makeConst
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Creates a constant CEL expression node.
+ */
 export function makeConst(
   id: bigint,
   kind: MessageInitShape<typeof ConstantSchema>["constantKind"],
@@ -28,10 +31,16 @@ export function makeConst(
 // isConst / constBool
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Returns `true` when the expression is a constant.
+ */
 export function isConst(expr: Expr): boolean {
   return expr.exprKind.case === "constExpr";
 }
 
+/**
+ * Returns the boolean constant value when the expression is a boolean constant.
+ */
 export function constBool(expr: Expr): boolean | undefined {
   if (expr.exprKind.case !== "constExpr") return undefined;
   const k = expr.exprKind.value.constantKind;
@@ -192,6 +201,9 @@ export function cloneExpr(expr: Expr, nextId: () => bigint): Expr {
 // Expr depth
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Default maximum allowed expression nesting depth.
+ */
 export const MAX_EXPR_DEPTH = 32;
 
 export { ExprDepthError } from "./errors.js";

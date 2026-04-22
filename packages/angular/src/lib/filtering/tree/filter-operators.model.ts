@@ -18,6 +18,9 @@ import { type Type, Type_WellKnownType } from "@protoutil/aip/filtering";
 // Operator descriptor
 // ---------------------------------------------------------------------------
 
+/**
+ * Descriptor for an operator exposed by the filter UI.
+ */
 export interface FilterOperator {
   /** Display label, e.g. "equals", "starts with". */
   label: string;
@@ -132,8 +135,14 @@ export function operatorsForType(type: Type | undefined): FilterOperator[] {
  * Return the value input type hint for a given CEL Type.
  * Used to choose the right form control (text, number, boolean).
  */
+/**
+ * Input widget kind used for a filter value editor.
+ */
 export type ValueInputKind = "text" | "number" | "boolean";
 
+/**
+ * Returns the preferred value input widget kind for a CEL type.
+ */
 export function valueInputKindForType(type: Type | undefined): ValueInputKind {
   if (!type) return "text";
   const kind = type.typeKind;

@@ -38,6 +38,9 @@ import {
   valueInputKindForType,
 } from "./filter-operators.model";
 
+/**
+ * Guided step-by-step UI for constructing a single filter expression.
+ */
 @Component({
   selector: "aip-filter-stepper",
   standalone: true,

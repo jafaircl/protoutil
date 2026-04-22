@@ -40,6 +40,9 @@ import {
   FilterTreeService,
 } from "./filter-tree.service";
 
+/**
+ * Root component for editing a filter tree with drag-and-drop and undo/redo.
+ */
 @Component({
   selector: "aip-filter-tree",
   standalone: true,

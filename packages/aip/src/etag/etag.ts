@@ -3,6 +3,9 @@ import type { FieldMask } from "@bufbuild/protobuf/wkt";
 import { checksum } from "@protoutil/core";
 import { applyFieldMask, fieldMask } from "@protoutil/core/wkt";
 
+/**
+ * Options for calculating etags.
+ */
 export interface EtagOptions {
   fieldMask?: FieldMask;
   inverse?: boolean;

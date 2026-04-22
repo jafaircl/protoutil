@@ -21,20 +21,26 @@ import {
 } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
 import type { Constant } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
 
+/**
+ * Message-init shape for CEL `Type` values.
+ */
 export type TypeInit = MessageInitShape<typeof TypeSchema>;
 
+/** CEL dynamic type. */
 export const DYN: TypeInit = create(TypeSchema, {
   typeKind: {
     case: "dyn",
     value: {},
   },
 });
+/** CEL null type. */
 export const NULL: TypeInit = create(TypeSchema, {
   typeKind: {
     case: "null",
     value: NullValue.NULL_VALUE,
   },
 });
+/** CEL error type. */
 export const ERROR: TypeInit = create(TypeSchema, {
   typeKind: {
     case: "error",
@@ -50,11 +56,17 @@ function primitiveType(type: Type_PrimitiveType): TypeInit {
     },
   });
 }
+/** CEL bool type. */
 export const BOOL = primitiveType(Type_PrimitiveType.BOOL);
+/** CEL bytes type. */
 export const BYTES = primitiveType(Type_PrimitiveType.BYTES);
+/** CEL double type. */
 export const DOUBLE = primitiveType(Type_PrimitiveType.DOUBLE);
+/** CEL int64 type. */
 export const INT64 = primitiveType(Type_PrimitiveType.INT64);
+/** CEL string type. */
 export const STRING = primitiveType(Type_PrimitiveType.STRING);
+/** CEL uint64 type. */
 export const UINT64 = primitiveType(Type_PrimitiveType.UINT64);
 
 function wellKnownType(type: Type_WellKnownType): TypeInit {
@@ -65,10 +77,16 @@ function wellKnownType(type: Type_WellKnownType): TypeInit {
     },
   });
 }
+/** CEL `google.protobuf.Any` type. */
 export const ANY = wellKnownType(Type_WellKnownType.ANY);
+/** CEL `google.protobuf.Duration` type. */
 export const DURATION = wellKnownType(Type_WellKnownType.DURATION);
+/** CEL `google.protobuf.Timestamp` type. */
 export const TIMESTAMP = wellKnownType(Type_WellKnownType.TIMESTAMP);
 
+/**
+ * Creates a CEL list type.
+ */
 export function listType(elemType: TypeInit): TypeInit {
   return {
     typeKind: {
@@ -78,6 +96,9 @@ export function listType(elemType: TypeInit): TypeInit {
   };
 }
 
+/**
+ * Creates a CEL map type.
+ */
 export function mapType(keyType: TypeInit, valueType: TypeInit): TypeInit {
   return {
     typeKind: {
@@ -87,6 +108,9 @@ export function mapType(keyType: TypeInit, valueType: TypeInit): TypeInit {
   };
 }
 
+/**
+ * Creates a CEL message type from a protobuf descriptor.
+ */
 export function messageType(desc: DescMessage): TypeInit {
   return {
     typeKind: {
@@ -96,6 +120,9 @@ export function messageType(desc: DescMessage): TypeInit {
   };
 }
 
+/**
+ * Creates a CEL meta-type (`type(T)`).
+ */
 export function typeType(type: Type): TypeInit {
   return {
     typeKind: {
@@ -105,6 +132,9 @@ export function typeType(type: Type): TypeInit {
   };
 }
 
+/**
+ * Creates a named CEL type parameter.
+ */
 export function typeParamType(name: string): TypeInit {
   return {
     typeKind: {
@@ -113,11 +143,18 @@ export function typeParamType(name: string): TypeInit {
     },
   };
 }
+/** Default generic type parameter `A`. */
 export const PARAM_A = typeParamType("A");
+/** Default generic type parameter `B`. */
 export const PARAM_B = typeParamType("B");
+/** Convenience alias for `list(A)`. */
 export const LIST_OF_A = listType(PARAM_A);
+/** Convenience alias for `map(A, B)`. */
 export const MAP_OF_A_B = mapType(PARAM_A, PARAM_B);
 
+/**
+ * Creates an abstract CEL type with optional parameter types.
+ */
 export function abstractType(name: string, parameterTypes?: TypeInit[]): TypeInit {
   return {
     typeKind: {
@@ -130,6 +167,9 @@ export function abstractType(name: string, parameterTypes?: TypeInit[]): TypeIni
   };
 }
 
+/**
+ * Creates a CEL wrapper type for a primitive.
+ */
 export function wrapperType(type: Type_PrimitiveType): TypeInit {
   return {
     typeKind: {
@@ -139,6 +179,9 @@ export function wrapperType(type: Type_PrimitiveType): TypeInit {
   };
 }
 
+/**
+ * Creates a CEL function type.
+ */
 export function functionType(argTypes: Type[], resultType: Type): TypeInit {
   return {
     typeKind: {
@@ -183,6 +226,9 @@ function wellKnownTypeToString(type: Type_WellKnownType): string {
   }
 }
 
+/**
+ * Formats a CEL type as a human-readable string.
+ */
 export function typeToString(type: TypeInit): string {
   switch (type.typeKind?.case) {
     case "dyn":
@@ -219,6 +265,9 @@ export function typeToString(type: TypeInit): string {
   }
 }
 
+/**
+ * Creates an identifier declaration for the filter checker.
+ */
 export function ident(name: string, type: TypeInit, value?: Constant, doc = ""): Decl {
   return create(DeclSchema, {
     name,
@@ -233,8 +282,14 @@ export function ident(name: string, type: TypeInit, value?: Constant, doc = ""):
   });
 }
 
+/**
+ * Message-init shape for CEL function overload declarations.
+ */
 export type OverloadInit = MessageInitShape<typeof Decl_FunctionDecl_OverloadSchema>;
 
+/**
+ * Creates a non-instance function overload declaration.
+ */
 export function overload(
   overloadId: string,
   params: TypeInit[],
@@ -252,6 +307,9 @@ export function overload(
   };
 }
 
+/**
+ * Creates an instance-function overload declaration.
+ */
 export function memberOverload(
   overloadId: string,
   params: TypeInit[],
@@ -269,6 +327,9 @@ export function memberOverload(
   };
 }
 
+/**
+ * Creates a function declaration for the filter checker.
+ */
 export function func(name: string, ...overloads: OverloadInit[]): Decl {
   return create(DeclSchema, {
     name,

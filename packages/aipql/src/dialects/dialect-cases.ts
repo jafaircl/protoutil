@@ -10,6 +10,9 @@ import type { MongoFilter } from "../types.js";
 type SqlExpected = { sql: string; params: unknown[] };
 type MongoExpected = { filter: MongoFilter };
 
+/**
+ * A single cross-dialect translation fixture.
+ */
 export type UnifiedCase = {
   filter: string;
   postgres: SqlExpected;
@@ -19,11 +22,17 @@ export type UnifiedCase = {
   only?: boolean;
 };
 
+/**
+ * A named group of cross-dialect translation fixtures.
+ */
 export type UnifiedGroup = {
   group: string;
   cases: UnifiedCase[];
 };
 
+/**
+ * Shared cross-dialect translation fixtures used by the dialect test suites.
+ */
 export const groups: UnifiedGroup[] = [
   // ---------------------------------------------------------------------------
   // String literals

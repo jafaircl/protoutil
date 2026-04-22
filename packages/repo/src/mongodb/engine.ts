@@ -34,6 +34,9 @@ type MongoDocument = Record<string, unknown>;
 type MongoProjection = Record<string, 0 | 1>;
 type MongoSort = Sort;
 
+/**
+ * Configuration for {@link createMongoDBEngine}.
+ */
 export interface MongoDBEngineConfig {
   /** A `mongodb` {@link MongoClient} instance. */
   client: MongoClient;

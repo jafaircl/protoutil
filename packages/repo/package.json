@@ -45,7 +45,8 @@
     "bench": "node --import tsx src/repository.bench.ts",
     "dev": "tsdown --watch",
     "pack-check": "node ./scripts/pack-check.mjs",
-    "test": "vitest run",
+    "test": "node ./scripts/run-tests.mjs",
+    "test:vitest": "vitest run",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build",
     "protogen": "buf generate"

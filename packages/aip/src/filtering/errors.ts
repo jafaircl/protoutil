@@ -12,7 +12,9 @@ import { offsetToLineCol } from "./parser.js";
 //   PARSE_*  — errors thrown by parse()
 //   CHECK_*  — errors collected by check()
 //   DEPTH_*  — errors thrown by assertExprDepth()
-
+/**
+ * Stable string codes for errors produced by the filtering package.
+ */
 export const ErrorCode = {
   // ── Parser errors ──────────────────────────────────────────────────────────
   /** A token that could not be incorporated into a valid expression was encountered. */
@@ -35,12 +37,18 @@ export const ErrorCode = {
   DEPTH_EXCEEDED: "DEPTH_EXCEEDED",
 } as const;
 
+/**
+ * Union of all stable filtering error codes.
+ */
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SourcePosition
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * A source location within a filter string.
+ */
 export interface SourcePosition {
   /** The location label from SourceInfo (e.g. "<input>"). */
   location: string;

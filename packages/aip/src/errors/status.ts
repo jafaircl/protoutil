@@ -1,9 +1,20 @@
 import { create, createRegistry, type MessageInitShape } from "@bufbuild/protobuf";
 import { type Any, anyPack, anyUnpack } from "@bufbuild/protobuf/wkt";
-import { Code } from "../gen/google/rpc/code_pb.js";
 import {
+  assertValidBadRequest,
+  assertValidDebugInfo,
+  assertValidErrorInfo,
+  assertValidHelp,
+  assertValidLocalizedMessage,
+  assertValidPreconditionFailure,
+  assertValidQuotaFailure,
+  assertValidRequestInfo,
+  assertValidResourceInfo,
+  assertValidRetryInfo,
   type BadRequest,
   BadRequestSchema,
+  Code,
+  status as coreStatus,
   type DebugInfo,
   DebugInfoSchema,
   type ErrorInfo,
@@ -22,8 +33,7 @@ import {
   ResourceInfoSchema,
   type RetryInfo,
   RetryInfoSchema,
-} from "../gen/google/rpc/error_details_pb.js";
-import { StatusSchema } from "../gen/google/rpc/status_pb.js";
+} from "@protoutil/core/google/rpc";
 
 const statusErrorRegistry = createRegistry(
   ErrorInfoSchema,
@@ -77,33 +87,43 @@ export function errorDetails(init: ErrorDetailsInit) {
   const details: ErrorDetails = {};
   if (init.errorInfo) {
     details.errorInfo = create(ErrorInfoSchema, init.errorInfo);
+    assertValidErrorInfo(details.errorInfo);
   }
   if (init.retryInfo) {
     details.retryInfo = create(RetryInfoSchema, init.retryInfo);
+    assertValidRetryInfo(details.retryInfo);
   }
   if (init.debugInfo) {
     details.debugInfo = create(DebugInfoSchema, init.debugInfo);
+    assertValidDebugInfo(details.debugInfo);
   }
   if (init.quotaFailure) {
     details.quotaFailure = create(QuotaFailureSchema, init.quotaFailure);
+    assertValidQuotaFailure(details.quotaFailure);
   }
   if (init.preconditionFailure) {
     details.preconditionFailure = create(PreconditionFailureSchema, init.preconditionFailure);
+    assertValidPreconditionFailure(details.preconditionFailure);
   }
   if (init.badRequest) {
     details.badRequest = create(BadRequestSchema, init.badRequest);
+    assertValidBadRequest(details.badRequest);
   }
   if (init.requestInfo) {
     details.requestInfo = create(RequestInfoSchema, init.requestInfo);
+    assertValidRequestInfo(details.requestInfo);
   }
   if (init.resourceInfo) {
     details.resourceInfo = create(ResourceInfoSchema, init.resourceInfo);
+    assertValidResourceInfo(details.resourceInfo);
   }
   if (init.help) {
     details.help = create(HelpSchema, init.help);
+    assertValidHelp(details.help);
   }
   if (init.localizedMessage) {
     details.localizedMessage = create(LocalizedMessageSchema, init.localizedMessage);
+    assertValidLocalizedMessage(details.localizedMessage);
   }
   return details;
 }
@@ -113,42 +133,36 @@ export function errorDetails(init: ErrorDetailsInit) {
  */
 export function packErrorDetails(init: ErrorDetailsInit) {
   const details: Any[] = [];
-  if (init.errorInfo) {
-    details.push(anyPack(ErrorInfoSchema, create(ErrorInfoSchema, init.errorInfo)));
+  const materialized = errorDetails(init);
+  if (materialized.errorInfo) {
+    details.push(anyPack(ErrorInfoSchema, materialized.errorInfo));
   }
-  if (init.retryInfo) {
-    details.push(anyPack(RetryInfoSchema, create(RetryInfoSchema, init.retryInfo)));
+  if (materialized.retryInfo) {
+    details.push(anyPack(RetryInfoSchema, materialized.retryInfo));
   }
-  if (init.debugInfo) {
-    details.push(anyPack(DebugInfoSchema, create(DebugInfoSchema, init.debugInfo)));
+  if (materialized.debugInfo) {
+    details.push(anyPack(DebugInfoSchema, materialized.debugInfo));
   }
-  if (init.quotaFailure) {
-    details.push(anyPack(QuotaFailureSchema, create(QuotaFailureSchema, init.quotaFailure)));
+  if (materialized.quotaFailure) {
+    details.push(anyPack(QuotaFailureSchema, materialized.quotaFailure));
   }
-  if (init.preconditionFailure) {
-    details.push(
-      anyPack(
-        PreconditionFailureSchema,
-        create(PreconditionFailureSchema, init.preconditionFailure),
-      ),
-    );
+  if (materialized.preconditionFailure) {
+    details.push(anyPack(PreconditionFailureSchema, materialized.preconditionFailure));
   }
-  if (init.badRequest) {
-    details.push(anyPack(BadRequestSchema, create(BadRequestSchema, init.badRequest)));
+  if (materialized.badRequest) {
+    details.push(anyPack(BadRequestSchema, materialized.badRequest));
   }
-  if (init.requestInfo) {
-    details.push(anyPack(RequestInfoSchema, create(RequestInfoSchema, init.requestInfo)));
+  if (materialized.requestInfo) {
+    details.push(anyPack(RequestInfoSchema, materialized.requestInfo));
   }
-  if (init.resourceInfo) {
-    details.push(anyPack(ResourceInfoSchema, create(ResourceInfoSchema, init.resourceInfo)));
+  if (materialized.resourceInfo) {
+    details.push(anyPack(ResourceInfoSchema, materialized.resourceInfo));
   }
-  if (init.help) {
-    details.push(anyPack(HelpSchema, create(HelpSchema, init.help)));
+  if (materialized.help) {
+    details.push(anyPack(HelpSchema, materialized.help));
   }
-  if (init.localizedMessage) {
-    details.push(
-      anyPack(LocalizedMessageSchema, create(LocalizedMessageSchema, init.localizedMessage)),
-    );
+  if (materialized.localizedMessage) {
+    details.push(anyPack(LocalizedMessageSchema, materialized.localizedMessage));
   }
   return details;
 }
@@ -214,11 +228,7 @@ export interface StatusInit extends ErrorDetailsInit {
 export function status(init: StatusInit) {
   const { code, message, ...errorDetails } = init;
   const details = packErrorDetails(errorDetails);
-  return create(StatusSchema, {
-    code,
-    message,
-    details,
-  });
+  return coreStatus(code, message, details);
 }
 
 /**

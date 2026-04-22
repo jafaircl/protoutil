@@ -60,7 +60,7 @@ export function timestamp(seconds = 0n, nanos = 0) {
  * 9999-12-31T23:59:59.999999999Z. In addition, the nanos value must be between 0 and
  * 999,999,999 inclusive.
  */
-export function assertValidTimestamp(ts: Timestamp) {
+export function assertValidTimestamp(ts: Timestamp): asserts ts is Timestamp {
   assertValidInt64(ts.seconds);
   assertValidInt32(ts.nanos);
   const roundedNanos = BigInt(Math.round(ts.nanos));
@@ -79,60 +79,16 @@ export function assertValidTimestamp(ts: Timestamp) {
 /**
  * Ensure a timestamp is a valid google.protobuf.Timestamp. The range is from 0001-01-01T00:00:00Z
  * to 9999-12-31T23:59:59.999999999Z. By restricting to that range, we ensure that we can convert to
- * and from [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) date strings. In addition, the nanos
+ * and from [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339) date strings. In addition, the nanos
  * value must be between 0 and 999,999,999 inclusive.
  */
-export function isValidTimestamp(ts: Timestamp) {
+export function isValidTimestamp(ts: Timestamp): ts is Timestamp {
   try {
     assertValidTimestamp(ts);
     return true;
   } catch {
     return false;
   }
-}
-
-/**
- * Create a google.protobuf.Timestamp for the current time using the Temporal API.
- *
- * @returns A google.protobuf.Timestamp representing the current time.
- */
-export function temporalTimestampNow() {
-  const now = Temporal.Now.instant();
-  return create(TimestampSchema, {
-    seconds: now.epochNanoseconds / NANOS_PER_SECOND,
-    nanos: Number(now.epochNanoseconds % NANOS_PER_SECOND),
-  });
-}
-
-/**
- * Create a google.protobuf.Timestamp message from a Temporal Instant.
- */
-export function timestampFromInstant(instant: Temporal.Instant) {
-  // Negative second values with fractions must still have non-negative nanos values that count
-  // forward in time. Must be from 0 to 999,999,999 inclusive.
-  // See: https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/timestamp.proto
-  const seconds = instant.epochNanoseconds / NANOS_PER_SECOND;
-  let nanos = Number(instant.epochNanoseconds % NANOS_PER_SECOND);
-  // If the number of nanoseconds is negative, we need to adjust the seconds and nanoseconds. If
-  // they were pure numbers, we could just define seconds with Math.floor. But since we are using
-  // BigInt, we need to do it manually.
-  if (nanos < 0) {
-    nanos += Number(NANOS_PER_SECOND);
-    return timestamp(seconds - 1n, nanos);
-  }
-  return create(TimestampSchema, {
-    seconds,
-    nanos,
-  });
-}
-
-/**
- * Convert a google.protobuf.Timestamp message to a Temporal Instant.
- */
-export function timestampInstant(timestamp: Timestamp) {
-  const seconds = BigInt(timestamp.seconds);
-  const nanos = BigInt(timestamp.nanos);
-  return Temporal.Instant.fromEpochNanoseconds(seconds * NANOS_PER_SECOND + nanos);
 }
 
 /**
@@ -164,56 +120,6 @@ export function timestampNanos(timestamp: Timestamp) {
   const seconds = BigInt(timestamp.seconds);
   const nanos = BigInt(timestamp.nanos);
   return seconds * NANOS_PER_SECOND + nanos;
-}
-
-/**
- * Parses a google.protobuf.Timestamp from a string. This function uses the
- * Temporal API to parse the string. As such, any valid RFC9557, RFC3339, or
- * ISO8601 string should be accepted. If an offset and a timezone are both
- * present, any ambiguity will be resolved in favor of the offset.
- *
- * Example values:
- * - `1970-01-01T02:07:34.000000321Z`
- * - `1970-01-01T02:07:34.000000321+07:00`
- * - `2011-10-05T14:48:00Z`
- * - `2011-10-05T14:48:00.000Z`
- * - `2011-10-05T14:48:00.000-04:00`
- * - `2024-03-02T08:48:00Z[America/New_York]`
- * - `2024-03-02T08:48:00-05:00[America/New_York]`
- *
- * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Instant/from
- * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime/from
- * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime#offset_ambiguity
- */
-export function timestampFromString(value: string) {
-  // If there is no timezone (i.e. 2024-03-02T08:48:00Z[America/New_York]), we
-  // can just use Temporal.Instant. If the value has an offset, Temporal.Instant
-  // will parse it correctly. Since we favor the offset over the timezone, we
-  // can just use Temporal.Instant. Using ZonedDateTime would cause the offset
-  // to be accounted for twice if both an offset and a timezone are present.
-  if (!dateStringHasBrackets(value) || dateStringHasOffset(value)) {
-    return timestampFromInstant(Temporal.Instant.from(value));
-  }
-  // If the value has a timezone (i.e. 2024-03-02T08:48:00Z[America/New_York]),
-  // we need to use the zoned date time to get the correct offset.
-  const zoned = Temporal.ZonedDateTime.from(value, { offset: "use" });
-  return timestampFromNanos(zoned.epochNanoseconds - BigInt(zoned.offsetNanoseconds));
-}
-
-function dateStringHasOffset(value: string) {
-  return /([+-]\d{2}:\d{2})/.test(value);
-}
-
-function dateStringHasBrackets(value: string) {
-  return /(\[.*?\])/.test(value);
-}
-
-/**
- * Converts a google.protobuf.Timestamp value to a string. The string will be
- * in RFC3339 format and will always be in UTC.
- */
-export function timestampToString(ts: Timestamp) {
-  return timestampInstant(ts).toString();
 }
 
 /**
@@ -250,4 +156,76 @@ export function clampTimestamp(ts: Timestamp, min = MIN_TIMESTAMP, max = MAX_TIM
     return max;
   }
   return ts;
+}
+
+/**
+ * Create a google.protobuf.Timestamp for the current time using the Temporal API.
+ *
+ * @returns A google.protobuf.Timestamp representing the current time.
+ */
+export function temporalTimestampNow() {
+  const now = Temporal.Now.instant();
+  return create(TimestampSchema, {
+    seconds: now.epochNanoseconds / NANOS_PER_SECOND,
+    nanos: Number(now.epochNanoseconds % NANOS_PER_SECOND),
+  });
+}
+
+/**
+ * Create a google.protobuf.Timestamp message from a Temporal Instant.
+ */
+export function timestampFromInstant(instant: Temporal.Instant) {
+  const seconds = instant.epochNanoseconds / NANOS_PER_SECOND;
+  let nanos = Number(instant.epochNanoseconds % NANOS_PER_SECOND);
+  if (nanos < 0) {
+    nanos += Number(NANOS_PER_SECOND);
+    return timestamp(seconds - 1n, nanos);
+  }
+  return create(TimestampSchema, {
+    seconds,
+    nanos,
+  });
+}
+
+/**
+ * Convert a google.protobuf.Timestamp message to a Temporal Instant.
+ */
+export function timestampInstant(timestamp: Timestamp) {
+  const seconds = BigInt(timestamp.seconds);
+  const nanos = BigInt(timestamp.nanos);
+  return Temporal.Instant.fromEpochNanoseconds(seconds * NANOS_PER_SECOND + nanos);
+}
+
+/**
+ * Parses a google.protobuf.Timestamp from a string. This function uses the
+ * Temporal API to parse the string. As such, any valid
+ * [RFC 9557](https://www.rfc-editor.org/rfc/rfc9557),
+ * [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339), or
+ * [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) string
+ * should be accepted. If an offset and a timezone are both present, any
+ * ambiguity will be resolved in favor of the offset.
+ */
+export function timestampFromString(value: string) {
+  if (!dateStringHasBrackets(value) || dateStringHasOffset(value)) {
+    return timestampFromInstant(Temporal.Instant.from(value));
+  }
+  const zoned = Temporal.ZonedDateTime.from(value, { offset: "use" });
+  return timestampFromNanos(zoned.epochNanoseconds - BigInt(zoned.offsetNanoseconds));
+}
+
+function dateStringHasOffset(value: string) {
+  return /([+-]\d{2}:\d{2})/.test(value);
+}
+
+function dateStringHasBrackets(value: string) {
+  return /(\[.*?\])/.test(value);
+}
+
+/**
+ * Converts a google.protobuf.Timestamp value to a string. The string will be
+ * in [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339) format and will
+ * always be in UTC.
+ */
+export function timestampToString(ts: Timestamp) {
+  return timestampInstant(ts).toString();
 }

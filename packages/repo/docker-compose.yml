@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: test
       POSTGRES_DB: test
     ports:
-      - "5432:5432"
+      - "5434:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U test"]
       interval: 10s
@@ -20,7 +20,7 @@ services:
       MYSQL_PASSWORD: test
       MYSQL_DATABASE: test
     ports:
-      - "3306:3306"
+      - "3307:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -28,14 +28,14 @@ services:
       retries: 5
   mongodb:
     image: mongo:7
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27019"]
     ports:
-      - "27017:27017"
+      - "27019:27019"
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "echo 'try { rs.status().ok } catch (e) { rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"localhost:27017\"}]}); }' | mongosh --quiet && echo 'quit(rs.status().ok === 1 ? 0 : 1)' | mongosh --quiet"
+          "echo 'try { rs.status().ok } catch (e) { rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"localhost:27019\"}]}); }' | mongosh --quiet --port 27019 && echo 'quit(rs.status().ok === 1 ? 0 : 1)' | mongosh --quiet --port 27019"
         ]
       interval: 10s
       timeout: 10s

@@ -42,6 +42,9 @@ import {
   UINT64,
 } from "./types.js";
 
+/**
+ * Built-in declarations available to every filter type-check environment.
+ */
 export const BUILTIN_DECLS: Decl[] = [
   // Constant idents
   ident("true", BOOL),
@@ -391,6 +394,9 @@ function inferConstantType(expr: Expr): TypeInit {
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
+/**
+ * Options for {@link check}.
+ */
 export interface CheckOptions {
   /** Additional ident and function declarations for the filter environment. */
   decls?: Decl[];
@@ -402,6 +408,9 @@ export interface CheckOptions {
 
 // ── Checker ───────────────────────────────────────────────────────────────────
 
+/**
+ * Type-checks parsed AIP-160 expressions against a declaration environment.
+ */
 export class Checker {
   #typeMap: Map<bigint, TypeInit> = new Map();
   #referenceMap: Map<bigint, ReferenceInit> = new Map();

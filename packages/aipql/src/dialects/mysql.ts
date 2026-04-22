@@ -11,6 +11,9 @@ import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 //   string_starts_with, string_ends_with, string_contains, string_matches
 // ---------------------------------------------------------------------------
 
+/**
+ * Built-in MySQL function handlers for translating supported AIP-160 functions.
+ */
 export const stdlibMysql: Record<string, SqlFunctionHandler> = {
   ...sqlStdlib,
 
@@ -50,6 +53,12 @@ class MysqlTranslator extends SqlTranslator {
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * Translates a checked AIP-160 filter expression into MySQL SQL and bind parameters.
+ *
+ * Uses `?` placeholders and the built-in MySQL dialect helpers. Custom function
+ * handlers can be provided with `opts.functions`.
+ */
 export function mysql(expr: CheckedExpr, opts?: MysqlOptions): SqlOutput {
   assertBoolOutput(expr);
   return new MysqlTranslator(expr, opts).translate(expr.expr);

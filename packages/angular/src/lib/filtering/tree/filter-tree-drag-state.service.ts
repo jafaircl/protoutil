@@ -23,15 +23,24 @@ import { Injectable, inject, signal } from "@angular/core";
 import { type FilterNode, isFilterLeafNode } from "./filter-node.model";
 import type { DropPosition } from "./filter-tree.service";
 
+/**
+ * A resolved drag-and-drop target zone within a branch.
+ */
 export type ZoneKind =
   | { kind: "gap"; index: number } // insert at this index
   | { kind: "item"; index: number }; // merge with / drop-onto item at this index
 
+/**
+ * The currently active drop zone for drag-and-drop feedback.
+ */
 export interface ActiveDropZone {
   branchId: string;
   zone: ZoneKind;
 }
 
+/**
+ * Central coordinator for drag state and drop-zone resolution in the filter tree UI.
+ */
 @Injectable({ providedIn: "root" })
 export class FilterTreeDragStateService {
   readonly isDragging = signal<boolean>(false);
@@ -229,6 +238,9 @@ export function computeZoneFromRects(
   ).zone;
 }
 
+/**
+ * Computes the active drop zone for the current pointer position.
+ */
 export function computeActiveZone(
   pointerY: number,
   childWrappers: HTMLElement[],

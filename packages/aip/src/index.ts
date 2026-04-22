@@ -5,4 +5,5 @@
 // export * from "./orderby/index.js";
 // export * from "./pagination/index.js";
 // export * from "./resourcename/index.js";
+/** Package identifier for `@protoutil/aip`. */
 export const PACKAGE_NAME = "@protoutil/aip";

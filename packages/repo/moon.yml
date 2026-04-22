@@ -40,18 +40,17 @@ tasks:
     - 'scripts/pack-check.mjs'
     - 'tsdown.config.ts'
   services-up:
-    command: 'docker compose up -d --wait'
+    command: 'docker compose -p protoutil-repo-test up -d --wait'
     inputs:
     - 'docker-compose.yml'
   services-down:
-    command: 'docker compose down'
+    command: 'docker compose -p protoutil-repo-test down'
   test:
     command: 'pnpm run test'
     dependsOn:
     - bench
     - typecheck
     - check
-    - services-up
     inputs:
     - '@globs(sources)'
     - '@globs(tests)'

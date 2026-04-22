@@ -390,6 +390,25 @@ describe("fieldmask", () => {
         expected: testAllTypes({ optionalInt32: 1 }),
       },
       {
+        schema: TestAllTypesSchema,
+        message: testAllTypes({
+          optionalInt32: 1,
+          oneofField: {
+            case: "oneofString",
+            value: "active sibling",
+          },
+        }),
+        fieldMask: fieldMask(TestAllTypesSchema, ["oneof_nested_message"]),
+        inverse: true,
+        expected: testAllTypes({
+          optionalInt32: 1,
+          oneofField: {
+            case: "oneofString",
+            value: "active sibling",
+          },
+        }),
+      },
+      {
         schema: UnittestMessageSchema,
         message: unittestMessage({
           optionalInt32: 1,
@@ -661,6 +680,33 @@ describe("fieldmask", () => {
           child: {
             payload: {
               optionalInt32: 1,
+            },
+          },
+        }),
+      },
+      {
+        schema: NestedTestAllTypesSchema,
+        message: create(NestedTestAllTypesSchema, {
+          child: {
+            payload: {
+              optionalInt32: 1,
+              oneofField: {
+                case: "oneofString",
+                value: "active sibling",
+              },
+            },
+          },
+        }),
+        fieldMask: fieldMask(NestedTestAllTypesSchema, ["child.payload.oneof_nested_message"]),
+        inverse: true,
+        expected: create(NestedTestAllTypesSchema, {
+          child: {
+            payload: {
+              optionalInt32: 1,
+              oneofField: {
+                case: "oneofString",
+                value: "active sibling",
+              },
             },
           },
         }),

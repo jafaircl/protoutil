@@ -695,18 +695,24 @@ export enum PrimaryKeyType {
 
   /**
    * auto-increment integer (default)
+   *   postgres:   BIGSERIAL
+   *   mysql:      BIGINT UNSIGNED AUTO_INCREMENT
+   *   sqlite:     INTEGER (autoincrement alias)
+   *   sqlserver:  BIGINT IDENTITY(1,1)
    *
    * @generated from enum value: PRIMARY_KEY_TYPE_SERIAL = 1;
    */
   SERIAL = 1,
 
   /**
-   *   postgres:   BIGSERIAL
-   *   mysql:      BIGINT UNSIGNED AUTO_INCREMENT
-   *   sqlite:     INTEGER (autoincrement alias)
-   *   sqlserver:  BIGINT IDENTITY(1,1)
-   *
    * database-generated UUID
+   *   postgres:   UUID DEFAULT gen_random_uuid()
+   *   mysql:      CHAR(36) DEFAULT (UUID())
+   *   sqlite:     TEXT DEFAULT (lower(hex(randomblob(16))))
+   *   sqlserver:  UNIQUEIDENTIFIER DEFAULT NEWID()
+   *
+   * FK columns referencing a UUID table automatically
+   * use the matching UUID column type.
    *
    * @generated from enum value: PRIMARY_KEY_TYPE_UUID = 2;
    */

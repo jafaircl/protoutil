@@ -1,16 +1,25 @@
 import type { Expr } from "@protoutil/aip/filtering";
 
+/**
+ * SQL translation output containing the emitted SQL fragment and bound parameters.
+ */
 export type SqlOutput = {
   sql: string;
   params: unknown[];
 };
 
+/**
+ * MongoDB translation output containing the emitted filter document.
+ */
 export type MongoOutput = {
   filter: MongoFilter;
 };
 
-// A single MongoDB filter document or sub-document.
-// Typed loosely because MongoDB operators nest arbitrarily.
+/**
+ * A single MongoDB filter document or sub-document.
+ *
+ * Typed loosely because MongoDB operators can nest arbitrarily.
+ */
 export type MongoFilter = Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
@@ -50,12 +59,18 @@ export type SqlEmitContext = {
   like: "LIKE" | "ILIKE";
 };
 
+/**
+ * Handler signature for custom SQL function emitters.
+ */
 export type SqlFunctionHandler = (
   target: Expr | undefined,
   args: Expr[],
   ctx: SqlEmitContext,
 ) => void;
 
+/**
+ * Options for PostgreSQL translation.
+ */
 export type PostgresOptions = BaseOptions & {
   /**
    * Custom function handlers keyed by overload ID or function name.
@@ -64,6 +79,9 @@ export type PostgresOptions = BaseOptions & {
   functions?: Record<string, SqlFunctionHandler>;
 };
 
+/**
+ * Options for SQLite translation.
+ */
 export type SqliteOptions = {
   /**
    * Custom function handlers keyed by overload ID or function name.
@@ -79,6 +97,9 @@ export type SqliteOptions = {
   // ICU extension), not per-query. Exposing it here would be misleading.
 };
 
+/**
+ * Options for MySQL translation.
+ */
 export type MysqlOptions = {
   /**
    * Custom function handlers keyed by overload ID or function name.
@@ -106,12 +127,18 @@ export type MongoEmitContext = {
   caseInsensitive: boolean;
 };
 
+/**
+ * Handler signature for custom MongoDB function emitters.
+ */
 export type MongoFunctionHandler = (
   target: Expr | undefined,
   args: Expr[],
   ctx: MongoEmitContext,
 ) => MongoFilter;
 
+/**
+ * Options for MongoDB translation.
+ */
 export type MongoOptions = BaseOptions & {
   /**
    * Custom function handlers keyed by CEL function name.

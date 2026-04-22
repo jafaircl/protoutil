@@ -21,6 +21,9 @@ import type {
   EngineUpdateOptions,
 } from "../engine.js";
 
+/**
+ * Configuration for {@link createSQLiteEngine}.
+ */
 export interface SQLiteEngineConfig {
   /** A `better-sqlite3` {@link Database} instance. */
   client: Database.Database;

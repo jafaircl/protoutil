@@ -14,9 +14,13 @@ import { ErrorCode, ParseError } from "./errors.js";
 import { type Token, TokenType, tokenize } from "./lexer.js";
 import { MAX_EXPR_DEPTH } from "./utils.js";
 
+/** Message-init shape for CEL `Expr` values. */
 export type ExprInit = MessageInitShape<typeof ExprSchema>;
+/** Message-init shape for CEL `Constant` values. */
 export type ConstantInit = MessageInitShape<typeof ConstantSchema>;
+/** Message-init shape for CEL call expressions. */
 export type Expr_CallInit = MessageInitShape<typeof Expr_CallSchema>;
+/** Message-init shape for CEL struct-entry values. */
 export type EntryInit = MessageInitShape<typeof Expr_CreateStruct_EntrySchema>;
 
 /**
@@ -64,6 +68,9 @@ export function offsetToLineCol(
   return { line: lo + 2, column: offset - lineStart };
 }
 
+/**
+ * Converts a map into a string-keyed plain object.
+ */
 export function mapToObject<K, V>(map: Map<K, V>): Record<string, V> {
   const obj: Record<string, V> = {};
   for (const [k, v] of map) {

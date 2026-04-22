@@ -2,10 +2,6 @@
 
 Database-agnostic protobuf resource persistence using [AIP](https://aip.dev) patterns. Define your resources as protobuf messages and persist them to any supported database without changing application code.
 
-## Benchmarking
-
-Generated benchmark results live in [BENCHMARKS.md](./BENCHMARKS.md). Regenerate them with `moon run repo:bench`.
-
 ## Install
 
 ```bash
@@ -80,6 +76,8 @@ const engine = createPostgresEngine({
 });
 ```
 
+See the [Postgres engine documentation](src/postgres/README.md) for details.
+
 ### MySQL
 
 ```typescript
@@ -95,6 +93,8 @@ const engine = createMySQLEngine({
 });
 ```
 
+See the [MySQL engine documentation](src/mysql/README.md) for details.
+
 ### MongoDB
 
 ```typescript
@@ -109,6 +109,8 @@ const engine = createMongoDBEngine({
   database: "app",
 });
 ```
+
+See the [MongoDB engine documentation](src/mongodb/README.md) for details.
 
 ### Custom Dialect
 

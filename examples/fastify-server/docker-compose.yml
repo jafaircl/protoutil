@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: library
       POSTGRES_PASSWORD: library
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,7 @@ services:
   mongodb:
     image: mongo:8
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongodata:/data/db
     healthcheck:
