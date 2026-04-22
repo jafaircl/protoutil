@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package protoutil.core.v1;
+
+import "google/type/date.proto";
+import "google/type/calendar_period.proto";
+import "google/type/color.proto";
+import "google/type/decimal.proto";
+import "google/type/datetime.proto";
+import "google/type/dayofweek.proto";
+import "google/type/fraction.proto";
+import "google/type/interval.proto";
+import "google/type/latlng.proto";
+import "google/type/localized_text.proto";
+import "google/type/month.proto";
+import "google/type/money.proto";
+import "google/type/phone_number.proto";
+import "google/type/postal_address.proto";
+import "google/type/quaternion.proto";
+import "google/type/timeofday.proto";
+
+// References google/type messages so local code generation includes them.
+message GoogleTypeImports {
+  google.type.Color color = 1;
+  google.type.Date date = 2;
+  google.type.CalendarPeriod calendar_period = 3;
+  google.type.Decimal decimal = 4;
+  google.type.DateTime date_time = 5;
+  google.type.DayOfWeek day_of_week = 6;
+  google.type.Fraction fraction = 7;
+  google.type.Interval interval = 8;
+  google.type.LatLng lat_lng = 9;
+  google.type.LocalizedText localized_text = 10;
+  google.type.Month month = 11;
+  google.type.Money money = 12;
+  google.type.PhoneNumber phone_number = 13;
+  google.type.PostalAddress postal_address = 14;
+  google.type.Quaternion quaternion = 15;
+  google.type.TimeOfDay time_of_day = 16;
+}

@@ -7,9 +7,9 @@
  * different backends.
  */
 import { randomUUID } from "node:crypto";
+import { getResourceNamePatterns, print, scan } from "@protoutil/aip/resourcename";
 import { MongoClient } from "mongodb";
 import pg from "pg";
-import { getResourceNamePatterns, print, scan } from "@protoutil/aip/resourcename";
 import { closeEngines } from "../src/engines.js";
 import { BookSchema, ShelfSchema } from "../src/gen/library/v1/library_pb.js";
 import { bookRepo, shelfRepo } from "../src/repositories.js";
@@ -21,15 +21,13 @@ const BOOK_PATTERN = getResourceNamePatterns(BookSchema)![0];
 // Use raw clients since engine.execute() isn't designed for DDL/admin ops.
 const pgPool = new pg.Pool({
   connectionString:
-    process.env.POSTGRES_URL ?? "postgresql://library:library@localhost:5432/library",
+    process.env.POSTGRES_URL ?? "postgresql://library:library@localhost:5433/library",
 });
 await pgPool.query("DELETE FROM library_v1_book");
 await pgPool.query("DELETE FROM library_v1_shelf");
 await pgPool.end();
 
-const mongoClient = new MongoClient(
-  process.env.MONGODB_URI ?? "mongodb://localhost:27017",
-);
+const mongoClient = new MongoClient(process.env.MONGODB_URI ?? "mongodb://localhost:27018");
 await mongoClient.connect();
 const db = mongoClient.db(process.env.MONGODB_DATABASE ?? "library");
 await db.collection("library_v1_book").deleteMany({});

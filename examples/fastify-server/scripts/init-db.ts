@@ -18,7 +18,7 @@ const ROOT = path.resolve(__dirname, "..");
 
 const pgPool = new pg.Pool({
   connectionString:
-    process.env.POSTGRES_URL ?? "postgresql://library:library@localhost:5432/library",
+    process.env.POSTGRES_URL ?? "postgresql://library:library@localhost:5433/library",
 });
 
 // Run the full generated Postgres schema (shelves + books tables)
@@ -31,9 +31,7 @@ console.log("Postgres: schema ready");
 
 // --- MongoDB: create indexes ---
 
-const mongoClient = new MongoClient(
-  process.env.MONGODB_URI ?? "mongodb://localhost:27017",
-);
+const mongoClient = new MongoClient(process.env.MONGODB_URI ?? "mongodb://localhost:27018");
 
 await mongoClient.connect();
 const db = mongoClient.db(process.env.MONGODB_DATABASE ?? "library");

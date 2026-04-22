@@ -13,6 +13,9 @@ import { InvalidArgumentError } from "../errors/errors.js";
 import { FieldBehavior } from "../gen/google/api/field_behavior_pb.js";
 import { hasFieldBehavior } from "./fieldbehavior.js";
 
+/**
+ * Options for {@link validateImmutableFields}.
+ */
 export interface ValidateImmutableFieldsOptions {
   fieldMask?: FieldMask;
 }
@@ -25,7 +28,7 @@ export interface ValidateImmutableFieldsOptions {
  * If a fieldMask is provided, only fields in the mask are checked. Otherwise,
  * all fields are checked.
  *
- * See: https://aip.dev/203
+ * See: https://google.aip.dev/203
  */
 export function validateImmutableFields(
   schema: DescMessage,

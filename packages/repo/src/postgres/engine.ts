@@ -21,6 +21,9 @@ import type {
   EngineUpdateOptions,
 } from "../engine.js";
 
+/**
+ * Configuration for {@link createPostgresEngine}.
+ */
 export interface PostgresEngineConfig {
   /** A `pg` {@link Pool} instance. */
   client: Pool;

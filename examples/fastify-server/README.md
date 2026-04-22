@@ -33,6 +33,8 @@ This single command will:
 4. Seed sample data (3 shelves, 9 books)
 5. Start the dev server on **http://localhost:8080**
 
+The example databases bind to `localhost:5433` and `localhost:27018` by default so they do not collide with the `@protoutil/repo` test stack.
+
 ## Available RPCs
 
 The server implements 9 of the 11 `LibraryService` RPCs defined in [`examples/proto/library/v1/library.proto`](../proto/library/v1/library.proto):

@@ -60,6 +60,9 @@ export function collectViolationFieldRules(violation: Violation): FieldRules[] {
  * The result of a message tree validation. This type extends the TreeValidationResult
  * from Angular forms to include the violation information from the protovalidate library.
  */
+/**
+ * Validation result for an Angular message tree, augmented with protovalidate details.
+ */
 export type MessageTreeValidationResult<
   E extends ValidationError.WithOptionalField = ValidationError.WithOptionalField,
 > = TreeValidationResult<E> & {

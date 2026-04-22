@@ -32,15 +32,21 @@ export type QueryInput<Desc extends DescMessage> = string | Partial<MessageShape
  */
 export type ColumnSerializeOperation = "create" | "update";
 
+/** Repository read operation kinds passed to column deserializers. */
 export type ColumnDeserializeOperation = "get" | "list";
 
+/** Valid column-config keys for a generated protobuf message. */
 export type ColumnKey<Desc extends DescMessage> = Extract<keyof Desc["field"], string>;
 
+/** Runtime value type for a configured protobuf field. */
 export type ColumnFieldValue<
   Desc extends DescMessage,
   K extends ColumnKey<Desc>,
 > = K extends keyof MessageShape<Desc> ? MessageShape<Desc>[K] : unknown;
 
+/**
+ * Context passed to column serializer hooks.
+ */
 export interface ColumnSerializeContext<
   Desc extends DescMessage = DescMessage,
   K extends ColumnKey<Desc> = ColumnKey<Desc>,
@@ -58,6 +64,9 @@ export interface ColumnSerializeContext<
   contextValues: ContextValues;
 }
 
+/**
+ * Context passed to column deserializer hooks.
+ */
 export interface ColumnDeserializeContext<
   Desc extends DescMessage = DescMessage,
   K extends ColumnKey<Desc> = ColumnKey<Desc>,
@@ -76,6 +85,9 @@ export interface ColumnDeserializeContext<
   contextValues: ContextValues;
 }
 
+/**
+ * Per-field repository column configuration.
+ */
 export interface ColumnConfig<
   Desc extends DescMessage = DescMessage,
   K extends ColumnKey<Desc> = ColumnKey<Desc>,
@@ -117,6 +129,9 @@ export interface ColumnConfig<
   deserialize?: (ctx: ColumnDeserializeContext<Desc, K, DB>) => ColumnFieldValue<Desc, K>;
 }
 
+/**
+ * Map of proto field names to column configuration.
+ */
 export type ColumnConfigMap<Desc extends DescMessage> = Partial<{
   [K in ColumnKey<Desc>]: ColumnConfig<Desc, K, unknown>;
 }>;
@@ -231,6 +246,9 @@ export type Interceptor<Desc extends DescMessage> = (
   next: InterceptorFn<Desc>,
 ) => InterceptorFn<Desc>;
 
+/**
+ * Options for {@link createRepository}.
+ */
 export interface RepositoryOptions<Desc extends DescMessage> {
   /** The database engine to use. */
   engine: Engine;
@@ -346,6 +364,9 @@ export interface RepositoryOptions<Desc extends DescMessage> {
   };
 }
 
+/**
+ * Options for {@link Repository.get}.
+ */
 export interface GetOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned. Overrides
@@ -363,6 +384,9 @@ export interface GetOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Options for {@link Repository.create}.
+ */
 export interface CreateOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned on the
@@ -390,6 +414,9 @@ export interface CreateOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Options for {@link Repository.list}.
+ */
 export interface ListOptions {
   /**
    * Maximum number of results to return per page. Clamped to the
@@ -432,6 +459,9 @@ export interface ListOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Options for {@link Repository.update}.
+ */
 export interface UpdateOptions {
   /**
    * A {@link FieldMask} controlling which fields from the input are
@@ -465,6 +495,9 @@ export interface UpdateOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Options for {@link Repository.delete}.
+ */
 export interface DeleteOptions {
   /**
    * If `true`, the resource is validated for existence but not deleted.
@@ -484,6 +517,9 @@ export interface DeleteOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Options for {@link Repository.count}.
+ */
 export interface CountOptions {
   /** Run the operation within a transaction. */
   transaction?: Engine;
@@ -495,6 +531,9 @@ export interface CountOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Options for {@link Repository.batchGet}.
+ */
 export interface BatchGetOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned. Overrides
@@ -517,6 +556,9 @@ export interface BatchGetOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Options for {@link Repository.batchCreate}.
+ */
 export interface BatchCreateOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned on the
@@ -549,6 +591,9 @@ export interface BatchCreateOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * A single update item for {@link Repository.batchUpdate}.
+ */
 export interface BatchUpdateItem<Desc extends DescMessage> {
   /** An AIP-160 filter string or partial resource identifying the resource to update. */
   query: QueryInput<Desc>;
@@ -564,6 +609,9 @@ export interface BatchUpdateItem<Desc extends DescMessage> {
   updateMask?: FieldMask;
 }
 
+/**
+ * Options for {@link Repository.batchUpdate}.
+ */
 export interface BatchUpdateOptions {
   /**
    * A {@link FieldMask} controlling which fields are returned.
@@ -595,6 +643,9 @@ export interface BatchUpdateOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Options for {@link Repository.batchDelete}.
+ */
 export interface BatchDeleteOptions {
   /**
    * If `true`, all resources are validated for existence but not deleted.
@@ -619,6 +670,9 @@ export interface BatchDeleteOptions {
   contextValues?: ContextValues;
 }
 
+/**
+ * Paged list result returned by {@link Repository.list}.
+ */
 export interface ListResult<Desc extends DescMessage> {
   /** The page of results. */
   results: MessageShape<Desc>[];

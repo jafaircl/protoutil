@@ -18,6 +18,9 @@ import { SqlTranslator, sqlStdlib } from "./sql-base.js";
 //   string_starts_with, string_ends_with, string_contains
 // ---------------------------------------------------------------------------
 
+/**
+ * Built-in SQLite function handlers for translating supported AIP-160 functions.
+ */
 export const stdlibSqlite: Record<string, SqlFunctionHandler> = {
   ...sqlStdlib,
   // string_matches intentionally absent — no built-in regex in SQLite.
@@ -51,6 +54,12 @@ class SqliteTranslator extends SqlTranslator {
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * Translates a checked AIP-160 filter expression into SQLite SQL and bind parameters.
+ *
+ * Uses `?` placeholders and the built-in SQLite dialect helpers. Custom function
+ * handlers can be provided with `opts.functions`.
+ */
 export function sqlite(expr: CheckedExpr, opts?: SqliteOptions): SqlOutput {
   assertBoolOutput(expr);
   return new SqliteTranslator(expr, opts).translate(expr.expr);

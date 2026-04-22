@@ -60,7 +60,11 @@ export function isValidFieldName(str: string, strict = true) {
  * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
  * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
-export function assertValidFieldMask(schema: DescMessage, fieldMask: FieldMask, strict = true) {
+export function assertValidFieldMask(
+  schema: DescMessage,
+  fieldMask: FieldMask,
+  strict = true,
+): asserts fieldMask is FieldMask {
   for (const path of fieldMask.paths) {
     // Special case for '*' wildcard. If a field is a wildcard, it must be
     // the only path in the field mask.
@@ -144,7 +148,11 @@ export function assertValidFieldMask(schema: DescMessage, fieldMask: FieldMask, 
  * allow wildcards, you can set `strict` to `false`. This will allow for field masks with standalone
  * wildcards or wildcards in repeated or map fields (i.e. `'*'`, `'foo.*'`, `'foo.*.bar'`, etc.).
  */
-export function isValidFieldMask(schema: DescMessage, fieldMask: FieldMask, strict = true) {
+export function isValidFieldMask(
+  schema: DescMessage,
+  fieldMask: FieldMask,
+  strict = true,
+): fieldMask is FieldMask {
   try {
     assertValidFieldMask(schema, fieldMask, strict);
     return true;
@@ -200,6 +208,12 @@ export interface ApplyFieldMaskOptions {
   strict?: boolean;
 }
 
+/**
+ * Applies a field mask to a message and returns the filtered copy.
+ *
+ * Set `inverse` to keep everything except the masked fields. Set `strict` to `false`
+ * to allow AIP-161 wildcard behavior.
+ */
 export function applyFieldMask<Desc extends DescMessage>(
   schema: Desc,
   message: MessageShape<Desc>,

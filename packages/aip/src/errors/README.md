@@ -2,6 +2,10 @@
 
 This package provides primitives for implementing AIP errors as described by [AIP-193](https://google.aip.dev/193).
 
+The protobuf-level `google.rpc` messages and standard error detail validation
+are shared with `@protoutil/core/google/rpc`. This module keeps the AIP-193
+object-shaped detail API, `StatusError` classes, and gRPC-to-HTTP mappings.
+
 ## StatusError
 
 `StatusError` is an `Error` subclass that wraps a `google.rpc.Status` message. It includes a gRPC `Code`, an HTTP status code, and structured error details.
@@ -85,7 +89,7 @@ import { OK_STATUS } from "@protoutil/aip/errors";
 
 ## Error Details
 
-Per AIP-193, each error detail field may only be set once. The `errorInfo` field is optional. The following detail types are supported:
+Per AIP-193, each error detail field may only be set once. The `errorInfo` field is optional. Detail messages are materialized and validated with the shared `@protoutil/core/google/rpc` helpers. The following detail types are supported:
 
 | Detail Type | Description |
 |-------------|-------------|

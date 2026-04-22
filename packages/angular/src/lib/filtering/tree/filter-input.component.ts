@@ -17,8 +17,14 @@ import type { Decl, Expr } from "@protoutil/aip/filtering";
 import { FilterStepperComponent } from "./filter-stepper.component";
 import { FilterTextInputComponent } from "./filter-text-input.component";
 
+/**
+ * Input mode for the filter editor.
+ */
 export type FilterInputMode = "stepper" | "text";
 
+/**
+ * Wrapper component that switches between guided and free-text filter input.
+ */
 @Component({
   selector: "aip-filter-input",
   standalone: true,

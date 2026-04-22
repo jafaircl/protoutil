@@ -6,6 +6,10 @@ import { hasAnyFieldBehavior } from "./fieldbehavior.js";
 
 const DEFAULT_MAX_DEPTH = 5;
 
+/**
+ * Options for field-mask generation based on
+ * [`google.api.FieldBehavior`](https://google.aip.dev/203).
+ */
 export interface FieldMaskFromBehaviorOptions {
   /**
    * Maximum depth to recurse into nested message fields. When the limit is

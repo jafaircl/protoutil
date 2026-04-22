@@ -1,5 +1,4 @@
-import { Code } from "../gen/google/rpc/code_pb.js";
-import type { Status } from "../gen/google/rpc/status_pb.js";
+import { Code, type Status } from "@protoutil/core/google/rpc";
 import {
   type ErrorDetails,
   errorDetails,
@@ -398,39 +397,43 @@ export class DataLossError extends StatusError {
  * - `DataLossError`
  */
 export function parseStatus(status: Status) {
+  const init = {
+    message: status.message,
+    ...unpackErrorDetails(status.details),
+  };
   switch (status.code) {
     case Code.CANCELLED:
-      return CancelledError.fromStatus(status);
+      return new CancelledError(init);
     case Code.UNKNOWN:
-      return UnknownError.fromStatus(status);
+      return new UnknownError(init);
     case Code.INVALID_ARGUMENT:
-      return InvalidArgumentError.fromStatus(status);
+      return new InvalidArgumentError(init);
     case Code.DEADLINE_EXCEEDED:
-      return DeadlineExceededError.fromStatus(status);
+      return new DeadlineExceededError(init);
     case Code.NOT_FOUND:
-      return NotFoundError.fromStatus(status);
+      return new NotFoundError(init);
     case Code.ALREADY_EXISTS:
-      return AlreadyExistsError.fromStatus(status);
+      return new AlreadyExistsError(init);
     case Code.PERMISSION_DENIED:
-      return PermissionDeniedError.fromStatus(status);
+      return new PermissionDeniedError(init);
     case Code.UNAUTHENTICATED:
-      return UnauthenticatedError.fromStatus(status);
+      return new UnauthenticatedError(init);
     case Code.RESOURCE_EXHAUSTED:
-      return ResourceExhaustedError.fromStatus(status);
+      return new ResourceExhaustedError(init);
     case Code.FAILED_PRECONDITION:
-      return FailedPreconditionError.fromStatus(status);
+      return new FailedPreconditionError(init);
     case Code.ABORTED:
-      return AbortedError.fromStatus(status);
+      return new AbortedError(init);
     case Code.OUT_OF_RANGE:
-      return OutOfRangeError.fromStatus(status);
+      return new OutOfRangeError(init);
     case Code.UNIMPLEMENTED:
-      return UnimplementedError.fromStatus(status);
+      return new UnimplementedError(init);
     case Code.INTERNAL:
-      return InternalError.fromStatus(status);
+      return new InternalError(init);
     case Code.UNAVAILABLE:
-      return UnavailableError.fromStatus(status);
+      return new UnavailableError(init);
     case Code.DATA_LOSS:
-      return DataLossError.fromStatus(status);
+      return new DataLossError(init);
     default:
       return StatusError.fromStatus(status);
   }

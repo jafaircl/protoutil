@@ -6,9 +6,23 @@ import { createStarlightTypeDocPlugin } from "starlight-typedoc";
 const isDev = process.env.NODE_ENV !== "production";
 
 const [typeDocCore, typeDocCoreSidebar] = createStarlightTypeDocPlugin();
+const [typeDocCoreWkt, typeDocCoreWktSidebar] = createStarlightTypeDocPlugin();
+const [typeDocCoreGoogleRpc, typeDocCoreGoogleRpcSidebar] = createStarlightTypeDocPlugin();
+const [typeDocCoreGoogleType, typeDocCoreGoogleTypeSidebar] = createStarlightTypeDocPlugin();
 const [typeDocAip, typeDocAipSidebar] = createStarlightTypeDocPlugin();
+const [typeDocAipErrors, typeDocAipErrorsSidebar] = createStarlightTypeDocPlugin();
+const [typeDocAipEtag, typeDocAipEtagSidebar] = createStarlightTypeDocPlugin();
+const [typeDocAipFieldBehavior, typeDocAipFieldBehaviorSidebar] = createStarlightTypeDocPlugin();
+const [typeDocAipFiltering, typeDocAipFilteringSidebar] = createStarlightTypeDocPlugin();
+const [typeDocAipOrderBy, typeDocAipOrderBySidebar] = createStarlightTypeDocPlugin();
+const [typeDocAipPagination, typeDocAipPaginationSidebar] = createStarlightTypeDocPlugin();
+const [typeDocAipResourceName, typeDocAipResourceNameSidebar] = createStarlightTypeDocPlugin();
 const [typeDocAipql, typeDocAipqlSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepo, typeDocRepoSidebar] = createStarlightTypeDocPlugin();
+const [typeDocRepoSqlite, typeDocRepoSqliteSidebar] = createStarlightTypeDocPlugin();
+const [typeDocRepoPostgres, typeDocRepoPostgresSidebar] = createStarlightTypeDocPlugin();
+const [typeDocRepoMySQL, typeDocRepoMySQLSidebar] = createStarlightTypeDocPlugin();
+const [typeDocRepoMongoDB, typeDocRepoMongoDBSidebar] = createStarlightTypeDocPlugin();
 const [typeDocAngular, typeDocAngularSidebar] = createStarlightTypeDocPlugin();
 // protoc-gen-sql is a CLI-only package (protoc plugin) with no library API.
 // Its entry point calls runNodeJs() which is incompatible with TypeDoc.
@@ -32,59 +46,241 @@ export default defineConfig({
           entryPoints: ["../packages/core/src/index.ts"],
           tsconfig: "../packages/core/tsconfig.json",
           output: "api/core",
-          sidebar: { label: "@protoutil/core", collapsed: true },
+          sidebar: { label: "core", collapsed: true },
           watch: isDev,
           typeDoc: {
             exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/core/README.md",
+          },
+        }),
+        typeDocCoreWkt({
+          entryPoints: ["../packages/core/src/wkt/index.ts"],
+          tsconfig: "../packages/core/tsconfig.json",
+          output: "api/core/wkt",
+          sidebar: { label: "core/wkt", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+          },
+        }),
+        typeDocCoreGoogleRpc({
+          entryPoints: ["../packages/core/src/google/rpc/index.ts"],
+          tsconfig: "../packages/core/tsconfig.json",
+          output: "api/core/google/rpc",
+          sidebar: { label: "core/google/rpc", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+          },
+        }),
+        typeDocCoreGoogleType({
+          entryPoints: ["../packages/core/src/google/type/index.ts"],
+          tsconfig: "../packages/core/tsconfig.json",
+          output: "api/core/google/type",
+          sidebar: { label: "core/google/type", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
           },
         }),
         typeDocAip({
-          entryPoints: [
-            "../packages/aip/src/index.ts",
-            "../packages/aip/src/errors/index.ts",
-            "../packages/aip/src/etag/index.ts",
-            "../packages/aip/src/fieldbehavior/index.ts",
-            "../packages/aip/src/filtering/index.ts",
-            "../packages/aip/src/orderby/index.ts",
-            "../packages/aip/src/pagination/index.ts",
-            "../packages/aip/src/resourcename/index.ts",
-          ],
+          entryPoints: ["../packages/aip/src/index.ts"],
           tsconfig: "../packages/aip/tsconfig.json",
           output: "api/aip",
-          sidebar: { label: "@protoutil/aip", collapsed: true },
+          sidebar: { label: "aip", collapsed: true },
           watch: isDev,
           typeDoc: {
             exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aip/README.md",
+          },
+        }),
+        typeDocAipErrors({
+          entryPoints: ["../packages/aip/src/errors/index.ts"],
+          tsconfig: "../packages/aip/tsconfig.json",
+          output: "api/aip/errors",
+          sidebar: { label: "aip/errors", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aip/src/errors/README.md",
+          },
+        }),
+        typeDocAipEtag({
+          entryPoints: ["../packages/aip/src/etag/index.ts"],
+          tsconfig: "../packages/aip/tsconfig.json",
+          output: "api/aip/etag",
+          sidebar: { label: "aip/etag", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aip/src/etag/README.md",
+          },
+        }),
+        typeDocAipFieldBehavior({
+          entryPoints: ["../packages/aip/src/fieldbehavior/index.ts"],
+          tsconfig: "../packages/aip/tsconfig.json",
+          output: "api/aip/fieldbehavior",
+          sidebar: { label: "aip/fieldbehavior", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aip/src/fieldbehavior/README.md",
+          },
+        }),
+        typeDocAipFiltering({
+          entryPoints: ["../packages/aip/src/filtering/index.ts"],
+          tsconfig: "../packages/aip/tsconfig.json",
+          output: "api/aip/filtering",
+          sidebar: { label: "aip/filtering", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aip/src/filtering/README.md",
+          },
+        }),
+        typeDocAipOrderBy({
+          entryPoints: ["../packages/aip/src/orderby/index.ts"],
+          tsconfig: "../packages/aip/tsconfig.json",
+          output: "api/aip/orderby",
+          sidebar: { label: "aip/orderby", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aip/src/orderby/README.md",
+          },
+        }),
+        typeDocAipPagination({
+          entryPoints: ["../packages/aip/src/pagination/index.ts"],
+          tsconfig: "../packages/aip/tsconfig.json",
+          output: "api/aip/pagination",
+          sidebar: { label: "aip/pagination", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aip/src/pagination/README.md",
+          },
+        }),
+        typeDocAipResourceName({
+          entryPoints: ["../packages/aip/src/resourcename/index.ts"],
+          tsconfig: "../packages/aip/tsconfig.json",
+          output: "api/aip/resourcename",
+          sidebar: { label: "aip/resourcename", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aip/src/resourcename/README.md",
           },
         }),
         typeDocAipql({
           entryPoints: ["../packages/aipql/src/index.ts"],
           tsconfig: "../packages/aipql/tsconfig.json",
           output: "api/aipql",
-          sidebar: { label: "@protoutil/aipql", collapsed: true },
+          sidebar: { label: "aipql", collapsed: true },
           watch: isDev,
           typeDoc: {
             exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/aipql/README.md",
           },
         }),
         typeDocRepo({
           entryPoints: ["../packages/repo/src/index.ts"],
           tsconfig: "../packages/repo/tsconfig.json",
           output: "api/repo",
-          sidebar: { label: "@protoutil/repo", collapsed: true },
+          sidebar: { label: "repo", collapsed: true },
           watch: isDev,
           typeDoc: {
             exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/repo/README.md",
+          },
+        }),
+        typeDocRepoSqlite({
+          entryPoints: ["../packages/repo/src/sqlite/index.ts"],
+          tsconfig: "../packages/repo/tsconfig.json",
+          output: "api/repo/sqlite",
+          sidebar: { label: "repo/sqlite", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/repo/src/sqlite/README.md",
+          },
+        }),
+        typeDocRepoPostgres({
+          entryPoints: ["../packages/repo/src/postgres/index.ts"],
+          tsconfig: "../packages/repo/tsconfig.json",
+          output: "api/repo/postgres",
+          sidebar: { label: "repo/postgres", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/repo/src/postgres/README.md",
+          },
+        }),
+        typeDocRepoMySQL({
+          entryPoints: ["../packages/repo/src/mysql/index.ts"],
+          tsconfig: "../packages/repo/tsconfig.json",
+          output: "api/repo/mysql",
+          sidebar: { label: "repo/mysql", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/repo/src/mysql/README.md",
+          },
+        }),
+        typeDocRepoMongoDB({
+          entryPoints: ["../packages/repo/src/mongodb/index.ts"],
+          tsconfig: "../packages/repo/tsconfig.json",
+          output: "api/repo/mongodb",
+          sidebar: { label: "repo/mongodb", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/repo/src/mongodb/README.md",
           },
         }),
         typeDocAngular({
           entryPoints: ["../packages/angular/src/public-api.ts"],
           tsconfig: "../packages/angular/tsconfig.lib.json",
           output: "api/angular",
-          sidebar: { label: "@protoutil/angular", collapsed: true },
+          sidebar: { label: "angular", collapsed: true },
           watch: isDev,
           typeDoc: {
             exclude: ["**/gen/**"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/angular/README.md",
           },
         }),
       ],
@@ -101,48 +297,50 @@ export default defineConfig({
           label: "Packages",
           items: [
             {
-              label: "@protoutil/core",
+              label: "core",
               collapsed: true,
-              items: [{ slug: "packages/core" }],
+              items: [{ label: "Overview", slug: "api/core" }],
             },
             {
-              label: "@protoutil/aip",
+              label: "aip",
               collapsed: true,
               items: [
-                { slug: "packages/aip" },
-                { slug: "packages/aip/filtering" },
-                { slug: "packages/aip/pagination" },
-                { slug: "packages/aip/resourcename" },
-                { slug: "packages/aip/etag" },
-                { slug: "packages/aip/errors" },
-                { slug: "packages/aip/orderby" },
-                { slug: "packages/aip/fieldbehavior" },
+                { label: "Overview", slug: "api/aip" },
+                { label: "Filtering", slug: "api/aip/filtering" },
+                { label: "Pagination", slug: "api/aip/pagination" },
+                { label: "Resource Name", slug: "api/aip/resourcename" },
+                { label: "ETag", slug: "api/aip/etag" },
+                { label: "Errors", slug: "api/aip/errors" },
+                { label: "Order By", slug: "api/aip/orderby" },
+                { label: "Field Behavior", slug: "api/aip/fieldbehavior" },
               ],
             },
             {
-              label: "@protoutil/aipql",
+              label: "aipql",
               collapsed: true,
-              items: [{ slug: "packages/aipql" }],
+              items: [{ label: "Overview", slug: "api/aipql" }],
             },
             {
-              label: "@protoutil/repo",
+              label: "repo",
               collapsed: true,
               items: [
-                { slug: "packages/repo" },
-                { slug: "packages/repo/benchmarks" },
-                { slug: "packages/repo/sqlite" },
-                // TODO: add other backends as separate pages
+                { label: "Overview", slug: "api/repo" },
+                { label: "SQLite", slug: "api/repo/sqlite" },
+                { label: "Postgres", slug: "api/repo/postgres" },
+                { label: "MySQL", slug: "api/repo/mysql" },
+                { label: "MongoDB", slug: "api/repo/mongodb" },
               ],
             },
+
             {
-              label: "@protoutil/angular",
+              label: "angular",
               collapsed: true,
-              items: [{ slug: "packages/angular" }],
+              items: [{ label: "Overview", slug: "api/angular" }],
             },
             {
-              label: "@protoutil/protoc-gen-sql",
+              label: "protoc-gen-sql",
               collapsed: true,
-              items: [{ slug: "packages/protoc-gen-sql" }],
+              items: [{ label: "Overview", slug: "packages/protoc-gen-sql" }],
             },
           ],
         },
@@ -150,9 +348,23 @@ export default defineConfig({
           label: "API Reference",
           items: [
             typeDocCoreSidebar,
+            typeDocCoreWktSidebar,
+            typeDocCoreGoogleRpcSidebar,
+            typeDocCoreGoogleTypeSidebar,
             typeDocAipSidebar,
+            typeDocAipErrorsSidebar,
+            typeDocAipEtagSidebar,
+            typeDocAipFieldBehaviorSidebar,
+            typeDocAipFilteringSidebar,
+            typeDocAipOrderBySidebar,
+            typeDocAipPaginationSidebar,
+            typeDocAipResourceNameSidebar,
             typeDocAipqlSidebar,
             typeDocRepoSidebar,
+            typeDocRepoSqliteSidebar,
+            typeDocRepoPostgresSidebar,
+            typeDocRepoMySQLSidebar,
+            typeDocRepoMongoDBSidebar,
             typeDocAngularSidebar,
           ],
         },

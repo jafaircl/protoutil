@@ -1,3 +1,6 @@
+/**
+ * Token kinds produced by the AIP-160 lexer.
+ */
 export enum TokenType {
   TEXT,
   STRING,
@@ -23,6 +26,9 @@ export enum TokenType {
   UNTERMINATED_STRING,
 }
 
+/**
+ * A single lexer token with its original source offset.
+ */
 export interface Token {
   type: TokenType;
   value: string;
@@ -35,6 +41,9 @@ const KEYWORDS: Record<string, TokenType> = {
   NOT: TokenType.NOT,
 };
 
+/**
+ * Tokenizes an AIP-160 filter string.
+ */
 export function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;

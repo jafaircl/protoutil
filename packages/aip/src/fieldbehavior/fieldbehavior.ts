@@ -51,6 +51,9 @@ export function hasAnyFieldBehavior(field: DescField, behaviors: FieldBehavior[]
   return false;
 }
 
+/**
+ * Options for {@link clearFields}.
+ */
 export interface ClearFieldsOptions {
   mutate?: boolean;
 }

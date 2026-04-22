@@ -22,6 +22,9 @@ import { MatInputModule } from "@angular/material/input";
 import { check, type Decl, type Expr, parse } from "@protoutil/aip/filtering";
 import { validateAipFilter } from "../validate-aip-filter";
 
+/**
+ * Free-text filter input component with live validation.
+ */
 @Component({
   selector: "aip-filter-text-input",
   standalone: true,

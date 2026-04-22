@@ -35,13 +35,7 @@ import { EditBookDialogComponent, type EditBookDialogData } from "./edit-book-di
   standalone: true,
   templateUrl: "./shelf-detail.html",
   styleUrls: ["./shelf-detail.css"],
-  imports: [
-    MatButtonModule,
-    MatIconModule,
-    MatPaginatorModule,
-    MatSortModule,
-    MatTableModule,
-  ],
+  imports: [MatButtonModule, MatIconModule, MatPaginatorModule, MatSortModule, MatTableModule],
 })
 export class ShelfDetailComponent implements AfterViewInit {
   private library = inject(LibraryService);

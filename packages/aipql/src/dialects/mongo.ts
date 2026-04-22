@@ -70,6 +70,9 @@ function regexFilter(field: string, pattern: string, caseInsensitive: boolean): 
 //   string_starts_with, string_ends_with, string_contains, string_matches
 // ---------------------------------------------------------------------------
 
+/**
+ * Built-in MongoDB function handlers for translating supported AIP-160 functions.
+ */
 export const stdlibMongo: Record<string, MongoFunctionHandler> = {
   string_starts_with(target, args, ctx) {
     if (!target || args.length !== 1)
@@ -371,6 +374,12 @@ class MongoTranslator {
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * Translates a checked AIP-160 filter expression into a MongoDB filter document.
+ *
+ * The output can include MongoDB query operators and values normalized for the
+ * MongoDB driver, including timestamp and duration conversions.
+ */
 export function mongo(expr: CheckedExpr, opts?: MongoOptions): MongoOutput {
   assertBoolOutput(expr);
   return new MongoTranslator(expr, opts).translate(expr.expr);

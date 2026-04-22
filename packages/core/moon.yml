@@ -9,10 +9,26 @@ tasks:
     - 'buf.gen.yaml'
     outputs:
     - 'src/gen'
+  update-currencies:
+    command: 'pnpm run update:currencies'
+    inputs:
+    - 'scripts/update-currency-codes.mjs'
+    - 'package.json'
+    outputs:
+    - 'src/google/type/currency-codes.ts'
+  update-region-codes:
+    command: 'pnpm run update:region-codes'
+    inputs:
+    - 'scripts/update-region-codes.mjs'
+    - 'package.json'
+    outputs:
+    - 'src/google/type/region-codes.ts'
   typecheck:
     command: 'pnpm run typecheck'
     dependsOn:
     - protogen
+    - update-currencies
+    - update-region-codes
     inputs:
     - '@globs(sources)'
     - 'tsconfig.json'

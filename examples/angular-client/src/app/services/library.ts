@@ -1,9 +1,10 @@
-import { computed, Injectable, signal } from "@angular/core";
+import { Injectable } from "@angular/core";
 import { create, type DescMessage, type MessageInitShape } from "@bufbuild/protobuf";
 import { createValidator } from "@bufbuild/protovalidate";
 import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import {
+  type Book,
   LibraryService as ConnectLibraryService,
   CreateBookRequestSchema,
   CreateShelfRequestSchema,
@@ -12,12 +13,11 @@ import {
   GetBookRequestSchema,
   GetShelfRequestSchema,
   ListBooksRequestSchema,
-  ListShelvesRequestSchema,
-  UpdateBookRequestSchema,
-  type Book,
   type ListBooksResponse,
+  ListShelvesRequestSchema,
   type ListShelvesResponse,
   type Shelf,
+  UpdateBookRequestSchema,
 } from "../../gen/library/v1/library_pb";
 
 @Injectable({
@@ -25,8 +25,8 @@ import {
 })
 export class LibraryService {
   private transport = createConnectTransport({
-      baseUrl: "http://localhost:8080",
-    });
+    baseUrl: "http://localhost:8080",
+  });
   private client = createClient(ConnectLibraryService, this.transport);
   private validator = createValidator();
   private timeoutMs = 1000 * 60; // 1 minute

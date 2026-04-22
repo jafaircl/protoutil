@@ -28,6 +28,9 @@ import { FilterInputComponent, type FilterInputMode } from "./filter-input.compo
 import { createFilterBranchNode, exprToFilterNode, type FilterNode } from "./filter-node.model";
 import { FilterTreeComponent } from "./filter-tree.component";
 
+/**
+ * Top-level filter editor component that combines tree editing with filter input.
+ */
 @Component({
   selector: "aip-filter-editor",
   standalone: true,

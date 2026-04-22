@@ -21,6 +21,9 @@ import type {
   EngineUpdateOptions,
 } from "../engine.js";
 
+/**
+ * Configuration for {@link createMySQLEngine}.
+ */
 export interface MySQLEngineConfig {
   /** A `mysql2/promise` {@link Pool} instance. */
   client: Pool;

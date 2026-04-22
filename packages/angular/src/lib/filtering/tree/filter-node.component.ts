@@ -34,6 +34,9 @@ import { type FilterNode, isFilterBranchNode, isFilterLeafNode } from "./filter-
 import type { DropPosition } from "./filter-tree.service";
 import { FilterTreeDragStateService } from "./filter-tree-drag-state.service";
 
+/**
+ * Recursive component for rendering and manipulating a single filter-tree node.
+ */
 @Component({
   selector: "aip-filter-node",
   standalone: true,

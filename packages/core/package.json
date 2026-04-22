@@ -18,6 +18,14 @@
       "require": "./dist/index.cjs",
       "import": "./dist/index.mjs"
     },
+    "./google/rpc": {
+      "require": "./dist/google/rpc/index.cjs",
+      "import": "./dist/google/rpc/index.mjs"
+    },
+    "./google/type": {
+      "require": "./dist/google/type/index.cjs",
+      "import": "./dist/google/type/index.mjs"
+    },
     "./unittest": {
       "require": "./dist/unittest/index.cjs",
       "import": "./dist/unittest/index.mjs"
@@ -192,13 +200,16 @@
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build",
-    "protogen": "buf generate"
+    "protogen": "buf generate",
+    "update:currencies": "node ./scripts/update-currency-codes.mjs",
+    "update:region-codes": "node ./scripts/update-region-codes.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",

@@ -36,7 +36,9 @@ export type DropPosition =
   | { kind: "onto-leaf"; leafId: string }
   | { kind: "onto-branch-header"; branchId: string };
 
-/** Immutable snapshot of the undo/redo history stack. */
+/**
+ * Immutable undo/redo history snapshot for the filter tree.
+ */
 export interface FilterTreeHistory {
   readonly stack: readonly FilterNode[];
   readonly index: number;
@@ -46,6 +48,9 @@ export interface FilterTreeHistory {
 // Injectable service (state lives in the component signal)
 // ---------------------------------------------------------------------------
 
+/**
+ * Pure tree-manipulation service used by the filter-tree UI.
+ */
 @Injectable({ providedIn: "root" })
 export class FilterTreeService {
   // -------------------------------------------------------------------------
