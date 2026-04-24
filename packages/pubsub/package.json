@@ -1,0 +1,79 @@
+{
+  "name": "@protoutil/pubsub",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Transport-neutral protobuf pub/sub on CloudEvents.",
+  "author": "Author Name <author.name@mail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/pubsub#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jafaircl/protoutil.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jafaircl/protoutil/issues"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./kafka": {
+      "import": "./dist/kafka/index.mjs",
+      "require": "./dist/kafka/index.cjs"
+    },
+    "./nats": {
+      "import": "./dist/nats/index.mjs",
+      "require": "./dist/nats/index.cjs"
+    },
+    "./rabbitmq": {
+      "import": "./dist/rabbitmq/index.mjs",
+      "require": "./dist/rabbitmq/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "node ./scripts/run-tests.mjs",
+    "benchmark": "node ./scripts/run-tests.mjs src/benchmark.spec.ts",
+    "test:load": "node ./scripts/run-tests.mjs src/load-test.spec.ts",
+    "test:vitest": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "protogen": "buf generate",
+    "prepublishOnly": "pnpm run build"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0"
+  },
+  "peerDependencies": {
+    "@confluentinc/kafka-javascript": ">=1.0.0",
+    "amqplib": ">=0.10.0",
+    "nats": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@confluentinc/kafka-javascript": {
+      "optional": true
+    },
+    "amqplib": {
+      "optional": true
+    },
+    "nats": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@confluentinc/kafka-javascript": "^1.9.0",
+    "@types/node": "^25.0.3",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

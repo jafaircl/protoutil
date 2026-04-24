@@ -12,6 +12,7 @@ protoutil is a collection of TypeScript packages for working with Protocol Buffe
 | [`@protoutil/core`](/api/core/) | Checksum, field get/set, integer validators, and well-known type utilities (Duration, Timestamp, FieldMask) |
 | [`@protoutil/aip`](/api/aip/) | TypeScript SDK for Google AIP: filtering, pagination, resource names, ETags, errors, ordering, and field behavior |
 | [`@protoutil/aipql`](/api/aipql/) | Translate AIP-160 filter expressions into SQL (Postgres, MySQL, SQLite) and MongoDB queries |
+| [`@protoutil/pubsub`](/api/pubsub/) | Transport-neutral protobuf pub/sub using generated services, CloudEvents, typed handler dispositions, and Kafka or RabbitMQ backers |
 | [`@protoutil/repo`](/api/repo/) | Database-agnostic protobuf resource persistence using AIP patterns |
 | [`@protoutil/angular`](/api/angular/) | Angular components and validators for AIP-160 filter editing and protovalidate |
 | [`@protoutil/protoc-gen-sql`](/packages/protoc-gen-sql/) | Protoc plugin for generating SQL schema and CRUD queries from annotated proto definitions |
@@ -23,6 +24,7 @@ The packages build on each other:
 - **`@protoutil/core`** is the foundation — no dependencies on other protoutil packages
 - **`@protoutil/aip`** depends on `core`
 - **`@protoutil/aipql`** depends on `aip` and `core`
+- **`@protoutil/pubsub`** has no dependencies on other protoutil packages
 - **`@protoutil/repo`** depends on `aip`, `aipql`, and `core`
 - **`@protoutil/angular`** depends on `aip`
 - **`@protoutil/protoc-gen-sql`** depends on `core`

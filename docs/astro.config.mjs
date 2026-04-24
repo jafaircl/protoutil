@@ -18,6 +18,8 @@ const [typeDocAipOrderBy, typeDocAipOrderBySidebar] = createStarlightTypeDocPlug
 const [typeDocAipPagination, typeDocAipPaginationSidebar] = createStarlightTypeDocPlugin();
 const [typeDocAipResourceName, typeDocAipResourceNameSidebar] = createStarlightTypeDocPlugin();
 const [typeDocAipql, typeDocAipqlSidebar] = createStarlightTypeDocPlugin();
+const [typeDocPubsub, typeDocPubsubSidebar] = createStarlightTypeDocPlugin();
+const [typeDocPubsubKafka, typeDocPubsubKafkaSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepo, typeDocRepoSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepoSqlite, typeDocRepoSqliteSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepoPostgres, typeDocRepoPostgresSidebar] = createStarlightTypeDocPlugin();
@@ -205,6 +207,32 @@ export default defineConfig({
             readme: "../packages/aipql/README.md",
           },
         }),
+        typeDocPubsub({
+          entryPoints: ["../packages/pubsub/src/index.ts"],
+          tsconfig: "../packages/pubsub/tsconfig.json",
+          output: "api/pubsub",
+          sidebar: { label: "pubsub", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**", "**/*.spec.ts"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/pubsub/README.md",
+          },
+        }),
+        typeDocPubsubKafka({
+          entryPoints: ["../packages/pubsub/src/kafka/index.ts"],
+          tsconfig: "../packages/pubsub/tsconfig.json",
+          output: "api/pubsub/kafka",
+          sidebar: { label: "pubsub/kafka", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**", "**/*.spec.ts"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/pubsub/src/kafka/README.md",
+          },
+        }),
         typeDocRepo({
           entryPoints: ["../packages/repo/src/index.ts"],
           tsconfig: "../packages/repo/tsconfig.json",
@@ -321,6 +349,14 @@ export default defineConfig({
               items: [{ label: "Overview", slug: "api/aipql" }],
             },
             {
+              label: "pubsub",
+              collapsed: true,
+              items: [
+                { label: "Overview", slug: "api/pubsub" },
+                { label: "Kafka", slug: "api/pubsub/kafka" },
+              ],
+            },
+            {
               label: "repo",
               collapsed: true,
               items: [
@@ -360,6 +396,8 @@ export default defineConfig({
             typeDocAipPaginationSidebar,
             typeDocAipResourceNameSidebar,
             typeDocAipqlSidebar,
+            typeDocPubsubSidebar,
+            typeDocPubsubKafkaSidebar,
             typeDocRepoSidebar,
             typeDocRepoSqliteSidebar,
             typeDocRepoPostgresSidebar,

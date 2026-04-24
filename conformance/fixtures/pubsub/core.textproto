@@ -1,0 +1,302 @@
+name: "protoutil pubsub v1"
+section {
+  name: "CloudEvent materialization"
+  test {
+    name: "publish wraps protobuf payload in CloudEvent"
+    kind: CASE_KIND_CLOUDEVENT_MATERIALIZATION
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+      }
+    }
+    expected_event {
+      source: "conformance-service"
+      specversion: "1.0"
+      type: "AlphaHappened"
+      dataschema: "protoutil.pubsub.testing.v1.AlphaEvent"
+      datacontenttype: "application/protobuf"
+      data_json: "{\"eventId\":\"evt_123\",\"name\":\"alpha\"}"
+    }
+  }
+  test {
+    name: "metadata propagates as extension attributes"
+    kind: CASE_KIND_METADATA_PROPAGATION
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+        metadata { key: "tenantid" string_value: "t1" }
+      }
+    }
+    expected_event {
+      metadata { key: "tenantid" string_value: "t1" }
+    }
+  }
+  test {
+    name: "metadata preserves typed CloudEvent attributes"
+    kind: CASE_KIND_METADATA_PROPAGATION
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+        metadata { key: "tenantid" string_value: "t1" }
+        metadata { key: "attempt" int_value: 2 }
+        metadata { key: "dryrun" bool_value: true }
+      }
+    }
+    expected_event {
+      metadata { key: "tenantid" string_value: "t1" }
+      metadata { key: "attempt" int_value: 2 }
+      metadata { key: "dryrun" bool_value: true }
+    }
+  }
+  test {
+    name: "beta payload packs its own protobuf schema"
+    kind: CASE_KIND_CLOUDEVENT_MATERIALIZATION
+    publish {
+      method: "betaHappened"
+      payload {
+        event_id: "evt_456"
+        detail: "beta-detail"
+        active: true
+      }
+      options {
+        source: "beta-service"
+      }
+    }
+    expected_event {
+      source: "beta-service"
+      specversion: "1.0"
+      type: "BetaHappened"
+      dataschema: "protoutil.pubsub.testing.v1.BetaEvent"
+      datacontenttype: "application/protobuf"
+      data_json: "{\"eventId\":\"evt_456\",\"detail\":\"beta-detail\",\"active\":true}"
+    }
+  }
+}
+section {
+  name: "Resolution precedence"
+  test {
+    name: "topic explicit beats method typename"
+    kind: CASE_KIND_TOPIC_PRECEDENCE
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        topic: "custom.topic"
+        source: "conformance-service"
+      }
+    }
+    expected_topic: "custom.topic"
+  }
+  test {
+    name: "topic falls back to method typename"
+    kind: CASE_KIND_TOPIC_PRECEDENCE
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+      }
+    }
+    expected_topic: "AlphaHappened"
+  }
+  test {
+    name: "type explicit beats method typename"
+    kind: CASE_KIND_TYPE_PRECEDENCE
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        type: "com.example.conformance.AlphaHappened.v2"
+        source: "conformance-service"
+      }
+    }
+    expected_value: "com.example.conformance.AlphaHappened.v2"
+  }
+  test {
+    name: "type falls back to method typename"
+    kind: CASE_KIND_TYPE_PRECEDENCE
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+      }
+    }
+    expected_value: "AlphaHappened"
+  }
+  test {
+    name: "source explicit beats client default"
+    kind: CASE_KIND_SOURCE_PRECEDENCE
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "call-source"
+      }
+    }
+    source_defaults { client_default: "client-source" transport_default: "transport-source" }
+    expected_value: "call-source"
+  }
+  test {
+    name: "source falls back through client transport library"
+    kind: CASE_KIND_SOURCE_PRECEDENCE
+    source_defaults { client_default: "client-source" transport_default: "transport-source" library_default: "protoutil.pubsub" }
+    expected_value: "client-source"
+  }
+  test {
+    name: "source falls back to transport default"
+    kind: CASE_KIND_SOURCE_PRECEDENCE
+    source_defaults { transport_default: "transport-source" library_default: "protoutil.pubsub" }
+    expected_value: "transport-source"
+  }
+  test {
+    name: "source falls back to library default"
+    kind: CASE_KIND_SOURCE_PRECEDENCE
+    source_defaults { library_default: "protoutil.pubsub" }
+    expected_value: "protoutil.pubsub"
+  }
+}
+section {
+  name: "Routing and disposition"
+  test {
+    name: "route by CloudEvent type"
+    kind: CASE_KIND_ROUTE_BY_TYPE
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+      }
+    }
+    expected_disposition { kind: "ack" }
+  }
+  test {
+    name: "successful handler acks"
+    kind: CASE_KIND_DISPOSITION
+    handler_behavior: HANDLER_BEHAVIOR_SUCCESS
+    expected_disposition { kind: "ack" }
+  }
+  test {
+    name: "explicit ack action acks"
+    kind: CASE_KIND_DISPOSITION
+    handler_behavior: HANDLER_BEHAVIOR_ACK
+    expected_disposition { kind: "ack" }
+  }
+  test {
+    name: "explicit reject action rejects"
+    kind: CASE_KIND_DISPOSITION
+    handler_behavior: HANDLER_BEHAVIOR_REJECT
+    expected_disposition { kind: "reject" }
+  }
+  test {
+    name: "explicit dead letter action dead letters"
+    kind: CASE_KIND_DISPOSITION
+    handler_behavior: HANDLER_BEHAVIOR_DEAD_LETTER
+    expected_disposition { kind: "dead_letter" }
+  }
+  test {
+    name: "transient failure retries"
+    kind: CASE_KIND_DISPOSITION
+    handler_behavior: HANDLER_BEHAVIOR_TRANSIENT
+    expected_disposition { kind: "retry" }
+  }
+  test {
+    name: "invalid input rejects"
+    kind: CASE_KIND_DISPOSITION
+    handler_behavior: HANDLER_BEHAVIOR_INVALID
+    expected_disposition { kind: "reject" }
+  }
+  test {
+    name: "unrecoverable failure dead letters"
+    kind: CASE_KIND_DISPOSITION
+    handler_behavior: HANDLER_BEHAVIOR_UNRECOVERABLE
+    expected_disposition { kind: "dead_letter" }
+  }
+  test {
+    name: "unknown route dead letters"
+    kind: CASE_KIND_DISPOSITION
+    handler_behavior: HANDLER_BEHAVIOR_UNKNOWN_ROUTE
+    expected_disposition { kind: "dead_letter" }
+  }
+  test {
+    name: "text CloudEvent data rejects"
+    kind: CASE_KIND_CLOUDEVENT_PARSE_FAILURE
+    expected_disposition { kind: "reject" }
+  }
+  test {
+    name: "wrong protobuf payload rejects"
+    kind: CASE_KIND_CLOUDEVENT_PARSE_FAILURE
+    publish {
+      method: "betaHappened"
+      payload {
+        event_id: "evt_456"
+        detail: "beta-detail"
+        active: true
+      }
+    }
+    expected_disposition { kind: "reject" }
+  }
+}
+section {
+  name: "Delay"
+  test {
+    name: "publish carries notBefore"
+    kind: CASE_KIND_DELAYED_PUBLISH
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+        not_before { seconds: 5 nanos: 1000 }
+      }
+    }
+    expected_event {
+      not_before { seconds: 5 nanos: 1000 }
+    }
+  }
+  test {
+    name: "retry carries protobuf Duration"
+    kind: CASE_KIND_DELAYED_RETRY
+    handler_behavior: HANDLER_BEHAVIOR_RETRY_DELAY
+    expected_disposition {
+      kind: "retry"
+      delay { seconds: 3 }
+    }
+  }
+}

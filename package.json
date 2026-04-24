@@ -53,6 +53,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@confluentinc/kafka-javascript",
       "better-sqlite3"
     ]
   }

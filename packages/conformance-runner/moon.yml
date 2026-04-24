@@ -1,0 +1,26 @@
+language: "javascript"
+
+tasks:
+  protogen:
+    command: "pnpm run protogen"
+    inputs:
+      - "proto/**/*"
+      - "buf.yaml"
+      - "buf.gen.yaml"
+    outputs:
+      - "src/gen"
+  typecheck:
+    command: "pnpm run typecheck"
+    dependsOn:
+      - protogen
+    inputs:
+      - "@globs(sources)"
+      - "tsconfig.json"
+      - "package.json"
+  pubsub:
+    command: "pnpm run pubsub"
+    dependsOn:
+      - protogen
+    inputs:
+      - "@globs(sources)"
+      - "package.json"

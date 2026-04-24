@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+package protoutil.conformance.pubsub.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/jafaircl/protoutil/go/protoutil/conformance/pubsub/v1;pubsubv1";
+
+// The format of a pubsub conformance fixture file, expected to be stored in
+// protobuf text format. A suite file is the unit of granularity for selecting
+// conformance tests.
+message Suite {
+  // Required. The suite name. Should be stable and human-readable.
+  string name = 1;
+
+  // A description of the suite.
+  string description = 2;
+
+  // The contained sections.
+  repeated Section section = 3;
+}
+
+// A collection of related pubsub conformance cases.
+message Section {
+  // Required. The section name.
+  string name = 1;
+
+  // A description of the section.
+  string description = 2;
+
+  // The contained tests.
+  repeated Case test = 3;
+}
+
+// A conformance case. The kind tells the runner which behavior to exercise,
+// and the typed fields below provide the publish input and expected result.
+message Case {
+  // Required. The case name, unique within the fixture file.
+  string name = 1;
+
+  // A description of the case.
+  string description = 2;
+
+  // Required. The kind of behavior under test.
+  CaseKind kind = 3;
+
+  // Publish input for materialization, routing, and precedence cases.
+  Publish publish = 4;
+
+  // Expected CloudEvent materialized by a publish call.
+  CloudEventExpectation expected_event = 5;
+
+  // Expected transport topic selected for a publish call.
+  string expected_topic = 6;
+
+  // Expected handler disposition.
+  DispositionExpectation expected_disposition = 7;
+
+  // Fixture-specific handler behavior used by disposition cases.
+  HandlerBehavior handler_behavior = 8;
+
+  // Source resolver defaults used by source precedence cases.
+  SourceDefaults source_defaults = 9;
+
+  // Expected resolver value for type/source precedence cases.
+  string expected_value = 10;
+}
+
+enum CaseKind {
+  CASE_KIND_UNSPECIFIED = 0;
+  CASE_KIND_CLOUDEVENT_MATERIALIZATION = 1;
+  CASE_KIND_ROUTE_BY_TYPE = 2;
+  CASE_KIND_METADATA_PROPAGATION = 3;
+  CASE_KIND_TOPIC_PRECEDENCE = 4;
+  CASE_KIND_TYPE_PRECEDENCE = 5;
+  CASE_KIND_SOURCE_PRECEDENCE = 6;
+  CASE_KIND_DISPOSITION = 7;
+  CASE_KIND_DELAYED_PUBLISH = 8;
+  CASE_KIND_DELAYED_RETRY = 9;
+  CASE_KIND_CLOUDEVENT_PARSE_FAILURE = 10;
+}
+
+enum HandlerBehavior {
+  HANDLER_BEHAVIOR_UNSPECIFIED = 0;
+  HANDLER_BEHAVIOR_SUCCESS = 1;
+  HANDLER_BEHAVIOR_TRANSIENT = 2;
+  HANDLER_BEHAVIOR_INVALID = 3;
+  HANDLER_BEHAVIOR_UNRECOVERABLE = 4;
+  HANDLER_BEHAVIOR_UNKNOWN_ROUTE = 5;
+  HANDLER_BEHAVIOR_RETRY_DELAY = 6;
+  HANDLER_BEHAVIOR_ACK = 7;
+  HANDLER_BEHAVIOR_REJECT = 8;
+  HANDLER_BEHAVIOR_DEAD_LETTER = 9;
+}
+
+message SourceDefaults {
+  string client_default = 1;
+  string transport_default = 2;
+  string library_default = 3;
+}
+
+message Publish {
+  string method = 1;
+  Payload payload = 2;
+  PublishOptions options = 3;
+}
+
+message Payload {
+  string event_id = 1;
+  string name = 2;
+  string detail = 3;
+  int32 count = 4;
+  bool active = 5;
+}
+
+message PublishOptions {
+  string topic = 1;
+  string type = 2;
+  string source = 3;
+  repeated Metadata metadata = 4;
+  google.protobuf.Timestamp not_before = 5;
+}
+
+message Metadata {
+  string key = 1;
+  oneof value {
+    string string_value = 2;
+    bool bool_value = 3;
+    int32 int_value = 4;
+  }
+}
+
+message CloudEventExpectation {
+  string id = 1;
+  string source = 2;
+  string specversion = 3;
+  string type = 4;
+  string dataschema = 5;
+  string datacontenttype = 6;
+  string data_json = 7;
+  repeated Metadata metadata = 8;
+  google.protobuf.Timestamp not_before = 9;
+}
+
+message DispositionExpectation {
+  string kind = 1;
+  google.protobuf.Duration delay = 2;
+}
