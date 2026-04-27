@@ -128,15 +128,15 @@ If `deadLetterTopic` is not configured, `reject` and `dead_letter` are committed
 
 Dead-letter Kafka messages keep the original CloudEvent payload and include Kafka headers for the disposition, original topic, original partition, and original offset. Those headers are transport diagnostics; application handlers should continue to use CloudEvent data and extensions.
 
-Malformed subscribed Kafka records that cannot be decoded as `io.cloudevents.v1.CloudEvent` are reported through `observer.parseFailed()` and committed so one poison record cannot pin the consumer group forever.
+Malformed subscribed Kafka records that cannot be decoded as `io.cloudevents.v1.CloudEvent` are reported through the `parseFailed` interceptor operation and committed so one poison record cannot pin the consumer group forever.
 
 Retry attempts are tracked in Kafka transport headers and passed to handlers as `ctx.attempt`. The first delivery is attempt `1`; each durable retry increments the value before redelivery.
 
-When `router.subscribe({ maxAttempts })` is set and a handler retries on the final allowed attempt, Kafka publishes the original CloudEvent to `deadLetterTopic` when configured, emits `observer.retryExhausted()`, commits the consumed offset, and does not create another retry schedule.
+When `router.subscribe({ maxAttempts })` is set and a handler retries on the final allowed attempt, Kafka publishes the original CloudEvent to `deadLetterTopic` when configured, fires the `retryExhausted` interceptor operation, commits the consumed offset, and does not create another retry schedule.
 
 ## Observability
 
-Use `observer` hooks for transport-local diagnostics without changing the transport-neutral application API:
+Use `interceptors` for transport-local diagnostics without changing the transport-neutral application API:
 
 ```ts
 const transport = createKafkaTransport({
@@ -147,29 +147,34 @@ const transport = createKafkaTransport({
     schedulesTopic: "protoutil.pubsub.schedules",
     historyTopic: "protoutil.pubsub.schedule_history",
   },
-  observer: {
-    scheduled(event) {
-      logger.info(event, "scheduled pubsub event");
+  interceptors: [
+    (next) => async (ctx) => {
+      switch (ctx.operation) {
+        case "scheduled":
+          logger.info(ctx.event, "scheduled pubsub event");
+          break;
+        case "delivered":
+          logger.info(ctx.event, "delivered scheduled pubsub event");
+          break;
+        case "retried":
+          logger.info(ctx.event, "scheduled retry for pubsub event");
+          break;
+        case "retryExhausted":
+          logger.warn(ctx.event, "pubsub retry attempts exhausted");
+          break;
+        case "deadLettered":
+          logger.warn(ctx.event, "published pubsub event to dead letter topic");
+          break;
+        case "deliveryFailed":
+          logger.error(ctx.event, "failed to deliver scheduled pubsub event");
+          break;
+        case "parseFailed":
+          logger.error(ctx.event, "failed to parse Kafka pubsub record");
+          break;
+      }
+      return next(ctx);
     },
-    delivered(event) {
-      logger.info(event, "delivered scheduled pubsub event");
-    },
-    retried(event) {
-      logger.info(event, "scheduled retry for pubsub event");
-    },
-    retryExhausted(event) {
-      logger.warn(event, "pubsub retry attempts exhausted");
-    },
-    deadLettered(event) {
-      logger.warn(event, "published pubsub event to dead letter topic");
-    },
-    deliveryFailed(event) {
-      logger.error(event, "failed to deliver scheduled pubsub event");
-    },
-    parseFailed(event) {
-      logger.error(event, "failed to parse Kafka pubsub record");
-    },
-  },
+  ],
 });
 ```
 
@@ -194,8 +199,9 @@ The current Kafka transport supports:
 - optional dead-letter topic publishing for `reject` and `dead_letter`
 - dead-letter diagnostic headers for original topic, partition, offset, and disposition
 - poison-record parse failure reporting and offset commits
-- observer hooks for scheduled, retried, recovered, delivered, tombstoned, dead-lettered, failed, parse-failed, and committed events
-- observer hooks are best-effort and cannot change delivery outcomes
+- interceptors for scheduled, retried, recovered, delivered, tombstoned, dead-lettered, failed, parse-failed, and committed operations
+- lifecycle interceptor errors are caught and do not break delivery flow
+- `publish` and `handle` interceptors can modify requests, deliveries, and dispositions
 - subscriber consumption of CloudEvent protobuf records from configured topics
 - `subscription.unsubscribe()` to stop one subscriber without replacing the transport
 
@@ -211,7 +217,7 @@ The Docker-backed test suite starts a real Kafka broker with Docker Compose and 
 - dead-letter dispositions publish to a configured dead-letter topic
 - `ctx.retry({ delay })` does not redeliver early
 - `maxAttempts` sends exhausted retries to dead-letter instead of scheduling again
-- observer hook failures do not break scheduled delivery
+- interceptor failures do not break scheduled delivery
 
 ## Load Test
 
@@ -290,7 +296,7 @@ For a production Kafka deployment:
 - configure `deadLetterTopic`
 - set `router.subscribe({ maxAttempts })`
 - make handlers idempotent; delivery is durable and at least once, not exactly once
-- wire `observer` hooks into logs or metrics
+- wire `interceptors` into logs or metrics
 - run `pnpm moon run pubsub:load-test` at an event count that reflects expected traffic
 - run `pnpm moon run pubsub:benchmark` when publishing throughput and latency numbers
 - configure Confluent client authentication, TLS, timeouts, retries, and broker settings outside the transport-neutral API

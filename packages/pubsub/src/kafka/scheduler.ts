@@ -1,8 +1,7 @@
 import { timestampDate, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import type { KafkaJS } from "@confluentinc/kafka-javascript";
+import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
-import type { PublishRequest } from "../types.js";
-import { cloudEventBytes, cloudEventFromBytes, cloudEventMessage } from "./cloud-event.js";
 import {
   numberHeader,
   PROTOUTIL_HEADER_ATTEMPT,
@@ -12,21 +11,21 @@ import {
   PROTOUTIL_HEADER_SCHEDULE_VERSION,
   PROTOUTIL_HEADER_TARGET_KEY,
   PROTOUTIL_HEADER_TARGET_TOPIC,
+  stringHeader,
+} from "../headers.js";
+import { notifyInterceptors } from "../interceptors.js";
+import { DEFAULT_SCHEDULER_RETRY_DELAY_MS } from "../transport-utils.js";
+import type { PublishRequest, PubSubInterceptor, PubSubScheduler } from "../types.js";
+import { cloudEventMessage } from "./cloud-event.js";
+import {
   SCHEDULE_KIND_HISTORY,
   SCHEDULE_KIND_RETRY,
   SCHEDULE_KIND_SCHEDULE,
   SCHEDULE_RECORD_VERSION,
-  stringHeader,
 } from "./headers.js";
 import { sendBatchWithTimeout, sendWithTimeout } from "./producer.js";
-import {
-  notifyTransportFailureObserver,
-  notifyTransportObserver,
-} from "../transport-observer.js";
-import type {
-  KafkaSchedulerOptions,
-} from "./types.js";
-import type { PubSubTransportObserver } from "../types.js";
+import type { KafkaSchedulerOptions } from "./types.js";
+import { keyString } from "./utils.js";
 
 interface KafkaScheduleRecord {
   id: string;
@@ -43,17 +42,17 @@ interface KafkaSchedulerDependencies {
   options: KafkaSchedulerOptions;
   consumerGroup: string;
   publishTimeoutMs?: number;
-  observer?: PubSubTransportObserver;
+  interceptors?: PubSubInterceptor[];
 }
 
 /** Durable Kafka scheduler for `notBefore` and retry delay delivery. */
-export class KafkaScheduler {
+export class KafkaScheduler implements PubSubScheduler {
   readonly #producer: KafkaJS.Producer;
   readonly #consumer: KafkaJS.Consumer;
   readonly #client: KafkaJS.Kafka;
   readonly #options: KafkaSchedulerOptions;
   readonly #publishTimeoutMs?: number;
-  readonly #observer?: PubSubTransportObserver;
+  readonly #interceptors?: PubSubInterceptor[];
   readonly #records = new Map<string, KafkaScheduleRecord>();
   readonly #queue = new ScheduleQueue();
   #timer?: NodeJS.Timeout;
@@ -68,7 +67,7 @@ export class KafkaScheduler {
     this.#producer = dependencies.producer;
     this.#options = dependencies.options;
     this.#publishTimeoutMs = dependencies.publishTimeoutMs;
-    this.#observer = dependencies.observer;
+    this.#interceptors = dependencies.interceptors;
     this.#consumer = dependencies.client.consumer({
       kafkaJS: {
         groupId: dependencies.consumerGroup,
@@ -97,20 +96,19 @@ export class KafkaScheduler {
           // restart using only Kafka state.
           const record = parseScheduleRecord(message, partition);
           this.#schedule(record);
-          if (this.#observer) {
-            notifyTransportObserver(this.#observer, "recovered", {
-              id: record.id,
-              topic: record.topic,
-            });
-          }
+          await notifyInterceptors(this.#interceptors, {
+            operation: "recovered",
+            event: { id: record.id, topic: record.topic },
+          });
         } catch (error) {
-          if (this.#observer) {
-            notifyTransportFailureObserver(this.#observer, "parseFailed", {
+          await notifyInterceptors(this.#interceptors, {
+            operation: "parseFailed",
+            event: {
               id: keyString(message.key) ?? "",
               topic: this.#options.schedulesTopic,
               error,
-            });
-          }
+            },
+          });
         } finally {
           this.#markRecovered(partition, message.offset);
         }
@@ -132,9 +130,10 @@ export class KafkaScheduler {
     const record = scheduleRecord(request);
     // The caller only gets success after Kafka has accepted the durable schedule.
     await this.#writeSchedule(record, SCHEDULE_KIND_SCHEDULE);
-    if (this.#observer) {
-      notifyTransportObserver(this.#observer, "scheduled", { id: record.id, topic: record.topic });
-    }
+    await notifyInterceptors(this.#interceptors, {
+      operation: "scheduled",
+      event: { id: record.id, topic: record.topic },
+    });
   }
 
   /** Persist and schedule a retry for an already delivered CloudEvent. */
@@ -152,9 +151,10 @@ export class KafkaScheduler {
     // Retries preserve the original CloudEvent and only advance delivery state.
     record.attempt = attempt;
     await this.#writeSchedule(record, SCHEDULE_KIND_RETRY);
-    if (this.#observer) {
-      notifyTransportObserver(this.#observer, "scheduled", { id: record.id, topic: record.topic });
-    }
+    await notifyInterceptors(this.#interceptors, {
+      operation: "scheduled",
+      event: { id: record.id, topic: record.topic },
+    });
   }
 
   /** Persist one schedule record to the compacted schedules topic. */
@@ -346,16 +346,13 @@ export class KafkaScheduler {
         // while the compacted log remains the durable source of truth.
         this.#records.set(record.id, record);
         record.notBefore = new Date(
-          Date.now() + (this.#options.deliveryRetryDelayMs ?? 1_000),
+          Date.now() + (this.#options.deliveryRetryDelayMs ?? DEFAULT_SCHEDULER_RETRY_DELAY_MS),
         ).toISOString();
         this.#queue.push(record);
-        if (this.#observer) {
-          notifyTransportFailureObserver(this.#observer, "deliveryFailed", {
-            id: record.id,
-            topic: record.topic,
-            error,
-          });
-        }
+        await notifyInterceptors(this.#interceptors, {
+          operation: "deliveryFailed",
+          event: { id: record.id, topic: record.topic, error },
+        });
       }
       this.#armNextTimer();
       throw error;
@@ -377,14 +374,11 @@ export class KafkaScheduler {
       { topicMessages: targetMessages },
       this.#publishTimeoutMs,
     );
-    if (this.#observer) {
-      for (const record of records) {
-        notifyTransportObserver(this.#observer, "delivered", {
-          id: record.id,
-          topic: record.topic,
-          attempt: record.attempt,
-        });
-      }
+    for (const record of records) {
+      await notifyInterceptors(this.#interceptors, {
+        operation: "delivered",
+        event: { id: record.id, topic: record.topic, attempt: record.attempt },
+      });
     }
     // History is append-only operational evidence that schedules fired. Batch
     // it so one timer wake can flush many due deliveries together.
@@ -425,13 +419,11 @@ export class KafkaScheduler {
     );
     // Tombstone after target publish. A crash between those two writes may
     // duplicate delivery after restart, so scheduler delivery is at-least-once.
-    if (this.#observer) {
-      for (const record of records) {
-        notifyTransportObserver(this.#observer, "tombstoned", {
-          id: record.id,
-          topic: this.#options.schedulesTopic,
-        });
-      }
+    for (const record of records) {
+      await notifyInterceptors(this.#interceptors, {
+        operation: "tombstoned",
+        event: { id: record.id, topic: this.#options.schedulesTopic },
+      });
     }
     this.#armNextTimer();
   }
@@ -651,12 +643,4 @@ function parseScheduleRecord(
     attempt,
     event: Buffer.from(message.value),
   };
-}
-
-/** Decode a Kafka record key into a UTF-8 string when present. */
-function keyString(key: Buffer | null | string | undefined): string | undefined {
-  if (!key) {
-    return undefined;
-  }
-  return Buffer.isBuffer(key) ? key.toString("utf8") : key;
 }

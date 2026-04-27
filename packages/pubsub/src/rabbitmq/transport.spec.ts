@@ -41,11 +41,10 @@ function context(suffix: string): PubSubTransportTestContext {
     transport(options) {
       const transport = createRabbitMqTransport({
         url: RABBITMQ_URL,
-        scheduleQueue:
-          options?.scheduler?.schedulesTopic ?? `protoutil.pubsub.schedules.${suffix}`,
+        scheduleQueue: options?.scheduler?.schedulesTopic ?? `protoutil.pubsub.schedules.${suffix}`,
         subscribeTopics: options?.subscribeTopics,
         deadLetterTopic: options?.deadLetterTopic,
-        observer: options?.observer,
+        interceptors: options?.interceptors,
         queuePrefix: `protoutil.pubsub.queue.${suffix}`,
       });
       transports.push(transport);

@@ -7,25 +7,23 @@ import { createKafkaTransport } from "./index.js";
 
 const BOOTSTRAP_SERVER = process.env.KAFKA_BOOTSTRAP_SERVER ?? "localhost:19092";
 
-/** Registered pubsub test transports. Future transports should append here. */
-export const testTransportAdapters: PubSubTestTransportAdapter[] = [
-  {
-    name: "kafka",
-    /** Build the shared test context for one isolated Kafka-backed run. */
-    testContext(suffix) {
-      return testContext(suffix);
-    },
-    /** Build the shared benchmark context for one isolated Kafka-backed run. */
-    benchmarkContext(suffix) {
-      return { transportName: "kafka", ...testContext(suffix) };
-    },
+/** Registered Kafka shared test adapter. */
+export const kafkaTestTransportAdapter: PubSubTestTransportAdapter = {
+  name: "kafka",
+  /** Build the shared test context for one isolated Kafka-backed run. */
+  testContext(suffix) {
+    return testContext(suffix);
   },
-];
+  /** Build the shared benchmark context for one isolated Kafka-backed run. */
+  benchmarkContext(suffix) {
+    return { transportName: "kafka", ...testContext(suffix) };
+  },
+};
 
 const transports: PubSubTransport[] = [];
 
 /** Close all tracked transports created for load and benchmark specs. */
-export async function closeTrackedTransports(): Promise<void> {
+export async function closeTrackedKafkaTransports(): Promise<void> {
   for (const transport of transports.splice(0)) {
     await transport.close();
   }
@@ -45,7 +43,7 @@ function createTrackedKafkaTransport(
     client: kafkaClient(),
     subscribeTopics: options?.subscribeTopics,
     deadLetterTopic: testOptions?.deadLetterTopic,
-    observer: testOptions?.observer,
+    interceptors: testOptions?.interceptors,
     consumerConfig: {
       kafkaJS: {
         fromBeginning: true,
@@ -76,7 +74,7 @@ function transportTestOptions(
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): TransportOptions | undefined {
-  if (!options || (!("deadLetterTopic" in options) && !("observer" in options))) {
+  if (!options || (!("deadLetterTopic" in options) && !("interceptors" in options))) {
     return undefined;
   }
   return options;

@@ -1,6 +1,17 @@
 import { durationMs } from "@bufbuild/protobuf/wkt";
 import type { KafkaJS } from "@confluentinc/kafka-javascript";
+import { cloudEventFromBytes } from "../cloudevents.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
+import {
+  numberHeader,
+  PROTOUTIL_HEADER_ATTEMPT,
+  PROTOUTIL_HEADER_DISPOSITION,
+  PROTOUTIL_HEADER_ORIGINAL_OFFSET,
+  PROTOUTIL_HEADER_ORIGINAL_PARTITION,
+  PROTOUTIL_HEADER_ORIGINAL_TOPIC,
+} from "../headers.js";
+import { applyPubSubInterceptors, notifyInterceptors } from "../interceptors.js";
+import { retryLimitReached as retryLimitReachedWithMaxAttempts } from "../transport-utils.js";
 import type {
   DeliveryHandler,
   Disposition,
@@ -9,25 +20,12 @@ import type {
   SubscribeOptions,
   Subscription,
 } from "../types.js";
-import { cloudEventFromBytes, cloudEventMessage } from "./cloud-event.js";
-import {
-  numberHeader,
-  PROTOUTIL_HEADER_ATTEMPT,
-  PROTOUTIL_HEADER_DISPOSITION,
-  PROTOUTIL_HEADER_ORIGINAL_OFFSET,
-  PROTOUTIL_HEADER_ORIGINAL_PARTITION,
-  PROTOUTIL_HEADER_ORIGINAL_TOPIC,
-} from "./headers.js";
+import { cloudEventMessage } from "./cloud-event.js";
 import { sendWithTimeout } from "./producer.js";
 import { KafkaScheduler } from "./scheduler.js";
 import { topologyTopics } from "./topology.js";
-import {
-  notifyTransportFailureObserver,
-  notifyTransportObserver,
-} from "../transport-observer.js";
-import type {
-  KafkaTransportOptions,
-} from "./types.js";
+import type { KafkaTransportOptions } from "./types.js";
+import { keyString } from "./utils.js";
 
 const DEFAULT_CONSUMER_GROUP = "protoutil.pubsub";
 const CONSUMER_ASSIGNMENT_TIMEOUT_MS = 5_000;
@@ -67,7 +65,7 @@ class DefaultKafkaTransport implements PubSubTransport {
         options.scheduler.consumerGroup ??
         `${DEFAULT_CONSUMER_GROUP}.scheduler.${options.scheduler.schedulesTopic}`,
       publishTimeoutMs: options.publishTimeoutMs,
-      observer: options.observer,
+      interceptors: options.interceptors,
     });
   }
 
@@ -156,21 +154,28 @@ class DefaultKafkaTransport implements PubSubTransport {
 
   /** Publish one immediate or delayed CloudEvent through Kafka. */
   public async publish(request: PublishRequest): Promise<void> {
-    if (request.notBefore) {
-      await this.#ensureSchedulerStarted();
-      // Delayed publish is accepted only after the durable scheduler write.
-      await this.#scheduler.publishLater(request);
-      return;
-    }
+    await applyPubSubInterceptors(
+      this.#options.interceptors,
+      { operation: "publish", request },
+      async (ctx) => {
+        const req = (ctx as Extract<typeof ctx, { operation: "publish" }>).request;
+        if (req.notBefore) {
+          await this.#ensureSchedulerStarted();
+          // Delayed publish is accepted only after the durable scheduler write.
+          await this.#scheduler.publishLater(req);
+          return;
+        }
 
-    await this.#ensureProducerStarted();
-    await sendWithTimeout(
-      this.#producer,
-      {
-        topic: request.topic,
-        messages: [cloudEventMessage(request.event)],
+        await this.#ensureProducerStarted();
+        await sendWithTimeout(
+          this.#producer,
+          {
+            topic: req.topic,
+            messages: [cloudEventMessage(req.event)],
+          },
+          this.#options.publishTimeoutMs,
+        );
       },
-      this.#options.publishTimeoutMs,
     );
   }
 
@@ -230,26 +235,34 @@ class DefaultKafkaTransport implements PubSubTransport {
         } catch (error) {
           // Invalid bytes cannot be routed or dead-lettered as a CloudEvent.
           // Commit after reporting so one poison Kafka record cannot halt the group.
-          if (this.#options.observer) {
-            notifyTransportFailureObserver(this.#options.observer, "parseFailed", {
+          await notifyInterceptors(this.#options.interceptors, {
+            operation: "parseFailed",
+            event: {
               id: keyString(message.key) ?? "",
               topic,
               error,
-            });
-          }
+            },
+          });
           await commitDelivery(consumer, { topic, partition, offset: message.offset });
-          if (this.#options.observer) {
-            notifyTransportObserver(this.#options.observer, "committed", {
+          await notifyInterceptors(this.#options.interceptors, {
+            operation: "committed",
+            event: {
               id: keyString(message.key) ?? "",
               topic,
-            });
-          }
+            },
+          });
           return;
         }
         const attempt = numberHeader(message.headers, PROTOUTIL_HEADER_ATTEMPT) ?? 1;
-        // From this point on the core router owns protobuf decoding and
-        // disposition normalization; Kafka only provides delivery metadata.
-        const disposition = await handler({ event, topic, attempt });
+        const delivery = { event, topic, attempt };
+        const disposition = (await applyPubSubInterceptors(
+          this.#options.interceptors,
+          { operation: "handle", delivery },
+          async (ctx) => {
+            const d = (ctx as Extract<typeof ctx, { operation: "handle" }>).delivery;
+            return handler(d);
+          },
+        )) as Disposition;
         await this.#settleDelivery(consumer, {
           topic,
           partition,
@@ -291,17 +304,19 @@ class DefaultKafkaTransport implements PubSubTransport {
   ): Promise<void> {
     if (delivery.disposition.kind === "retry") {
       if (retryLimitReached(delivery.attempt, consumer)) {
-        if (this.#options.observer) {
-          notifyTransportObserver(this.#options.observer, "retryExhausted", deliveryEvent(delivery));
-        }
+        await notifyInterceptors(this.#options.interceptors, {
+          operation: "retryExhausted",
+          event: deliveryEvent(delivery),
+        });
         await this.#publishDeadLetter({
           ...delivery,
           disposition: { kind: "dead_letter", error: delivery.disposition.error },
         });
         await commitDelivery(consumer, delivery);
-        if (this.#options.observer) {
-          notifyTransportObserver(this.#options.observer, "committed", deliveryEvent(delivery));
-        }
+        await notifyInterceptors(this.#options.interceptors, {
+          operation: "committed",
+          event: deliveryEvent(delivery),
+        });
         return;
       }
       // Retry is durable: write the next attempt to the scheduler topic before
@@ -313,11 +328,15 @@ class DefaultKafkaTransport implements PubSubTransport {
         delivery.attempt + 1,
       );
       await commitDelivery(consumer, delivery);
-      if (this.#options.observer) {
-        const event = deliveryEvent(delivery);
-        notifyTransportObserver(this.#options.observer, "retried", event);
-        notifyTransportObserver(this.#options.observer, "committed", event);
-      }
+      const event = deliveryEvent(delivery);
+      await notifyInterceptors(this.#options.interceptors, {
+        operation: "retried",
+        event,
+      });
+      await notifyInterceptors(this.#options.interceptors, {
+        operation: "committed",
+        event,
+      });
       return;
     }
 
@@ -330,9 +349,10 @@ class DefaultKafkaTransport implements PubSubTransport {
     // ACK, reject without a DLQ, and successful DLQ publish all complete by
     // committing the next Kafka offset.
     await commitDelivery(consumer, delivery);
-    if (this.#options.observer) {
-      notifyTransportObserver(this.#options.observer, "committed", deliveryEvent(delivery));
-    }
+    await notifyInterceptors(this.#options.interceptors, {
+      operation: "committed",
+      event: deliveryEvent(delivery),
+    });
   }
 
   /** Publish one delivery to the configured dead-letter topic when enabled. */
@@ -370,9 +390,10 @@ class DefaultKafkaTransport implements PubSubTransport {
       },
       this.#options.publishTimeoutMs,
     );
-    if (this.#options.observer) {
-      notifyTransportObserver(this.#options.observer, "deadLettered", deliveryEvent(delivery));
-    }
+    await notifyInterceptors(this.#options.interceptors, {
+      operation: "deadLettered",
+      event: deliveryEvent(delivery),
+    });
   }
 }
 
@@ -426,7 +447,7 @@ async function commitDelivery(
   ]);
 }
 
-/** Project delivery metadata into the small observer event shape. */
+/** Project delivery metadata into the small interceptor event shape. */
 function deliveryEvent(delivery: {
   topic: string;
   partition: number;
@@ -434,8 +455,6 @@ function deliveryEvent(delivery: {
   attempt: number;
   event: CloudEvent;
 }) {
-  // Observer hooks get lightweight broker metadata instead of the full
-  // CloudEvent payload.
   return {
     id: delivery.event.id,
     topic: delivery.topic,
@@ -446,20 +465,12 @@ function deliveryEvent(delivery: {
 /** Check whether a retry disposition has reached the configured attempt limit. */
 function retryLimitReached(attempt: number, consumer: KafkaJS.Consumer): boolean {
   const maxAttempts = consumerMaxAttempts.get(consumer);
-  return maxAttempts !== undefined && attempt >= maxAttempts;
+  return retryLimitReachedWithMaxAttempts(attempt, maxAttempts);
 }
 
 /** Validate a positive integer retry-attempt limit from subscribe options. */
 function validMaxAttempts(value: number | undefined): value is number {
   return value !== undefined && Number.isInteger(value) && value > 0;
-}
-
-/** Decode a Kafka key to UTF-8 when present. */
-function keyString(key: Buffer | null | string | undefined): string | undefined {
-  if (!key) {
-    return undefined;
-  }
-  return Buffer.isBuffer(key) ? key.toString("utf8") : key;
 }
 
 /** Merge portable subscribe options with Kafka-specific consumer defaults. */

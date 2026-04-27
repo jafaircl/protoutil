@@ -19,6 +19,10 @@ transport boundary.
 Published payloads still use the [CloudEvents 1.0](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md)
 envelope defined by the core package.
 
+Delayed publish, retry delay, and `notBefore` scheduling do not require the
+RabbitMQ delayed-message plugin. This transport owns a durable schedules queue
+and scheduler worker instead.
+
 ## Usage
 
 ```ts

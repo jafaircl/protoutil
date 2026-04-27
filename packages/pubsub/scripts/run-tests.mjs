@@ -12,6 +12,12 @@ const DEFAULT_VITEST_ARGS = [
   "src/**/benchmark.spec.ts",
 ];
 
+function includesExplicitSpecialSpec(args) {
+  return args.some(
+    (arg) => arg.endsWith("/load-test.spec.ts") || arg.endsWith("/benchmark.spec.ts"),
+  );
+}
+
 async function runCommand(command, args, extraEnv = {}) {
   await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -40,19 +46,19 @@ async function runCommand(command, args, extraEnv = {}) {
 
 async function main() {
   const vitestArgs = process.argv.slice(2);
+  const mergedVitestArgs = includesExplicitSpecialSpec(vitestArgs)
+    ? vitestArgs
+    : [...DEFAULT_VITEST_ARGS, ...vitestArgs];
   await runCommand("docker", ["compose", "-p", COMPOSE_PROJECT, "up", "-d", "--wait"]);
 
   let testError;
   try {
-    await runCommand(
-      "pnpm",
-      ["exec", "vitest", "run", ...(vitestArgs.length ? vitestArgs : DEFAULT_VITEST_ARGS)],
-      {
-        KAFKA_COMPOSE_PROJECT: COMPOSE_PROJECT,
-        KAFKA_BOOTSTRAP_SERVER: "localhost:19092",
-        RABBITMQ_URL: "amqp://guest:guest@127.0.0.1:5673",
-      },
-    );
+    await runCommand("pnpm", ["exec", "vitest", "run", ...mergedVitestArgs], {
+      KAFKA_COMPOSE_PROJECT: COMPOSE_PROJECT,
+      KAFKA_BOOTSTRAP_SERVER: "localhost:19092",
+      RABBITMQ_URL: "amqp://guest:guest@127.0.0.1:5673",
+      NATS_SERVERS: "nats://127.0.0.1:14222",
+    });
   } catch (error) {
     testError = error;
   } finally {

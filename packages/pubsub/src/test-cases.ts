@@ -3,7 +3,7 @@ import { expect } from "vitest";
 import { ConformanceEvents } from "./gen/protoutil/pubsub/testing/v1/events_pb.js";
 import { createPublisher } from "./publisher.js";
 import { createRouter } from "./router.js";
-import type { PubSubTransport, PubSubTransportObserver } from "./types.js";
+import type { PubSubInterceptor, PubSubTransport } from "./types.js";
 
 const DELIVERY_TIMEOUT_MS = 10_000;
 const DEFAULT_LOAD_EVENT_COUNT = 1_000;
@@ -21,7 +21,7 @@ export interface TransportOptions {
   subscribeTopics?: string[];
   scheduler?: SchedulerOptions;
   deadLetterTopic?: string;
-  observer?: PubSubTransportObserver;
+  interceptors?: PubSubInterceptor[];
 }
 
 export interface SchedulerOptions {
@@ -41,6 +41,112 @@ export interface PubSubTransportCaseGroup {
 }
 
 export const groups: PubSubTransportCaseGroup[] = [
+  {
+    group: "portable application contract",
+    cases: [
+      {
+        name: "keeps queue logic transport-neutral across immediate, delayed, retry, and dead-letter flows",
+        async run(ctx) {
+          const topic = ctx.topic("portable_events");
+          const deadLetterTopic = ctx.topic("portable_dead_letter");
+          const transport = ctx.transport({ subscribeTopics: [topic], deadLetterTopic });
+          const deadLetterTransport = ctx.transport({ subscribeTopics: [deadLetterTopic] });
+          const queue = createPortableQueueModule(transport);
+          const deadLetterQueue = createPortableQueueModule(deadLetterTransport);
+          const scheduledNotBefore = new Date(Date.now() + 500);
+          let scheduledDeliveredAt = 0;
+          const handledEventIds: string[] = [];
+          const handledAttempts = new Map<string, number>();
+          const retryCounts = new Map<string, number>();
+          let deadLetterEventId = "";
+
+          queue.router.service(ConformanceEvents, {
+            async alphaHappened(request, handlerContext) {
+              if (request.name === "dead-letter") {
+                await handlerContext.deadLetter();
+                return;
+              }
+              if (request.name === "retry-once") {
+                const retries = retryCounts.get(request.eventId) ?? 0;
+                retryCounts.set(request.eventId, retries + 1);
+                if (retries === 0) {
+                  await handlerContext.retry({ delay: durationFromMs(500) });
+                  return;
+                }
+              }
+              if (request.eventId === "evt_portable_scheduled") {
+                scheduledDeliveredAt = Date.now();
+              }
+              handledEventIds.push(request.eventId);
+              handledAttempts.set(request.eventId, handlerContext.attempt);
+              await handlerContext.ack();
+            },
+          });
+
+          deadLetterQueue.router.service(ConformanceEvents, {
+            async alphaHappened(request, handlerContext) {
+              deadLetterEventId = request.eventId;
+              await handlerContext.ack();
+            },
+          });
+
+          const subscription = await queue.router.subscribe({
+            consumerGroup: ctx.topic("portable_workers"),
+            maxAttempts: 2,
+          });
+          const deadLetterSubscription = await deadLetterQueue.router.subscribe({
+            consumerGroup: ctx.topic("portable_dead_letter_workers"),
+          });
+
+          try {
+            await queue.publisher.alphaHappened(
+              { eventId: "evt_portable_ack", name: "ack", count: 1 },
+              { topic },
+            );
+            await queue.publisher.alphaHappened(
+              { eventId: "evt_portable_scheduled", name: "scheduled", count: 2 },
+              { topic, notBefore: timestampFromDate(scheduledNotBefore) },
+            );
+            await queue.publisher.alphaHappened(
+              { eventId: "evt_portable_retry", name: "retry-once", count: 3 },
+              { topic },
+            );
+            await queue.publisher.alphaHappened(
+              { eventId: "evt_portable_dead_letter", name: "dead-letter", count: 4 },
+              { topic },
+            );
+
+            await expect
+              .poll(() => handledEventIds.includes("evt_portable_ack"), {
+                timeout: DELIVERY_TIMEOUT_MS,
+              })
+              .toBe(true);
+            await expect
+              .poll(() => handledEventIds.includes("evt_portable_scheduled"), {
+                timeout: DELIVERY_TIMEOUT_MS,
+              })
+              .toBe(true);
+            await expect
+              .poll(() => handledEventIds.includes("evt_portable_retry"), {
+                timeout: DELIVERY_TIMEOUT_MS,
+              })
+              .toBe(true);
+            await expect
+              .poll(() => deadLetterEventId, { timeout: DELIVERY_TIMEOUT_MS })
+              .toBe("evt_portable_dead_letter");
+
+            expect(scheduledDeliveredAt).toBeGreaterThanOrEqual(scheduledNotBefore.getTime());
+            expect(handledAttempts.get("evt_portable_ack")).toBe(1);
+            expect(handledAttempts.get("evt_portable_scheduled")).toBe(1);
+            expect(handledAttempts.get("evt_portable_retry")).toBe(2);
+          } finally {
+            await subscription.unsubscribe();
+            await deadLetterSubscription.unsubscribe();
+          }
+        },
+      },
+    ],
+  },
   {
     group: "publish and subscribe",
     cases: [
@@ -332,11 +438,14 @@ export const groups: PubSubTransportCaseGroup[] = [
           const firstTransport = ctx.transport({
             subscribeTopics: [topic],
             scheduler,
-            observer: {
-              tombstoned() {
-                tombstoned += 1;
+            interceptors: [
+              (next) => async (ctx) => {
+                if (ctx.operation === "tombstoned") {
+                  tombstoned += 1;
+                }
+                return next(ctx);
               },
-            },
+            ],
           });
           const publisher = createPublisher(ConformanceEvents, firstTransport, {
             source: "test-suite",
@@ -370,11 +479,14 @@ export const groups: PubSubTransportCaseGroup[] = [
           const restartedTransport = ctx.transport({
             subscribeTopics: [topic],
             scheduler,
-            observer: {
-              delivered() {
-                recoveredDeliveries += 1;
+            interceptors: [
+              (next) => async (ctx) => {
+                if (ctx.operation === "delivered") {
+                  recoveredDeliveries += 1;
+                }
+                return next(ctx);
               },
-            },
+            ],
           });
           const restartedSubscription = await createRouter(restartedTransport).subscribe({
             consumerGroup: ctx.topic("restart_workers"),
@@ -443,11 +555,14 @@ export const groups: PubSubTransportCaseGroup[] = [
           const transport = ctx.transport({
             subscribeTopics: [topic],
             deadLetterTopic,
-            observer: {
-              retryExhausted() {
-                retryExhausted += 1;
+            interceptors: [
+              (next) => async (ctx) => {
+                if (ctx.operation === "retryExhausted") {
+                  retryExhausted += 1;
+                }
+                return next(ctx);
               },
-            },
+            ],
           });
           const deadLetterTransport = ctx.transport({ subscribeTopics: [deadLetterTopic] });
           const publisher = createPublisher(ConformanceEvents, transport, {
@@ -492,6 +607,249 @@ export const groups: PubSubTransportCaseGroup[] = [
       },
     ],
   },
+  {
+    group: "interceptors",
+    cases: [
+      {
+        name: "calls interceptors with correct operation names for publish and handle",
+        async run(ctx) {
+          const topic = ctx.topic("events");
+          const operations: string[] = [];
+          const transport = ctx.transport({
+            subscribeTopics: [topic],
+            interceptors: [
+              (next) => async (ctx) => {
+                operations.push(ctx.operation);
+                return next(ctx);
+              },
+            ],
+          });
+          const publisher = createPublisher(ConformanceEvents, transport, {
+            source: "test-suite",
+          });
+          const router = createRouter(transport);
+          let handledEventId = "";
+
+          router.service(ConformanceEvents, {
+            async alphaHappened(request, handlerContext) {
+              handledEventId = request.eventId;
+              await handlerContext.ack();
+            },
+          });
+
+          const subscription = await router.subscribe({
+            consumerGroup: ctx.topic("workers"),
+          });
+
+          await publisher.alphaHappened({ eventId: "evt_ops", name: "ops", count: 1 }, { topic });
+
+          await expect.poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS }).toBe("evt_ops");
+          expect(operations).toContain("publish");
+          expect(operations).toContain("handle");
+          expect(operations).toContain("committed");
+          await subscription.unsubscribe();
+        },
+      },
+      {
+        name: "chains interceptors in order (first = outermost)",
+        async run(ctx) {
+          const topic = ctx.topic("events");
+          const order: string[] = [];
+          const transport = ctx.transport({
+            subscribeTopics: [topic],
+            interceptors: [
+              (next) => async (ctx) => {
+                if (ctx.operation === "handle") {
+                  order.push("first-before");
+                }
+                const result = await next(ctx);
+                if (ctx.operation === "handle") {
+                  order.push("first-after");
+                }
+                return result;
+              },
+              (next) => async (ctx) => {
+                if (ctx.operation === "handle") {
+                  order.push("second-before");
+                }
+                const result = await next(ctx);
+                if (ctx.operation === "handle") {
+                  order.push("second-after");
+                }
+                return result;
+              },
+            ],
+          });
+          const publisher = createPublisher(ConformanceEvents, transport, {
+            source: "test-suite",
+          });
+          const router = createRouter(transport);
+          let handledEventId = "";
+
+          router.service(ConformanceEvents, {
+            async alphaHappened(request, handlerContext) {
+              handledEventId = request.eventId;
+              await handlerContext.ack();
+            },
+          });
+
+          const subscription = await router.subscribe({
+            consumerGroup: ctx.topic("workers"),
+          });
+
+          await publisher.alphaHappened(
+            { eventId: "evt_chain", name: "chain", count: 1 },
+            { topic },
+          );
+
+          await expect
+            .poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS })
+            .toBe("evt_chain");
+          expect(order).toEqual(["first-before", "second-before", "second-after", "first-after"]);
+          await subscription.unsubscribe();
+        },
+      },
+      {
+        name: "passes publish request in interceptor context",
+        async run(ctx) {
+          const topic = ctx.topic("events");
+          let publishTopic = "";
+          let publishEventId = "";
+          const transport = ctx.transport({
+            subscribeTopics: [topic],
+            interceptors: [
+              (next) => async (ctx) => {
+                if (ctx.operation === "publish") {
+                  publishTopic = ctx.request.topic;
+                  publishEventId = ctx.request.event.id;
+                }
+                return next(ctx);
+              },
+            ],
+          });
+          const publisher = createPublisher(ConformanceEvents, transport, {
+            source: "test-suite",
+          });
+          const router = createRouter(transport);
+          let handledEventId = "";
+
+          router.service(ConformanceEvents, {
+            async alphaHappened(request, handlerContext) {
+              handledEventId = request.eventId;
+              await handlerContext.ack();
+            },
+          });
+
+          const subscription = await router.subscribe({
+            consumerGroup: ctx.topic("workers"),
+          });
+
+          await publisher.alphaHappened(
+            { eventId: "evt_pub_ctx", name: "pub ctx", count: 1 },
+            { topic, id: "cloud-event-id-123" },
+          );
+
+          await expect
+            .poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS })
+            .toBe("evt_pub_ctx");
+          expect(publishTopic).toBe(topic);
+          expect(publishEventId).toBe("cloud-event-id-123");
+          await subscription.unsubscribe();
+        },
+      },
+      {
+        name: "passes delivery in interceptor context",
+        async run(ctx) {
+          const topic = ctx.topic("events");
+          let deliveryTopic = "";
+          let deliveryAttempt = 0;
+          const transport = ctx.transport({
+            subscribeTopics: [topic],
+            interceptors: [
+              (next) => async (ctx) => {
+                if (ctx.operation === "handle") {
+                  deliveryTopic = ctx.delivery.topic ?? "";
+                  deliveryAttempt = ctx.delivery.attempt ?? 0;
+                }
+                return next(ctx);
+              },
+            ],
+          });
+          const publisher = createPublisher(ConformanceEvents, transport, {
+            source: "test-suite",
+          });
+          const router = createRouter(transport);
+          let handledEventId = "";
+
+          router.service(ConformanceEvents, {
+            async alphaHappened(request, handlerContext) {
+              handledEventId = request.eventId;
+              await handlerContext.ack();
+            },
+          });
+
+          const subscription = await router.subscribe({
+            consumerGroup: ctx.topic("workers"),
+          });
+
+          await publisher.alphaHappened(
+            { eventId: "evt_del_ctx", name: "del ctx", count: 1 },
+            { topic },
+          );
+
+          await expect
+            .poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS })
+            .toBe("evt_del_ctx");
+          expect(deliveryTopic).toBe(topic);
+          expect(deliveryAttempt).toBe(1);
+          await subscription.unsubscribe();
+        },
+      },
+      {
+        name: "does not break delivery when lifecycle interceptor throws",
+        async run(ctx) {
+          const topic = ctx.topic("events");
+          const transport = ctx.transport({
+            subscribeTopics: [topic],
+            interceptors: [
+              (next) => async (ctx) => {
+                if (ctx.operation === "committed") {
+                  throw new Error("lifecycle interceptor failed");
+                }
+                return next(ctx);
+              },
+            ],
+          });
+          const publisher = createPublisher(ConformanceEvents, transport, {
+            source: "test-suite",
+          });
+          const router = createRouter(transport);
+          let handledEventId = "";
+
+          router.service(ConformanceEvents, {
+            async alphaHappened(request, handlerContext) {
+              handledEventId = request.eventId;
+              await handlerContext.ack();
+            },
+          });
+
+          const subscription = await router.subscribe({
+            consumerGroup: ctx.topic("workers"),
+          });
+
+          await publisher.alphaHappened(
+            { eventId: "evt_lifecycle", name: "lifecycle", count: 1 },
+            { topic },
+          );
+
+          await expect
+            .poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS })
+            .toBe("evt_lifecycle");
+          await subscription.unsubscribe();
+        },
+      },
+    ],
+  },
 ];
 
 export const backendSpecificGroups: Record<string, PubSubTransportCaseGroup[]> = {
@@ -505,15 +863,18 @@ export const backendSpecificGroups: Record<string, PubSubTransportCaseGroup[]> =
             const topic = ctx.topic("events");
             const scheduler = ctx.scheduler("shared_scheduler");
             let schedulerDeliveries = 0;
-            const observer = {
-              delivered() {
-                schedulerDeliveries += 1;
+            const interceptors: PubSubInterceptor[] = [
+              (next) => async (ctx) => {
+                if (ctx.operation === "delivered") {
+                  schedulerDeliveries += 1;
+                }
+                return next(ctx);
               },
-            };
+            ];
             // Two scheduler workers share one scheduler group. Exactly one owner
             // should deliver the due record for a partition.
-            const firstSchedulerTransport = ctx.transport({ scheduler, observer });
-            const secondSchedulerTransport = ctx.transport({ scheduler, observer });
+            const firstSchedulerTransport = ctx.transport({ scheduler, interceptors });
+            const secondSchedulerTransport = ctx.transport({ scheduler, interceptors });
 
             await createPublisher(ConformanceEvents, secondSchedulerTransport, {
               source: "test-suite",
@@ -555,16 +916,19 @@ export const backendSpecificGroups: Record<string, PubSubTransportCaseGroup[]> =
           },
         },
         {
-          name: "observer failures do not break scheduled delivery",
+          name: "interceptor failures do not break scheduled delivery",
           async run(ctx) {
             const topic = ctx.topic("events");
             const transport = ctx.transport({
               subscribeTopics: [topic],
-              observer: {
-                delivered() {
-                  throw new Error("observer failed");
+              interceptors: [
+                (next) => async (ctx) => {
+                  if (ctx.operation === "delivered") {
+                    throw new Error("interceptor failed");
+                  }
+                  return next(ctx);
                 },
-              },
+              ],
             });
             const publisher = createPublisher(ConformanceEvents, transport, {
               source: "test-suite",
@@ -584,13 +948,13 @@ export const backendSpecificGroups: Record<string, PubSubTransportCaseGroup[]> =
             });
 
             await publisher.alphaHappened(
-              { eventId: "evt_observer", name: "observer", count: 17 },
+              { eventId: "evt_interceptor", name: "interceptor", count: 17 },
               { topic, notBefore: timestampFromDate(new Date(Date.now() + 500)) },
             );
 
             await expect
               .poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS })
-              .toBe("evt_observer");
+              .toBe("evt_interceptor");
             await subscription.unsubscribe();
           },
         },
@@ -705,4 +1069,14 @@ function positiveIntegerEnv(name: string, fallback: number): number {
   }
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/** Build one transport-neutral queue module that only depends on the core pubsub API. */
+function createPortableQueueModule(transport: PubSubTransport) {
+  return {
+    publisher: createPublisher(ConformanceEvents, transport, {
+      source: "portable-app",
+    }),
+    router: createRouter(transport),
+  };
 }

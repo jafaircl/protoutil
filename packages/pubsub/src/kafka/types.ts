@@ -1,5 +1,5 @@
 import type { KafkaJS } from "@confluentinc/kafka-javascript";
-import type { PubSubTransportObserver } from "../types.js";
+import type { PubSubInterceptor } from "../types.js";
 /** Topic configuration entry used by Kafka admin APIs. */
 export interface KafkaTopicConfigEntry {
   /** Kafka topic config name. */
@@ -71,6 +71,6 @@ export interface KafkaTransportOptions {
   scheduler: KafkaSchedulerOptions;
   /** Default CloudEvent source for publishers using this transport. */
   defaultSource?: string;
-  /** Optional observer hooks for transport operations. */
-  observer?: PubSubTransportObserver;
+  /** Optional interceptors for transport operations. */
+  interceptors?: PubSubInterceptor[];
 }

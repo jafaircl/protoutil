@@ -20,6 +20,7 @@ const [typeDocAipResourceName, typeDocAipResourceNameSidebar] = createStarlightT
 const [typeDocAipql, typeDocAipqlSidebar] = createStarlightTypeDocPlugin();
 const [typeDocPubsub, typeDocPubsubSidebar] = createStarlightTypeDocPlugin();
 const [typeDocPubsubKafka, typeDocPubsubKafkaSidebar] = createStarlightTypeDocPlugin();
+const [typeDocPubsubNats, typeDocPubsubNatsSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepo, typeDocRepoSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepoSqlite, typeDocRepoSqliteSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepoPostgres, typeDocRepoPostgresSidebar] = createStarlightTypeDocPlugin();
@@ -233,6 +234,19 @@ export default defineConfig({
             readme: "../packages/pubsub/src/kafka/README.md",
           },
         }),
+        typeDocPubsubNats({
+          entryPoints: ["../packages/pubsub/src/nats/index.ts"],
+          tsconfig: "../packages/pubsub/tsconfig.json",
+          output: "api/pubsub/nats",
+          sidebar: { label: "pubsub/nats", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**", "**/*.spec.ts"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/pubsub/src/nats/README.md",
+          },
+        }),
         typeDocRepo({
           entryPoints: ["../packages/repo/src/index.ts"],
           tsconfig: "../packages/repo/tsconfig.json",
@@ -354,6 +368,7 @@ export default defineConfig({
               items: [
                 { label: "Overview", slug: "api/pubsub" },
                 { label: "Kafka", slug: "api/pubsub/kafka" },
+                { label: "NATS", slug: "api/pubsub/nats" },
               ],
             },
             {
@@ -398,6 +413,7 @@ export default defineConfig({
             typeDocAipqlSidebar,
             typeDocPubsubSidebar,
             typeDocPubsubKafkaSidebar,
+            typeDocPubsubNatsSidebar,
             typeDocRepoSidebar,
             typeDocRepoSqliteSidebar,
             typeDocRepoPostgresSidebar,

@@ -38,12 +38,61 @@ const publisher = createPublisher(BillingEvents, transport, {
 const router = createRouter(transport);
 ```
 
-Transport entry points are isolated subpaths so unused broker clients are not loaded. Kafka and RabbitMQ are implemented today, and NATS remains reserved for the next backer:
+Transport entry points are isolated subpaths so unused broker clients are not loaded. Kafka, RabbitMQ, and NATS are implemented today:
 
 ```ts
 import { createKafkaTransport } from "@protoutil/pubsub/kafka";
 import { createRabbitMqTransport } from "@protoutil/pubsub/rabbitmq";
+import { createNatsTransport } from "@protoutil/pubsub/nats";
 ```
+
+## Portable Application Logic
+
+Application publish and subscribe logic should not care which broker is behind
+the transport. However your app is structured, broker-specific construction
+should stay separated from the code that calls `createPublisher()`,
+`createRouter()`, `router.subscribe()`, and handler `ctx.*` methods.
+
+For example, the publish/subscribe side should be able to look like:
+
+```ts
+import { createPublisher, createRouter } from "@protoutil/pubsub";
+import { BillingEvents } from "./gen/acme/billing/v1/events_pb.js";
+import { transport } from "./wherever-you-build-the-transport.js";
+
+export const publisher = createPublisher(BillingEvents, transport, {
+  source: "billing-service",
+});
+
+export const router = createRouter(transport);
+
+router.service(BillingEvents, {
+  async invoiceCreated(request, ctx) {
+    await processInvoice(request.invoiceId);
+    await ctx.ack();
+  },
+});
+```
+
+When you swap Kafka, RabbitMQ, or NATS, only the transport construction layer
+should need to change. The publish/subscribe logic should stay the same even
+when you use portable features like delayed publish, retry delay, dead-letter,
+or `maxAttempts`.
+
+This is the same layering you would use in an application server such as the
+Fastify example under [`examples/fastify-server`](../../examples/fastify-server).
+
+## Transport Notes
+
+- Kafka transport notes: [src/kafka/README.md](./src/kafka/README.md)
+- RabbitMQ transport notes: [src/rabbitmq/README.md](./src/rabbitmq/README.md)
+- NATS transport notes: [src/nats/README.md](./src/nats/README.md)
+
+Current transport-specific caveats:
+
+- Kafka delayed delivery is implemented with transport-owned scheduler topics.
+- RabbitMQ delayed delivery does not require a delayed-message plugin. The transport owns a durable schedules queue and scheduler worker.
+- NATS delayed delivery requires JetStream. Plain core NATS without JetStream is not enough for durable `notBefore` or retry delay.
 
 ## Standards
 
@@ -133,6 +182,12 @@ Metadata is written as CloudEvent extension attributes. Supported metadata value
 ### Delayed Delivery
 
 `notBefore` and retry `delay` are transport-owned scheduling semantics. A production transport that supports them must persist the schedule before resolving the publish or accepting the disposition, and it must not deliver earlier than the requested time.
+
+Transport requirements for delayed delivery:
+
+- Kafka: scheduler topics must exist with the required compaction settings.
+- RabbitMQ: the transport manages the durable schedules queue itself.
+- NATS: JetStream streams, consumers, and KV are required.
 
 Handlers can read `ctx.attempt` for the one-based delivery attempt reported by the transport. The first delivery is attempt `1`; a delayed retry is delivered as attempt `2`, and so on.
 
@@ -231,6 +286,78 @@ import {
 } from "@protoutil/pubsub";
 ```
 
+## Interceptors
+
+Interceptors provide a middleware chain around transport operations. Each interceptor receives a `next` function and returns a new function that can run logic before and/or after the core operation.
+
+```ts
+const logger: PubSubInterceptor = (next) => async (ctx) => {
+  if (ctx.operation === "publish" || ctx.operation === "handle") {
+    const start = performance.now();
+    try {
+      return await next(ctx);
+    } finally {
+      console.log(`${ctx.operation}: ${performance.now() - start}ms`);
+    }
+  }
+  return next(ctx);
+};
+
+const metrics: PubSubInterceptor = (next) => async (ctx) => {
+  if (ctx.operation === "committed" || ctx.operation === "deadLettered") {
+    counter.increment(ctx.operation);
+  }
+  return next(ctx);
+};
+```
+
+Pass interceptors to the transport constructor. The first interceptor in the array is the outermost in the call chain:
+
+```ts
+const transport = createKafkaTransport({
+  // ...
+  interceptors: [logger, metrics], // first = outermost
+});
+```
+
+### Operations
+
+The context is a discriminated union keyed on `operation`. Narrowing on `ctx.operation` gives access to operation-specific fields:
+
+| Operation | Context fields | Description |
+| --- | --- | --- |
+| `publish` | `request: PublishRequest` | Transport publish call |
+| `handle` | `delivery: Delivery` | Delivery handler invocation |
+| `scheduled` | `event: PubSubTransportEvent` | Delayed publish/retry accepted |
+| `committed` | `event: PubSubTransportEvent` | Subscriber ack/commit |
+| `retried` | `event: PubSubTransportEvent` | Event scheduled for retry |
+| `retryExhausted` | `event: PubSubTransportEvent` | Retry limit reached |
+| `deadLettered` | `event: PubSubTransportEvent` | Event sent to DLQ |
+| `recovered` | `event: PubSubTransportEvent` | Delayed event recovered |
+| `delivered` | `event: PubSubTransportEvent` | Delayed event delivered |
+| `tombstoned` | `event: PubSubTransportEvent` | Schedule cleared |
+| `deliveryFailed` | `event: PubSubTransportFailureEvent` | Delivery failure (has `error`) |
+| `parseFailed` | `event: PubSubTransportFailureEvent` | Parse failure (has `error`) |
+
+`publish` and `handle` are user-facing operations where interceptor errors propagate normally. All other operations are transport lifecycle notifications where interceptor errors are caught so they never break delivery flow.
+
+### Narrowing
+
+```ts
+const interceptor: PubSubInterceptor = (next) => async (ctx) => {
+  if (ctx.operation === "publish") {
+    console.log("publishing to", ctx.request.topic);
+  }
+  if (ctx.operation === "handle") {
+    console.log("handling", ctx.delivery.event.id, "attempt", ctx.delivery.attempt);
+  }
+  if (ctx.operation === "deliveryFailed") {
+    console.error("delivery failed", ctx.event.error);
+  }
+  return next(ctx);
+};
+```
+
 ## Resolution Rules
 
 Topic precedence:
@@ -296,7 +423,7 @@ For production transports, applications should:
 - configure a dead-letter destination where the transport supports one
 - set `router.subscribe({ maxAttempts })` for bounded retries
 - make handlers idempotent because production transports provide at-least-once delivery
-- wire transport observer hooks into logs or metrics
+- wire transport interceptors into logs or metrics
 - run the transport load test at a realistic event count before rollout
 - configure broker-specific authentication, TLS, timeouts, and retry behavior in the transport client
 
@@ -304,7 +431,7 @@ Implemented and reserved transport subpaths:
 
 - `@protoutil/pubsub/kafka` implements a Kafka transport factory backed by `@confluentinc/kafka-javascript`.
 - `@protoutil/pubsub/rabbitmq` implements a RabbitMQ transport factory backed by `amqplib`.
-- `@protoutil/pubsub/nats` is reserved for the NATS transport.
+- `@protoutil/pubsub/nats` implements a NATS JetStream transport factory backed by `nats`.
 
 ### Kafka
 
@@ -346,6 +473,14 @@ The RabbitMQ transport uses the real `amqplib` client from the RabbitMQ subpath.
 The current RabbitMQ scheduler uses one durable schedules queue plus an in-process scheduler consumer that keeps scheduled messages unacked until due, then republishes them to the target routing key. `router.subscribe()` still returns a subscription handle; call `subscription.unsubscribe()` to stop that subscriber, and call `transport.close()` from application shutdown hooks to close the owned AMQP connection and channels.
 
 See [the RabbitMQ README](./src/rabbitmq/README.md) for connection and scheduling details.
+
+### NATS
+
+The NATS transport uses the real `nats` client from the NATS subpath. The core package still does not load NATS unless the application imports `@protoutil/pubsub/nats`.
+
+The current NATS implementation uses JetStream for durable event storage plus a JetStream KV bucket and scheduler stream for `notBefore` publishes and delayed retries. `router.subscribe()` still returns a subscription handle; call `subscription.unsubscribe()` to stop that subscriber, and call `transport.close()` from application shutdown hooks to close the owned NATS connection and JetStream consumers.
+
+See [the NATS README](./src/nats/README.md) for stream and scheduling details.
 
 ## In-Memory Transport
 

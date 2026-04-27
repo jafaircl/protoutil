@@ -54,7 +54,7 @@ function context(suffix: string): PubSubTransportTestContext {
         client: kafkaClient(),
         subscribeTopics: options?.subscribeTopics,
         deadLetterTopic: options?.deadLetterTopic,
-        observer: options?.observer,
+        interceptors: options?.interceptors,
         consumerConfig: {
           kafkaJS: {
             fromBeginning: true,

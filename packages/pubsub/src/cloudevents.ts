@@ -2,9 +2,11 @@ import {
   create,
   type DescMessage,
   type DescMethodUnary,
+  fromBinary,
   type Message,
   type MessageInitShape,
   type MessageShape,
+  toBinary,
 } from "@bufbuild/protobuf";
 import { anyPack, anyUnpack, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import {
@@ -169,4 +171,14 @@ function attribute(
   // Return the init shape so callers can compose larger message trees before
   // the final create() call.
   return { attr };
+}
+
+/** Encode a CloudEvent protobuf message as bytes. */
+export function cloudEventBytes(event: CloudEvent): Buffer {
+  return Buffer.from(toBinary(CloudEventSchema, event));
+}
+
+/** Decode a CloudEvent protobuf message from bytes. */
+export function cloudEventFromBytes(value: Uint8Array): CloudEvent {
+  return fromBinary(CloudEventSchema, value);
 }

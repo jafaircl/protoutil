@@ -38,10 +38,11 @@ function createTrackedRabbitMqTransport(
   const testOptions = transportTestOptions(options);
   const transport = createRabbitMqTransport({
     url: RABBITMQ_URL,
-    scheduleQueue: options?.scheduler?.schedulesTopic ?? `protoutil.pubsub.shared.schedules.${suffix}`,
+    scheduleQueue:
+      options?.scheduler?.schedulesTopic ?? `protoutil.pubsub.shared.schedules.${suffix}`,
     subscribeTopics: options?.subscribeTopics,
     deadLetterTopic: testOptions?.deadLetterTopic,
-    observer: testOptions?.observer,
+    interceptors: testOptions?.interceptors,
     queuePrefix: `protoutil.pubsub.queue.${suffix}`,
   });
   transports.push(transport);
@@ -54,7 +55,7 @@ function transportTestOptions(
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): TransportOptions | undefined {
-  if (!options || (!("deadLetterTopic" in options) && !("observer" in options))) {
+  if (!options || (!("deadLetterTopic" in options) && !("interceptors" in options))) {
     return undefined;
   }
   return options;

@@ -1,4 +1,4 @@
-import type { PubSubTransportObserver } from "../types.js";
+import type { PubSubInterceptor } from "../types.js";
 
 /** Options for creating a RabbitMQ-backed pubsub transport. */
 export interface RabbitMqTransportOptions {
@@ -18,6 +18,6 @@ export interface RabbitMqTransportOptions {
   publishTimeoutMs?: number;
   /** Default CloudEvent source for publishers using this transport. */
   defaultSource?: string;
-  /** Optional observer hooks for transport operations. */
-  observer?: PubSubTransportObserver;
+  /** Optional interceptors for transport operations. */
+  interceptors?: PubSubInterceptor[];
 }

@@ -123,32 +123,68 @@ export interface Subscription {
   unsubscribe(): Promise<void>;
 }
 
-/** Shared observer hooks for transport operations across all backends. */
-export interface PubSubTransportObserver {
-  /** Called after a delayed publish or retry is durably accepted. */
-  scheduled?(event: PubSubTransportObserverEvent): void;
-  /** Called after a consumed event is durably scheduled for retry. */
-  retried?(event: PubSubTransportObserverEvent): void;
-  /** Called when a retry is converted to dead-letter because max attempts was reached. */
-  retryExhausted?(event: PubSubTransportObserverEvent): void;
-  /** Called after a rejected or dead-lettered event is produced to the dead-letter topic. */
-  deadLettered?(event: PubSubTransportObserverEvent): void;
-  /** Called after a delayed event is recovered from durable transport state. */
-  recovered?(event: PubSubTransportObserverEvent): void;
-  /** Called after a delayed event is delivered to its target topic. */
-  delivered?(event: PubSubTransportObserverEvent): void;
-  /** Called after a delayed event is durably cleared from active scheduling state. */
-  tombstoned?(event: PubSubTransportObserverEvent): void;
-  /** Called when delayed delivery fails after the transport has accepted scheduling state. */
-  deliveryFailed?(event: PubSubTransportObserverFailure): void;
-  /** Called when a subscribed or scheduled record cannot be parsed as a CloudEvent. */
-  parseFailed?(event: PubSubTransportObserverFailure): void;
-  /** Called after a subscriber commits or acknowledges a handled delivery. */
-  committed?(event: PubSubTransportObserverEvent): void;
-}
+/**
+ * The inner function that a {@link PubSubInterceptor} wraps.
+ */
+export type PubSubInterceptorFn = (ctx: PubSubInterceptorContext) => Promise<unknown>;
 
-/** Shared metadata passed to transport observer hooks. */
-export interface PubSubTransportObserverEvent {
+/**
+ * A connectrpc-style interceptor for pubsub transport operations.
+ *
+ * Interceptors form a middleware chain around transport publish, delivery, and
+ * lifecycle operations. Each interceptor receives a `next` function and returns
+ * a new function that can run logic before and/or after calling `next`.
+ *
+ * ```ts
+ * const logger: PubSubInterceptor = (next) => async (ctx) => {
+ *   if (ctx.operation === "publish" || ctx.operation === "handle") {
+ *     const start = performance.now();
+ *     try {
+ *       return await next(ctx);
+ *     } finally {
+ *       console.log(`${ctx.operation}: ${performance.now() - start}ms`);
+ *     }
+ *   }
+ *   return next(ctx);
+ * };
+ *
+ * // Narrowing on operation:
+ * const metrics: PubSubInterceptor = (next) => async (ctx) => {
+ *   if (ctx.operation === "committed") {
+ *     counter.increment("committed");
+ *   }
+ *   return next(ctx);
+ * };
+ * ```
+ */
+export type PubSubInterceptor = (next: PubSubInterceptorFn) => PubSubInterceptorFn;
+
+/**
+ * Context passed to each {@link PubSubInterceptor} in the chain.
+ *
+ * This is a discriminated union keyed on `operation`. Narrowing on
+ * `ctx.operation` gives access to the operation-specific fields.
+ *
+ * `publish` and `handle` wrap user-facing operations where interceptor errors
+ * propagate. All other operations are transport lifecycle notifications where
+ * interceptor errors are caught to avoid breaking delivery flow.
+ */
+export type PubSubInterceptorContext =
+  | { operation: "publish"; request: PublishRequest }
+  | { operation: "handle"; delivery: Delivery }
+  | { operation: "scheduled"; event: PubSubTransportEvent }
+  | { operation: "retried"; event: PubSubTransportEvent }
+  | { operation: "retryExhausted"; event: PubSubTransportEvent }
+  | { operation: "deadLettered"; event: PubSubTransportEvent }
+  | { operation: "recovered"; event: PubSubTransportEvent }
+  | { operation: "delivered"; event: PubSubTransportEvent }
+  | { operation: "tombstoned"; event: PubSubTransportEvent }
+  | { operation: "committed"; event: PubSubTransportEvent }
+  | { operation: "deliveryFailed"; event: PubSubTransportFailureEvent }
+  | { operation: "parseFailed"; event: PubSubTransportFailureEvent };
+
+/** Shared metadata passed to transport lifecycle interceptor hooks. */
+export interface PubSubTransportEvent {
   /** CloudEvent id or broker message id. */
   id: string;
   /** Transport topic associated with the event. */
@@ -157,8 +193,8 @@ export interface PubSubTransportObserverEvent {
   attempt?: number;
 }
 
-/** Shared failure metadata passed to transport observer hooks. */
-export interface PubSubTransportObserverFailure extends PubSubTransportObserverEvent {
+/** Shared failure metadata passed to transport error interceptor hooks. */
+export interface PubSubTransportFailureEvent extends PubSubTransportEvent {
   /** Failure cause. */
   error: unknown;
 }
@@ -181,6 +217,18 @@ export interface SubscriberTransport {
 export interface PubSubTransport extends PublisherTransport, SubscriberTransport {
   /** Close resources owned by this transport. */
   close(): Promise<void>;
+}
+
+/** Shared scheduler interface for delayed publish and retry across all transports. */
+export interface PubSubScheduler {
+  /** Start consuming durable schedule records. */
+  start(): Promise<void>;
+  /** Stop the scheduler and clear in-process timers. */
+  close(): Promise<void>;
+  /** Persist and schedule a delayed publish request. */
+  publishLater(request: PublishRequest): Promise<void>;
+  /** Persist and schedule a retry for an already delivered CloudEvent. */
+  retryLater(topic: string, event: CloudEvent, delayMs: number, attempt: number): Promise<void>;
 }
 
 /** Handler context used to explicitly control delivery disposition. */
