@@ -6,7 +6,7 @@
  */
 
 import type { HandlerContext, PubSubTransport, Subscription } from "@protoutil/pubsub";
-import { createPublisher, createRouter, resolveTopic, unaryMethods } from "@protoutil/pubsub";
+import { createPublisher, createRouter } from "@protoutil/pubsub";
 import { createRabbitMqTransport } from "@protoutil/pubsub/rabbitmq";
 import type {
   BookCreatedEvent,
@@ -26,7 +26,6 @@ export async function initPubsub(): Promise<void> {
   transport = createRabbitMqTransport({
     url: RABBITMQ_URL,
     defaultSource: "library-service",
-    subscribeTopics: ["library-events"],
   });
 
   console.log("[pubsub] connecting to RabbitMQ...", { url: RABBITMQ_URL });
@@ -48,9 +47,9 @@ export async function startEventSubscription(): Promise<void> {
     throw new Error("pubsub not initialized - call initPubsub() first");
   }
 
-  const router = createRouter(transport);
+  const router = createRouter(LibraryEvents, transport);
 
-  router.service(LibraryEvents, {
+  router.service({
     async bookCreated(request: BookCreatedEvent, ctx: HandlerContext): Promise<void> {
       console.log(`[event] book created: ${request.name} (${request.title} by ${request.author})`);
       await ctx.ack();

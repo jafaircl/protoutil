@@ -1,9 +1,10 @@
 import { afterEach, describe, it } from "vitest";
 import { groups, type PubSubTransportTestContext } from "../test-cases.js";
 import type { PubSubTransport } from "../types.js";
-import { createNatsTransport } from "./index.js";
+import { createNatsScheduler, createNatsTransport } from "./index.js";
 
 const NATS_SERVERS = process.env.NATS_SERVERS ?? "nats://127.0.0.1:14222";
+const NATS_EVENT_STREAM = "PROTOUTIL_PUBSUB_TEST";
 
 const transports: PubSubTransport[] = [];
 
@@ -41,19 +42,23 @@ function context(suffix: string): PubSubTransportTestContext {
     transport(options) {
       const transport = createNatsTransport({
         servers: NATS_SERVERS,
-        subscribeTopics: options?.subscribeTopics,
-        deadLetterTopic: options?.deadLetterTopic,
         interceptors: options?.interceptors,
         stream: {
-          name: `PROTOUTIL_PUBSUB_${suffix.replaceAll(".", "_").toUpperCase()}`,
-          subjects: [`protoutil.events.${suffix}.>`],
+          name: NATS_EVENT_STREAM,
+          subjects: ["protoutil.events.>", "protoutil.pubsub.testing.>"],
         },
-        scheduler: {
-          streamName: `PROTOUTIL_PUBSUB_SCHED_${suffix.replaceAll(".", "_").toUpperCase()}`,
-          subject: `protoutil.scheduler.${suffix}.wake`,
-          kvBucket: `protoutil_pubsub_sched_${suffix.replaceAll(/[^a-zA-Z0-9]+/g, "_")}`,
-          consumerName: options?.scheduler?.consumerGroup ?? `protoutil.scheduler.${suffix}`,
-        },
+        scheduler: options?.scheduler
+          ? createNatsScheduler({
+              servers: NATS_SERVERS,
+              options: {
+                streamName: `PROTOUTIL_PUBSUB_SCHED_${suffix.replaceAll(".", "_").toUpperCase()}`,
+                subject: `protoutil.scheduler.${suffix}.wake`,
+                kvBucket: `protoutil_pubsub_sched_${suffix.replaceAll(/[^a-zA-Z0-9]+/g, "_")}`,
+                consumerName: options.scheduler.consumerGroup ?? `protoutil.scheduler.${suffix}`,
+              },
+              interceptors: options.interceptors,
+            })
+          : undefined,
       });
       transports.push(transport);
       return transport;

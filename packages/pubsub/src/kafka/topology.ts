@@ -1,24 +1,28 @@
-import type { KafkaSchedulerOptions, KafkaTopicSpec, KafkaTransportOptions } from "./types.js";
+import type { KafkaSchedulerOptions, KafkaTopicSpec } from "./types.js";
 
 const REQUIRED_SCHEDULE_CONFIG: Record<string, string> = {
   "cleanup.policy": "compact",
   "retention.ms": "-1",
 };
 
-/** Build the Kafka topics required by the configured transport. */
-export function topologyTopics(options: KafkaTransportOptions): KafkaTopicSpec[] {
-  const topics = schedulerTopics(options.scheduler);
-  for (const topic of options.subscribeTopics ?? []) {
+/** Build the Kafka topics required by the configured transport request. */
+export function topologyTopics(
+  schedulerOptions: KafkaSchedulerOptions | undefined,
+  subscribeTopics: string[] = [],
+  deadLetterTopic?: string,
+): KafkaTopicSpec[] {
+  const topics = schedulerOptions ? schedulerTopics(schedulerOptions) : [];
+  for (const topic of subscribeTopics) {
     topics.push({ topic });
   }
-  if (options.deadLetterTopic) {
-    topics.push({ topic: options.deadLetterTopic });
+  if (deadLetterTopic) {
+    topics.push({ topic: deadLetterTopic });
   }
   return uniqueTopics(topics);
 }
 
 /** Build the scheduler-owned topics that support delayed publish and retry. */
-function schedulerTopics(options: KafkaSchedulerOptions): KafkaTopicSpec[] {
+export function schedulerTopics(options: KafkaSchedulerOptions): KafkaTopicSpec[] {
   const partitions = options.partitions ?? 1;
   const replicationFactor = options.replicationFactor ?? 1;
   return [

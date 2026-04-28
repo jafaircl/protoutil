@@ -20,7 +20,7 @@
           "expectedEvent": {
             "source": "conformance-service",
             "specversion": "1.0",
-            "type": "AlphaHappened",
+            "type": "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened",
             "dataschema": "protoutil.pubsub.testing.v1.AlphaEvent",
             "datacontenttype": "application/protobuf",
             "dataJson": "{\"eventId\":\"evt_123\",\"name\":\"alpha\"}"
@@ -115,7 +115,7 @@
           "expectedEvent": {
             "source": "beta-service",
             "specversion": "1.0",
-            "type": "BetaHappened",
+            "type": "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened",
             "dataschema": "protoutil.pubsub.testing.v1.BetaEvent",
             "datacontenttype": "application/protobuf",
             "dataJson": "{\"eventId\":\"evt_456\",\"detail\":\"beta-detail\",\"active\":true}"
@@ -143,6 +143,47 @@
           "expectedTopic": "custom.topic"
         },
         {
+          "name": "publisher default topic applies to method",
+          "kind": "CASE_KIND_TOPIC_PRECEDENCE",
+          "publish": {
+            "method": "alphaHappened",
+            "payload": {
+              "eventId": "evt_123",
+              "name": "alpha"
+            },
+            "options": {
+              "source": "conformance-service"
+            }
+          },
+          "expectedTopic": "publisher.default.topic",
+          "publisherDefaults": {
+            "topic": "publisher.default.topic"
+          }
+        },
+        {
+          "name": "publisher method topic applies to matching method",
+          "kind": "CASE_KIND_TOPIC_PRECEDENCE",
+          "publish": {
+            "method": "alphaHappened",
+            "payload": {
+              "eventId": "evt_123",
+              "name": "alpha"
+            },
+            "options": {
+              "source": "conformance-service"
+            }
+          },
+          "expectedTopic": "publisher.alpha.topic",
+          "publisherDefaults": {
+            "topicByMethod": [
+              {
+                "method": "alphaHappened",
+                "topic": "publisher.alpha.topic"
+              }
+            ]
+          }
+        },
+        {
           "name": "topic falls back to method typename",
           "kind": "CASE_KIND_TOPIC_PRECEDENCE",
           "publish": {
@@ -155,7 +196,7 @@
               "source": "conformance-service"
             }
           },
-          "expectedTopic": "AlphaHappened"
+          "expectedTopic": "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
         },
         {
           "name": "type explicit beats method typename",
@@ -174,6 +215,25 @@
           "expectedValue": "com.example.conformance.AlphaHappened.v2"
         },
         {
+          "name": "type stays semantic when topic is overridden",
+          "kind": "CASE_KIND_CLOUDEVENT_MATERIALIZATION",
+          "publish": {
+            "method": "alphaHappened",
+            "payload": {
+              "eventId": "evt_123",
+              "name": "alpha"
+            },
+            "options": {
+              "topic": "custom.topic",
+              "source": "conformance-service"
+            }
+          },
+          "expectedEvent": {
+            "type": "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
+          },
+          "expectedTopic": "custom.topic"
+        },
+        {
           "name": "type falls back to method typename",
           "kind": "CASE_KIND_TYPE_PRECEDENCE",
           "publish": {
@@ -186,7 +246,7 @@
               "source": "conformance-service"
             }
           },
-          "expectedValue": "AlphaHappened"
+          "expectedValue": "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
         },
         {
           "name": "source explicit beats client default",
@@ -233,6 +293,68 @@
             "libraryDefault": "protoutil.pubsub"
           },
           "expectedValue": "protoutil.pubsub"
+        }
+      ]
+    },
+    {
+      "name": "Subscription resolution",
+      "test": [
+        {
+          "name": "router string topic resolves subscribe topic",
+          "kind": "CASE_KIND_SUBSCRIBE_RESOLUTION",
+          "routerConfig": {
+            "topic": "router.shared.topic"
+          },
+          "expectedSubscribe": {
+            "topics": [
+              "router.shared.topic"
+            ],
+            "deadLetterTopic": "protoutil.pubsub.testing.v1.ConformanceEvents.__deadletter"
+          }
+        },
+        {
+          "name": "router method topic resolves subscribe topic",
+          "kind": "CASE_KIND_SUBSCRIBE_RESOLUTION",
+          "routerConfig": {
+            "topicByMethod": [
+              {
+                "method": "alphaHappened",
+                "topic": "router.alpha.topic"
+              }
+            ]
+          },
+          "expectedSubscribe": {
+            "topics": [
+              "router.alpha.topic",
+              "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened"
+            ],
+            "deadLetterTopic": "protoutil.pubsub.testing.v1.ConformanceEvents.__deadletter"
+          }
+        },
+        {
+          "name": "dead letter topic defaults from service type",
+          "kind": "CASE_KIND_SUBSCRIBE_RESOLUTION",
+          "expectedSubscribe": {
+            "topics": [
+              "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened",
+              "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened"
+            ],
+            "deadLetterTopic": "protoutil.pubsub.testing.v1.ConformanceEvents.__deadletter"
+          }
+        },
+        {
+          "name": "dead letter topic override resolves on subscribe",
+          "kind": "CASE_KIND_SUBSCRIBE_RESOLUTION",
+          "routerConfig": {
+            "deadLetterTopic": "billing.__deadletter"
+          },
+          "expectedSubscribe": {
+            "topics": [
+              "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened",
+              "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened"
+            ],
+            "deadLetterTopic": "billing.__deadletter"
+          }
         }
       ]
     },
@@ -373,6 +495,34 @@
             "delay": "3s"
           },
           "handlerBehavior": "HANDLER_BEHAVIOR_RETRY_DELAY"
+        },
+        {
+          "name": "delayed publish without scheduler fails",
+          "kind": "CASE_KIND_DELAYED_PUBLISH",
+          "publish": {
+            "method": "alphaHappened",
+            "payload": {
+              "eventId": "evt_123",
+              "name": "alpha"
+            },
+            "options": {
+              "source": "conformance-service",
+              "notBefore": "1970-01-01T00:00:05Z"
+            }
+          },
+          "transportFeatures": {},
+          "expectedErrorContains": "Delayed publish requires a scheduler"
+        },
+        {
+          "name": "delayed retry without scheduler fails",
+          "kind": "CASE_KIND_DELAYED_RETRY",
+          "expectedDisposition": {
+            "kind": "retry",
+            "delay": "3s"
+          },
+          "handlerBehavior": "HANDLER_BEHAVIOR_RETRY_DELAY",
+          "transportFeatures": {},
+          "expectedErrorContains": "Delayed retry requires a scheduler"
         }
       ]
     }

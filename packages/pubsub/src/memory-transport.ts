@@ -3,7 +3,7 @@ import type {
   Disposition,
   PublishRequest,
   PubSubTransport,
-  SubscribeOptions,
+  SubscribeRequest,
   Subscription,
 } from "./types.js";
 
@@ -45,7 +45,7 @@ export class InMemoryPubSubTransport implements PubSubTransport {
   /** Register the handler that receives future in-memory deliveries. */
   public async subscribe(
     handler: DeliveryHandler,
-    _options?: SubscribeOptions,
+    _request: SubscribeRequest,
   ): Promise<Subscription> {
     this.#handler = handler;
     return {

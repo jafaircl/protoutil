@@ -28,28 +28,39 @@ envelope defined by the core package.
 
 ```ts
 import { createPublisher, createRouter } from "@protoutil/pubsub";
-import { createNatsTransport } from "@protoutil/pubsub/nats";
+import { createNatsScheduler, createNatsTransport } from "@protoutil/pubsub/nats";
 import { BillingEvents } from "./gen/acme/billing/v1/events_pb.js";
 
-const transport = createNatsTransport({
+const scheduler = createNatsScheduler({
   servers: "nats://127.0.0.1:4222",
-  subscribeTopics: ["billing.invoice.created"],
-  deadLetterTopic: "billing.dead-letter",
-  defaultSource: "billing-service",
-  stream: {
-    name: "BILLING_EVENTS",
-    subjects: ["billing.>"],
-  },
-  scheduler: {
+  options: {
     streamName: "BILLING_SCHEDULES",
     subject: "billing.scheduler.wake",
     kvBucket: "billing_scheduler",
   },
 });
 
-const router = createRouter(transport);
+const transport = createNatsTransport({
+  servers: "nats://127.0.0.1:4222",
+  scheduler,
+  defaultSource: "billing-service",
+  stream: {
+    name: "BILLING_EVENTS",
+    subjects: ["billing.>"],
+  },
+});
+
+const router = createRouter(BillingEvents, transport, {
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
+  deadLetterTopic: "billing.dead-letter",
+});
 const publisher = createPublisher(BillingEvents, transport, {
   source: "billing-service",
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
 });
 
 const subscription = await router.subscribe({
@@ -77,8 +88,8 @@ The current implementation uses:
 - one durable scheduler consumer shared by transport instances
 
 Delayed publish and retry requests are persisted before the transport resolves the publish or
-accepts the retry disposition. Scheduler wake-up messages are redelivered by JetStream, and the
-KV bucket keeps replacement and tombstone behavior deterministic across restarts.
+accepts the retry disposition, but only when you pass an explicit scheduler. Immediate publish
+and subscribe do not require one.
 
 ## Lifecycle
 

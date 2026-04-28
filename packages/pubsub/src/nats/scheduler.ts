@@ -1,17 +1,28 @@
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import {
+  AckPolicy,
   type ConsumerMessages,
+  connect,
   DeliverPolicy,
+  DiscardPolicy,
+  headers,
   type JetStreamClient,
   type JetStreamManager,
   type JsMsg,
   type KV,
+  nanos,
+  ReplayPolicy,
   type StorageType,
 } from "nats";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   CLOUD_EVENT_HEADER_ID,
+  CLOUD_EVENT_HEADER_SOURCE,
+  CLOUD_EVENT_HEADER_SPEC_VERSION,
+  CLOUD_EVENT_HEADER_TYPE,
+  CONTENT_TYPE_PROTOBUF,
+  HEADER_CONTENT_TYPE,
   PROTOUTIL_HEADER_ATTEMPT,
   PROTOUTIL_HEADER_NOT_BEFORE,
   PROTOUTIL_HEADER_TARGET_TOPIC,
@@ -65,6 +76,83 @@ interface NatsSchedulerDependencies {
     deliverPolicy: DeliverPolicy,
   ) => Promise<void>;
   publishHeaders: (event: CloudEvent, extra?: Record<string, string>) => import("nats").MsgHdrs;
+}
+
+export interface CreateNatsSchedulerOptions {
+  servers?: string | string[];
+  connectionOptions?: import("nats").ConnectionOptions;
+  options: NatsSchedulerOptions;
+  publishTimeoutMs?: number;
+  interceptors?: PubSubInterceptor[];
+}
+
+/** Create a self-contained NATS scheduler that can be shared across transports. */
+export function createNatsScheduler(options: CreateNatsSchedulerOptions): PubSubScheduler {
+  return new OwnedNatsScheduler(options);
+}
+
+class OwnedNatsScheduler implements PubSubScheduler {
+  #connection?: import("nats").NatsConnection;
+  #jetstream?: JetStreamClient;
+  #manager?: JetStreamManager;
+  #scheduler?: NatsScheduler;
+  #startup?: Promise<void>;
+
+  public constructor(private readonly options: CreateNatsSchedulerOptions) {}
+
+  public async start(): Promise<void> {
+    this.#startup ??= this.#startOnce();
+    await this.#startup;
+  }
+
+  async #startOnce(): Promise<void> {
+    this.#connection = await connect({
+      ...this.options.connectionOptions,
+      servers: this.options.servers,
+    });
+    this.#jetstream = this.#connection.jetstream();
+    this.#manager = await this.#connection.jetstreamManager();
+    this.#scheduler = new NatsScheduler({
+      jetstream: this.#jetstream,
+      manager: this.#manager,
+      options: this.options.options,
+      publishTimeoutMs: this.options.publishTimeoutMs,
+      interceptors: this.options.interceptors,
+      publishImmediate: (topic, event, attempt) =>
+        publishImmediate(this.#jetstream!, topic, event, attempt, this.options.publishTimeoutMs),
+      ensureStream: (name, subjects, storage) =>
+        ensureStream(this.#manager!, name, subjects, storage),
+      ensureConsumer: (stream, name, subjects, ackWait, maxPending, policy) =>
+        ensureConsumer(this.#manager!, stream, name, subjects, ackWait, maxPending, policy),
+      publishHeaders,
+    });
+    await this.#scheduler.start();
+  }
+
+  public async close(): Promise<void> {
+    await this.#scheduler?.close();
+    await this.#connection?.close();
+    this.#scheduler = undefined;
+    this.#manager = undefined;
+    this.#jetstream = undefined;
+    this.#connection = undefined;
+    this.#startup = undefined;
+  }
+
+  public async publishLater(request: PublishRequest): Promise<void> {
+    await this.start();
+    await this.#scheduler!.publishLater(request);
+  }
+
+  public async retryLater(
+    topic: string,
+    event: CloudEvent,
+    delayMs: number,
+    attempt: number,
+  ): Promise<void> {
+    await this.start();
+    await this.#scheduler!.retryLater(topic, event, delayMs, attempt);
+  }
 }
 
 /** Durable NATS JetStream scheduler for `notBefore` and retry delay delivery. */
@@ -313,6 +401,68 @@ export function scheduleAttempt(message: JsMsg): number {
   return parseAttempt(message.headers?.last(PROTOUTIL_HEADER_ATTEMPT));
 }
 
+async function publishImmediate(
+  jetstream: JetStreamClient,
+  topic: string,
+  event: CloudEvent,
+  attempt: number,
+  timeout: number | undefined,
+): Promise<void> {
+  await jetstream.publish(topic, cloudEventBytes(event), {
+    timeout,
+    msgID: `${topic}:${event.id}:${attempt}`,
+    headers: publishHeaders(event, {
+      [PROTOUTIL_HEADER_ATTEMPT]: String(attempt),
+    }),
+  });
+}
+
+async function ensureStream(
+  manager: JetStreamManager,
+  name: string,
+  subjects: string[],
+  storage: StorageType | undefined,
+): Promise<void> {
+  try {
+    await manager.streams.info(name);
+    await manager.streams.update(name, { subjects });
+  } catch {
+    await manager.streams.add({
+      name,
+      subjects,
+      storage: storage ?? fileStorage(),
+      discard: DiscardPolicy.Old,
+    });
+  }
+}
+
+async function ensureConsumer(
+  manager: JetStreamManager,
+  stream: string,
+  durableName: string,
+  filterSubjects: string[],
+  ackWaitMs: number,
+  maxAckPending: number,
+  deliverPolicy: DeliverPolicy,
+): Promise<void> {
+  const config = {
+    durable_name: durableName,
+    name: durableName,
+    ack_policy: AckPolicy.Explicit,
+    ack_wait: nanos(ackWaitMs),
+    max_ack_pending: Math.max(maxAckPending, 1),
+    deliver_policy: deliverPolicy,
+    replay_policy: ReplayPolicy.Instant,
+    filter_subjects: filterSubjects,
+  } as const;
+  try {
+    await manager.consumers.info(stream, durableName);
+    await manager.consumers.update(stream, durableName, config);
+  } catch {
+    await manager.consumers.add(stream, config);
+  }
+}
+
 /** Build one deterministic schedule-state snapshot. */
 function scheduleState(
   topic: string,
@@ -363,4 +513,17 @@ function scheduleNotBefore(message: JsMsg): string {
 /** Default to file-backed JetStream storage so delayed delivery survives restarts. */
 function fileStorage(): StorageType {
   return "file" as StorageType;
+}
+
+function publishHeaders(event: CloudEvent, extra?: Record<string, string>): import("nats").MsgHdrs {
+  const result = headers();
+  result.set(HEADER_CONTENT_TYPE, CONTENT_TYPE_PROTOBUF);
+  result.set(CLOUD_EVENT_HEADER_SPEC_VERSION, event.specVersion);
+  result.set(CLOUD_EVENT_HEADER_TYPE, event.type);
+  result.set(CLOUD_EVENT_HEADER_SOURCE, event.source);
+  result.set(CLOUD_EVENT_HEADER_ID, event.id);
+  for (const [key, value] of Object.entries(extra ?? {})) {
+    result.set(key, value);
+  }
+  return result;
 }

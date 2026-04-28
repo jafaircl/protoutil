@@ -10,17 +10,16 @@ npm install @protoutil/pubsub @confluentinc/kafka-javascript
 
 ```ts
 import { KafkaJS } from "@confluentinc/kafka-javascript";
-import { createKafkaTransport } from "@protoutil/pubsub/kafka";
+import { createKafkaScheduler, createKafkaTransport } from "@protoutil/pubsub/kafka";
 import { createPublisher, createRouter } from "@protoutil/pubsub";
 
 const kafka = new KafkaJS.Kafka({
   "bootstrap.servers": "localhost:9092",
 });
 
-const transport = createKafkaTransport({
+const scheduler = createKafkaScheduler({
   client: kafka,
-  subscribeTopics: ["BillingEvents"],
-  scheduler: {
+  options: {
     schedulesTopic: "protoutil.pubsub.schedules",
     historyTopic: "protoutil.pubsub.schedule_history",
     consumerGroup: "protoutil.pubsub.scheduler",
@@ -28,16 +27,29 @@ const transport = createKafkaTransport({
     deliveryConcurrency: 16,
     deliveryRetryDelayMs: 1_000,
   },
+});
+
+const transport = createKafkaTransport({
+  client: kafka,
+  scheduler,
   publishTimeoutMs: 10_000,
   defaultSource: "billing-service",
 });
 
 const publisher = createPublisher(BillingEvents, transport, {
   source: "billing-service",
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
 });
-const router = createRouter(transport);
+const router = createRouter(BillingEvents, transport, {
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
+  deadLetterTopic: "billing.__deadletter",
+});
 
-router.service(BillingEvents, {
+router.service({
   async invoiceCreated(request, ctx) {
     await processInvoice(request.invoiceId);
     await ctx.ack();
@@ -60,7 +72,7 @@ await transport.close();
 
 Application event code stays transport-neutral. Switching from Kafka to another backer should only change the transport construction.
 
-The transport connects and creates its scheduler topology lazily on first publish or subscribe.
+The transport does not require topics at construction. The router resolves subscribe topics when `router.subscribe()` runs, and delayed delivery only works when you pass an explicit scheduler.
 
 ## Lifecycle
 
@@ -139,14 +151,17 @@ When `router.subscribe({ maxAttempts })` is set and a handler retries on the fin
 Use `interceptors` for transport-local diagnostics without changing the transport-neutral application API:
 
 ```ts
-const transport = createKafkaTransport({
+const scheduler = createKafkaScheduler({
   client: kafka,
-  subscribeTopics: ["BillingEvents"],
-  deadLetterTopic: "protoutil.pubsub.dead_letter",
-  scheduler: {
+  options: {
     schedulesTopic: "protoutil.pubsub.schedules",
     historyTopic: "protoutil.pubsub.schedule_history",
   },
+});
+
+const transport = createKafkaTransport({
+  client: kafka,
+  scheduler,
   interceptors: [
     (next) => async (ctx) => {
       switch (ctx.operation) {

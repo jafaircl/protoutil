@@ -32,6 +32,11 @@ export {
   CloudEventSchema,
 } from "./gen/io/cloudevents/v1/cloudevents_pb.js";
 export { InMemoryPubSubTransport } from "./memory-transport.js";
+export {
+  resolvePublisherOptions,
+  resolveRouterOptions,
+  resolveSubscribeRequest,
+} from "./options.js";
 export { createPublisher } from "./publisher.js";
 export {
   DEFAULT_SOURCE,
@@ -40,9 +45,17 @@ export {
   resolveTopic,
 } from "./resolvers.js";
 export { createRouter } from "./router.js";
+export {
+  assertSchedulerAvailable,
+  retryLaterOrThrow,
+  scheduleOrThrow,
+} from "./scheduler.js";
 export { unaryMethod, unaryMethods } from "./service.js";
+export { resolveDisposition, retryLimitReachedForDisposition } from "./settlement.js";
+export { methodEventType, methodTopic, serviceDeadLetterTopic, uniqueTopics } from "./topics.js";
 export type {
   CloudEvent,
+  CreateRouterOptions,
   Delivery,
   DeliveryHandler,
   Disposition,
@@ -58,11 +71,14 @@ export type {
   PubSubInterceptor,
   PubSubInterceptorContext,
   PubSubInterceptorFn,
+  PubSubScheduler,
   PubSubTransport,
   PubSubTransportEvent,
   PubSubTransportFailureEvent,
   RetryOptions,
   SubscribeOptions,
+  SubscribeRequest,
   SubscriberTransport,
   Subscription,
+  TopicConfig,
 } from "./types.js";

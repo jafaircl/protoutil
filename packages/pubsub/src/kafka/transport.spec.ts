@@ -2,7 +2,7 @@ import { KafkaJS } from "@confluentinc/kafka-javascript";
 import { afterEach, describe, it } from "vitest";
 import { backendSpecificGroups, groups, type PubSubTransportTestContext } from "../test-cases.js";
 import type { PubSubTransport } from "../types.js";
-import { createKafkaTransport } from "./index.js";
+import { createKafkaScheduler, createKafkaTransport } from "./index.js";
 
 const BOOTSTRAP_SERVER = process.env.KAFKA_BOOTSTRAP_SERVER ?? "localhost:19092";
 
@@ -52,8 +52,6 @@ function context(suffix: string): PubSubTransportTestContext {
     transport(options) {
       const transport = createKafkaTransport({
         client: kafkaClient(),
-        subscribeTopics: options?.subscribeTopics,
-        deadLetterTopic: options?.deadLetterTopic,
         interceptors: options?.interceptors,
         consumerConfig: {
           kafkaJS: {
@@ -61,11 +59,13 @@ function context(suffix: string): PubSubTransportTestContext {
             logLevel: KafkaJS.logLevel.NOTHING,
           },
         },
-        scheduler: options?.scheduler ?? {
-          schedulesTopic: `protoutil.pubsub.schedules.${suffix}`,
-          historyTopic: `protoutil.pubsub.history.${suffix}`,
-          consumerGroup: `protoutil.pubsub.scheduler.${suffix}`,
-        },
+        scheduler: options?.scheduler
+          ? createKafkaScheduler({
+              client: kafkaClient(),
+              options: options.scheduler,
+              interceptors: options.interceptors,
+            })
+          : undefined,
       });
       transports.push(transport);
       return transport;

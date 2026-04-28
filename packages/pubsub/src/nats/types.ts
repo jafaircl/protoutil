@@ -1,5 +1,5 @@
 import type { ConnectionOptions, StorageType } from "nats";
-import type { PubSubInterceptor } from "../types.js";
+import type { PubSubInterceptor, PubSubScheduler } from "../types.js";
 
 /** JetStream stream settings for normal event subjects. */
 export interface NatsEventStreamOptions {
@@ -41,12 +41,14 @@ export interface NatsTransportOptions {
   connectionOptions?: Omit<ConnectionOptions, "servers">;
   /** Event stream configuration for normal publishes and subscribes. */
   stream: NatsEventStreamOptions;
-  /** Durable scheduler configuration for delayed delivery and retries. */
-  scheduler: NatsSchedulerOptions;
-  /** Topics consumed by this subscriber transport. */
-  subscribeTopics?: string[];
-  /** Topic used for rejected or dead-lettered CloudEvents. Defaults to no dead-letter publish. */
-  deadLetterTopic?: string;
+  /**
+   * Optional scheduler used for durable `notBefore` publish and delayed retry.
+   *
+   * Immediate publish/subscribe does not require a scheduler. If a publish call
+   * provides `notBefore`, or a handler returns `ctx.retry({ delay })`, the
+   * transport throws unless a scheduler was supplied.
+   */
+  scheduler?: PubSubScheduler;
   /** Optional timeout for JetStream publish acknowledgements in milliseconds. */
   publishTimeoutMs?: number;
   /** Default CloudEvent source for publishers using this transport. */

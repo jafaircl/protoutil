@@ -1,5 +1,5 @@
 import type { KafkaJS } from "@confluentinc/kafka-javascript";
-import type { PubSubInterceptor } from "../types.js";
+import type { PubSubInterceptor, PubSubScheduler } from "../types.js";
 /** Topic configuration entry used by Kafka admin APIs. */
 export interface KafkaTopicConfigEntry {
   /** Kafka topic config name. */
@@ -63,12 +63,14 @@ export interface KafkaTransportOptions {
   publishTimeoutMs?: number;
   /** Optional Kafka consumer constructor config. */
   consumerConfig?: KafkaConsumerOptions;
-  /** Topics consumed by this subscriber transport. */
-  subscribeTopics?: string[];
-  /** Topic for rejected or dead-lettered CloudEvents. Defaults to no dead-letter publish. */
-  deadLetterTopic?: string;
-  /** Scheduler topic configuration for `notBefore` and retry delay support. */
-  scheduler: KafkaSchedulerOptions;
+  /**
+   * Optional scheduler used for durable `notBefore` publish and delayed retry.
+   *
+   * Immediate publish/subscribe does not require a scheduler. If a publish call
+   * provides `notBefore`, or a handler returns `ctx.retry({ delay })`, the
+   * transport throws unless a scheduler was supplied.
+   */
+  scheduler?: PubSubScheduler;
   /** Default CloudEvent source for publishers using this transport. */
   defaultSource?: string;
   /** Optional interceptors for transport operations. */

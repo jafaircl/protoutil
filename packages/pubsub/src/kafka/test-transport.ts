@@ -3,7 +3,7 @@ import type { PubSubBenchmarkContext } from "../benchmark-cases.js";
 import type { PubSubTransportTestContext, TransportOptions } from "../test-cases.js";
 import type { PubSubTestTransportAdapter } from "../test-transport-types.js";
 import type { PubSubTransport } from "../types.js";
-import { createKafkaTransport } from "./index.js";
+import { createKafkaScheduler, createKafkaTransport } from "./index.js";
 
 const BOOTSTRAP_SERVER = process.env.KAFKA_BOOTSTRAP_SERVER ?? "localhost:19092";
 
@@ -31,7 +31,7 @@ export async function closeTrackedKafkaTransports(): Promise<void> {
 
 /** Build one tracked Kafka transport instance for shared tests and benchmarks. */
 function createTrackedKafkaTransport(
-  suffix: string,
+  _suffix: string,
   options?:
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
@@ -41,8 +41,6 @@ function createTrackedKafkaTransport(
   // exercise the public Kafka transport API end to end.
   const transport = createKafkaTransport({
     client: kafkaClient(),
-    subscribeTopics: options?.subscribeTopics,
-    deadLetterTopic: testOptions?.deadLetterTopic,
     interceptors: testOptions?.interceptors,
     consumerConfig: {
       kafkaJS: {
@@ -50,11 +48,13 @@ function createTrackedKafkaTransport(
         logLevel: KafkaJS.logLevel.NOTHING,
       },
     },
-    scheduler: options?.scheduler ?? {
-      schedulesTopic: `protoutil.pubsub.shared.schedules.${suffix}`,
-      historyTopic: `protoutil.pubsub.shared.history.${suffix}`,
-      consumerGroup: `protoutil.pubsub.shared.scheduler.${suffix}`,
-    },
+    scheduler: options?.scheduler
+      ? createKafkaScheduler({
+          client: kafkaClient(),
+          options: options.scheduler,
+          interceptors: testOptions?.interceptors,
+        })
+      : undefined,
   });
   transports.push(transport);
   return transport;
@@ -74,7 +74,7 @@ function transportTestOptions(
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): TransportOptions | undefined {
-  if (!options || (!("deadLetterTopic" in options) && !("interceptors" in options))) {
+  if (!options || (!("scheduler" in options) && !("interceptors" in options))) {
     return undefined;
   }
   return options;

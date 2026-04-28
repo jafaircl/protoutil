@@ -24,6 +24,7 @@ import {
   SCHEDULE_RECORD_VERSION,
 } from "./headers.js";
 import { sendBatchWithTimeout, sendWithTimeout } from "./producer.js";
+import { schedulerTopics } from "./topology.js";
 import type { KafkaSchedulerOptions } from "./types.js";
 import { keyString } from "./utils.js";
 
@@ -43,6 +44,93 @@ interface KafkaSchedulerDependencies {
   consumerGroup: string;
   publishTimeoutMs?: number;
   interceptors?: PubSubInterceptor[];
+}
+
+export interface CreateKafkaSchedulerOptions {
+  client: KafkaJS.Kafka;
+  options: KafkaSchedulerOptions;
+  producerConfig?: KafkaJS.ProducerConstructorConfig;
+  adminConfig?: KafkaJS.AdminConstructorConfig;
+  publishTimeoutMs?: number;
+  interceptors?: PubSubInterceptor[];
+}
+
+/** Create a self-contained Kafka scheduler that can be shared across transports. */
+export function createKafkaScheduler(options: CreateKafkaSchedulerOptions): PubSubScheduler {
+  return new OwnedKafkaScheduler(options);
+}
+
+class OwnedKafkaScheduler implements PubSubScheduler {
+  readonly #producer: KafkaJS.Producer;
+  readonly #admin: KafkaJS.Admin;
+  readonly #scheduler: KafkaScheduler;
+  #producerStarted = false;
+  #adminStarted = false;
+  #schedulerStarted = false;
+  #startup?: Promise<void>;
+
+  public constructor(private readonly options: CreateKafkaSchedulerOptions) {
+    this.#producer = options.client.producer(options.producerConfig);
+    this.#admin = options.client.admin(options.adminConfig);
+    this.#scheduler = new KafkaScheduler({
+      client: options.client,
+      producer: this.#producer,
+      options: options.options,
+      consumerGroup:
+        options.options.consumerGroup ??
+        `protoutil.pubsub.scheduler.${options.options.schedulesTopic}`,
+      publishTimeoutMs: options.publishTimeoutMs,
+      interceptors: options.interceptors,
+    });
+  }
+
+  public async start(): Promise<void> {
+    this.#startup ??= this.#startOnce();
+    await this.#startup;
+  }
+
+  async #startOnce(): Promise<void> {
+    await this.#producer.connect();
+    this.#producerStarted = true;
+    if (this.options.options.autoCreateTopology ?? true) {
+      await this.#admin.connect();
+      this.#adminStarted = true;
+      await this.#admin.createTopics({ topics: schedulerTopics(this.options.options) });
+    }
+    await this.#scheduler.start();
+    this.#schedulerStarted = true;
+  }
+
+  public async close(): Promise<void> {
+    if (this.#schedulerStarted) {
+      await this.#scheduler.close();
+    }
+    if (this.#producerStarted) {
+      await this.#producer.disconnect();
+    }
+    if (this.#adminStarted) {
+      await this.#admin.disconnect();
+    }
+    this.#startup = undefined;
+    this.#schedulerStarted = false;
+    this.#producerStarted = false;
+    this.#adminStarted = false;
+  }
+
+  public async publishLater(request: PublishRequest): Promise<void> {
+    await this.start();
+    await this.#scheduler.publishLater(request);
+  }
+
+  public async retryLater(
+    topic: string,
+    event: CloudEvent,
+    delayMs: number,
+    attempt: number,
+  ): Promise<void> {
+    await this.start();
+    await this.#scheduler.retryLater(topic, event, delayMs, attempt);
+  }
 }
 
 /** Durable Kafka scheduler for `notBefore` and retry delay delivery. */

@@ -32,7 +32,7 @@ describe("CloudEvent publishing", () => {
       id: "event-1",
       source: "billing-service",
       specVersion: "1.0",
-      type: "AlphaHappened",
+      type: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened",
     });
     expect(published.event.attributes.datacontenttype.attr).toEqual({
       case: "ceString",

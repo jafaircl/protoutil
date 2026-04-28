@@ -16,9 +16,14 @@ import {
 import {
   createPublisher,
   createRouter,
+  type DeliveryHandler,
   type DispositionKind,
   InMemoryPubSubTransport,
   InvalidInputPubSubError,
+  type PublishRequest,
+  type PubSubTransport,
+  type SubscribeRequest,
+  type Subscription,
   TransientPubSubError,
   UnrecoverablePubSubError,
 } from "../../pubsub/src/index.js";
@@ -30,6 +35,9 @@ import {
   type PublishOptions,
   SuiteSchema,
 } from "./gen/protoutil/conformance/pubsub/v1/cases_pb.js";
+
+const DELAYED_PUBLISH_ERROR = "Delayed publish requires a scheduler";
+const DELAYED_RETRY_ERROR = "Delayed retry requires a scheduler";
 
 describe("pubsub conformance", async () => {
   const suites = await loadSuites();
@@ -83,6 +91,9 @@ async function runCase(test: Case) {
     case CaseKind.CLOUDEVENT_PARSE_FAILURE:
       await runParseFailureCase(test);
       return;
+    case CaseKind.SUBSCRIBE_RESOLUTION:
+      await runSubscribeResolutionCase(test);
+      return;
     default:
       throw new Error(`${test.name}: unsupported case kind ${test.kind}`);
   }
@@ -91,9 +102,19 @@ async function runCase(test: Case) {
 async function runPublishCase(test: Case) {
   expect(test.publish, `${test.name}: missing publish`).toBeDefined();
   if (!test.publish) return;
-  const transport = new InMemoryPubSubTransport();
-  const client = createPublisher(ConformanceEvents, transport, { source: "client-source" });
-  await publishFixture(client, test);
+  const transport = new ConformanceTransport({
+    schedulerAvailable: test.transportFeatures?.schedulerAvailable,
+  });
+  const client = createPublisher(ConformanceEvents, transport, {
+    source: "client-source",
+    topic: publisherTopicConfig(test),
+  });
+  const publish = publishFixture(client, test);
+  if (test.expectedErrorContains) {
+    await expect(publish).rejects.toThrow(test.expectedErrorContains);
+    return;
+  }
+  await publish;
   const published = transport.published[0];
 
   if (test.expectedTopic) {
@@ -152,10 +173,10 @@ async function runSourceCase(test: Case) {
 async function runRouteCase(test: Case) {
   expect(test.publish, `${test.name}: missing publish`).toBeDefined();
   if (!test.publish) return;
-  const transport = new InMemoryPubSubTransport();
-  const router = createRouter(transport);
+  const transport = new ConformanceTransport();
+  const router = createRouter(ConformanceEvents, transport, routerConfig(test));
   let routed = false;
-  router.service(ConformanceEvents, {
+  router.service({
     async alphaHappened(request) {
       routed = request.eventId === "evt_123";
     },
@@ -168,9 +189,30 @@ async function runRouteCase(test: Case) {
 }
 
 async function runDispositionCase(test: Case) {
-  const router = createRouter(new InMemoryPubSubTransport());
+  if (test.expectedErrorContains) {
+    const transport = new ConformanceTransport({
+      schedulerAvailable: test.transportFeatures?.schedulerAvailable,
+    });
+    const router = createRouter(ConformanceEvents, transport, routerConfig(test));
+    router.service({
+      async alphaHappened(_request, context) {
+        await context.retry({ delay: test.expectedDisposition?.delay });
+      },
+    });
+    await router.subscribe();
+    const client = createPublisher(ConformanceEvents, transport, {
+      source: "conformance-service",
+      topic: publisherTopicConfig(test),
+    });
+    await expect(client.alphaHappened({ eventId: "evt_123", name: "alpha" })).rejects.toThrow(
+      test.expectedErrorContains,
+    );
+    return;
+  }
+
+  const router = createRouter(ConformanceEvents, new InMemoryPubSubTransport());
   if (test.handlerBehavior !== HandlerBehavior.UNKNOWN_ROUTE) {
-    router.service(ConformanceEvents, {
+    router.service({
       async alphaHappened(_request, context) {
         switch (test.handlerBehavior) {
           case HandlerBehavior.SUCCESS:
@@ -216,9 +258,31 @@ async function runDispositionCase(test: Case) {
   }
 }
 
+async function runSubscribeResolutionCase(test: Case) {
+  const transport = new ConformanceTransport();
+  const router = createRouter(ConformanceEvents, transport, routerConfig(test));
+  router.service({
+    async alphaHappened() {},
+    async betaHappened() {},
+  });
+
+  await router.subscribe();
+  const request = transport.subscribeRequests[0];
+  expect(request, `${test.name}: expected one subscribe request`).toBeDefined();
+  if (!request) {
+    return;
+  }
+  if (test.expectedSubscribe?.topics.length) {
+    expect(request.topics).toEqual(test.expectedSubscribe.topics);
+  }
+  if (test.expectedSubscribe?.deadLetterTopic) {
+    expect(request.deadLetterTopic).toBe(test.expectedSubscribe.deadLetterTopic);
+  }
+}
+
 async function runParseFailureCase(test: Case) {
-  const router = createRouter(new InMemoryPubSubTransport());
-  router.service(ConformanceEvents, {
+  const router = createRouter(ConformanceEvents, new InMemoryPubSubTransport());
+  router.service({
     async alphaHappened() {},
   });
 
@@ -227,7 +291,7 @@ async function runParseFailureCase(test: Case) {
         id: "wrong-proto-data",
         source: "conformance-service",
         specVersion: "1.0",
-        type: "AlphaHappened",
+        type: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened",
         data: {
           case: "protoData",
           value: anyPack(
@@ -244,7 +308,7 @@ async function runParseFailureCase(test: Case) {
         id: "text-data",
         source: "conformance-service",
         specVersion: "1.0",
-        type: "AlphaHappened",
+        type: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened",
         data: { case: "textData", value: "not protobuf" },
       });
 
@@ -292,6 +356,30 @@ function publishOptions(options?: PublishOptions) {
   };
 }
 
+function publisherTopicConfig(test: Case) {
+  const defaults = test.publisherDefaults;
+  const topicByMethod = Object.fromEntries(
+    (defaults?.topicByMethod ?? []).map((binding) => [binding.method, binding.topic]),
+  );
+  const hasMethodBindings = Object.keys(topicByMethod).length > 0;
+  if (hasMethodBindings) {
+    return defaults?.topic ? { ...topicByMethod } : topicByMethod;
+  }
+  return defaults?.topic || undefined;
+}
+
+function routerConfig(test: Case) {
+  const config = test.routerConfig;
+  const topicByMethod = Object.fromEntries(
+    (config?.topicByMethod ?? []).map((binding) => [binding.method, binding.topic]),
+  );
+  const hasMethodBindings = Object.keys(topicByMethod).length > 0;
+  return {
+    topic: hasMethodBindings ? topicByMethod : (config?.topic || undefined),
+    deadLetterTopic: config?.deadLetterTopic || undefined,
+  };
+}
+
 function stringAttr(value: CloudEvent_CloudEventAttributeValue | undefined) {
   return value?.attr.value;
 }
@@ -317,4 +405,50 @@ function assertDisposition(
   _name: string,
 ) {
   expect(disposition.kind).toBe(expected);
+}
+
+class ConformanceTransport implements PubSubTransport {
+  public readonly published: PublishRequest[] = [];
+  public readonly dispositions: { kind: DispositionKind }[] = [];
+  public readonly subscribeRequests: SubscribeRequest[] = [];
+  public defaultSource?: string;
+  #handler?: DeliveryHandler;
+  #schedulerAvailable: boolean;
+
+  public constructor(options?: { defaultSource?: string; schedulerAvailable?: boolean }) {
+    this.defaultSource = options?.defaultSource;
+    this.#schedulerAvailable = options?.schedulerAvailable ?? true;
+  }
+
+  public async publish(request: PublishRequest): Promise<void> {
+    if (request.notBefore && !this.#schedulerAvailable) {
+      throw new Error(DELAYED_PUBLISH_ERROR);
+    }
+    this.published.push(request);
+    if (!this.#handler) {
+      return;
+    }
+    const disposition = await this.#handler({ event: request.event, topic: request.topic });
+    if (disposition.kind === "retry" && disposition.delay && !this.#schedulerAvailable) {
+      throw new Error(DELAYED_RETRY_ERROR);
+    }
+    this.dispositions.push(disposition);
+  }
+
+  public async subscribe(
+    handler: DeliveryHandler,
+    request: SubscribeRequest,
+  ): Promise<Subscription> {
+    this.subscribeRequests.push(request);
+    this.#handler = handler;
+    return {
+      unsubscribe: async () => {
+        this.#handler = undefined;
+      },
+    };
+  }
+
+  public async close(): Promise<void> {
+    this.#handler = undefined;
+  }
 }

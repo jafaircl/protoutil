@@ -29,16 +29,17 @@ import {
   PROTOUTIL_HEADER_ORIGINAL_TOPIC,
 } from "../headers.js";
 import { applyPubSubInterceptors, notifyInterceptors } from "../interceptors.js";
+import { retryLaterOrThrow, scheduleOrThrow } from "../scheduler.js";
 import { retryLimitReached, stableTopicHash } from "../transport-utils.js";
 import type {
   DeliveryHandler,
   Disposition,
   PublishRequest,
   PubSubTransport,
-  SubscribeOptions,
+  SubscribeRequest,
   Subscription,
 } from "../types.js";
-import { NatsScheduler, scheduleAttempt } from "./scheduler.js";
+import { scheduleAttempt } from "./scheduler.js";
 import type { NatsTransportOptions } from "./types.js";
 import { durableNamePart, safeAck } from "./utils.js";
 
@@ -64,9 +65,7 @@ class DefaultNatsTransport implements PubSubTransport {
   #connection?: NatsConnection;
   #jetstream?: JetStreamClient;
   #manager?: JetStreamManager;
-  #scheduler?: NatsScheduler;
   #startup?: Promise<void>;
-  #schedulerStartup?: Promise<void>;
 
   /** Create one NATS transport with lazy connection and topology startup. */
   public constructor(options: NatsTransportOptions) {
@@ -95,62 +94,28 @@ class DefaultNatsTransport implements PubSubTransport {
     );
   }
 
-  /** Start the durable scheduler worker used for delayed publishes and retries. */
-  async #ensureSchedulerStarted(): Promise<void> {
-    this.#schedulerStartup ??= this.#startScheduler();
-    await this.#schedulerStartup;
-  }
-
-  /** Create the scheduler and start its background delivery loop. */
-  async #startScheduler(): Promise<void> {
-    await this.#ensureStarted();
-    if (!this.#jetstream || !this.#manager) {
-      throw new Error("NATS transport was not initialized");
-    }
-    this.#scheduler = new NatsScheduler({
-      jetstream: this.#jetstream,
-      manager: this.#manager,
-      options: this.#options.scheduler,
-      publishTimeoutMs: this.#options.publishTimeoutMs,
-      interceptors: this.#options.interceptors,
-      publishImmediate: (topic, event, attempt) => this.#publishImmediate(topic, event, attempt),
-      ensureStream: (name, subjects, storage) => this.#ensureStream(name, subjects, storage),
-      ensureConsumer: (stream, name, subjects, ackWait, maxPending, policy) =>
-        this.#ensureConsumer(stream, name, subjects, ackWait, maxPending, policy),
-      publishHeaders,
-    });
-    await this.#scheduler.start();
-  }
-
   /** Close owned subscriptions, scheduler state, and the shared NATS connection. */
   public async close(): Promise<void> {
     for (const subscription of this.#subscriptions) {
       await subscription.close();
     }
     this.#subscriptions.clear();
-    if (this.#scheduler) {
-      await this.#scheduler.close();
-    }
     await this.#connection?.close();
     this.#connection = undefined;
     this.#jetstream = undefined;
     this.#manager = undefined;
-    this.#scheduler = undefined;
     this.#startup = undefined;
-    this.#schedulerStartup = undefined;
   }
 
   /** Publish one immediate or delayed CloudEvent through JetStream. */
   public async publish(request: PublishRequest): Promise<void> {
-    await this.#ensureStarted();
     await applyPubSubInterceptors(
       this.#options.interceptors,
       { operation: "publish", request },
       async (ctx) => {
         const req = (ctx as Extract<typeof ctx, { operation: "publish" }>).request;
         if (req.notBefore) {
-          await this.#ensureSchedulerStarted();
-          await this.#scheduler!.publishLater(req);
+          await scheduleOrThrow(this.#options.scheduler, req);
           return;
         }
         await this.#publishImmediate(req.topic, req.event, 1);
@@ -161,24 +126,23 @@ class DefaultNatsTransport implements PubSubTransport {
   /** Start one durable JetStream consumer and return an unsubscribe handle. */
   public async subscribe(
     handler: DeliveryHandler,
-    options?: SubscribeOptions,
+    request: SubscribeRequest,
   ): Promise<Subscription> {
     await this.#ensureStarted();
-    await this.#ensureSchedulerStarted();
-    if (!this.#manager || !this.#options.subscribeTopics?.length) {
+    if (!this.#manager || !request.topics.length) {
       throw new Error("NATS subscriber transport requires at least one subscribe topic");
     }
 
     const consumerName = subscriptionConsumerName(
-      options?.consumerGroup ?? DEFAULT_CONSUMER_GROUP,
-      this.#options.subscribeTopics,
+      request.consumerGroup ?? DEFAULT_CONSUMER_GROUP,
+      request.topics,
     );
     await this.#ensureConsumer(
       this.#options.stream.name,
       consumerName,
-      this.#options.subscribeTopics,
+      request.topics,
       DEFAULT_ACK_WAIT_MS,
-      Math.max(options?.concurrency ?? 1, 1),
+      Math.max(request.concurrency ?? 1, 1),
       DeliverPolicy.All,
     );
     if (!this.#jetstream) {
@@ -186,7 +150,7 @@ class DefaultNatsTransport implements PubSubTransport {
     }
     const consumer = await this.#jetstream.consumers.get(this.#options.stream.name, consumerName);
     const messages = await consumer.consume({
-      max_messages: Math.max(options?.concurrency ?? 1, 1),
+      max_messages: Math.max(request.concurrency ?? 1, 1),
       abort_on_missing_resource: true,
     });
 
@@ -197,7 +161,7 @@ class DefaultNatsTransport implements PubSubTransport {
         return;
       }
       closed = true;
-      options?.signal?.removeEventListener("abort", abort);
+      request.signal?.removeEventListener("abort", abort);
       this.#subscriptions.delete(active);
       await messages.close();
       await Promise.allSettled(inFlight);
@@ -210,11 +174,23 @@ class DefaultNatsTransport implements PubSubTransport {
 
     const loop = (async () => {
       for await (const message of messages) {
-        const task = this.#consumeMessage(handler, message, options).finally(() => {
-          inFlight.delete(task);
-        });
+        const task = this.#consumeMessage(handler, message, request)
+          .catch(async (error) => {
+            await notifyInterceptors(this.#options.interceptors, {
+              operation: "deliveryFailed",
+              event: {
+                id: message.headers?.last(CLOUD_EVENT_HEADER_ID) ?? "",
+                topic: message.subject,
+                error,
+              },
+            });
+            safeAck(message);
+          })
+          .finally(() => {
+            inFlight.delete(task);
+          });
         inFlight.add(task);
-        if (inFlight.size >= Math.max(options?.concurrency ?? 1, 1)) {
+        if (inFlight.size >= Math.max(request.concurrency ?? 1, 1)) {
           await Promise.race(inFlight);
         }
       }
@@ -223,11 +199,11 @@ class DefaultNatsTransport implements PubSubTransport {
       this.#subscriptions.delete(active);
     });
 
-    if (options?.signal?.aborted) {
+    if (request.signal?.aborted) {
       await close();
       return { unsubscribe: close };
     }
-    options?.signal?.addEventListener("abort", abort, { once: true });
+    request.signal?.addEventListener("abort", abort, { once: true });
 
     return { unsubscribe: close };
   }
@@ -303,7 +279,7 @@ class DefaultNatsTransport implements PubSubTransport {
   async #consumeMessage(
     handler: DeliveryHandler,
     message: JsMsg,
-    options: SubscribeOptions | undefined,
+    request: SubscribeRequest,
   ): Promise<void> {
     let event: CloudEvent;
     try {
@@ -332,7 +308,14 @@ class DefaultNatsTransport implements PubSubTransport {
         return handler(d);
       },
     )) as Disposition;
-    await this.#settleDelivery(message, event, disposition, attempt, options);
+    await this.#settleDelivery(
+      message,
+      event,
+      disposition,
+      attempt,
+      request.maxAttempts,
+      request.deadLetterTopic,
+    );
   }
 
   /** Map one router disposition onto JetStream ack, retry, or dead-letter behavior. */
@@ -341,15 +324,22 @@ class DefaultNatsTransport implements PubSubTransport {
     event: CloudEvent,
     disposition: Disposition,
     attempt: number,
-    options: SubscribeOptions | undefined,
+    maxAttempts: number | undefined,
+    deadLetterTopic: string | undefined,
   ): Promise<void> {
     if (disposition.kind === "retry") {
-      if (retryLimitReached(attempt, options?.maxAttempts)) {
+      if (retryLimitReached(attempt, maxAttempts)) {
         await notifyInterceptors(this.#options.interceptors, {
           operation: "retryExhausted",
           event: { id: event.id, topic: message.subject, attempt },
         });
-        await this.#publishDeadLetter(message.subject, event, attempt, "dead_letter");
+        await this.#publishDeadLetter(
+          deadLetterTopic,
+          message.subject,
+          event,
+          attempt,
+          "dead_letter",
+        );
         safeAck(message);
         await notifyInterceptors(this.#options.interceptors, {
           operation: "committed",
@@ -359,7 +349,13 @@ class DefaultNatsTransport implements PubSubTransport {
       }
       const delay = disposition.delay ? durationMs(disposition.delay) : 0;
       if (delay > 0) {
-        await this.#scheduler!.retryLater(message.subject, event, delay, attempt + 1);
+        await retryLaterOrThrow(
+          this.#options.scheduler,
+          message.subject,
+          event,
+          disposition,
+          attempt + 1,
+        );
       } else {
         await this.#publishImmediate(message.subject, event, attempt + 1);
       }
@@ -376,7 +372,13 @@ class DefaultNatsTransport implements PubSubTransport {
     }
 
     if (disposition.kind === "reject" || disposition.kind === "dead_letter") {
-      await this.#publishDeadLetter(message.subject, event, attempt, disposition.kind);
+      await this.#publishDeadLetter(
+        deadLetterTopic,
+        message.subject,
+        event,
+        attempt,
+        disposition.kind,
+      );
     }
     safeAck(message);
     await notifyInterceptors(this.#options.interceptors, {
@@ -387,15 +389,16 @@ class DefaultNatsTransport implements PubSubTransport {
 
   /** Publish one rejected or dead-lettered CloudEvent when a dead-letter topic is configured. */
   async #publishDeadLetter(
+    deadLetterTopic: string | undefined,
     topic: string,
     event: CloudEvent,
     attempt: number,
     disposition: Disposition["kind"],
   ): Promise<void> {
-    if (!this.#options.deadLetterTopic || !this.#jetstream) {
+    if (!deadLetterTopic || !this.#jetstream) {
       return;
     }
-    await this.#jetstream.publish(this.#options.deadLetterTopic, cloudEventBytes(event), {
+    await this.#jetstream.publish(deadLetterTopic, cloudEventBytes(event), {
       timeout: this.#options.publishTimeoutMs,
       headers: publishHeaders(event, {
         [PROTOUTIL_HEADER_ATTEMPT]: String(attempt),
@@ -405,7 +408,7 @@ class DefaultNatsTransport implements PubSubTransport {
     });
     await notifyInterceptors(this.#options.interceptors, {
       operation: "deadLettered",
-      event: { id: event.id, topic: this.#options.deadLetterTopic, attempt },
+      event: { id: event.id, topic: deadLetterTopic, attempt },
     });
   }
 }

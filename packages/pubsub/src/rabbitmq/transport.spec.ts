@@ -1,7 +1,7 @@
 import { afterEach, describe, it } from "vitest";
 import { groups, type PubSubTransportTestContext } from "../test-cases.js";
 import type { PubSubTransport } from "../types.js";
-import { createRabbitMqTransport } from "./index.js";
+import { createRabbitMqScheduler, createRabbitMqTransport } from "./index.js";
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL ?? "amqp://guest:guest@127.0.0.1:5673";
 
@@ -41,11 +41,15 @@ function context(suffix: string): PubSubTransportTestContext {
     transport(options) {
       const transport = createRabbitMqTransport({
         url: RABBITMQ_URL,
-        scheduleQueue: options?.scheduler?.schedulesTopic ?? `protoutil.pubsub.schedules.${suffix}`,
-        subscribeTopics: options?.subscribeTopics,
-        deadLetterTopic: options?.deadLetterTopic,
         interceptors: options?.interceptors,
         queuePrefix: `protoutil.pubsub.queue.${suffix}`,
+        scheduler: options?.scheduler
+          ? createRabbitMqScheduler({
+              url: RABBITMQ_URL,
+              scheduleQueue: options.scheduler.schedulesTopic,
+              interceptors: options.interceptors,
+            })
+          : undefined,
       });
       transports.push(transport);
       return transport;

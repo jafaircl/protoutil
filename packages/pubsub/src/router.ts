@@ -5,10 +5,11 @@ import type { ContextValues } from "./context-values.js";
 import { createContextValues } from "./context-values.js";
 import { ACK, DEAD_LETTER, normalizeThrown, retry } from "./disposition.js";
 import { InvalidInputPubSubError, UnrecoverablePubSubError } from "./errors.js";
-import { resolveCloudEventType } from "./resolvers.js";
+import { resolveRouterOptions, resolveSubscribeRequest } from "./options.js";
 import { unaryMethods } from "./service.js";
 import type {
   CloudEvent,
+  CreateRouterOptions,
   Delivery,
   Disposition,
   EventHandler,
@@ -20,7 +21,10 @@ import type {
 } from "./types.js";
 
 interface Route {
+  service: GenService<GenServiceMethods>;
   method: DescMethodUnary;
+  topic: string;
+  deadLetterTopic: string;
   handler: EventHandler;
 }
 
@@ -29,12 +33,9 @@ interface Route {
  *
  * @see {@link https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md | CloudEvents specification}
  */
-export interface Router {
-  /** Register handlers for unary methods on a generated protobuf service. */
-  service<TService extends GenService<GenServiceMethods>>(
-    service: TService,
-    implementation: EventHandlers<TService>,
-  ): Router;
+export interface Router<TService extends GenService<GenServiceMethods>> {
+  /** Register handlers for unary methods on the generated protobuf service. */
+  service(implementation: EventHandlers<TService>): Router<TService>;
   /** Subscribe the router with its configured transport. */
   subscribe(options?: SubscribeOptions): Promise<Subscription>;
   /** Dispatch a transport delivery and return the normalized disposition. */
@@ -46,22 +47,27 @@ export interface Router {
  *
  * @see {@link https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md | CloudEvents specification}
  */
-export function createRouter(transport: SubscriberTransport): Router {
-  return new DefaultRouter(transport);
+export function createRouter<TService extends GenService<GenServiceMethods>>(
+  service: TService,
+  transport: SubscriberTransport,
+  options?: CreateRouterOptions<TService>,
+): Router<TService> {
+  return new DefaultRouter(service, transport, options);
 }
 
-class DefaultRouter implements Router {
+class DefaultRouter<TService extends GenService<GenServiceMethods>> implements Router<TService> {
   readonly #routes = new Map<string, Route>();
 
   /** Create a router bound to one subscriber transport instance. */
-  public constructor(private readonly transport: SubscriberTransport) {}
+  public constructor(
+    private readonly serviceDefinition: TService,
+    private readonly transport: SubscriberTransport,
+    private readonly options?: CreateRouterOptions<TService>,
+  ) {}
 
   /** Register handlers for each implemented unary service method. */
-  public service<TService extends GenService<GenServiceMethods>>(
-    service: TService,
-    implementation: EventHandlers<TService>,
-  ): Router {
-    for (const method of unaryMethods(service)) {
+  public service(implementation: EventHandlers<TService>): Router<TService> {
+    for (const method of unaryMethods(this.serviceDefinition)) {
       // Generated service descriptors are the contract surface. Each registered
       // unary method becomes one CloudEvent type route.
       const handler = implementation[method.localName as keyof typeof implementation] as
@@ -70,16 +76,24 @@ class DefaultRouter implements Router {
       if (!handler) {
         continue;
       }
-      this.#routes.set(resolveCloudEventType(method), { method, handler });
+      const resolved = resolveRouterOptions(this.serviceDefinition, method, this.options);
+      this.#routes.set(resolved.type, {
+        service: this.serviceDefinition,
+        method,
+        topic: resolved.topic,
+        deadLetterTopic: resolved.deadLetterTopic,
+        handler,
+      });
     }
     return this;
   }
 
   /** Subscribe the bound transport and route all deliveries through dispatch(). */
   public async subscribe(options?: SubscribeOptions): Promise<Subscription> {
-    // The router stays transport-neutral by exposing one delivery callback that
-    // always routes through dispatch().
-    return this.transport.subscribe((delivery) => this.dispatch(delivery), options);
+    return this.transport.subscribe(
+      (delivery) => this.dispatch(delivery),
+      resolveSubscribeRequest(this.#routes.values(), options),
+    );
   }
 
   /** Decode one delivery and invoke the matching handler, if any. */

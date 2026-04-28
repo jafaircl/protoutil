@@ -25,9 +25,9 @@ export type CloudEventMetadataValue = string | number | boolean | Uint8Array;
  * @see {@link https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md | CloudEvents specification}
  */
 export interface PublishOptions {
-  /** Transport delivery topic. Defaults to the protobuf method name, then message type name. */
+  /** Transport delivery topic. Overrides publisher topic defaults for this call only. */
   topic?: string;
-  /** Semantic CloudEvent type. Defaults to the protobuf method name, then message type name. */
+  /** Semantic CloudEvent type. Defaults to the fully qualified protobuf method name. */
   type?: string;
   /** CloudEvent source for this publish call. Overrides publisher and transport defaults. */
   source?: string;
@@ -48,10 +48,37 @@ export interface PublishOptions {
   notBefore?: Timestamp;
 }
 
+export type TopicConfig<TService extends GenService<GenServiceMethods>> =
+  | string
+  | Partial<Record<keyof TService["method"], string>>;
+
 /** Defaults applied to every publish call made by a publisher. */
-export interface PublisherOptions {
+export interface PublisherOptions<TService extends GenService<GenServiceMethods>> {
   /** Default CloudEvent source when a publish call does not provide one. */
   source?: string;
+  /** Context values passed through the interceptor chain and to nested operations. */
+  contextValues?: ContextValues;
+  /**
+   * Broker delivery topic configuration.
+   *
+   * This does not change CloudEvent `type`. Handlers are selected by CloudEvent
+   * type; topics only decide where the broker delivers the event.
+   */
+  topic?: TopicConfig<TService>;
+}
+
+export interface CreateRouterOptions<
+  TService extends GenService<GenServiceMethods> = GenService<GenServiceMethods>,
+> {
+  /**
+   * Broker delivery topic configuration.
+   *
+   * This does not change CloudEvent `type`. Handlers are selected by CloudEvent
+   * type; topics only decide where the broker delivers the event.
+   */
+  topic?: TopicConfig<TService>;
+  /** Topic for rejected or dead-lettered CloudEvents. Defaults to `<service.typeName>.__deadletter`. */
+  deadLetterTopic?: string;
   /** Context values passed through the interceptor chain and to nested operations. */
   contextValues?: ContextValues;
 }
@@ -71,6 +98,14 @@ export interface SubscribeOptions {
   signal?: AbortSignal;
   /** Context values passed through the interceptor chain and to nested operations. */
   contextValues?: ContextValues;
+}
+
+/** Internal subscribe request passed from the router to transports. */
+export interface SubscribeRequest extends SubscribeOptions {
+  /** Broker topics or subjects resolved by the router. */
+  topics: string[];
+  /** Broker dead-letter topic resolved by the router, when any. */
+  deadLetterTopic?: string;
 }
 
 /** Options for explicitly retrying a delivery from a handler. */
@@ -221,7 +256,7 @@ export interface PublisherTransport {
 /** Transport interface for subscribing to CloudEvents. */
 export interface SubscriberTransport {
   /** Register a delivery handler with the transport. */
-  subscribe(handler: DeliveryHandler, options?: SubscribeOptions): Promise<Subscription>;
+  subscribe(handler: DeliveryHandler, request: SubscribeRequest): Promise<Subscription>;
 }
 
 /** Combined transport that can publish, subscribe, and close owned resources. */

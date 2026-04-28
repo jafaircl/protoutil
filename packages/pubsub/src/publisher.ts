@@ -6,7 +6,7 @@ import {
 } from "@bufbuild/protobuf";
 import type { GenService, GenServiceMethods } from "@bufbuild/protobuf/codegenv2";
 import { buildCloudEvent } from "./cloudevents.js";
-import { resolveCloudEventSource, resolveCloudEventType, resolveTopic } from "./resolvers.js";
+import { resolvePublisherOptions } from "./options.js";
 import { unaryMethods } from "./service.js";
 import type {
   EventPublisher,
@@ -23,7 +23,7 @@ import type {
 export function createPublisher<TService extends GenService<GenServiceMethods>>(
   service: TService,
   transport: PublisherTransport,
-  options?: PublisherOptions,
+  options?: PublisherOptions<TService>,
 ): EventPublisher<TService> {
   const publisher = {} as EventPublisher<TService>;
   for (const method of unaryMethods(service)) {
@@ -45,19 +45,15 @@ export function createPublisher<TService extends GenService<GenServiceMethods>>(
 async function publish(
   method: DescMethodUnary,
   transport: PublisherTransport,
-  clientOptions: PublisherOptions | undefined,
+  clientOptions: PublisherOptions<GenService<GenServiceMethods>> | undefined,
   payload: MessageInitShape<DescMessage>,
   options?: PublishOptions,
 ) {
-  // Resolve all routing semantics before the transport sees the request so the
-  // transport only deals with an explicit topic plus a finished CloudEvent.
-  const topic = resolveTopic(method, options);
-  const type = resolveCloudEventType(method, options);
-  const source = resolveCloudEventSource(transport, clientOptions, options);
+  const resolved = resolvePublisherOptions(method, transport, clientOptions, options);
   const event = buildCloudEvent(method.input, create(method.input, payload), {
     ...options,
-    source,
-    type,
+    source: resolved.source,
+    type: resolved.type,
   });
-  await transport.publish({ topic, event, notBefore: options?.notBefore });
+  await transport.publish({ topic: resolved.topic, event, notBefore: options?.notBefore });
 }

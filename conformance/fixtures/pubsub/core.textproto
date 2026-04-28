@@ -17,7 +17,7 @@ section {
     expected_event {
       source: "conformance-service"
       specversion: "1.0"
-      type: "AlphaHappened"
+      type: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
       dataschema: "protoutil.pubsub.testing.v1.AlphaEvent"
       datacontenttype: "application/protobuf"
       data_json: "{\"eventId\":\"evt_123\",\"name\":\"alpha\"}"
@@ -80,7 +80,7 @@ section {
     expected_event {
       source: "beta-service"
       specversion: "1.0"
-      type: "BetaHappened"
+      type: "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened"
       dataschema: "protoutil.pubsub.testing.v1.BetaEvent"
       datacontenttype: "application/protobuf"
       data_json: "{\"eventId\":\"evt_456\",\"detail\":\"beta-detail\",\"active\":true}"
@@ -106,6 +106,40 @@ section {
     expected_topic: "custom.topic"
   }
   test {
+    name: "publisher default topic applies to method"
+    kind: CASE_KIND_TOPIC_PRECEDENCE
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+      }
+    }
+    publisher_defaults { topic: "publisher.default.topic" }
+    expected_topic: "publisher.default.topic"
+  }
+  test {
+    name: "publisher method topic applies to matching method"
+    kind: CASE_KIND_TOPIC_PRECEDENCE
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+      }
+    }
+    publisher_defaults {
+      topic_by_method { method: "alphaHappened" topic: "publisher.alpha.topic" }
+    }
+    expected_topic: "publisher.alpha.topic"
+  }
+  test {
     name: "topic falls back to method typename"
     kind: CASE_KIND_TOPIC_PRECEDENCE
     publish {
@@ -118,7 +152,7 @@ section {
         source: "conformance-service"
       }
     }
-    expected_topic: "AlphaHappened"
+    expected_topic: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
   }
   test {
     name: "type explicit beats method typename"
@@ -137,6 +171,25 @@ section {
     expected_value: "com.example.conformance.AlphaHappened.v2"
   }
   test {
+    name: "type stays semantic when topic is overridden"
+    kind: CASE_KIND_CLOUDEVENT_MATERIALIZATION
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        topic: "custom.topic"
+        source: "conformance-service"
+      }
+    }
+    expected_topic: "custom.topic"
+    expected_event {
+      type: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
+    }
+  }
+  test {
     name: "type falls back to method typename"
     kind: CASE_KIND_TYPE_PRECEDENCE
     publish {
@@ -149,7 +202,7 @@ section {
         source: "conformance-service"
       }
     }
-    expected_value: "AlphaHappened"
+    expected_value: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
   }
   test {
     name: "source explicit beats client default"
@@ -184,6 +237,53 @@ section {
     kind: CASE_KIND_SOURCE_PRECEDENCE
     source_defaults { library_default: "protoutil.pubsub" }
     expected_value: "protoutil.pubsub"
+  }
+}
+section {
+  name: "Subscription resolution"
+  test {
+    name: "router string topic resolves subscribe topic"
+    kind: CASE_KIND_SUBSCRIBE_RESOLUTION
+    router_config {
+      topic: "router.shared.topic"
+    }
+    expected_subscribe {
+      topics: "router.shared.topic"
+      dead_letter_topic: "protoutil.pubsub.testing.v1.ConformanceEvents.__deadletter"
+    }
+  }
+  test {
+    name: "router method topic resolves subscribe topic"
+    kind: CASE_KIND_SUBSCRIBE_RESOLUTION
+    router_config {
+      topic_by_method { method: "alphaHappened" topic: "router.alpha.topic" }
+    }
+    expected_subscribe {
+      topics: "router.alpha.topic"
+      topics: "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened"
+      dead_letter_topic: "protoutil.pubsub.testing.v1.ConformanceEvents.__deadletter"
+    }
+  }
+  test {
+    name: "dead letter topic defaults from service type"
+    kind: CASE_KIND_SUBSCRIBE_RESOLUTION
+    expected_subscribe {
+      topics: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
+      topics: "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened"
+      dead_letter_topic: "protoutil.pubsub.testing.v1.ConformanceEvents.__deadletter"
+    }
+  }
+  test {
+    name: "dead letter topic override resolves on subscribe"
+    kind: CASE_KIND_SUBSCRIBE_RESOLUTION
+    router_config {
+      dead_letter_topic: "billing.__deadletter"
+    }
+    expected_subscribe {
+      topics: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"
+      topics: "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened"
+      dead_letter_topic: "billing.__deadletter"
+    }
   }
 }
 section {
@@ -298,5 +398,33 @@ section {
       kind: "retry"
       delay { seconds: 3 }
     }
+  }
+  test {
+    name: "delayed publish without scheduler fails"
+    kind: CASE_KIND_DELAYED_PUBLISH
+    publish {
+      method: "alphaHappened"
+      payload {
+        event_id: "evt_123"
+        name: "alpha"
+      }
+      options {
+        source: "conformance-service"
+        not_before { seconds: 5 }
+      }
+    }
+    transport_features { scheduler_available: false }
+    expected_error_contains: "Delayed publish requires a scheduler"
+  }
+  test {
+    name: "delayed retry without scheduler fails"
+    kind: CASE_KIND_DELAYED_RETRY
+    handler_behavior: HANDLER_BEHAVIOR_RETRY_DELAY
+    transport_features { scheduler_available: false }
+    expected_disposition {
+      kind: "retry"
+      delay { seconds: 3 }
+    }
+    expected_error_contains: "Delayed retry requires a scheduler"
   }
 }

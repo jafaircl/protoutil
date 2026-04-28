@@ -50,6 +50,7 @@ tasks:
     command: "pnpm --filter @protoutil/conformance-runner run pubsub"
     dependsOn:
       - "conformance:generate"
+      - "conformance-runner:protogen"
       - test
     inputs:
       - "@globs(sources)"

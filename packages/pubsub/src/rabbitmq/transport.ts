@@ -1,4 +1,4 @@
-import { durationMs, timestampDate } from "@bufbuild/protobuf/wkt";
+import { timestampDate } from "@bufbuild/protobuf/wkt";
 import type { Channel, ChannelModel, ConfirmChannel, ConsumeMessage, Options } from "amqplib";
 import { connect } from "amqplib";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
@@ -17,21 +17,21 @@ import {
   PROTOUTIL_HEADER_ORIGINAL_TOPIC,
 } from "../headers.js";
 import { applyPubSubInterceptors, notifyInterceptors } from "../interceptors.js";
+import { retryLaterOrThrow, scheduleOrThrow } from "../scheduler.js";
 import { retryLimitReached, stableTopicHash } from "../transport-utils.js";
 import type {
   DeliveryHandler,
   Disposition,
   PublishRequest,
   PubSubTransport,
-  SubscribeOptions,
+  SubscribeRequest,
   Subscription,
 } from "../types.js";
-import { ackMessage, RabbitMqScheduler } from "./scheduler.js";
+import { ackMessage } from "./scheduler.js";
 import type { RabbitMqTransportOptions } from "./types.js";
 
 const DEFAULT_EXCHANGE = "protoutil.pubsub";
 const DEFAULT_QUEUE_PREFIX = "protoutil.pubsub.queue";
-const DEFAULT_SCHEDULE_QUEUE = "protoutil.pubsub.schedules";
 const DEFAULT_CONSUMER_GROUP = "protoutil.pubsub";
 
 /**
@@ -48,9 +48,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
   readonly #subscriptions = new Set<{ channel: Channel; consumerTag: string }>();
   #connection?: ChannelModel;
   #publisher?: ConfirmChannel;
-  #scheduler?: RabbitMqScheduler;
   #startup?: Promise<void>;
-  #schedulerStartup?: Promise<void>;
 
   /** Create one RabbitMQ transport with lazy connection, publisher, and scheduler startup. */
   public constructor(options: RabbitMqTransportOptions) {
@@ -69,43 +67,9 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     this.#connection = await connect(this.#options.url);
     this.#publisher = await this.#connection.createConfirmChannel();
     // RabbitMQ creates exchanges and queues on demand. The transport owns the
-    // durable exchange and scheduler queue topology it needs instead of asking
-    // application code to provision them manually first.
+    // durable exchange topology it needs instead of asking application code to
+    // provision it manually first.
     await this.#publisher.assertExchange(this.#exchange(), "topic", { durable: true });
-    await this.#publisher.assertQueue(this.#scheduleQueue(), { durable: true });
-  }
-
-  /** Start the durable scheduler consumer that manages delayed delivery. */
-  async #ensureSchedulerStarted(): Promise<void> {
-    this.#schedulerStartup ??= this.#startScheduler();
-    await this.#schedulerStartup;
-  }
-
-  /** Create the scheduler and start its background delivery loop. */
-  async #startScheduler(): Promise<void> {
-    await this.#ensureStarted();
-    if (!this.#connection || !this.#publisher) {
-      throw new Error("RabbitMQ transport connection was not initialized");
-    }
-    const publisher = this.#publisher;
-    const scheduleQueue = this.#scheduleQueue();
-    this.#scheduler = new RabbitMqScheduler({
-      connection: this.#connection,
-      scheduleQueue,
-      interceptors: this.#options.interceptors,
-      publishImmediate: (topic, event, attempt) => this.#publishImmediate(topic, event, attempt),
-      publishToScheduleQueue: (content, options) =>
-        publishConfirmed(
-          publisher,
-          "sendToQueue",
-          scheduleQueue,
-          "",
-          content,
-          options,
-          this.#options.publishTimeoutMs,
-        ),
-    });
-    await this.#scheduler.start();
   }
 
   /** Return the configured durable topic exchange name. */
@@ -118,40 +82,28 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     return this.#options.queuePrefix ?? DEFAULT_QUEUE_PREFIX;
   }
 
-  /** Return the configured durable schedule queue name. */
-  #scheduleQueue(): string {
-    return this.#options.scheduleQueue ?? DEFAULT_SCHEDULE_QUEUE;
-  }
-
   /** Close the connection, channels, timers, and subscription state owned by this transport. */
   public async close(): Promise<void> {
-    if (this.#scheduler) {
-      await this.#scheduler.close();
-    }
     for (const subscription of this.#subscriptions) {
       await subscription.channel.close();
     }
     this.#subscriptions.clear();
     await this.#publisher?.close();
     await this.#connection?.close();
-    this.#scheduler = undefined;
     this.#publisher = undefined;
     this.#connection = undefined;
     this.#startup = undefined;
-    this.#schedulerStartup = undefined;
   }
 
   /** Publish one immediate or delayed CloudEvent through RabbitMQ. */
   public async publish(request: PublishRequest): Promise<void> {
-    await this.#ensureStarted();
     await applyPubSubInterceptors(
       this.#options.interceptors,
       { operation: "publish", request },
       async (ctx) => {
         const req = (ctx as Extract<typeof ctx, { operation: "publish" }>).request;
         if (req.notBefore) {
-          await this.#ensureSchedulerStarted();
-          await this.#scheduler!.publishLater(req);
+          await scheduleOrThrow(this.#options.scheduler, req);
           return;
         }
         await this.#publishImmediate(req.topic, req.event, 1);
@@ -162,41 +114,42 @@ class DefaultRabbitMqTransport implements PubSubTransport {
   /** Start one RabbitMQ subscription and return an unsubscribe handle. */
   public async subscribe(
     handler: DeliveryHandler,
-    options?: SubscribeOptions,
+    request: SubscribeRequest,
   ): Promise<Subscription> {
     await this.#ensureStarted();
     if (!this.#connection) {
       throw new Error("RabbitMQ transport connection was not initialized");
     }
-    if (!this.#options.subscribeTopics?.length) {
+    if (!request.topics.length) {
       throw new Error("RabbitMQ subscriber transport requires at least one subscribe topic");
     }
 
     const channel = await this.#connection.createChannel();
     await channel.assertExchange(this.#exchange(), "topic", { durable: true });
-    await channel.prefetch(options?.concurrency ?? 1);
+    await channel.prefetch(request.concurrency ?? 1);
 
     const queue = subscriptionQueueName(
       this.#queuePrefix(),
-      options?.consumerGroup ?? DEFAULT_CONSUMER_GROUP,
-      this.#options.subscribeTopics,
+      request.consumerGroup ?? DEFAULT_CONSUMER_GROUP,
+      request.topics,
     );
     // Subscriber queues are derived from the transport-neutral consumer group
     // plus the subscribed topics. Asserting and binding them here means a
     // missing topic/routing path is created as part of normal startup.
     await channel.assertQueue(queue, { durable: true });
-    for (const topic of this.#options.subscribeTopics) {
+    for (const topic of request.topics) {
       await channel.bindQueue(queue, this.#exchange(), topic);
     }
+    await this.#options.scheduler?.start();
 
-    if (options?.signal?.aborted) {
+    if (request.signal?.aborted) {
       await channel.close();
       return { unsubscribe: async () => undefined };
     }
 
     let consumerTag = "";
     const unsubscribe = async () => {
-      options?.signal?.removeEventListener("abort", abort);
+      request.signal?.removeEventListener("abort", abort);
       for (const subscription of this.#subscriptions) {
         if (subscription.channel === channel && subscription.consumerTag === consumerTag) {
           this.#subscriptions.delete(subscription);
@@ -216,14 +169,25 @@ class DefaultRabbitMqTransport implements PubSubTransport {
         if (!message) {
           return;
         }
-        await this.#consumeMessage(channel, handler, message, options);
+        try {
+          await this.#consumeMessage(channel, handler, message, request);
+        } catch (error) {
+          await notifyInterceptors(this.#options.interceptors, {
+            operation: "deliveryFailed",
+            event: {
+              id: message.properties.messageId ?? "",
+              topic: message.fields.routingKey,
+              error,
+            },
+          });
+          ackMessage(channel, message);
+        }
       },
       { noAck: false },
     );
     consumerTag = consumeReply.consumerTag;
     this.#subscriptions.add({ channel, consumerTag });
-    options?.signal?.addEventListener("abort", abort, { once: true });
-    await this.#ensureSchedulerStarted();
+    request.signal?.addEventListener("abort", abort, { once: true });
 
     return { unsubscribe };
   }
@@ -233,7 +197,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     channel: Channel,
     handler: DeliveryHandler,
     message: ConsumeMessage,
-    options: SubscribeOptions | undefined,
+    request: SubscribeRequest,
   ): Promise<void> {
     let event: CloudEvent;
     try {
@@ -262,7 +226,15 @@ class DefaultRabbitMqTransport implements PubSubTransport {
         return handler(d);
       },
     )) as Disposition;
-    await this.#settleDelivery(channel, message, event, disposition, attempt, options);
+    await this.#settleDelivery(
+      channel,
+      message,
+      event,
+      disposition,
+      attempt,
+      request.maxAttempts,
+      request.deadLetterTopic,
+    );
   }
 
   /** Map one router disposition onto RabbitMQ ack, retry, or dead-letter behavior. */
@@ -272,15 +244,22 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     event: CloudEvent,
     disposition: Disposition,
     attempt: number,
-    options: SubscribeOptions | undefined,
+    maxAttempts: number | undefined,
+    deadLetterTopic: string | undefined,
   ): Promise<void> {
     if (disposition.kind === "retry") {
-      if (retryLimitReached(attempt, options?.maxAttempts)) {
+      if (retryLimitReached(attempt, maxAttempts)) {
         await notifyInterceptors(this.#options.interceptors, {
           operation: "retryExhausted",
           event: { id: event.id, topic: message.fields.routingKey, attempt },
         });
-        await this.#publishDeadLetter(message.fields.routingKey, event, attempt, "dead_letter");
+        await this.#publishDeadLetter(
+          deadLetterTopic,
+          message.fields.routingKey,
+          event,
+          attempt,
+          "dead_letter",
+        );
         ackMessage(channel, message);
         await notifyInterceptors(this.#options.interceptors, {
           operation: "committed",
@@ -289,9 +268,14 @@ class DefaultRabbitMqTransport implements PubSubTransport {
         return;
       }
 
-      const delay = disposition.delay ? durationMs(disposition.delay) : 0;
-      if (delay > 0) {
-        await this.#scheduler!.retryLater(message.fields.routingKey, event, delay, attempt + 1);
+      if (disposition.delay) {
+        await retryLaterOrThrow(
+          this.#options.scheduler,
+          message.fields.routingKey,
+          event,
+          disposition,
+          attempt + 1,
+        );
       } else {
         await this.#publishImmediate(message.fields.routingKey, event, attempt + 1);
       }
@@ -308,7 +292,13 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     }
 
     if (disposition.kind === "reject" || disposition.kind === "dead_letter") {
-      await this.#publishDeadLetter(message.fields.routingKey, event, attempt, disposition.kind);
+      await this.#publishDeadLetter(
+        deadLetterTopic,
+        message.fields.routingKey,
+        event,
+        attempt,
+        disposition.kind,
+      );
     }
 
     ackMessage(channel, message);
@@ -339,12 +329,13 @@ class DefaultRabbitMqTransport implements PubSubTransport {
 
   /** Publish one rejected or dead-lettered CloudEvent when a dead-letter topic is configured. */
   async #publishDeadLetter(
+    deadLetterTopic: string | undefined,
     topic: string,
     event: CloudEvent,
     attempt: number,
     disposition: Disposition["kind"],
   ): Promise<void> {
-    if (!this.#options.deadLetterTopic) {
+    if (!deadLetterTopic) {
       return;
     }
     await this.#ensureStarted();
@@ -355,7 +346,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
       this.#publisher,
       "publish",
       this.#exchange(),
-      this.#options.deadLetterTopic,
+      deadLetterTopic,
       cloudEventBytes(event),
       publishOptions(event, {
         [PROTOUTIL_HEADER_ATTEMPT]: String(attempt),
@@ -366,7 +357,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     );
     await notifyInterceptors(this.#options.interceptors, {
       operation: "deadLettered",
-      event: { id: event.id, topic: this.#options.deadLetterTopic, attempt },
+      event: { id: event.id, topic: deadLetterTopic, attempt },
     });
   }
 }

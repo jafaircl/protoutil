@@ -1,3 +1,4 @@
+export { createKafkaScheduler } from "./scheduler.js";
 export { createKafkaTransport } from "./transport.js";
 export type {
   KafkaConsumerOptions,

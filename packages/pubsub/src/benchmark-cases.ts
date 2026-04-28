@@ -25,8 +25,6 @@ export interface PubSubBenchmarkContext {
 
 /** Transport options needed by shared benchmark scenarios. */
 export interface BenchmarkTransportOptions {
-  /** Topics consumed by the transport. */
-  subscribeTopics?: string[];
   /** Scheduler topic configuration for delayed delivery scenarios. */
   scheduler?: BenchmarkSchedulerOptions;
 }
@@ -191,11 +189,12 @@ async function runPublishConsumeBenchmark(
   const scenarioKey = `${sanitizeScenarioKey(options.scenario)}_${options.warmup ? "warm" : "cold"}`;
   const topic = ctx.topic(scenarioKey);
   const scheduler = ctx.scheduler(scenarioKey);
-  const transport = ctx.transport({ subscribeTopics: [topic], scheduler });
+  const transport = ctx.transport(options.scheduled ? { scheduler } : undefined);
   const publisher = createPublisher(ConformanceEvents, transport, {
     source: "benchmark",
+    topic,
   });
-  const router = createRouter(transport);
+  const router = createRouter(ConformanceEvents, transport, { topic });
   const publishedAt = new Map<string, number>();
   const latencies: number[] = [];
   let warmupEventId = "";
@@ -205,7 +204,7 @@ async function runPublishConsumeBenchmark(
   let currentBenchmarkStartedAt = 0;
   let firstDeliveryMs = 0;
 
-  router.service(ConformanceEvents, {
+  router.service({
     async alphaHappened(request, handlerContext) {
       // Warmup traffic primes the exact transport path without contaminating the
       // measured benchmark counts and latency percentiles.

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file protoutil/conformance/pubsub/v1/cases.proto.
  */
 export const file_protoutil_conformance_pubsub_v1_cases: GenFile = /*@__PURE__*/
-  fileDesc("Citwcm90b3V0aWwvY29uZm9ybWFuY2UvcHVic3ViL3YxL2Nhc2VzLnByb3RvEh9wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxImUKBVN1aXRlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSOQoHc2VjdGlvbhgDIAMoCzIoLnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuU2VjdGlvbiJhCgdTZWN0aW9uEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSMwoEdGVzdBgDIAMoCzIlLnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuQ2FzZSKKBAoEQ2FzZRIMCgRuYW1lGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJEjcKBGtpbmQYAyABKA4yKS5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLkNhc2VLaW5kEjkKB3B1Ymxpc2gYBCABKAsyKC5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLlB1Ymxpc2gSTgoOZXhwZWN0ZWRfZXZlbnQYBSABKAsyNi5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLkNsb3VkRXZlbnRFeHBlY3RhdGlvbhIWCg5leHBlY3RlZF90b3BpYxgGIAEoCRJVChRleHBlY3RlZF9kaXNwb3NpdGlvbhgHIAEoCzI3LnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuRGlzcG9zaXRpb25FeHBlY3RhdGlvbhJKChBoYW5kbGVyX2JlaGF2aW9yGAggASgOMjAucHJvdG91dGlsLmNvbmZvcm1hbmNlLnB1YnN1Yi52MS5IYW5kbGVyQmVoYXZpb3ISSAoPc291cmNlX2RlZmF1bHRzGAkgASgLMi8ucHJvdG91dGlsLmNvbmZvcm1hbmNlLnB1YnN1Yi52MS5Tb3VyY2VEZWZhdWx0cxIWCg5leHBlY3RlZF92YWx1ZRgKIAEoCSJcCg5Tb3VyY2VEZWZhdWx0cxIWCg5jbGllbnRfZGVmYXVsdBgBIAEoCRIZChF0cmFuc3BvcnRfZGVmYXVsdBgCIAEoCRIXCg9saWJyYXJ5X2RlZmF1bHQYAyABKAkilgEKB1B1Ymxpc2gSDgoGbWV0aG9kGAEgASgJEjkKB3BheWxvYWQYAiABKAsyKC5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLlBheWxvYWQSQAoHb3B0aW9ucxgDIAEoCzIvLnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuUHVibGlzaE9wdGlvbnMiWAoHUGF5bG9hZBIQCghldmVudF9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmRldGFpbBgDIAEoCRINCgVjb3VudBgEIAEoBRIOCgZhY3RpdmUYBSABKAgiqgEKDlB1Ymxpc2hPcHRpb25zEg0KBXRvcGljGAEgASgJEgwKBHR5cGUYAiABKAkSDgoGc291cmNlGAMgASgJEjsKCG1ldGFkYXRhGAQgAygLMikucHJvdG91dGlsLmNvbmZvcm1hbmNlLnB1YnN1Yi52MS5NZXRhZGF0YRIuCgpub3RfYmVmb3JlGAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJjCghNZXRhZGF0YRILCgNrZXkYASABKAkSFgoMc3RyaW5nX3ZhbHVlGAIgASgJSAASFAoKYm9vbF92YWx1ZRgDIAEoCEgAEhMKCWludF92YWx1ZRgEIAEoBUgAQgcKBXZhbHVlIoMCChVDbG91ZEV2ZW50RXhwZWN0YXRpb24SCgoCaWQYASABKAkSDgoGc291cmNlGAIgASgJEhMKC3NwZWN2ZXJzaW9uGAMgASgJEgwKBHR5cGUYBCABKAkSEgoKZGF0YXNjaGVtYRgFIAEoCRIXCg9kYXRhY29udGVudHR5cGUYBiABKAkSEQoJZGF0YV9qc29uGAcgASgJEjsKCG1ldGFkYXRhGAggAygLMikucHJvdG91dGlsLmNvbmZvcm1hbmNlLnB1YnN1Yi52MS5NZXRhZGF0YRIuCgpub3RfYmVmb3JlGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJQChZEaXNwb3NpdGlvbkV4cGVjdGF0aW9uEgwKBGtpbmQYASABKAkSKAoFZGVsYXkYAiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24q7wIKCENhc2VLaW5kEhkKFUNBU0VfS0lORF9VTlNQRUNJRklFRBAAEigKJENBU0VfS0lORF9DTE9VREVWRU5UX01BVEVSSUFMSVpBVElPThABEhsKF0NBU0VfS0lORF9ST1VURV9CWV9UWVBFEAISIgoeQ0FTRV9LSU5EX01FVEFEQVRBX1BST1BBR0FUSU9OEAMSHgoaQ0FTRV9LSU5EX1RPUElDX1BSRUNFREVOQ0UQBBIdChlDQVNFX0tJTkRfVFlQRV9QUkVDRURFTkNFEAUSHwobQ0FTRV9LSU5EX1NPVVJDRV9QUkVDRURFTkNFEAYSGQoVQ0FTRV9LSU5EX0RJU1BPU0lUSU9OEAcSHQoZQ0FTRV9LSU5EX0RFTEFZRURfUFVCTElTSBAIEhsKF0NBU0VfS0lORF9ERUxBWUVEX1JFVFJZEAkSJgoiQ0FTRV9LSU5EX0NMT1VERVZFTlRfUEFSU0VfRkFJTFVSRRAKKtICCg9IYW5kbGVyQmVoYXZpb3ISIAocSEFORExFUl9CRUhBVklPUl9VTlNQRUNJRklFRBAAEhwKGEhBTkRMRVJfQkVIQVZJT1JfU1VDQ0VTUxABEh4KGkhBTkRMRVJfQkVIQVZJT1JfVFJBTlNJRU5UEAISHAoYSEFORExFUl9CRUhBVklPUl9JTlZBTElEEAMSIgoeSEFORExFUl9CRUhBVklPUl9VTlJFQ09WRVJBQkxFEAQSIgoeSEFORExFUl9CRUhBVklPUl9VTktOT1dOX1JPVVRFEAUSIAocSEFORExFUl9CRUhBVklPUl9SRVRSWV9ERUxBWRAGEhgKFEhBTkRMRVJfQkVIQVZJT1JfQUNLEAcSGwoXSEFORExFUl9CRUhBVklPUl9SRUpFQ1QQCBIgChxIQU5ETEVSX0JFSEFWSU9SX0RFQURfTEVUVEVSEAlCS1pJZ2l0aHViLmNvbS9qYWZhaXJjbC9wcm90b3V0aWwvZ28vcHJvdG91dGlsL2NvbmZvcm1hbmNlL3B1YnN1Yi92MTtwdWJzdWJ2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
+  fileDesc("Citwcm90b3V0aWwvY29uZm9ybWFuY2UvcHVic3ViL3YxL2Nhc2VzLnByb3RvEh9wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxImUKBVN1aXRlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSOQoHc2VjdGlvbhgDIAMoCzIoLnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuU2VjdGlvbiJhCgdTZWN0aW9uEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSMwoEdGVzdBgDIAMoCzIlLnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuQ2FzZSLkBgoEQ2FzZRIMCgRuYW1lGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJEjcKBGtpbmQYAyABKA4yKS5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLkNhc2VLaW5kEjkKB3B1Ymxpc2gYBCABKAsyKC5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLlB1Ymxpc2gSTgoOZXhwZWN0ZWRfZXZlbnQYBSABKAsyNi5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLkNsb3VkRXZlbnRFeHBlY3RhdGlvbhIWCg5leHBlY3RlZF90b3BpYxgGIAEoCRJVChRleHBlY3RlZF9kaXNwb3NpdGlvbhgHIAEoCzI3LnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuRGlzcG9zaXRpb25FeHBlY3RhdGlvbhJKChBoYW5kbGVyX2JlaGF2aW9yGAggASgOMjAucHJvdG91dGlsLmNvbmZvcm1hbmNlLnB1YnN1Yi52MS5IYW5kbGVyQmVoYXZpb3ISSAoPc291cmNlX2RlZmF1bHRzGAkgASgLMi8ucHJvdG91dGlsLmNvbmZvcm1hbmNlLnB1YnN1Yi52MS5Tb3VyY2VEZWZhdWx0cxIWCg5leHBlY3RlZF92YWx1ZRgKIAEoCRJOChJwdWJsaXNoZXJfZGVmYXVsdHMYCyABKAsyMi5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLlB1Ymxpc2hlckRlZmF1bHRzEkQKDXJvdXRlcl9jb25maWcYDCABKAsyLS5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLlJvdXRlckNvbmZpZxJOChJ0cmFuc3BvcnRfZmVhdHVyZXMYDSABKAsyMi5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLlRyYW5zcG9ydEZlYXR1cmVzElEKEmV4cGVjdGVkX3N1YnNjcmliZRgOIAEoCzI1LnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuU3Vic2NyaWJlRXhwZWN0YXRpb24SHwoXZXhwZWN0ZWRfZXJyb3JfY29udGFpbnMYDyABKAkiXAoOU291cmNlRGVmYXVsdHMSFgoOY2xpZW50X2RlZmF1bHQYASABKAkSGQoRdHJhbnNwb3J0X2RlZmF1bHQYAiABKAkSFwoPbGlicmFyeV9kZWZhdWx0GAMgASgJIpYBCgdQdWJsaXNoEg4KBm1ldGhvZBgBIAEoCRI5CgdwYXlsb2FkGAIgASgLMigucHJvdG91dGlsLmNvbmZvcm1hbmNlLnB1YnN1Yi52MS5QYXlsb2FkEkAKB29wdGlvbnMYAyABKAsyLy5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLlB1Ymxpc2hPcHRpb25zIlgKB1BheWxvYWQSEAoIZXZlbnRfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFY291bnQYBCABKAUSDgoGYWN0aXZlGAUgASgIIqoBCg5QdWJsaXNoT3B0aW9ucxINCgV0b3BpYxgBIAEoCRIMCgR0eXBlGAIgASgJEg4KBnNvdXJjZRgDIAEoCRI7CghtZXRhZGF0YRgEIAMoCzIpLnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuTWV0YWRhdGESLgoKbm90X2JlZm9yZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiMwoSTWV0aG9kVG9waWNCaW5kaW5nEg4KBm1ldGhvZBgBIAEoCRINCgV0b3BpYxgCIAEoCSJwChFQdWJsaXNoZXJEZWZhdWx0cxINCgV0b3BpYxgBIAEoCRJMCg90b3BpY19ieV9tZXRob2QYAiADKAsyMy5wcm90b3V0aWwuY29uZm9ybWFuY2UucHVic3ViLnYxLk1ldGhvZFRvcGljQmluZGluZyKGAQoMUm91dGVyQ29uZmlnEg0KBXRvcGljGAEgASgJEkwKD3RvcGljX2J5X21ldGhvZBgCIAMoCzIzLnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuTWV0aG9kVG9waWNCaW5kaW5nEhkKEWRlYWRfbGV0dGVyX3RvcGljGAMgASgJIjAKEVRyYW5zcG9ydEZlYXR1cmVzEhsKE3NjaGVkdWxlcl9hdmFpbGFibGUYASABKAgiYwoITWV0YWRhdGESCwoDa2V5GAEgASgJEhYKDHN0cmluZ192YWx1ZRgCIAEoCUgAEhQKCmJvb2xfdmFsdWUYAyABKAhIABITCglpbnRfdmFsdWUYBCABKAVIAEIHCgV2YWx1ZSKDAgoVQ2xvdWRFdmVudEV4cGVjdGF0aW9uEgoKAmlkGAEgASgJEg4KBnNvdXJjZRgCIAEoCRITCgtzcGVjdmVyc2lvbhgDIAEoCRIMCgR0eXBlGAQgASgJEhIKCmRhdGFzY2hlbWEYBSABKAkSFwoPZGF0YWNvbnRlbnR0eXBlGAYgASgJEhEKCWRhdGFfanNvbhgHIAEoCRI7CghtZXRhZGF0YRgIIAMoCzIpLnByb3RvdXRpbC5jb25mb3JtYW5jZS5wdWJzdWIudjEuTWV0YWRhdGESLgoKbm90X2JlZm9yZRgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiUAoWRGlzcG9zaXRpb25FeHBlY3RhdGlvbhIMCgRraW5kGAEgASgJEigKBWRlbGF5GAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uIkEKFFN1YnNjcmliZUV4cGVjdGF0aW9uEg4KBnRvcGljcxgBIAMoCRIZChFkZWFkX2xldHRlcl90b3BpYxgCIAEoCSqTAwoIQ2FzZUtpbmQSGQoVQ0FTRV9LSU5EX1VOU1BFQ0lGSUVEEAASKAokQ0FTRV9LSU5EX0NMT1VERVZFTlRfTUFURVJJQUxJWkFUSU9OEAESGwoXQ0FTRV9LSU5EX1JPVVRFX0JZX1RZUEUQAhIiCh5DQVNFX0tJTkRfTUVUQURBVEFfUFJPUEFHQVRJT04QAxIeChpDQVNFX0tJTkRfVE9QSUNfUFJFQ0VERU5DRRAEEh0KGUNBU0VfS0lORF9UWVBFX1BSRUNFREVOQ0UQBRIfChtDQVNFX0tJTkRfU09VUkNFX1BSRUNFREVOQ0UQBhIZChVDQVNFX0tJTkRfRElTUE9TSVRJT04QBxIdChlDQVNFX0tJTkRfREVMQVlFRF9QVUJMSVNIEAgSGwoXQ0FTRV9LSU5EX0RFTEFZRURfUkVUUlkQCRImCiJDQVNFX0tJTkRfQ0xPVURFVkVOVF9QQVJTRV9GQUlMVVJFEAoSIgoeQ0FTRV9LSU5EX1NVQlNDUklCRV9SRVNPTFVUSU9OEAsq0gIKD0hhbmRsZXJCZWhhdmlvchIgChxIQU5ETEVSX0JFSEFWSU9SX1VOU1BFQ0lGSUVEEAASHAoYSEFORExFUl9CRUhBVklPUl9TVUNDRVNTEAESHgoaSEFORExFUl9CRUhBVklPUl9UUkFOU0lFTlQQAhIcChhIQU5ETEVSX0JFSEFWSU9SX0lOVkFMSUQQAxIiCh5IQU5ETEVSX0JFSEFWSU9SX1VOUkVDT1ZFUkFCTEUQBBIiCh5IQU5ETEVSX0JFSEFWSU9SX1VOS05PV05fUk9VVEUQBRIgChxIQU5ETEVSX0JFSEFWSU9SX1JFVFJZX0RFTEFZEAYSGAoUSEFORExFUl9CRUhBVklPUl9BQ0sQBxIbChdIQU5ETEVSX0JFSEFWSU9SX1JFSkVDVBAIEiAKHEhBTkRMRVJfQkVIQVZJT1JfREVBRF9MRVRURVIQCUJLWklnaXRodWIuY29tL2phZmFpcmNsL3Byb3RvdXRpbC9nby9wcm90b3V0aWwvY29uZm9ybWFuY2UvcHVic3ViL3YxO3B1YnN1YnYxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
 
 /**
  * The format of a pubsub conformance fixture file, expected to be stored in
@@ -162,6 +162,41 @@ export type Case = Message<"protoutil.conformance.pubsub.v1.Case"> & {
    * @generated from field: string expected_value = 10;
    */
   expectedValue: string;
+
+  /**
+   * Publisher defaults used for topic precedence cases.
+   *
+   * @generated from field: protoutil.conformance.pubsub.v1.PublisherDefaults publisher_defaults = 11;
+   */
+  publisherDefaults?: PublisherDefaults;
+
+  /**
+   * Router configuration used for subscription resolution cases.
+   *
+   * @generated from field: protoutil.conformance.pubsub.v1.RouterConfig router_config = 12;
+   */
+  routerConfig?: RouterConfig;
+
+  /**
+   * Transport capabilities available to the test.
+   *
+   * @generated from field: protoutil.conformance.pubsub.v1.TransportFeatures transport_features = 13;
+   */
+  transportFeatures?: TransportFeatures;
+
+  /**
+   * Expected subscribe request resolved by the router.
+   *
+   * @generated from field: protoutil.conformance.pubsub.v1.SubscribeExpectation expected_subscribe = 14;
+   */
+  expectedSubscribe?: SubscribeExpectation;
+
+  /**
+   * Expected error message fragment for error cases.
+   *
+   * @generated from field: string expected_error_contains = 15;
+   */
+  expectedErrorContains: string;
 };
 
 /**
@@ -300,6 +335,94 @@ export const PublishOptionsSchema: GenMessage<PublishOptions> = /*@__PURE__*/
   messageDesc(file_protoutil_conformance_pubsub_v1_cases, 6);
 
 /**
+ * @generated from message protoutil.conformance.pubsub.v1.MethodTopicBinding
+ */
+export type MethodTopicBinding = Message<"protoutil.conformance.pubsub.v1.MethodTopicBinding"> & {
+  /**
+   * @generated from field: string method = 1;
+   */
+  method: string;
+
+  /**
+   * @generated from field: string topic = 2;
+   */
+  topic: string;
+};
+
+/**
+ * Describes the message protoutil.conformance.pubsub.v1.MethodTopicBinding.
+ * Use `create(MethodTopicBindingSchema)` to create a new message.
+ */
+export const MethodTopicBindingSchema: GenMessage<MethodTopicBinding> = /*@__PURE__*/
+  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 7);
+
+/**
+ * @generated from message protoutil.conformance.pubsub.v1.PublisherDefaults
+ */
+export type PublisherDefaults = Message<"protoutil.conformance.pubsub.v1.PublisherDefaults"> & {
+  /**
+   * @generated from field: string topic = 1;
+   */
+  topic: string;
+
+  /**
+   * @generated from field: repeated protoutil.conformance.pubsub.v1.MethodTopicBinding topic_by_method = 2;
+   */
+  topicByMethod: MethodTopicBinding[];
+};
+
+/**
+ * Describes the message protoutil.conformance.pubsub.v1.PublisherDefaults.
+ * Use `create(PublisherDefaultsSchema)` to create a new message.
+ */
+export const PublisherDefaultsSchema: GenMessage<PublisherDefaults> = /*@__PURE__*/
+  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 8);
+
+/**
+ * @generated from message protoutil.conformance.pubsub.v1.RouterConfig
+ */
+export type RouterConfig = Message<"protoutil.conformance.pubsub.v1.RouterConfig"> & {
+  /**
+   * @generated from field: string topic = 1;
+   */
+  topic: string;
+
+  /**
+   * @generated from field: repeated protoutil.conformance.pubsub.v1.MethodTopicBinding topic_by_method = 2;
+   */
+  topicByMethod: MethodTopicBinding[];
+
+  /**
+   * @generated from field: string dead_letter_topic = 3;
+   */
+  deadLetterTopic: string;
+};
+
+/**
+ * Describes the message protoutil.conformance.pubsub.v1.RouterConfig.
+ * Use `create(RouterConfigSchema)` to create a new message.
+ */
+export const RouterConfigSchema: GenMessage<RouterConfig> = /*@__PURE__*/
+  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 9);
+
+/**
+ * @generated from message protoutil.conformance.pubsub.v1.TransportFeatures
+ */
+export type TransportFeatures = Message<"protoutil.conformance.pubsub.v1.TransportFeatures"> & {
+  /**
+   * @generated from field: bool scheduler_available = 1;
+   */
+  schedulerAvailable: boolean;
+};
+
+/**
+ * Describes the message protoutil.conformance.pubsub.v1.TransportFeatures.
+ * Use `create(TransportFeaturesSchema)` to create a new message.
+ */
+export const TransportFeaturesSchema: GenMessage<TransportFeatures> = /*@__PURE__*/
+  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 10);
+
+/**
  * @generated from message protoutil.conformance.pubsub.v1.Metadata
  */
 export type Metadata = Message<"protoutil.conformance.pubsub.v1.Metadata"> & {
@@ -337,7 +460,7 @@ export type Metadata = Message<"protoutil.conformance.pubsub.v1.Metadata"> & {
  * Use `create(MetadataSchema)` to create a new message.
  */
 export const MetadataSchema: GenMessage<Metadata> = /*@__PURE__*/
-  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 7);
+  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 11);
 
 /**
  * @generated from message protoutil.conformance.pubsub.v1.CloudEventExpectation
@@ -394,7 +517,7 @@ export type CloudEventExpectation = Message<"protoutil.conformance.pubsub.v1.Clo
  * Use `create(CloudEventExpectationSchema)` to create a new message.
  */
 export const CloudEventExpectationSchema: GenMessage<CloudEventExpectation> = /*@__PURE__*/
-  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 8);
+  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 12);
 
 /**
  * @generated from message protoutil.conformance.pubsub.v1.DispositionExpectation
@@ -416,7 +539,29 @@ export type DispositionExpectation = Message<"protoutil.conformance.pubsub.v1.Di
  * Use `create(DispositionExpectationSchema)` to create a new message.
  */
 export const DispositionExpectationSchema: GenMessage<DispositionExpectation> = /*@__PURE__*/
-  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 9);
+  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 13);
+
+/**
+ * @generated from message protoutil.conformance.pubsub.v1.SubscribeExpectation
+ */
+export type SubscribeExpectation = Message<"protoutil.conformance.pubsub.v1.SubscribeExpectation"> & {
+  /**
+   * @generated from field: repeated string topics = 1;
+   */
+  topics: string[];
+
+  /**
+   * @generated from field: string dead_letter_topic = 2;
+   */
+  deadLetterTopic: string;
+};
+
+/**
+ * Describes the message protoutil.conformance.pubsub.v1.SubscribeExpectation.
+ * Use `create(SubscribeExpectationSchema)` to create a new message.
+ */
+export const SubscribeExpectationSchema: GenMessage<SubscribeExpectation> = /*@__PURE__*/
+  messageDesc(file_protoutil_conformance_pubsub_v1_cases, 14);
 
 /**
  * @generated from enum protoutil.conformance.pubsub.v1.CaseKind
@@ -476,6 +621,11 @@ export enum CaseKind {
    * @generated from enum value: CASE_KIND_CLOUDEVENT_PARSE_FAILURE = 10;
    */
   CLOUDEVENT_PARSE_FAILURE = 10,
+
+  /**
+   * @generated from enum value: CASE_KIND_SUBSCRIBE_RESOLUTION = 11;
+   */
+  SUBSCRIBE_RESOLUTION = 11,
 }
 
 /**

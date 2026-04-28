@@ -1,5 +1,6 @@
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import type { Channel, ChannelModel, ConsumeMessage, Options } from "amqplib";
+import { type ConfirmChannel, connect } from "amqplib";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
@@ -14,6 +15,120 @@ import {
   parseAttempt,
 } from "../transport-utils.js";
 import type { PublishRequest, PubSubInterceptor, PubSubScheduler } from "../types.js";
+
+const DEFAULT_EXCHANGE = "protoutil.pubsub";
+const DEFAULT_SCHEDULE_QUEUE = "protoutil.pubsub.schedules";
+
+export interface CreateRabbitMqSchedulerOptions {
+  url: string;
+  exchange?: string;
+  scheduleQueue?: string;
+  publishTimeoutMs?: number;
+  interceptors?: PubSubInterceptor[];
+}
+
+/** Create a self-contained RabbitMQ scheduler that can be shared across transports. */
+export function createRabbitMqScheduler(options: CreateRabbitMqSchedulerOptions): PubSubScheduler {
+  return new OwnedRabbitMqScheduler(options);
+}
+
+class OwnedRabbitMqScheduler implements PubSubScheduler {
+  #connection?: ChannelModel;
+  #publisher?: ConfirmChannel;
+  #scheduler?: RabbitMqScheduler;
+  #startup?: Promise<void>;
+  #schedulerStartup?: Promise<void>;
+  #schedulerStarted = false;
+
+  public constructor(private readonly options: CreateRabbitMqSchedulerOptions) {}
+
+  public async start(): Promise<void> {
+    await this.#ensureConnected();
+    this.#schedulerStartup ??= this.#startSchedulerOnce();
+    await this.#schedulerStartup;
+  }
+
+  async #ensureConnected(): Promise<void> {
+    this.#startup ??= this.#connectOnce();
+    await this.#startup;
+  }
+
+  async #connectOnce(): Promise<void> {
+    this.#connection = await connect(this.options.url);
+    this.#publisher = await this.#connection.createConfirmChannel();
+    await this.#publisher.assertExchange(this.#exchange(), "topic", { durable: true });
+    await this.#publisher.assertQueue(this.#scheduleQueue(), { durable: true });
+    this.#scheduler = new RabbitMqScheduler({
+      connection: this.#connection,
+      scheduleQueue: this.#scheduleQueue(),
+      interceptors: this.options.interceptors,
+      publishImmediate: (topic, event, attempt) =>
+        publishConfirmed(
+          this.#publisher!,
+          "publish",
+          this.#exchange(),
+          topic,
+          cloudEventBytes(event),
+          publishScheduleOptions(event, {
+            [PROTOUTIL_HEADER_ATTEMPT]: String(attempt),
+          }),
+          this.options.publishTimeoutMs,
+        ),
+      publishToScheduleQueue: (content, publishOptions) =>
+        publishConfirmed(
+          this.#publisher!,
+          "sendToQueue",
+          this.#scheduleQueue(),
+          "",
+          content,
+          publishOptions,
+          this.options.publishTimeoutMs,
+        ),
+    });
+  }
+
+  async #startSchedulerOnce(): Promise<void> {
+    await this.#scheduler?.start();
+    this.#schedulerStarted = true;
+  }
+
+  #exchange(): string {
+    return this.options.exchange ?? DEFAULT_EXCHANGE;
+  }
+
+  #scheduleQueue(): string {
+    return this.options.scheduleQueue ?? DEFAULT_SCHEDULE_QUEUE;
+  }
+
+  public async close(): Promise<void> {
+    if (this.#schedulerStarted) {
+      await this.#scheduler?.close();
+    }
+    await this.#publisher?.close();
+    await this.#connection?.close();
+    this.#scheduler = undefined;
+    this.#publisher = undefined;
+    this.#connection = undefined;
+    this.#startup = undefined;
+    this.#schedulerStartup = undefined;
+    this.#schedulerStarted = false;
+  }
+
+  public async publishLater(request: PublishRequest): Promise<void> {
+    await this.#ensureConnected();
+    await this.#scheduler!.publishLater(request);
+  }
+
+  public async retryLater(
+    topic: string,
+    event: CloudEvent,
+    delayMs: number,
+    attempt: number,
+  ): Promise<void> {
+    await this.#ensureConnected();
+    await this.#scheduler!.retryLater(topic, event, delayMs, attempt);
+  }
+}
 
 interface ScheduledMessage {
   id: string;
@@ -203,6 +318,58 @@ function publishScheduleOptions(
     messageId: event.id,
     headers,
   };
+}
+
+/** Publish through a confirm channel and wait for broker confirmation. */
+async function publishConfirmed(
+  channel: ConfirmChannel,
+  method: "publish" | "sendToQueue",
+  target: string,
+  routingKey: string,
+  content: Buffer,
+  options: Options.Publish,
+  timeoutMs: number | undefined,
+): Promise<void> {
+  const publish = new Promise<void>((resolve, reject) => {
+    if (method === "publish") {
+      channel.publish(target, routingKey, content, options, (error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+      return;
+    }
+    channel.sendToQueue(target, content, options, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+
+  if (!timeoutMs) {
+    await publish;
+    return;
+  }
+
+  let timeout: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      publish,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error(`RabbitMQ publish timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 /** Read the target topic from a scheduled RabbitMQ message. */

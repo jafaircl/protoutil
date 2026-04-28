@@ -65,6 +65,21 @@ message Case {
 
   // Expected resolver value for type/source precedence cases.
   string expected_value = 10;
+
+  // Publisher defaults used for topic precedence cases.
+  PublisherDefaults publisher_defaults = 11;
+
+  // Router configuration used for subscription resolution cases.
+  RouterConfig router_config = 12;
+
+  // Transport capabilities available to the test.
+  TransportFeatures transport_features = 13;
+
+  // Expected subscribe request resolved by the router.
+  SubscribeExpectation expected_subscribe = 14;
+
+  // Expected error message fragment for error cases.
+  string expected_error_contains = 15;
 }
 
 enum CaseKind {
@@ -79,6 +94,7 @@ enum CaseKind {
   CASE_KIND_DELAYED_PUBLISH = 8;
   CASE_KIND_DELAYED_RETRY = 9;
   CASE_KIND_CLOUDEVENT_PARSE_FAILURE = 10;
+  CASE_KIND_SUBSCRIBE_RESOLUTION = 11;
 }
 
 enum HandlerBehavior {
@@ -122,6 +138,26 @@ message PublishOptions {
   google.protobuf.Timestamp not_before = 5;
 }
 
+message MethodTopicBinding {
+  string method = 1;
+  string topic = 2;
+}
+
+message PublisherDefaults {
+  string topic = 1;
+  repeated MethodTopicBinding topic_by_method = 2;
+}
+
+message RouterConfig {
+  string topic = 1;
+  repeated MethodTopicBinding topic_by_method = 2;
+  string dead_letter_topic = 3;
+}
+
+message TransportFeatures {
+  bool scheduler_available = 1;
+}
+
 message Metadata {
   string key = 1;
   oneof value {
@@ -146,4 +182,9 @@ message CloudEventExpectation {
 message DispositionExpectation {
   string kind = 1;
   google.protobuf.Duration delay = 2;
+}
+
+message SubscribeExpectation {
+  repeated string topics = 1;
+  string dead_letter_topic = 2;
 }

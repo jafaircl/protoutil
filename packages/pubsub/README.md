@@ -31,11 +31,10 @@ Application code should depend on the transport-neutral core API. Swapping backe
 import { createPublisher, createRouter } from "@protoutil/pubsub";
 import { BillingEvents } from "./gen/acme/billing/v1/events_pb.js";
 
+// Creating a transport is the only broker-specific code. See below for examples.
 const transport = createTransport();
-const publisher = createPublisher(BillingEvents, transport, {
-  source: "billing-service",
-});
-const router = createRouter(transport);
+const publisher = createPublisher(BillingEvents, transport);
+const router = createRouter(BillingEvents, transport);
 ```
 
 Transport entry points are isolated subpaths so unused broker clients are not loaded. Kafka, RabbitMQ, and NATS are implemented today:
@@ -62,11 +61,19 @@ import { transport } from "./wherever-you-build-the-transport.js";
 
 export const publisher = createPublisher(BillingEvents, transport, {
   source: "billing-service",
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
 });
 
-export const router = createRouter(transport);
+export const router = createRouter(BillingEvents, transport, {
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
+  deadLetterTopic: "billing.__deadletter",
+});
 
-router.service(BillingEvents, {
+router.service({
   async invoiceCreated(request, ctx) {
     await processInvoice(request.invoiceId);
     await ctx.ack();
@@ -90,9 +97,9 @@ Fastify example under [`examples/fastify-server`](../../examples/fastify-server)
 
 Current transport-specific caveats:
 
-- Kafka delayed delivery is implemented with transport-owned scheduler topics.
-- RabbitMQ delayed delivery does not require a delayed-message plugin. The transport owns a durable schedules queue and scheduler worker.
-- NATS delayed delivery requires JetStream. Plain core NATS without JetStream is not enough for durable `notBefore` or retry delay.
+- Schedulers are explicit and optional. Immediate publish and subscribe do not require one.
+- Delayed publish with `notBefore` and delayed retry with `ctx.retry({ delay })` throw unless a scheduler was supplied to the transport.
+- NATS delayed delivery requires JetStream. Plain core NATS without JetStream is not enough for durable delayed delivery.
 
 ## Standards
 
@@ -145,8 +152,8 @@ Every publish option is optional. Use them only when the defaults are not the ri
 
 | Option | Type | Description |
 | --- | --- | --- |
-| `topic` | `string` | Transport delivery topic. Defaults to the protobuf method name, then message type name. |
-| `type` | `string` | CloudEvent semantic type. Defaults to the protobuf method name, then message type name. |
+| `topic` | `string` | Transport delivery topic. Overrides publisher topic defaults for this call only. |
+| `type` | `string` | CloudEvent semantic type. Defaults to the fully qualified protobuf method name. |
 | `source` | `string` | CloudEvent source for this call. Overrides publisher and transport defaults. |
 | `id` | `string` | CloudEvent id. Defaults to a generated UUID. |
 | `time` | `Date \| string` | CloudEvent time. Defaults to the current time. |
@@ -159,7 +166,7 @@ import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 await client.invoiceCreated(
   { invoiceId: "inv_123", customerId: "cus_456" },
   {
-    topic: "billing.invoice.created",
+    topic: "billing.invoice.created.replay",
     metadata: { tenantid: "t1" },
     notBefore: timestampFromDate(new Date(Date.now() + 5_000)),
   },
@@ -190,7 +197,7 @@ await publisher.orderCreated({ orderId: "123" }, {
 });
 
 // Handler reads from the CloudEvent
-router.service(Orders, {
+router.service({
   async orderCreated(request, ctx) {
     const traceId = ctx.event["traceid"];
     const userId = ctx.event["userid"];
@@ -203,13 +210,13 @@ Metadata survives the broker and is available on any subscribing server.
 
 ### Delayed Delivery
 
-`notBefore` and retry `delay` are transport-owned scheduling semantics. A production transport that supports them must persist the schedule before resolving the publish or accepting the disposition, and it must not deliver earlier than the requested time.
+Schedulers are explicit and optional. Use a transport-specific scheduler only when you need durable delayed publish or delayed retry. If a publish call provides `notBefore`, or a handler returns `ctx.retry({ delay })`, the transport throws unless a scheduler was supplied.
 
 Transport requirements for delayed delivery:
 
-- Kafka: scheduler topics must exist with the required compaction settings.
-- RabbitMQ: the transport manages the durable schedules queue itself.
-- NATS: JetStream streams, consumers, and KV are required.
+- Kafka: use `createKafkaScheduler()` with durable scheduler topics.
+- RabbitMQ: use `createRabbitMqScheduler()` with the durable schedules queue.
+- NATS: use `createNatsScheduler()` with JetStream streams, consumers, and KV.
 
 Handlers can read `ctx.attempt` for the one-based delivery attempt reported by the transport. The first delivery is attempt `1`; a delayed retry is delivered as attempt `2`, and so on.
 
@@ -221,9 +228,14 @@ Handlers can read `ctx.attempt` for the one-based delivery attempt reported by t
 import { createRouter } from "@protoutil/pubsub";
 import { BillingEvents } from "./gen/acme/billing/v1/events_pb.js";
 
-const router = createRouter(transport);
+const router = createRouter(BillingEvents, transport, {
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
+  deadLetterTopic: "billing.__deadletter",
+});
 
-router.service(BillingEvents, {
+router.service({
   async invoiceCreated(request, ctx) {
     // request is InvoiceCreatedEvent
     if (ctx.attempt > 1) {
@@ -502,27 +514,39 @@ The Kafka transport uses the real `@confluentinc/kafka-javascript` client from t
 
 ```ts
 import { KafkaJS } from "@confluentinc/kafka-javascript";
-import { createKafkaTransport } from "@protoutil/pubsub/kafka";
+import { createKafkaScheduler, createKafkaTransport } from "@protoutil/pubsub/kafka";
 import { createPublisher, createRouter } from "@protoutil/pubsub";
 
 const kafka = new KafkaJS.Kafka({
   "bootstrap.servers": "localhost:9092",
 });
 
-const transport = createKafkaTransport({
+const scheduler = createKafkaScheduler({
   client: kafka,
-  subscribeTopics: ["BillingEvents"],
-  scheduler: {
+  options: {
     schedulesTopic: "protoutil.pubsub.schedules",
     historyTopic: "protoutil.pubsub.schedule_history",
   },
+});
+
+const transport = createKafkaTransport({
+  client: kafka,
+  scheduler,
   defaultSource: "billing-service",
 });
 
 const publisher = createPublisher(BillingEvents, transport, {
   source: "billing-service",
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
 });
-const router = createRouter(transport);
+const router = createRouter(BillingEvents, transport, {
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
+  deadLetterTopic: "billing.__deadletter",
+});
 ```
 
 The Kafka transport connects and creates its scheduler topology lazily on first publish or subscribe. `router.subscribe()` returns a subscription handle; call `subscription.unsubscribe()` to stop that subscriber. Call `transport.close()` from application shutdown hooks to close the backing Kafka clients.

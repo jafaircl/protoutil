@@ -2,9 +2,10 @@ import type { PubSubBenchmarkContext } from "../benchmark-cases.js";
 import type { PubSubTransportTestContext, TransportOptions } from "../test-cases.js";
 import type { PubSubTestTransportAdapter } from "../test-transport-types.js";
 import type { PubSubTransport } from "../types.js";
-import { createNatsTransport } from "./index.js";
+import { createNatsScheduler, createNatsTransport } from "./index.js";
 
 const NATS_SERVERS = process.env.NATS_SERVERS ?? "nats://127.0.0.1:14222";
+const NATS_EVENT_STREAM = "PROTOUTIL_PUBSUB_TEST";
 
 /** Registered NATS shared test adapter. */
 export const natsTestTransportAdapter: PubSubTestTransportAdapter = {
@@ -36,23 +37,26 @@ function createTrackedNatsTransport(
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): PubSubTransport {
   const testOptions = transportTestOptions(options);
-  const eventSubjectPrefix = `protoutil.events.${suffix}`;
   const schedulerSubjectPrefix = `protoutil.scheduler.${suffix}`;
   const transport = createNatsTransport({
     servers: NATS_SERVERS,
-    subscribeTopics: options?.subscribeTopics,
-    deadLetterTopic: testOptions?.deadLetterTopic,
     interceptors: testOptions?.interceptors,
     stream: {
-      name: `PROTOUTIL_PUBSUB_${suffix.replaceAll(".", "_").toUpperCase()}`,
-      subjects: [`${eventSubjectPrefix}.>`],
+      name: NATS_EVENT_STREAM,
+      subjects: ["protoutil.events.>", "protoutil.pubsub.testing.>"],
     },
-    scheduler: {
-      streamName: `PROTOUTIL_PUBSUB_SCHED_${suffix.replaceAll(".", "_").toUpperCase()}`,
-      subject: `${schedulerSubjectPrefix}.wake`,
-      kvBucket: `protoutil_pubsub_sched_${suffix.replaceAll(/[^a-zA-Z0-9]+/g, "_")}`,
-      consumerName: options?.scheduler?.consumerGroup ?? `protoutil.pubsub.scheduler.${suffix}`,
-    },
+    scheduler: options?.scheduler
+      ? createNatsScheduler({
+          servers: NATS_SERVERS,
+          options: {
+            streamName: `PROTOUTIL_PUBSUB_SCHED_${suffix.replaceAll(".", "_").toUpperCase()}`,
+            subject: `${schedulerSubjectPrefix}.wake`,
+            kvBucket: `protoutil_pubsub_sched_${suffix.replaceAll(/[^a-zA-Z0-9]+/g, "_")}`,
+            consumerName: options.scheduler.consumerGroup ?? `protoutil.pubsub.scheduler.${suffix}`,
+          },
+          interceptors: testOptions?.interceptors,
+        })
+      : undefined,
   });
   transports.push(transport);
   return transport;
@@ -64,7 +68,7 @@ function transportTestOptions(
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): TransportOptions | undefined {
-  if (!options || (!("deadLetterTopic" in options) && !("interceptors" in options))) {
+  if (!options || (!("scheduler" in options) && !("interceptors" in options))) {
     return undefined;
   }
   return options;

@@ -20,26 +20,37 @@ Published payloads still use the [CloudEvents 1.0](https://github.com/cloudevent
 envelope defined by the core package.
 
 Delayed publish, retry delay, and `notBefore` scheduling do not require the
-RabbitMQ delayed-message plugin. This transport owns a durable schedules queue
-and scheduler worker instead.
+RabbitMQ delayed-message plugin. Use an explicit RabbitMQ scheduler when you
+need delayed delivery; immediate publish and subscribe do not require one.
 
 ## Usage
 
 ```ts
 import { createPublisher, createRouter } from "@protoutil/pubsub";
-import { createRabbitMqTransport } from "@protoutil/pubsub/rabbitmq";
+import { createRabbitMqScheduler, createRabbitMqTransport } from "@protoutil/pubsub/rabbitmq";
 import { BillingEvents } from "./gen/acme/billing/v1/events_pb.js";
+
+const scheduler = createRabbitMqScheduler({
+  url: "amqp://guest:guest@127.0.0.1:5672",
+});
 
 const transport = createRabbitMqTransport({
   url: "amqp://guest:guest@127.0.0.1:5672",
-  subscribeTopics: ["billing.invoice.created"],
-  deadLetterTopic: "billing.dead-letter",
+  scheduler,
   defaultSource: "billing-service",
 });
 
-const router = createRouter(transport);
+const router = createRouter(BillingEvents, transport, {
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
+  deadLetterTopic: "billing.dead-letter",
+});
 const publisher = createPublisher(BillingEvents, transport, {
   source: "billing-service",
+  topic: {
+    invoiceCreated: "billing.invoice.created",
+  },
 });
 
 const subscription = await router.subscribe({

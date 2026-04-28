@@ -17,8 +17,8 @@ import { createRouter } from "./router.js";
 
 describe("pubsub dispositions", () => {
   it("uses explicit handler context dispositions including delayed retry", async () => {
-    const router = createRouter(new InMemoryPubSubTransport());
-    router.service(ConformanceEvents, {
+    const router = createRouter(ConformanceEvents, new InMemoryPubSubTransport());
+    router.service({
       async betaHappened(_request, context) {
         await context.retry({ delay: { seconds: 3n } });
       },
@@ -29,7 +29,7 @@ describe("pubsub dispositions", () => {
         id: "event-2",
         source: "billing-service",
         specVersion: "1.0",
-        type: "BetaHappened",
+        type: "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened",
         data: {
           case: "protoData",
           value: anyPack(
@@ -44,8 +44,8 @@ describe("pubsub dispositions", () => {
   });
 
   it("normalizes thrown errors and invalid payloads to dispositions", async () => {
-    const router = createRouter(new InMemoryPubSubTransport());
-    router.service(ConformanceEvents, {
+    const router = createRouter(ConformanceEvents, new InMemoryPubSubTransport());
+    router.service({
       async alphaHappened() {
         throw new TransientPubSubError("try again");
       },
@@ -55,12 +55,16 @@ describe("pubsub dispositions", () => {
     });
 
     await expect(
-      router.dispatch({ event: alphaEvent("event-4", "AlphaHappened") }),
+      router.dispatch({
+        event: alphaEvent("event-4", "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened"),
+      }),
     ).resolves.toMatchObject({
       kind: "retry",
     });
     await expect(
-      router.dispatch({ event: betaEvent("event-5", "BetaHappened") }),
+      router.dispatch({
+        event: betaEvent("event-5", "protoutil.pubsub.testing.v1.ConformanceEvents.BetaHappened"),
+      }),
     ).resolves.toMatchObject({
       kind: "dead_letter",
     });
@@ -70,7 +74,7 @@ describe("pubsub dispositions", () => {
         id: "event-6",
         source: "billing-service",
         specVersion: "1.0",
-        type: "AlphaHappened",
+        type: "protoutil.pubsub.testing.v1.ConformanceEvents.AlphaHappened",
         data: { case: "textData", value: "nope" },
       }),
     });

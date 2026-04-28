@@ -2,7 +2,7 @@ import type { PubSubBenchmarkContext } from "../benchmark-cases.js";
 import type { PubSubTransportTestContext, TransportOptions } from "../test-cases.js";
 import type { PubSubTestTransportAdapter } from "../test-transport-types.js";
 import type { PubSubTransport } from "../types.js";
-import { createRabbitMqTransport } from "./index.js";
+import { createRabbitMqScheduler, createRabbitMqTransport } from "./index.js";
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL ?? "amqp://guest:guest@127.0.0.1:5673";
 
@@ -38,12 +38,15 @@ function createTrackedRabbitMqTransport(
   const testOptions = transportTestOptions(options);
   const transport = createRabbitMqTransport({
     url: RABBITMQ_URL,
-    scheduleQueue:
-      options?.scheduler?.schedulesTopic ?? `protoutil.pubsub.shared.schedules.${suffix}`,
-    subscribeTopics: options?.subscribeTopics,
-    deadLetterTopic: testOptions?.deadLetterTopic,
     interceptors: testOptions?.interceptors,
     queuePrefix: `protoutil.pubsub.queue.${suffix}`,
+    scheduler: options?.scheduler
+      ? createRabbitMqScheduler({
+          url: RABBITMQ_URL,
+          scheduleQueue: options.scheduler.schedulesTopic,
+          interceptors: testOptions?.interceptors,
+        })
+      : undefined,
   });
   transports.push(transport);
   return transport;
@@ -55,7 +58,7 @@ function transportTestOptions(
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): TransportOptions | undefined {
-  if (!options || (!("deadLetterTopic" in options) && !("interceptors" in options))) {
+  if (!options || (!("scheduler" in options) && !("interceptors" in options))) {
     return undefined;
   }
   return options;

@@ -10,20 +10,16 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { create } from "@bufbuild/protobuf";
 import { createValidator } from "@bufbuild/protovalidate";
 import { Code, ConnectError, type ConnectRouter } from "@connectrpc/connect";
 import { StatusError } from "@protoutil/aip/errors";
 import { parse as parsePageToken } from "@protoutil/aip/pagination";
 import { getResourceNamePatterns, print, scan } from "@protoutil/aip/resourcename";
 import {
-  BookCreatedEventSchema,
-  BookDeletedEventSchema,
   BookSchema,
   LibraryService,
   ListBooksRequestSchema,
   ListShelvesRequestSchema,
-  ShelfCreatedEventSchema,
   ShelfSchema,
 } from "./gen/library/v1/library_pb.js";
 import { getEventsPublisher } from "./pubsub.js";
@@ -76,11 +72,10 @@ export default (router: ConnectRouter) => {
 
       // Publish a shelf.created event for downstream handlers
       await getEventsPublisher().shelfCreated(
-        create(ShelfCreatedEventSchema, {
+        {
           name,
           theme: created!.theme,
-        }),
-        { topic: 'library-events' },
+        }
       );
 
       return created!;
@@ -158,13 +153,12 @@ export default (router: ConnectRouter) => {
 
       // Publish a book.created event for downstream handlers
       await getEventsPublisher().bookCreated(
-        create(BookCreatedEventSchema, {
+        {
           name,
           shelf: req.parent,
           title: created!.title,
           author: created!.author,
-        }),
-        { topic: 'library-events' },
+        }
       );
 
       return created!;
@@ -216,10 +210,9 @@ export default (router: ConnectRouter) => {
         await bookRepo.delete({ name: req.name });
         // Publish a book.created event for downstream handlers
         await getEventsPublisher().bookDeleted(
-          create(BookDeletedEventSchema, {
+          {
             name: req.name,
-          }),
-          { topic: 'library-events' },
+          }
         );
       } catch (err) {
         toConnectError(err);

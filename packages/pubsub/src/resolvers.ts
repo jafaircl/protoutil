@@ -1,4 +1,6 @@
 import type { DescMethodUnary } from "@bufbuild/protobuf";
+import type { GenService, GenServiceMethods } from "@bufbuild/protobuf/codegenv2";
+import { methodEventType, publisherMethodTopic } from "./topics.js";
 import type { PublisherOptions, PublisherTransport, PublishOptions } from "./types.js";
 
 /** Library fallback CloudEvent source when no publish, publisher, or transport source is set. */
@@ -6,9 +8,7 @@ export const DEFAULT_SOURCE = "protoutil.pubsub";
 
 /** Resolve the transport topic for a publish call. */
 export function resolveTopic(method: DescMethodUnary, options?: PublishOptions): string {
-  // Topic is for broker routing. CloudEvent type remains the semantic identity
-  // that subscribers use to select handlers.
-  return options?.topic ?? method.name ?? method.input.typeName;
+  return publisherMethodTopic(method, undefined, options?.topic);
 }
 
 /**
@@ -17,7 +17,7 @@ export function resolveTopic(method: DescMethodUnary, options?: PublishOptions):
  * @see {@link https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md#type | CloudEvents type}
  */
 export function resolveCloudEventType(method: DescMethodUnary, options?: PublishOptions): string {
-  return options?.type ?? method.name ?? method.input.typeName;
+  return options?.type ?? methodEventType(method);
 }
 
 /**
@@ -27,7 +27,7 @@ export function resolveCloudEventType(method: DescMethodUnary, options?: Publish
  */
 export function resolveCloudEventSource(
   transport: PublisherTransport,
-  clientOptions?: PublisherOptions,
+  clientOptions?: PublisherOptions<GenService<GenServiceMethods>>,
   publishOptions?: PublishOptions,
 ): string {
   return (

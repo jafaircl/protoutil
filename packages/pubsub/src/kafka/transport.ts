@@ -1,4 +1,3 @@
-import { durationMs } from "@bufbuild/protobuf/wkt";
 import type { KafkaJS } from "@confluentinc/kafka-javascript";
 import { cloudEventFromBytes } from "../cloudevents.js";
 import { createContextValues } from "../context-values.js";
@@ -12,24 +11,26 @@ import {
   PROTOUTIL_HEADER_ORIGINAL_TOPIC,
 } from "../headers.js";
 import { applyPubSubInterceptors, notifyInterceptors } from "../interceptors.js";
+import { retryLaterOrThrow, scheduleOrThrow } from "../scheduler.js";
 import { retryLimitReached as retryLimitReachedWithMaxAttempts } from "../transport-utils.js";
 import type {
   DeliveryHandler,
   Disposition,
   PublishRequest,
+  PubSubScheduler,
   PubSubTransport,
-  SubscribeOptions,
+  SubscribeRequest,
   Subscription,
 } from "../types.js";
 import { cloudEventMessage } from "./cloud-event.js";
 import { sendWithTimeout } from "./producer.js";
-import { KafkaScheduler } from "./scheduler.js";
 import { topologyTopics } from "./topology.js";
 import type { KafkaTransportOptions } from "./types.js";
 import { keyString } from "./utils.js";
 
 const DEFAULT_CONSUMER_GROUP = "protoutil.pubsub";
 const CONSUMER_ASSIGNMENT_TIMEOUT_MS = 5_000;
+const CONSUMER_READY_GRACE_MS = 50;
 const consumerMaxAttempts = new WeakMap<KafkaJS.Consumer, number>();
 const topologyCreation = new Map<string, Promise<void>>();
 
@@ -43,14 +44,12 @@ class DefaultKafkaTransport implements PubSubTransport {
   readonly #options: KafkaTransportOptions;
   readonly #admin: KafkaJS.Admin;
   readonly #producer: KafkaJS.Producer;
-  readonly #scheduler: KafkaScheduler;
+  readonly #scheduler?: PubSubScheduler;
   readonly #consumers = new Set<KafkaJS.Consumer>();
   #adminStartup?: Promise<void>;
   #producerStartup?: Promise<void>;
-  #schedulerStartup?: Promise<void>;
   #adminStarted = false;
   #producerStarted = false;
-  #schedulerStarted = false;
 
   /** Create one Kafka transport with lazily started producer, admin, and scheduler clients. */
   public constructor(options: KafkaTransportOptions) {
@@ -58,16 +57,7 @@ class DefaultKafkaTransport implements PubSubTransport {
     this.defaultSource = options.defaultSource;
     this.#admin = options.client.admin(options.adminConfig);
     this.#producer = options.client.producer(options.producerConfig);
-    this.#scheduler = new KafkaScheduler({
-      client: options.client,
-      producer: this.#producer,
-      options: options.scheduler,
-      consumerGroup:
-        options.scheduler.consumerGroup ??
-        `${DEFAULT_CONSUMER_GROUP}.scheduler.${options.scheduler.schedulesTopic}`,
-      publishTimeoutMs: options.publishTimeoutMs,
-      interceptors: options.interceptors,
-    });
+    this.#scheduler = options.scheduler;
   }
 
   /** Lazily connect the shared Kafka producer used for immediate and delayed publish paths. */
@@ -88,34 +78,18 @@ class DefaultKafkaTransport implements PubSubTransport {
     await this.#adminStartup;
   }
 
-  /** Lazily start the durable scheduler path when subscribe or delay support needs it. */
-  async #ensureSchedulerStarted(): Promise<void> {
-    // Subscribe, delayed publish, and retry scheduling need the durable
-    // topology plus the scheduler worker itself.
-    this.#schedulerStartup ??= this.#startScheduler();
-    await this.#schedulerStartup;
-  }
-
-  /** Start scheduler dependencies in the required order for delayed delivery. */
-  async #startScheduler(): Promise<void> {
-    await this.#ensureProducerStarted();
-    const autoCreateTopology = this.#options.scheduler.autoCreateTopology ?? true;
-    if (autoCreateTopology) {
-      await this.#ensureTopologyCreated();
-    }
-    await this.#scheduler.start();
-    this.#schedulerStarted = true;
-  }
-
   /** Ensure the Kafka topics required by this transport exist once per process. */
-  async #ensureTopologyCreated(): Promise<void> {
-    const topics = topologyTopics(this.#options);
-    const cacheKey = topologyCacheKey(topics);
+  async #ensureTopologyCreated(topics: string[], deadLetterTopic?: string): Promise<void> {
+    const requestedTopics = topologyTopics(undefined, topics, deadLetterTopic);
+    if (requestedTopics.length === 0) {
+      return;
+    }
+    const cacheKey = topologyCacheKey(requestedTopics);
     let startup = topologyCreation.get(cacheKey);
     if (!startup) {
       // Avoid a same-process topic creation stampede when multiple transport
       // instances share one topology.
-      startup = this.#createTopology(topics);
+      startup = this.#createTopology(requestedTopics);
       topologyCreation.set(cacheKey, startup);
     }
     try {
@@ -142,7 +116,7 @@ class DefaultKafkaTransport implements PubSubTransport {
       await consumer.disconnect();
     }
     this.#consumers.clear();
-    if (this.#schedulerStarted) {
+    if (this.#scheduler) {
       await this.#scheduler.close();
     }
     if (this.#producerStarted) {
@@ -161,9 +135,7 @@ class DefaultKafkaTransport implements PubSubTransport {
       async (ctx) => {
         const req = (ctx as Extract<typeof ctx, { operation: "publish" }>).request;
         if (req.notBefore) {
-          await this.#ensureSchedulerStarted();
-          // Delayed publish is accepted only after the durable scheduler write.
-          await this.#scheduler.publishLater(req);
+          await scheduleOrThrow(this.#scheduler, req);
           return;
         }
 
@@ -183,19 +155,18 @@ class DefaultKafkaTransport implements PubSubTransport {
   /** Start one Kafka subscription and return an unsubscribe handle. */
   public async subscribe(
     handler: DeliveryHandler,
-    options?: SubscribeOptions,
+    request: SubscribeRequest,
   ): Promise<Subscription> {
-    await this.#ensureSchedulerStarted();
-
-    if (!this.#options.subscribeTopics?.length) {
+    if (!request.topics.length) {
       throw new Error("Kafka subscriber transport requires at least one subscribe topic");
     }
+    await this.#ensureTopologyCreated(request.topics, request.deadLetterTopic);
 
     // The core subscribe options stay portable. Kafka-specific consumer tuning
     // still comes from KafkaTransportOptions.consumerConfig.
-    const consumer = this.#options.client.consumer(consumerConfig(this.#options, options));
-    if (validMaxAttempts(options?.maxAttempts)) {
-      consumerMaxAttempts.set(consumer, options.maxAttempts);
+    const consumer = this.#options.client.consumer(consumerConfig(this.#options, request));
+    if (validMaxAttempts(request.maxAttempts)) {
+      consumerMaxAttempts.set(consumer, request.maxAttempts);
     }
     this.#consumers.add(consumer);
     await consumer.connect();
@@ -213,13 +184,13 @@ class DefaultKafkaTransport implements PubSubTransport {
       unsubscribe().catch(() => undefined);
     };
 
-    if (options?.signal?.aborted) {
+    if (request.signal?.aborted) {
       await unsubscribe();
       return { unsubscribe };
     }
-    options?.signal?.addEventListener("abort", abort, { once: true });
+    request.signal?.addEventListener("abort", abort, { once: true });
 
-    for (const topic of this.#options.subscribeTopics) {
+    for (const topic of request.topics) {
       await consumer.subscribe({ topic });
     }
 
@@ -265,7 +236,7 @@ class DefaultKafkaTransport implements PubSubTransport {
             return handler(d);
           },
         )) as Disposition;
-        await this.#settleDelivery(consumer, {
+        await this.#settleDelivery(consumer, request.deadLetterTopic, {
           topic,
           partition,
           offset: message.offset,
@@ -275,18 +246,19 @@ class DefaultKafkaTransport implements PubSubTransport {
         });
       },
     };
-    if (options?.concurrency !== undefined) {
-      runConfig.partitionsConsumedConcurrently = options.concurrency;
+    if (request.concurrency !== undefined) {
+      runConfig.partitionsConsumedConcurrently = request.concurrency;
     }
     await consumer.run(runConfig);
     // KafkaJS-style run() returns before the group has necessarily finished
     // joining and receiving assignments. Hold subscribe() open until the
     // consumer is actually ready to receive records for the subscribed topics.
-    await waitForConsumerAssignment(consumer, options?.signal);
+    await waitForConsumerAssignment(consumer, request.signal);
+    await this.#scheduler?.start();
 
     return {
       unsubscribe: async () => {
-        options?.signal?.removeEventListener("abort", abort);
+        request.signal?.removeEventListener("abort", abort);
         await unsubscribe();
       },
     };
@@ -295,6 +267,7 @@ class DefaultKafkaTransport implements PubSubTransport {
   /** Map one router disposition onto Kafka commit, retry, or dead-letter behavior. */
   async #settleDelivery(
     consumer: KafkaJS.Consumer,
+    deadLetterTopic: string | undefined,
     delivery: {
       topic: string;
       partition: number;
@@ -310,7 +283,7 @@ class DefaultKafkaTransport implements PubSubTransport {
           operation: "retryExhausted",
           event: deliveryEvent(delivery),
         });
-        await this.#publishDeadLetter({
+        await this.#publishDeadLetter(deadLetterTopic, {
           ...delivery,
           disposition: { kind: "dead_letter", error: delivery.disposition.error },
         });
@@ -321,14 +294,25 @@ class DefaultKafkaTransport implements PubSubTransport {
         });
         return;
       }
-      // Retry is durable: write the next attempt to the scheduler topic before
-      // committing the consumed offset.
-      await this.#scheduler.retryLater(
-        delivery.topic,
-        delivery.event,
-        delivery.disposition.delay ? durationMs(delivery.disposition.delay) : 0,
-        delivery.attempt + 1,
-      );
+      if (delivery.disposition.delay) {
+        await retryLaterOrThrow(
+          this.#scheduler,
+          delivery.topic,
+          delivery.event,
+          delivery.disposition,
+          delivery.attempt + 1,
+        );
+      } else {
+        await this.#ensureProducerStarted();
+        await sendWithTimeout(
+          this.#producer,
+          {
+            topic: delivery.topic,
+            messages: [cloudEventMessage(delivery.event)],
+          },
+          this.#options.publishTimeoutMs,
+        );
+      }
       await commitDelivery(consumer, delivery);
       const event = deliveryEvent(delivery);
       await notifyInterceptors(this.#options.interceptors, {
@@ -345,7 +329,7 @@ class DefaultKafkaTransport implements PubSubTransport {
     if (delivery.disposition.kind === "reject" || delivery.disposition.kind === "dead_letter") {
       // Reject and dead_letter share the same optional Kafka DLQ path. The
       // disposition header preserves which semantic action the handler chose.
-      await this.#publishDeadLetter(delivery);
+      await this.#publishDeadLetter(deadLetterTopic, delivery);
     }
 
     // ACK, reject without a DLQ, and successful DLQ publish all complete by
@@ -358,24 +342,28 @@ class DefaultKafkaTransport implements PubSubTransport {
   }
 
   /** Publish one delivery to the configured dead-letter topic when enabled. */
-  async #publishDeadLetter(delivery: {
-    topic: string;
-    partition: number;
-    offset: string;
-    attempt: number;
-    disposition: Disposition;
-    event: CloudEvent;
-  }): Promise<void> {
-    if (!this.#options.deadLetterTopic) {
+  async #publishDeadLetter(
+    deadLetterTopic: string | undefined,
+    delivery: {
+      topic: string;
+      partition: number;
+      offset: string;
+      attempt: number;
+      disposition: Disposition;
+      event: CloudEvent;
+    },
+  ): Promise<void> {
+    if (!deadLetterTopic) {
       return;
     }
+    await this.#ensureProducerStarted();
     const message = cloudEventMessage(delivery.event);
     // The dead-letter payload is still the original CloudEvent. Kafka-specific
     // headers carry diagnostics for operators and replay tooling.
     await sendWithTimeout(
       this.#producer,
       {
-        topic: this.#options.deadLetterTopic,
+        topic: deadLetterTopic,
         messages: [
           {
             ...message,
@@ -394,7 +382,7 @@ class DefaultKafkaTransport implements PubSubTransport {
     );
     await notifyInterceptors(this.#options.interceptors, {
       operation: "deadLettered",
-      event: deliveryEvent(delivery),
+      event: { ...deliveryEvent(delivery), topic: deadLetterTopic },
     });
   }
 }
@@ -432,6 +420,10 @@ async function waitForConsumerAssignment(
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
+  // Kafka can report an assignment a little before the fetch loop is fully
+  // ready. Give the consumer a brief post-join grace period so the first
+  // immediate publish after subscribe() is not lost to startup races.
+  await new Promise((resolve) => setTimeout(resolve, CONSUMER_READY_GRACE_MS));
 }
 
 /** Commit the next Kafka offset after a delivery has been fully settled. */
@@ -478,7 +470,7 @@ function validMaxAttempts(value: number | undefined): value is number {
 /** Merge portable subscribe options with Kafka-specific consumer defaults. */
 function consumerConfig(
   transportOptions: KafkaTransportOptions,
-  subscribeOptions: SubscribeOptions | undefined,
+  subscribeOptions: SubscribeRequest | undefined,
 ): KafkaJS.ConsumerConstructorConfig {
   const configuredKafkaJS = transportOptions.consumerConfig?.kafkaJS;
   // The portable consumerGroup option wins, then Kafka transport config, then a
