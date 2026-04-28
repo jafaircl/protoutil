@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import app from "./app.js";
 import { closeEngines } from "./engines.js";
+import { closePubsub } from "./pubsub.js";
 
 const server = Fastify({ logger: true });
 
@@ -19,7 +20,13 @@ const start = async () => {
 process.on("SIGTERM", async () => {
   await server.close();
   await closeEngines();
+  await closePubsub();
   process.exit(0);
+});
+
+// Cleanup on normal exit
+process.on("exit", async () => {
+  await closePubsub();
 });
 
 start();

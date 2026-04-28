@@ -1,5 +1,6 @@
 import { durationFromMs, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { expect } from "vitest";
+import { createContextKey, createContextValues, withReentryGuard } from "./context-values.js";
 import { ConformanceEvents } from "./gen/protoutil/pubsub/testing/v1/events_pb.js";
 import { createPublisher } from "./publisher.js";
 import { createRouter } from "./router.js";
@@ -955,6 +956,150 @@ export const backendSpecificGroups: Record<string, PubSubTransportCaseGroup[]> =
             await expect
               .poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS })
               .toBe("evt_interceptor");
+            await subscription.unsubscribe();
+          },
+        },
+        {
+          name: "passes context values from handle interceptor to handler",
+          async run(ctx) {
+            const topic = ctx.topic("events");
+            const kTestValue = createContextKey("default", { description: "test value" });
+
+            const transport = ctx.transport({
+              subscribeTopics: [topic],
+              interceptors: [
+                (next) => async (ctx) => {
+                  if (ctx.operation === "handle") {
+                    ctx.contextValues?.set(kTestValue, "set-by-interceptor");
+                  }
+                  return next(ctx);
+                },
+              ],
+            });
+            const publisher = createPublisher(ConformanceEvents, transport, {
+              source: "test-suite",
+            });
+            const router = createRouter(transport);
+            let handledEventId = "";
+            let observedInHandler = "";
+
+            router.service(ConformanceEvents, {
+              async alphaHappened(request, handlerContext) {
+                handledEventId = request.eventId;
+                observedInHandler = handlerContext.contextValues.get(kTestValue);
+                await handlerContext.ack();
+              },
+            });
+
+            const subscription = await router.subscribe({
+              consumerGroup: ctx.topic("workers"),
+            });
+
+            await publisher.alphaHappened({ eventId: "evt_ctx", name: "ctx", count: 1 }, { topic });
+
+            await expect
+              .poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS })
+              .toBe("evt_ctx");
+            expect(observedInHandler).toBe("set-by-interceptor");
+            await subscription.unsubscribe();
+          },
+        },
+        {
+          name: "shares context values between interceptor and handler via delivery",
+          async run(ctx) {
+            const topic = ctx.topic("events");
+            const kTraceId = createContextKey("", { description: "trace id" });
+            const traceId = `trace-${Math.random().toString(36).slice(2)}`;
+
+            const transport = ctx.transport({
+              subscribeTopics: [topic],
+              interceptors: [
+                (next) => async (ctx) => {
+                  if (ctx.operation === "handle") {
+                    ctx.contextValues?.set(kTraceId, traceId);
+                  }
+                  return next(ctx);
+                },
+              ],
+            });
+            const publisher = createPublisher(ConformanceEvents, transport, {
+              source: "test-suite",
+            });
+            const router = createRouter(transport);
+            let handledEventId = "";
+            let deliveredTraceId = "";
+
+            router.service(ConformanceEvents, {
+              async alphaHappened(request, handlerContext) {
+                handledEventId = request.eventId;
+                deliveredTraceId = handlerContext.contextValues.get(kTraceId);
+                await handlerContext.ack();
+              },
+            });
+
+            const subscription = await router.subscribe({
+              consumerGroup: ctx.topic("workers"),
+            });
+
+            await publisher.alphaHappened(
+              { eventId: "evt_delivery_ctx", name: "delivery_ctx", count: 1 },
+              { topic },
+            );
+
+            await expect
+              .poll(() => handledEventId, { timeout: DELIVERY_TIMEOUT_MS })
+              .toBe("evt_delivery_ctx");
+            expect(deliveredTraceId).toBe(traceId);
+            await subscription.unsubscribe();
+          },
+        },
+        {
+          name: "supports reentry guard to prevent nested publishes",
+          async run(ctx) {
+            const topic = ctx.topic("events");
+            const kPublishing = createContextKey(false, { description: "publishing guard" });
+            const values = createContextValues();
+
+            const transport = ctx.transport({
+              subscribeTopics: [topic],
+              interceptors: [
+                (next) => async (ctx) => {
+                  if (ctx.operation === "publish" && ctx.contextValues?.get(kPublishing)) {
+                    throw new Error("nested publish not allowed");
+                  }
+                  return next(ctx);
+                },
+              ],
+            });
+            const nestedPublisher = createPublisher(ConformanceEvents, transport, {
+              source: "test-suite",
+              contextValues: values,
+            });
+            const router = createRouter(transport);
+            let outerPublished = false;
+
+            router.service(ConformanceEvents, {
+              async alphaHappened(_, handlerContext) {
+                outerPublished = true;
+                await withReentryGuard(values, kPublishing, async () => {
+                  await nestedPublisher.alphaHappened(
+                    { eventId: "nested", name: "nested", count: 1 },
+                    { topic },
+                  );
+                });
+                await handlerContext.ack();
+              },
+            });
+
+            const subscription = await router.subscribe({
+              consumerGroup: ctx.topic("workers"),
+            });
+
+            await createPublisher(ConformanceEvents, transport, {
+              source: "test-suite",
+            }).alphaHappened({ eventId: "evt_outer", name: "outer", count: 1 }, { topic });
+
+            await expect.poll(() => outerPublished, { timeout: DELIVERY_TIMEOUT_MS }).toBe(true);
             await subscription.unsubscribe();
           },
         },

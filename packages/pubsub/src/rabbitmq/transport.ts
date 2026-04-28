@@ -2,6 +2,7 @@ import { durationMs, timestampDate } from "@bufbuild/protobuf/wkt";
 import type { Channel, ChannelModel, ConfirmChannel, ConsumeMessage, Options } from "amqplib";
 import { connect } from "amqplib";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
+import { createContextValues } from "../context-values.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   CLOUD_EVENT_HEADER_ID,
@@ -251,10 +252,11 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     }
 
     const attempt = headerAttempt(message.properties.headers) ?? 1;
-    const delivery = { event, topic: message.fields.routingKey, attempt };
+    const contextValues = createContextValues();
+    const delivery = { event, topic: message.fields.routingKey, attempt, contextValues };
     const disposition = (await applyPubSubInterceptors(
       this.#options.interceptors,
-      { operation: "handle", delivery },
+      { operation: "handle", delivery, contextValues },
       async (ctx) => {
         const d = (ctx as Extract<typeof ctx, { operation: "handle" }>).delivery;
         return handler(d);

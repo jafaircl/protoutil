@@ -179,6 +179,28 @@ Publishing creates a CloudEvent with:
 
 Metadata is written as CloudEvent extension attributes. Supported metadata values are `string`, `number` integers, `boolean`, and `Uint8Array`.
 
+### Cross-process tracing
+
+The `contextValues` API passes data within a single process. To share values across processes, encode them in CloudEvent metadata:
+
+```typescript
+// Publisher encodes a trace ID
+await publisher.orderCreated({ orderId: "123" }, {
+  metadata: { traceid: "abc-123", userid: "user_456" },
+});
+
+// Handler reads from the CloudEvent
+router.service(Orders, {
+  async orderCreated(request, ctx) {
+    const traceId = ctx.event["traceid"];
+    const userId = ctx.event["userid"];
+    // ...
+  },
+});
+```
+
+Metadata survives the broker and is available on any subscribing server.
+
 ### Delayed Delivery
 
 `notBefore` and retry `delay` are transport-owned scheduling semantics. A production transport that supports them must persist the schedule before resolving the publish or accepting the disposition, and it must not deliver earlier than the requested time.
@@ -356,6 +378,47 @@ const interceptor: PubSubInterceptor = (next) => async (ctx) => {
   }
   return next(ctx);
 };
+```
+
+### Context Values
+
+`ContextValues` passes arbitrary data through the interceptor chain and to handlers:
+
+```ts
+import { createContextKey, createContextValues, withReentryGuard } from "@protoutil/pubsub";
+
+const kUserId = createContextKey<string | undefined>("");
+const kTracingId = createContextKey<string>("");
+
+const extractUserId: PubSubInterceptor = (next) => async (ctx) => {
+  ctx.contextValues?.set(kUserId, extractFromRequest(ctx));
+  return next(ctx);
+};
+
+const extractTracing: PubSubInterceptor = (next) => async (ctx) => {
+  ctx.contextValues?.set(kTracingId, crypto.randomUUID());
+  return next(ctx);
+};
+
+// Use in handlers
+const handler: EventHandler = async (request, ctx) => {
+  const userId = ctx.contextValues.get(kUserId);
+  const traceId = ctx.contextValues.get(kTracingId);
+  // ...
+};
+```
+
+Pass `ContextValues` to options to carry state across nested calls:
+
+```ts
+const values = createContextValues();
+const publisher = createPublisher(service, transport, { contextValues: values });
+
+// Use a reentry guard to prevent nested handler publishes
+const kPublishing = createContextKey(false);
+await withReentryGuard(values, kPublishing, async () => {
+  await publisher.doThing(req);
+});
 ```
 
 ## Resolution Rules

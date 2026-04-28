@@ -10,8 +10,13 @@ import type {
 /**
  * In-memory transport for tests, examples, and conformance execution.
  *
- * This transport is not durable and must not be used as a production implementation for
- * delayed publish or delayed retry semantics.
+ * **Not durable** - do not use in production. Specifically:
+ * - No broker persistence (events lost on process restart)
+ * - No delayed publish support (`notBefore` is ignored)
+ * - No retry semantics (immediate ack/reject only)
+ *
+ * This transport exists so application logic can be tested without requiring
+ * Kafka/RabbitMQ/NATS infrastructure.
  */
 export class InMemoryPubSubTransport implements PubSubTransport {
   /** Requests published through this transport, in publish order. */

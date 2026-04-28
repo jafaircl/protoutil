@@ -1,6 +1,7 @@
 import { durationMs } from "@bufbuild/protobuf/wkt";
 import type { KafkaJS } from "@confluentinc/kafka-javascript";
 import { cloudEventFromBytes } from "../cloudevents.js";
+import { createContextValues } from "../context-values.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   numberHeader,
@@ -254,10 +255,11 @@ class DefaultKafkaTransport implements PubSubTransport {
           return;
         }
         const attempt = numberHeader(message.headers, PROTOUTIL_HEADER_ATTEMPT) ?? 1;
-        const delivery = { event, topic, attempt };
+        const contextValues = createContextValues();
+        const delivery = { event, topic, attempt, contextValues };
         const disposition = (await applyPubSubInterceptors(
           this.#options.interceptors,
-          { operation: "handle", delivery },
+          { operation: "handle", delivery, contextValues },
           async (ctx) => {
             const d = (ctx as Extract<typeof ctx, { operation: "handle" }>).delivery;
             return handler(d);

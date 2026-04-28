@@ -13,6 +13,8 @@ export {
   stringAttribute,
   timestampAttribute,
 } from "./cloudevents.js";
+export type { ContextKey, ContextValues } from "./context-values.js";
+export { createContextKey, createContextValues, withReentryGuard } from "./context-values.js";
 export { ACK, DEAD_LETTER, normalizeThrown, REJECT, retry } from "./disposition.js";
 export {
   InvalidInputPubSubError,

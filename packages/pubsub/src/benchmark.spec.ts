@@ -19,6 +19,14 @@ import { closeTrackedTransports, testTransportAdapters } from "./test-transports
 //   PUBSUB_BENCHMARK_TIMEOUT_MS: scenario delivery timeout; default 120000.
 //   PUBSUB_BENCHMARK_TEST_TIMEOUT_MS: Vitest timeout for this file; default 300000.
 //
+// Methodology notes:
+// - Scenarios are end-to-end application benchmarks, not raw broker client microbenchmarks.
+//   They include transport lazy startup, topic setup, consumer group join, CloudEvent and protobuf
+//   serialization, router dispatch, and scheduler persistence for delayed delivery.
+// - Each scenario is measured twice: cold start (first run) and warmed up (transport already initialized).
+// - Small runs (1000 events) exaggerate fixed startup costs.
+// - Scheduled latency includes the configured `notBefore` delay; subtract it to get scheduler overhead.
+//
 // The entrypoint is shared for all transports. Each transport contributes an
 // adapter through src/test-transports.ts.
 const BENCHMARK_TEST_TIMEOUT_MS = Number(process.env.PUBSUB_BENCHMARK_TEST_TIMEOUT_MS ?? "300000");
@@ -88,6 +96,8 @@ Each scenario is measured twice: once on a cold path and once after a warm-up ev
 | \`PUBSUB_BENCHMARK_TEST_TIMEOUT_MS\` | \`${process.env.PUBSUB_BENCHMARK_TEST_TIMEOUT_MS ?? "300000"}\` |
 
 ## Results
+
+Note: Scheduled scenario durations include the configured notBefore delay; subtract it to get scheduler overhead (~100-300ms for most transports).
 
 ${resultsTable}
 `;

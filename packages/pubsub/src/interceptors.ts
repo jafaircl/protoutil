@@ -10,6 +10,9 @@ import type { PubSubInterceptor, PubSubInterceptorContext, PubSubInterceptorFn }
  * Errors thrown by interceptors propagate to the caller. Use this for
  * user-facing operations (`publish`, `handle`) where interceptor errors
  * should affect the outcome.
+ *
+ * Lifecycle operations (`scheduled`, `committed`, etc.) are handled by notifyInterceptors
+ * which catches all errors to prevent breaking delivery flow.
  */
 export function applyPubSubInterceptors<R>(
   interceptors: PubSubInterceptor[] | undefined,

@@ -1,10 +1,12 @@
 import type { DescMethodUnary } from "@bufbuild/protobuf";
 import type { GenService, GenServiceMethods } from "@bufbuild/protobuf/codegenv2";
 
-/** Return the unary methods from a generated service descriptor. */
+/** Return the unary methods from a generated service descriptor.
+ *
+ * Services use unary methods as the event contract surface. Streaming methods
+ * are not supported by this pub/sub library (different delivery model).
+ */
 export function unaryMethods(service: GenService<GenServiceMethods>): DescMethodUnary[] {
-  // V1 uses unary methods as the contract surface. Streaming methods are out of
-  // scope until the pubsub shape is clearer.
   return service.methods.filter(
     (method): method is DescMethodUnary => method.methodKind === "unary",
   );

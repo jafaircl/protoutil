@@ -15,6 +15,7 @@ import {
   type StorageType,
 } from "nats";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
+import { createContextValues } from "../context-values.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   CLOUD_EVENT_HEADER_ID,
@@ -321,10 +322,11 @@ class DefaultNatsTransport implements PubSubTransport {
     }
 
     const attempt = scheduleAttempt(message);
-    const delivery = { event, topic: message.subject, attempt };
+    const contextValues = createContextValues();
+    const delivery = { event, topic: message.subject, attempt, contextValues };
     const disposition = (await applyPubSubInterceptors(
       this.#options.interceptors,
-      { operation: "handle", delivery },
+      { operation: "handle", delivery, contextValues },
       async (ctx) => {
         const d = (ctx as Extract<typeof ctx, { operation: "handle" }>).delivery;
         return handler(d);

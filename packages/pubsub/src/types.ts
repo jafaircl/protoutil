@@ -1,6 +1,7 @@
 import type { DescMethodUnary, Message, MessageInitShape, MessageShape } from "@bufbuild/protobuf";
 import type { GenService, GenServiceMethods } from "@bufbuild/protobuf/codegenv2";
 import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
+import type { ContextValues } from "./context-values.js";
 import type { CloudEvent } from "./gen/io/cloudevents/v1/cloudevents_pb.js";
 
 /**
@@ -51,6 +52,8 @@ export interface PublishOptions {
 export interface PublisherOptions {
   /** Default CloudEvent source when a publish call does not provide one. */
   source?: string;
+  /** Context values passed through the interceptor chain and to nested operations. */
+  contextValues?: ContextValues;
 }
 
 /** Transport-neutral subscription options passed through to subscriber transports. */
@@ -66,6 +69,8 @@ export interface SubscribeOptions {
   maxAttempts?: number;
   /** Optional cancellation signal for stopping long-running subscriptions. */
   signal?: AbortSignal;
+  /** Context values passed through the interceptor chain and to nested operations. */
+  contextValues?: ContextValues;
 }
 
 /** Options for explicitly retrying a delivery from a handler. */
@@ -112,6 +117,8 @@ export interface Delivery {
   topic?: string;
   /** One-based delivery attempt count reported by the transport. Defaults to 1. */
   attempt?: number;
+  /** Context values passed through the interceptor chain and to handlers. */
+  contextValues?: ContextValues;
 }
 
 /** Callback used by subscriber transports to deliver events to a router. */
@@ -169,7 +176,10 @@ export type PubSubInterceptor = (next: PubSubInterceptorFn) => PubSubInterceptor
  * propagate. All other operations are transport lifecycle notifications where
  * interceptor errors are caught to avoid breaking delivery flow.
  */
-export type PubSubInterceptorContext =
+export type PubSubInterceptorContext = {
+  /** Context values passed through the interceptor chain and to nested operations. */
+  contextValues?: ContextValues;
+} & (
   | { operation: "publish"; request: PublishRequest }
   | { operation: "handle"; delivery: Delivery }
   | { operation: "scheduled"; event: PubSubTransportEvent }
@@ -181,7 +191,8 @@ export type PubSubInterceptorContext =
   | { operation: "tombstoned"; event: PubSubTransportEvent }
   | { operation: "committed"; event: PubSubTransportEvent }
   | { operation: "deliveryFailed"; event: PubSubTransportFailureEvent }
-  | { operation: "parseFailed"; event: PubSubTransportFailureEvent };
+  | { operation: "parseFailed"; event: PubSubTransportFailureEvent }
+);
 
 /** Shared metadata passed to transport lifecycle interceptor hooks. */
 export interface PubSubTransportEvent {
@@ -237,6 +248,8 @@ export interface HandlerContext {
   readonly event: CloudEvent;
   /** One-based delivery attempt count reported by the transport. */
   readonly attempt: number;
+  /** Context values for passing data between interceptors and handlers. */
+  readonly contextValues: ContextValues;
   /** Mark the delivery as successfully processed. */
   ack(): Promise<void>;
   /** Request a retry, optionally delayed durably by the transport. */

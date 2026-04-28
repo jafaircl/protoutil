@@ -1,6 +1,8 @@
 import type { DescMethodUnary, Message } from "@bufbuild/protobuf";
 import type { GenMessage, GenService, GenServiceMethods } from "@bufbuild/protobuf/codegenv2";
 import { parseCloudEventData } from "./cloudevents.js";
+import type { ContextValues } from "./context-values.js";
+import { createContextValues } from "./context-values.js";
 import { ACK, DEAD_LETTER, normalizeThrown, retry } from "./disposition.js";
 import { InvalidInputPubSubError, UnrecoverablePubSubError } from "./errors.js";
 import { resolveCloudEventType } from "./resolvers.js";
@@ -102,7 +104,7 @@ class DefaultRouter implements Router {
       };
     }
 
-    const context = new HandlerContextImpl(event, delivery.attempt ?? 1);
+    const context = new HandlerContextImpl(event, delivery.attempt ?? 1, delivery.contextValues);
     try {
       await route.handler(request, context);
       // A handler that returns without an explicit ctx action is successful.
@@ -118,12 +120,21 @@ class DefaultRouter implements Router {
 
 class HandlerContextImpl implements HandlerContext {
   public disposition?: Disposition;
+  public readonly contextValues;
 
-  /** Create a handler context for one routed CloudEvent delivery. */
+  /** Create a handler context for one routed CloudEvent delivery.
+   *
+   * The contextValues bag is shared between interceptors and the handler, enabling
+   * things like trace IDs, user info, or reentry guards to flow through
+   * the delivery chain without being encoded in the CloudEvent itself.
+   */
   public constructor(
     public readonly event: CloudEvent,
     public readonly attempt: number,
-  ) {}
+    contextValues?: ContextValues,
+  ) {
+    this.contextValues = contextValues ?? createContextValues();
+  }
 
   /** Mark the delivery as successfully handled. */
   public async ack(): Promise<void> {
