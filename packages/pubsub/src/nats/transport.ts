@@ -1,7 +1,6 @@
 import { durationMs } from "@bufbuild/protobuf/wkt";
 import {
   AckPolicy,
-  connect,
   DeliverPolicy,
   DiscardPolicy,
   headers,
@@ -9,7 +8,6 @@ import {
   type JetStreamManager,
   type JsMsg,
   type MsgHdrs,
-  type NatsConnection,
   nanos,
   ReplayPolicy,
   type StorageType,
@@ -39,6 +37,7 @@ import type {
   SubscribeRequest,
   Subscription,
 } from "../types.js";
+import { acquireSharedNatsConnection, releaseSharedNatsConnection } from "./connection.js";
 import { scheduleAttempt } from "./scheduler.js";
 import type { NatsTransportOptions } from "./types.js";
 import { durableNamePart, safeAck } from "./utils.js";
@@ -62,9 +61,9 @@ class DefaultNatsTransport implements PubSubTransport {
   public readonly defaultSource?: string;
   readonly #options: NatsTransportOptions;
   readonly #subscriptions = new Set<ActiveSubscription>();
-  #connection?: NatsConnection;
   #jetstream?: JetStreamClient;
   #manager?: JetStreamManager;
+  #sharedConnectionKey?: string;
   #startup?: Promise<void>;
 
   /** Create one NATS transport with lazy connection and topology startup. */
@@ -81,12 +80,13 @@ class DefaultNatsTransport implements PubSubTransport {
 
   /** Connect NATS and materialize the shared JetStream client and manager. */
   async #start(): Promise<void> {
-    this.#connection = await connect({
-      ...this.#options.connectionOptions,
+    const shared = await acquireSharedNatsConnection({
       servers: this.#options.servers,
+      connectionOptions: this.#options.connectionOptions,
     });
-    this.#jetstream = this.#connection.jetstream();
-    this.#manager = await this.#connection.jetstreamManager();
+    this.#sharedConnectionKey = shared.key;
+    this.#jetstream = shared.jetstream;
+    this.#manager = shared.manager;
     await this.#ensureStream(
       this.#options.stream.name,
       this.#options.stream.subjects,
@@ -100,10 +100,12 @@ class DefaultNatsTransport implements PubSubTransport {
       await subscription.close();
     }
     this.#subscriptions.clear();
-    await this.#connection?.close();
-    this.#connection = undefined;
     this.#jetstream = undefined;
     this.#manager = undefined;
+    if (this.#sharedConnectionKey) {
+      await releaseSharedNatsConnection(this.#sharedConnectionKey);
+    }
+    this.#sharedConnectionKey = undefined;
     this.#startup = undefined;
   }
 

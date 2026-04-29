@@ -2,7 +2,8 @@
  * RabbitMQ pubsub transport for the fastify server.
  *
  * In production, configure RABBITMQ_URL via environment variable.
- * Uses docker-compose port 5673 to avoid conflicts with test infrastructure.
+ * Uses docker-compose port 5675 so the example app does not collide with the
+ * pubsub conformance and benchmark infrastructure.
  */
 
 import type { HandlerContext, PubSubTransport, Subscription } from "@protoutil/pubsub";
@@ -15,7 +16,7 @@ import type {
 } from "./gen/library/v1/library_pb.js";
 import { LibraryEvents } from "./gen/library/v1/library_pb.js";
 
-const RABBITMQ_URL = process.env.RABBITMQ_URL ?? "amqp://guest:guest@localhost:5673";
+const RABBITMQ_URL = process.env.RABBITMQ_URL ?? "amqp://guest:guest@localhost:5675";
 
 /** RabbitMQ-backed transport for event publishing/subscribing. */
 let transport: PubSubTransport | null = null;

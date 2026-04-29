@@ -1,5 +1,11 @@
 import type { PubSubInterceptor, PubSubInterceptorContext, PubSubInterceptorFn } from "./types.js";
 
+type InterceptorComposer = (core: PubSubInterceptorFn) => PubSubInterceptorFn;
+
+const noopInterceptorFn: PubSubInterceptorFn = async () => {};
+const interceptorComposers = new WeakMap<PubSubInterceptor[], InterceptorComposer>();
+const lifecycleChains = new WeakMap<PubSubInterceptor[], PubSubInterceptorFn>();
+
 /**
  * Chain interceptors around a core function and invoke the resulting pipeline.
  *
@@ -19,12 +25,7 @@ export function applyPubSubInterceptors<R>(
   ctx: PubSubInterceptorContext,
   core: (ctx: PubSubInterceptorContext) => Promise<R>,
 ): Promise<R> {
-  let fn: PubSubInterceptorFn = core as PubSubInterceptorFn;
-  if (interceptors) {
-    for (let i = interceptors.length - 1; i >= 0; i--) {
-      fn = interceptors[i](fn);
-    }
-  }
+  const fn = composeInterceptors(interceptors)(core as PubSubInterceptorFn);
   return fn(ctx) as Promise<R>;
 }
 
@@ -42,13 +43,34 @@ export async function notifyInterceptors(
     return;
   }
   try {
-    let fn: PubSubInterceptorFn = async () => {};
-    for (let i = interceptors.length - 1; i >= 0; i--) {
-      fn = interceptors[i](fn);
+    // Lifecycle notifications always use the same no-op core, so compile that
+    // once per interceptor array and reuse it for every event.
+    let fn = lifecycleChains.get(interceptors);
+    if (!fn) {
+      fn = composeInterceptors(interceptors)(noopInterceptorFn);
+      lifecycleChains.set(interceptors, fn);
     }
     await fn(ctx);
   } catch {
     // Lifecycle interceptor hooks are diagnostics, not part of the delivery
     // transaction.
   }
+}
+
+/** Build and cache the higher-order interceptor composition for one array. */
+function composeInterceptors(interceptors: PubSubInterceptor[] | undefined): InterceptorComposer {
+  if (!interceptors?.length) {
+    return (core) => core;
+  }
+  let composer = interceptorComposers.get(interceptors);
+  if (!composer) {
+    // Precompose the middleware structure once so hot publish and handle paths
+    // do not rebuild the interceptor nesting for every operation.
+    composer = interceptors.reduceRight<InterceptorComposer>(
+      (nextComposer, interceptor) => (core) => interceptor(nextComposer(core)),
+      (core) => core,
+    );
+    interceptorComposers.set(interceptors, composer);
+  }
+  return composer;
 }

@@ -30,8 +30,10 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     ports:
-      - "5673:5672"
-      - "15673:15672"
+      # Keep the example app on its own RabbitMQ ports so it can run beside the
+      # pubsub conformance and benchmark stack.
+      - "5675:5672"
+      - "15675:15672"
     volumes:
       - rabbitmqdata:/var/lib/rabbitmq
     healthcheck:

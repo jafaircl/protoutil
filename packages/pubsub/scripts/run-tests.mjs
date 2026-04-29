@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(SCRIPT_DIR, "..");
 const COMPOSE_PROJECT = process.env.PUBSUB_COMPOSE_PROJECT ?? "protoutil-pubsub-test";
+const KAFKA_BOOTSTRAP_SERVER = process.env.KAFKA_BOOTSTRAP_SERVER ?? "localhost:19092";
+const RABBITMQ_URL = process.env.RABBITMQ_URL ?? "amqp://guest:guest@127.0.0.1:5673";
+const NATS_SERVERS = process.env.NATS_SERVERS ?? "nats://127.0.0.1:14222";
 const DEFAULT_VITEST_ARGS = [
   "--exclude",
   "src/**/load-test.spec.ts",
@@ -55,9 +58,11 @@ async function main() {
   try {
     await runCommand("pnpm", ["exec", "vitest", "run", ...mergedVitestArgs], {
       KAFKA_COMPOSE_PROJECT: COMPOSE_PROJECT,
-      KAFKA_BOOTSTRAP_SERVER: "localhost:19092",
-      RABBITMQ_URL: "amqp://guest:guest@127.0.0.1:5673",
-      NATS_SERVERS: "nats://127.0.0.1:14222",
+      // Keep the test broker endpoints configurable so benchmark runs do not
+      // have to fight other local stacks for the default ports.
+      KAFKA_BOOTSTRAP_SERVER,
+      RABBITMQ_URL,
+      NATS_SERVERS,
     });
   } catch (error) {
     testError = error;

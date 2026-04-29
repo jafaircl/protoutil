@@ -2,7 +2,6 @@ import { timestampDate } from "@bufbuild/protobuf/wkt";
 import {
   AckPolicy,
   type ConsumerMessages,
-  connect,
   DeliverPolicy,
   DiscardPolicy,
   headers,
@@ -34,6 +33,7 @@ import {
   parseAttempt,
 } from "../transport-utils.js";
 import type { PublishRequest, PubSubInterceptor, PubSubScheduler } from "../types.js";
+import { acquireSharedNatsConnection, releaseSharedNatsConnection } from "./connection.js";
 import type { NatsSchedulerOptions } from "./types.js";
 import { durableNamePart, safeAck, safeNak } from "./utils.js";
 
@@ -41,6 +41,7 @@ const DEFAULT_SCHEDULER_CONSUMER = "protoutil_pubsub_scheduler";
 const DEFAULT_SCHEDULER_ACK_WAIT_MS = 30_000;
 const DEFAULT_MAX_ACK_PENDING = 256;
 const DEFAULT_SCHEDULER_CONCURRENCY = 64;
+const NATS_HEADER_SCHEDULE_REVISION = "protoutil-pubsub-schedule-revision";
 
 interface ScheduledState {
   id: string;
@@ -92,10 +93,10 @@ export function createNatsScheduler(options: CreateNatsSchedulerOptions): PubSub
 }
 
 class OwnedNatsScheduler implements PubSubScheduler {
-  #connection?: import("nats").NatsConnection;
   #jetstream?: JetStreamClient;
   #manager?: JetStreamManager;
   #scheduler?: NatsScheduler;
+  #sharedConnectionKey?: string;
   #startup?: Promise<void>;
 
   public constructor(private readonly options: CreateNatsSchedulerOptions) {}
@@ -106,12 +107,13 @@ class OwnedNatsScheduler implements PubSubScheduler {
   }
 
   async #startOnce(): Promise<void> {
-    this.#connection = await connect({
-      ...this.options.connectionOptions,
+    const shared = await acquireSharedNatsConnection({
       servers: this.options.servers,
+      connectionOptions: this.options.connectionOptions,
     });
-    this.#jetstream = this.#connection.jetstream();
-    this.#manager = await this.#connection.jetstreamManager();
+    this.#sharedConnectionKey = shared.key;
+    this.#jetstream = shared.jetstream;
+    this.#manager = shared.manager;
     this.#scheduler = new NatsScheduler({
       jetstream: this.#jetstream,
       manager: this.#manager,
@@ -131,11 +133,13 @@ class OwnedNatsScheduler implements PubSubScheduler {
 
   public async close(): Promise<void> {
     await this.#scheduler?.close();
-    await this.#connection?.close();
     this.#scheduler = undefined;
     this.#manager = undefined;
     this.#jetstream = undefined;
-    this.#connection = undefined;
+    if (this.#sharedConnectionKey) {
+      await releaseSharedNatsConnection(this.#sharedConnectionKey);
+    }
+    this.#sharedConnectionKey = undefined;
     this.#startup = undefined;
   }
 
@@ -223,13 +227,16 @@ export class NatsScheduler implements PubSubScheduler {
       1,
     );
     const bucket = await this.#bucket();
-    await bucket.put(encoded.state.id, Buffer.from(encoded.serialized, "utf8"));
+    // Carry the KV revision in the wake-up message so hot delivery checks can
+    // compare one integer instead of rebuilding and stringifying schedule state.
+    const revision = await bucket.put(encoded.state.id, Buffer.from(encoded.serialized, "utf8"));
     await this.#deps.jetstream.publish(this.#deps.options.subject, eventBytes, {
       timeout: this.#deps.publishTimeoutMs,
       headers: this.#deps.publishHeaders(request.event, {
         [PROTOUTIL_HEADER_TARGET_TOPIC]: request.topic,
         [PROTOUTIL_HEADER_NOT_BEFORE]: encoded.state.notBefore,
         [PROTOUTIL_HEADER_ATTEMPT]: "1",
+        [NATS_HEADER_SCHEDULE_REVISION]: String(revision),
       }),
     });
     await notifyInterceptors(this.#deps.interceptors, {
@@ -249,13 +256,14 @@ export class NatsScheduler implements PubSubScheduler {
     const eventBytes = cloudEventBytes(event);
     const encoded = scheduleState(topic, eventBytes, event.id, notBefore, attempt);
     const bucket = await this.#bucket();
-    await bucket.put(encoded.state.id, Buffer.from(encoded.serialized, "utf8"));
+    const revision = await bucket.put(encoded.state.id, Buffer.from(encoded.serialized, "utf8"));
     await this.#deps.jetstream.publish(this.#deps.options.subject, eventBytes, {
       timeout: this.#deps.publishTimeoutMs,
       headers: this.#deps.publishHeaders(event, {
         [PROTOUTIL_HEADER_TARGET_TOPIC]: topic,
         [PROTOUTIL_HEADER_NOT_BEFORE]: notBefore,
         [PROTOUTIL_HEADER_ATTEMPT]: String(attempt),
+        [NATS_HEADER_SCHEDULE_REVISION]: String(revision),
       }),
     });
     await notifyInterceptors(this.#deps.interceptors, {
@@ -283,6 +291,7 @@ export class NatsScheduler implements PubSubScheduler {
             [PROTOUTIL_HEADER_TARGET_TOPIC]: state.topic,
             [PROTOUTIL_HEADER_NOT_BEFORE]: state.notBefore,
             [PROTOUTIL_HEADER_ATTEMPT]: String(state.attempt),
+            [NATS_HEADER_SCHEDULE_REVISION]: String(entry.revision),
           }),
         });
       } catch {
@@ -326,53 +335,59 @@ export class NatsScheduler implements PubSubScheduler {
       return;
     }
 
-    const encoded = scheduleState(
-      scheduleTopic(message),
-      message.data,
-      event.id,
-      scheduleNotBefore(message),
-      scheduleAttempt(message),
-    );
+    const topic = scheduleTopic(message);
+    const notBefore = scheduleNotBefore(message);
+    const attempt = scheduleAttempt(message);
+    const revision = scheduleRevision(message);
     const bucket = await this.#bucket();
-    const entry = await bucket.get(encoded.state.id);
+    const entry = await bucket.get(event.id);
     if (!entry || entry.operation !== "PUT") {
       safeAck(message);
       return;
     }
-    if (entry.string() !== encoded.serialized) {
+    if (revision !== undefined && entry.revision !== revision) {
       safeAck(message);
       return;
     }
+    if (revision === undefined) {
+      // Fall back to the old full-state comparison for wake-up messages that
+      // predate the revision header rollout.
+      const encoded = scheduleState(topic, message.data, event.id, notBefore, attempt);
+      if (entry.string() !== encoded.serialized) {
+        safeAck(message);
+        return;
+      }
+    }
 
-    const delayMs = Date.parse(encoded.state.notBefore) - Date.now();
+    const delayMs = Date.parse(notBefore) - Date.now();
     if (delayMs > 0) {
       message.nak(delayMs);
       return;
     }
 
     try {
-      await this.#deps.publishImmediate(encoded.state.topic, event, encoded.state.attempt);
-      await bucket.delete(encoded.state.id);
+      await this.#deps.publishImmediate(topic, event, attempt);
+      await bucket.delete(event.id);
       safeAck(message);
       await notifyInterceptors(this.#deps.interceptors, {
         operation: "delivered",
-        event: { id: encoded.state.id, topic: encoded.state.topic, attempt: encoded.state.attempt },
+        event: { id: event.id, topic, attempt },
       });
       await notifyInterceptors(this.#deps.interceptors, {
         operation: "tombstoned",
         event: {
-          id: encoded.state.id,
+          id: event.id,
           topic: this.#deps.options.subject,
-          attempt: encoded.state.attempt,
+          attempt,
         },
       });
     } catch (error) {
       await notifyInterceptors(this.#deps.interceptors, {
         operation: "deliveryFailed",
         event: {
-          id: encoded.state.id,
-          topic: encoded.state.topic,
-          attempt: encoded.state.attempt,
+          id: event.id,
+          topic,
+          attempt,
           error,
         },
       });
@@ -394,6 +409,16 @@ export class NatsScheduler implements PubSubScheduler {
     });
     return this.#bucketPromise;
   }
+}
+
+/** Read the current schedule revision from one JetStream wake-up message. */
+function scheduleRevision(message: JsMsg): number | undefined {
+  const value = message.headers?.last(NATS_HEADER_SCHEDULE_REVISION);
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 /** Read the transport attempt count from one JetStream message. */

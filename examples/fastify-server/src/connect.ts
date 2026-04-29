@@ -71,12 +71,10 @@ export default (router: ConnectRouter) => {
       }
 
       // Publish a shelf.created event for downstream handlers
-      await getEventsPublisher().shelfCreated(
-        {
-          name,
-          theme: created!.theme,
-        }
-      );
+      await getEventsPublisher().shelfCreated({
+        name,
+        theme: created!.theme,
+      });
 
       return created!;
     },
@@ -152,14 +150,12 @@ export default (router: ConnectRouter) => {
       }
 
       // Publish a book.created event for downstream handlers
-      await getEventsPublisher().bookCreated(
-        {
-          name,
-          shelf: req.parent,
-          title: created!.title,
-          author: created!.author,
-        }
-      );
+      await getEventsPublisher().bookCreated({
+        name,
+        shelf: req.parent,
+        title: created!.title,
+        author: created!.author,
+      });
 
       return created!;
     },
@@ -209,11 +205,9 @@ export default (router: ConnectRouter) => {
       try {
         await bookRepo.delete({ name: req.name });
         // Publish a book.created event for downstream handlers
-        await getEventsPublisher().bookDeleted(
-          {
-            name: req.name,
-          }
-        );
+        await getEventsPublisher().bookDeleted({
+          name: req.name,
+        });
       } catch (err) {
         toConnectError(err);
       }

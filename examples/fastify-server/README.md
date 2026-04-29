@@ -33,7 +33,7 @@ This single command will:
 4. Seed sample data (3 shelves, 9 books)
 5. Start the dev server on **http://localhost:8080**
 
-The example databases bind to `localhost:5433` and `localhost:27018` by default so they do not collide with the `@protoutil/repo` test stack.
+The example databases bind to `localhost:5433` and `localhost:27018` by default so they do not collide with the `@protoutil/repo` test stack. Its RabbitMQ broker binds to `localhost:5675` (`15675` for the management UI) so it can also run beside the `@protoutil/pubsub` conformance and benchmark stack.
 
 ## Available RPCs
 
