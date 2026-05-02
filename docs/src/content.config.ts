@@ -9,6 +9,7 @@ import { blogSchema } from "starlight-blog/schema";
 const docsGlob = glob({
   base: "./src/content/docs",
   pattern: [
+    "!**/node_modules/**",
     "index.mdx",
     "guides/**/*.{md,mdx}",
     "api/**/index.md",
