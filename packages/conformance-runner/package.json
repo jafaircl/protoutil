@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/conformance-runner",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Conformance runner for protoutil packages.",
   "scripts": {
