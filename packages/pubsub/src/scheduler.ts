@@ -1,4 +1,5 @@
 import { durationMs } from "@bufbuild/protobuf/wkt";
+import { SchedulerRequiredPubSubError } from "./errors.js";
 import type { Disposition, PublishRequest, PubSubScheduler } from "./types.js";
 
 const DELAYED_PUBLISH_ERROR =
@@ -15,7 +16,9 @@ export function assertSchedulerAvailable(
   if (scheduler) {
     return scheduler;
   }
-  throw new Error(operation === "publish" ? DELAYED_PUBLISH_ERROR : DELAYED_RETRY_ERROR);
+  throw new SchedulerRequiredPubSubError(
+    operation === "publish" ? DELAYED_PUBLISH_ERROR : DELAYED_RETRY_ERROR,
+  );
 }
 
 /** Schedule a delayed publish or throw a helpful error when none is configured. */

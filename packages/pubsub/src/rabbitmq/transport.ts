@@ -3,6 +3,11 @@ import type { Channel, ChannelModel, ConfirmChannel, ConsumeMessage, Options } f
 import { connect } from "amqplib";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
 import { createContextValues } from "../context-values.js";
+import {
+  AbortedPubSubError,
+  InvalidArgumentPubSubError,
+  InvalidStatePubSubError,
+} from "../errors.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   CLOUD_EVENT_HEADER_ID,
@@ -64,7 +69,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
 
   #assertNotAborted(): void {
     if (this.#aborted) {
-      throw new Error("RabbitMQ transport has been aborted");
+      throw new AbortedPubSubError("RabbitMQ transport has been aborted");
     }
   }
 
@@ -98,7 +103,13 @@ class DefaultRabbitMqTransport implements PubSubTransport {
   public async close(): Promise<void> {
     this.#removeAbortListener();
     for (const subscription of this.#subscriptions) {
-      await subscription.channel.close();
+      try {
+        await subscription.channel.close();
+      } catch (error) {
+        if (!isChannelClosingError(error)) {
+          throw error;
+        }
+      }
     }
     this.#subscriptions.clear();
     await this.#publisher?.close();
@@ -132,14 +143,16 @@ class DefaultRabbitMqTransport implements PubSubTransport {
   ): Promise<Subscription> {
     this.#assertNotAborted();
     if (request.signal?.aborted) {
-      throw new Error("RabbitMQ subscribe signal has been aborted");
+      throw new AbortedPubSubError("RabbitMQ subscribe signal has been aborted");
     }
     await this.#ensureStarted();
     if (!this.#connection) {
-      throw new Error("RabbitMQ transport connection was not initialized");
+      throw new InvalidStatePubSubError("RabbitMQ transport connection was not initialized");
     }
     if (!request.topics.length) {
-      throw new Error("RabbitMQ subscriber transport requires at least one subscribe topic");
+      throw new InvalidArgumentPubSubError(
+        "RabbitMQ subscriber transport requires at least one subscribe topic",
+      );
     }
 
     const channel = await this.#connection.createChannel();
@@ -169,8 +182,20 @@ class DefaultRabbitMqTransport implements PubSubTransport {
           break;
         }
       }
-      await channel.cancel(consumerTag);
-      await channel.close();
+      try {
+        await channel.cancel(consumerTag);
+      } catch (error) {
+        if (!isChannelClosingError(error)) {
+          throw error;
+        }
+      }
+      try {
+        await channel.close();
+      } catch (error) {
+        if (!isChannelClosingError(error)) {
+          throw error;
+        }
+      }
     };
     const abort = () => {
       void unsubscribe();
@@ -325,7 +350,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
   async #publishImmediate(topic: string, event: CloudEvent, attempt: number): Promise<void> {
     await this.#ensureStarted();
     if (!this.#publisher) {
-      throw new Error("RabbitMQ publisher channel was not initialized");
+      throw new InvalidStatePubSubError("RabbitMQ publisher channel was not initialized");
     }
     await publishConfirmed(
       this.#publisher,
@@ -353,7 +378,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     }
     await this.#ensureStarted();
     if (!this.#publisher) {
-      throw new Error("RabbitMQ publisher channel was not initialized");
+      throw new InvalidStatePubSubError("RabbitMQ publisher channel was not initialized");
     }
     await publishConfirmed(
       this.#publisher,
@@ -373,6 +398,16 @@ class DefaultRabbitMqTransport implements PubSubTransport {
       event: { id: event.id, topic: deadLetterTopic, attempt },
     });
   }
+}
+
+function isChannelClosingError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return (
+    error.name === "IllegalOperationError" &&
+    (error.message.includes("Channel closing") || error.message.includes("Channel closed"))
+  );
 }
 
 /** Build broker message properties from a CloudEvent plus extra transport headers. */

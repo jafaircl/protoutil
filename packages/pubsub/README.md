@@ -350,6 +350,27 @@ import {
 } from "@protoutil/pubsub";
 ```
 
+### Error Codes
+
+Pubsub errors expose a stable `code` field so callers can branch on machine-readable values instead
+of parsing error messages.
+
+```ts
+import { PubSubErrorCode } from "@protoutil/pubsub";
+```
+
+| Error class | `code` | When raised |
+| --- | --- | --- |
+| `TransientPubSubError` | `PubSubErrorCode.TRANSIENT` | Handler signals a retryable/transient failure. |
+| `InvalidInputPubSubError` | `PubSubErrorCode.INVALID_INPUT` | Payload/decode/input is invalid for the expected protobuf contract. |
+| `UnrecoverablePubSubError` | `PubSubErrorCode.UNRECOVERABLE` | Handler signals an unrecoverable failure that should dead-letter. |
+| `AbortedPubSubError` | `PubSubErrorCode.ABORTED` | Transport or scheduler operation is attempted after abort, or subscribe receives an already-aborted signal. |
+| `InvalidStatePubSubError` | `PubSubErrorCode.INVALID_STATE` | Required runtime transport/scheduler resource is unexpectedly uninitialized (for example publisher channel/JetStream client). |
+| `InvalidArgumentPubSubError` | `PubSubErrorCode.INVALID_ARGUMENT` | Required pubsub argument/config value is missing or invalid (for example empty subscribe topic set). |
+| `SchedulerRequiredPubSubError` | `PubSubErrorCode.SCHEDULER_REQUIRED` | Delayed publish/retry is requested without a configured scheduler. |
+| `UnknownServiceMethodPubSubError` | `PubSubErrorCode.UNKNOWN_SERVICE_METHOD` | A requested service method name does not exist on the generated unary service contract. |
+| `NoSubscriberPubSubError` | `PubSubErrorCode.NO_SUBSCRIBER` | In-memory transport `deliver()` is called without an active subscriber. |
+
 ## Interceptors
 
 Interceptors provide a middleware chain around transport operations. Each interceptor receives a `next` function and returns a new function that can run logic before and/or after the core operation.

@@ -14,6 +14,11 @@ import {
   type StorageType,
 } from "nats";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
+import {
+  AbortedPubSubError,
+  InvalidArgumentPubSubError,
+  InvalidStatePubSubError,
+} from "../errors.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   CLOUD_EVENT_HEADER_ID,
@@ -113,7 +118,7 @@ class OwnedNatsScheduler implements PubSubScheduler {
 
   #assertNotAborted(): void {
     if (this.#aborted) {
-      throw new Error("NATS scheduler has been aborted");
+      throw new AbortedPubSubError("NATS scheduler has been aborted");
     }
   }
 
@@ -217,7 +222,7 @@ export class NatsScheduler implements PubSubScheduler {
       abort_on_missing_resource: true,
     });
     if (!this.#messages) {
-      throw new Error("NATS scheduler consumer was not initialized");
+      throw new InvalidStatePubSubError("NATS scheduler consumer was not initialized");
     }
     this.#loop = this.#runLoop(this.#messages);
     await this.#recoverFromKV();
@@ -541,7 +546,7 @@ function serializeScheduleState(state: ScheduledState): string {
 function scheduleTopic(message: JsMsg): string {
   const value = message.headers?.last(PROTOUTIL_HEADER_TARGET_TOPIC);
   if (!value) {
-    throw new Error("NATS scheduled message is missing target topic");
+    throw new InvalidArgumentPubSubError("NATS scheduled message is missing target topic");
   }
   return value;
 }
@@ -550,7 +555,7 @@ function scheduleTopic(message: JsMsg): string {
 function scheduleNotBefore(message: JsMsg): string {
   const value = message.headers?.last(PROTOUTIL_HEADER_NOT_BEFORE);
   if (!value) {
-    throw new Error("NATS scheduled message is missing notBefore");
+    throw new InvalidArgumentPubSubError("NATS scheduled message is missing notBefore");
   }
   return value;
 }

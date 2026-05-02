@@ -17,9 +17,16 @@ export type { ContextKey, ContextValues } from "./context-values.js";
 export { createContextKey, createContextValues, withReentryGuard } from "./context-values.js";
 export { ACK, DEAD_LETTER, normalizeThrown, REJECT, retry } from "./disposition.js";
 export {
+  AbortedPubSubError,
+  InvalidArgumentPubSubError,
   InvalidInputPubSubError,
+  InvalidStatePubSubError,
+  NoSubscriberPubSubError,
   PubSubError,
+  PubSubErrorCode,
+  SchedulerRequiredPubSubError,
   TransientPubSubError,
+  UnknownServiceMethodPubSubError,
   UnrecoverablePubSubError,
 } from "./errors.js";
 export type {

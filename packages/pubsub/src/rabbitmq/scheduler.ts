@@ -2,6 +2,11 @@ import { timestampDate } from "@bufbuild/protobuf/wkt";
 import type { Channel, ChannelModel, ConsumeMessage, Options } from "amqplib";
 import { type ConfirmChannel, connect } from "amqplib";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
+import {
+  AbortedPubSubError,
+  InvalidArgumentPubSubError,
+  InvalidStatePubSubError,
+} from "../errors.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   PROTOUTIL_HEADER_ATTEMPT,
@@ -54,7 +59,7 @@ class OwnedRabbitMqScheduler implements PubSubScheduler {
 
   #assertNotAborted(): void {
     if (this.#aborted) {
-      throw new Error("RabbitMQ scheduler has been aborted");
+      throw new AbortedPubSubError("RabbitMQ scheduler has been aborted");
     }
   }
 
@@ -210,7 +215,7 @@ export class RabbitMqScheduler implements PubSubScheduler {
   /** Persist and schedule a delayed publish request. */
   public async publishLater(request: PublishRequest): Promise<void> {
     if (!request.notBefore) {
-      throw new Error("RabbitMQ scheduler requires a notBefore timestamp");
+      throw new InvalidArgumentPubSubError("RabbitMQ scheduler requires a notBefore timestamp");
     }
     await this.#deps.publishToScheduleQueue(
       cloudEventBytes(request.event),
@@ -246,7 +251,7 @@ export class RabbitMqScheduler implements PubSubScheduler {
   /** Parse and register one scheduled message consumed from the durable schedules queue. */
   async #handleMessage(message: ConsumeMessage): Promise<void> {
     if (!this.#channel) {
-      throw new Error("RabbitMQ scheduler channel was not initialized");
+      throw new InvalidStatePubSubError("RabbitMQ scheduler channel was not initialized");
     }
     let event: CloudEvent;
     try {
@@ -396,7 +401,7 @@ async function publishConfirmed(
 function scheduleTopic(message: ConsumeMessage): string {
   const topic = message.properties.headers?.[PROTOUTIL_HEADER_TARGET_TOPIC];
   if (typeof topic !== "string") {
-    throw new Error("RabbitMQ scheduled message is missing target topic");
+    throw new InvalidArgumentPubSubError("RabbitMQ scheduled message is missing target topic");
   }
   return topic;
 }
@@ -405,7 +410,7 @@ function scheduleTopic(message: ConsumeMessage): string {
 function scheduleNotBefore(message: ConsumeMessage): string {
   const notBefore = message.properties.headers?.[PROTOUTIL_HEADER_NOT_BEFORE];
   if (typeof notBefore !== "string") {
-    throw new Error("RabbitMQ scheduled message is missing notBefore");
+    throw new InvalidArgumentPubSubError("RabbitMQ scheduled message is missing notBefore");
   }
   return notBefore;
 }

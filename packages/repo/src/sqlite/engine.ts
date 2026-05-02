@@ -20,6 +20,7 @@ import type {
   EngineReplaceManyOptions,
   EngineUpdateOptions,
 } from "../engine.js";
+import { UnsupportedQueryTypeRepoError } from "../errors.js";
 
 /**
  * Configuration for {@link createSQLiteEngine}.
@@ -92,7 +93,12 @@ function wrapDbError(err: unknown): never {
 
 function rawExec<T>(db: Database.Database, query: string | object, params?: unknown[]): T[] {
   if (typeof query !== "string") {
-    throw new Error("SQLite engine only supports string queries");
+    throw new UnsupportedQueryTypeRepoError(
+      "sqlite",
+      "string",
+      typeof query,
+      "SQLite engine only supports string queries",
+    );
   }
   try {
     const stmt = db.prepare(query);

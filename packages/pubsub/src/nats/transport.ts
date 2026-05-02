@@ -14,6 +14,11 @@ import {
 } from "nats";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
 import { createContextValues } from "../context-values.js";
+import {
+  AbortedPubSubError,
+  InvalidArgumentPubSubError,
+  InvalidStatePubSubError,
+} from "../errors.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   CLOUD_EVENT_HEADER_ID,
@@ -80,7 +85,7 @@ class DefaultNatsTransport implements PubSubTransport {
 
   #assertNotAborted(): void {
     if (this.#aborted) {
-      throw new Error("NATS transport has been aborted");
+      throw new AbortedPubSubError("NATS transport has been aborted");
     }
   }
 
@@ -146,11 +151,13 @@ class DefaultNatsTransport implements PubSubTransport {
   ): Promise<Subscription> {
     this.#assertNotAborted();
     if (request.signal?.aborted) {
-      throw new Error("NATS subscribe signal has been aborted");
+      throw new AbortedPubSubError("NATS subscribe signal has been aborted");
     }
     await this.#ensureStarted();
     if (!this.#manager || !request.topics.length) {
-      throw new Error("NATS subscriber transport requires at least one subscribe topic");
+      throw new InvalidArgumentPubSubError(
+        "NATS subscriber transport requires at least one subscribe topic",
+      );
     }
 
     const consumerName = subscriptionConsumerName(
@@ -166,7 +173,7 @@ class DefaultNatsTransport implements PubSubTransport {
       DeliverPolicy.All,
     );
     if (!this.#jetstream) {
-      throw new Error("NATS transport JetStream client was not initialized");
+      throw new InvalidStatePubSubError("NATS transport JetStream client was not initialized");
     }
     const consumer = await this.#jetstream.consumers.get(this.#options.stream.name, consumerName);
     const messages = await consumer.consume({
@@ -231,7 +238,7 @@ class DefaultNatsTransport implements PubSubTransport {
     storage: StorageType | undefined,
   ): Promise<void> {
     if (!this.#manager) {
-      throw new Error("NATS transport manager was not initialized");
+      throw new InvalidStatePubSubError("NATS transport manager was not initialized");
     }
     try {
       await this.#manager.streams.info(name);
@@ -256,7 +263,7 @@ class DefaultNatsTransport implements PubSubTransport {
     deliverPolicy: DeliverPolicy,
   ): Promise<void> {
     if (!this.#manager) {
-      throw new Error("NATS transport manager was not initialized");
+      throw new InvalidStatePubSubError("NATS transport manager was not initialized");
     }
     const config = {
       durable_name: durableName,
@@ -279,7 +286,7 @@ class DefaultNatsTransport implements PubSubTransport {
   /** Publish one immediate CloudEvent to its target subject. */
   async #publishImmediate(topic: string, event: CloudEvent, attempt: number): Promise<void> {
     if (!this.#jetstream) {
-      throw new Error("NATS transport JetStream client was not initialized");
+      throw new InvalidStatePubSubError("NATS transport JetStream client was not initialized");
     }
     const eventBytes = cloudEventBytes(event);
     await this.#jetstream.publish(topic, eventBytes, {

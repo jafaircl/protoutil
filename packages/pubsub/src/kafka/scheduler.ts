@@ -1,6 +1,7 @@
 import { timestampDate, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import type { KafkaJS } from "@confluentinc/kafka-javascript";
 import { cloudEventBytes, cloudEventFromBytes } from "../cloudevents.js";
+import { AbortedPubSubError, InvalidArgumentPubSubError } from "../errors.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   numberHeader,
@@ -94,7 +95,7 @@ class OwnedKafkaScheduler implements PubSubScheduler {
 
   #assertNotAborted(): void {
     if (this.#aborted) {
-      throw new Error("Kafka scheduler has been aborted");
+      throw new AbortedPubSubError("Kafka scheduler has been aborted");
     }
   }
 
@@ -706,7 +707,7 @@ function topicMessagesByTopic(
 /** Convert a delayed publish request into one durable scheduler record. */
 function scheduleRecord(request: PublishRequest): KafkaScheduleRecord {
   if (!request.notBefore) {
-    throw new Error("scheduleRecord requires notBefore");
+    throw new InvalidArgumentPubSubError("scheduleRecord requires notBefore");
   }
   // The CloudEvent id becomes the compacted schedule key so later writes for
   // the same event replace earlier schedule state deterministically.
@@ -726,7 +727,7 @@ function parseScheduleRecord(
   partition: number,
 ): KafkaScheduleRecord {
   if (!message.key || !message.value) {
-    throw new Error("invalid Kafka schedule record");
+    throw new InvalidArgumentPubSubError("invalid Kafka schedule record");
   }
   // Schedule metadata lives in Kafka headers so the CloudEvent protobuf bytes
   // remain the transport-neutral envelope and payload.
@@ -739,7 +740,7 @@ function parseScheduleRecord(
   // Transport-neutral CloudEvent bytes stay in the record body while Kafka-
   // specific scheduling data lives in headers.
   if (version !== SCHEDULE_RECORD_VERSION || !id || !topic || !notBefore) {
-    throw new Error("invalid Kafka schedule record");
+    throw new InvalidArgumentPubSubError("invalid Kafka schedule record");
   }
   return {
     id,

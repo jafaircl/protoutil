@@ -1,6 +1,7 @@
 import type { KafkaJS } from "@confluentinc/kafka-javascript";
 import { cloudEventFromBytes } from "../cloudevents.js";
 import { createContextValues } from "../context-values.js";
+import { AbortedPubSubError, InvalidArgumentPubSubError } from "../errors.js";
 import type { CloudEvent } from "../gen/io/cloudevents/v1/cloudevents_pb.js";
 import {
   numberHeader,
@@ -71,7 +72,7 @@ class DefaultKafkaTransport implements PubSubTransport {
 
   #assertNotAborted(): void {
     if (this.#aborted) {
-      throw new Error("Kafka transport has been aborted");
+      throw new AbortedPubSubError("Kafka transport has been aborted");
     }
   }
 
@@ -176,10 +177,12 @@ class DefaultKafkaTransport implements PubSubTransport {
   ): Promise<Subscription> {
     this.#assertNotAborted();
     if (request.signal?.aborted) {
-      throw new Error("Kafka subscribe signal has been aborted");
+      throw new AbortedPubSubError("Kafka subscribe signal has been aborted");
     }
     if (!request.topics.length) {
-      throw new Error("Kafka subscriber transport requires at least one subscribe topic");
+      throw new InvalidArgumentPubSubError(
+        "Kafka subscriber transport requires at least one subscribe topic",
+      );
     }
     await this.#ensureTopologyCreated(request.topics, request.deadLetterTopic);
 

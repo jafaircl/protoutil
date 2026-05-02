@@ -1,3 +1,4 @@
+import { NoSubscriberPubSubError } from "./errors.js";
 import type {
   DeliveryHandler,
   Disposition,
@@ -63,7 +64,7 @@ export class InMemoryPubSubTransport implements PubSubTransport {
   /** Deliver a recorded publish request to the registered handler. */
   public async deliver(index = this.published.length - 1): Promise<Disposition> {
     if (!this.#handler) {
-      throw new Error("no subscriber registered");
+      throw new NoSubscriberPubSubError("no subscriber registered");
     }
     // deliver() lets tests replay a recorded publish deterministically.
     const request = this.published[index];

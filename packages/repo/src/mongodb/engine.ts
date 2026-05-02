@@ -29,6 +29,7 @@ import type {
   EngineReplaceManyOptions,
   EngineUpdateOptions,
 } from "../engine.js";
+import { UnsupportedQueryTypeRepoError } from "../errors.js";
 
 type MongoDocument = Record<string, unknown>;
 type MongoProjection = Record<string, 0 | 1>;
@@ -332,7 +333,12 @@ function createMongoDBEngineImpl(
       _params?: unknown[],
     ): Promise<T[]> {
       if (typeof query === "string") {
-        throw new Error("MongoDB engine only supports object queries");
+        throw new UnsupportedQueryTypeRepoError(
+          "mongodb",
+          "object",
+          "string",
+          "MongoDB engine only supports object queries",
+        );
       }
       try {
         const result = await db.command(query as MongoDocument, { session });

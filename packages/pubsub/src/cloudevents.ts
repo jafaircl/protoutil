@@ -9,6 +9,7 @@ import {
   toBinary,
 } from "@bufbuild/protobuf";
 import { anyPack, anyUnpack, timestampFromDate } from "@bufbuild/protobuf/wkt";
+import { InvalidInputPubSubError } from "./errors.js";
 import {
   type CloudEvent_CloudEventAttributeValue,
   type CloudEvent_CloudEventAttributeValueSchema,
@@ -89,11 +90,11 @@ export function parseCloudEventData<TSchema extends DescMessage>(
   event: CloudEvent,
 ): Message {
   if (event.data.case !== "protoData") {
-    throw new Error(`CloudEvent ${event.id} does not contain protobuf data`);
+    throw new InvalidInputPubSubError(`CloudEvent ${event.id} does not contain protobuf data`);
   }
   const message = anyUnpack(event.data.value, schema);
   if (!message) {
-    throw new Error(`CloudEvent ${event.id} data is not ${schema.typeName}`);
+    throw new InvalidInputPubSubError(`CloudEvent ${event.id} data is not ${schema.typeName}`);
   }
   return message;
 }

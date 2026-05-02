@@ -12,6 +12,12 @@ export type {
   EngineReplaceManyOptions,
   EngineUpdateOptions,
 } from "./engine.js";
+export {
+  RepoError,
+  RepoErrorCode,
+  UnexpectedInterceptorContextError,
+  UnsupportedQueryTypeRepoError,
+} from "./errors.js";
 export type { BuildFilterOptions } from "./filter.js";
 export { buildBatchFilter, buildFilter, partialToFilter } from "./filter.js";
 export type { Repository } from "./repository.js";

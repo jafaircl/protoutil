@@ -20,6 +20,7 @@ import type {
   EngineReplaceManyOptions,
   EngineUpdateOptions,
 } from "../engine.js";
+import { UnsupportedQueryTypeRepoError } from "../errors.js";
 
 /**
  * Configuration for {@link createMySQLEngine}.
@@ -417,7 +418,12 @@ function createMySQLEngineImpl(pool: Pool, dialect: Dialect, conn?: PoolConnecti
       params?: unknown[],
     ): Promise<T[]> {
       if (typeof query !== "string") {
-        throw new Error("MySQL engine only supports string queries");
+        throw new UnsupportedQueryTypeRepoError(
+          "mysql",
+          "string",
+          typeof query,
+          "MySQL engine only supports string queries",
+        );
       }
       try {
         if (isRead(query)) {

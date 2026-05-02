@@ -1,5 +1,6 @@
 import type { DescMethodUnary } from "@bufbuild/protobuf";
 import type { GenService, GenServiceMethods } from "@bufbuild/protobuf/codegenv2";
+import { UnknownServiceMethodPubSubError } from "./errors.js";
 
 /** Return the unary methods from a generated service descriptor.
  *
@@ -19,7 +20,9 @@ export function unaryMethod(
 ): DescMethodUnary {
   const method = unaryMethods(service).find((candidate) => candidate.localName === localName);
   if (!method) {
-    throw new Error(`unknown service method: ${service.typeName}.${localName}`);
+    throw new UnknownServiceMethodPubSubError(
+      `unknown service method: ${service.typeName}.${localName}`,
+    );
   }
   return method;
 }
