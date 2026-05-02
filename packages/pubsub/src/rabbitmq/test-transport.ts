@@ -39,12 +39,14 @@ function createTrackedRabbitMqTransport(
   const transport = createRabbitMqTransport({
     url: RABBITMQ_URL,
     interceptors: testOptions?.interceptors,
+    signal: testOptions?.signal,
     queuePrefix: `protoutil.pubsub.queue.${suffix}`,
     scheduler: options?.scheduler
       ? createRabbitMqScheduler({
           url: RABBITMQ_URL,
           scheduleQueue: options.scheduler.schedulesTopic,
           interceptors: testOptions?.interceptors,
+          signal: testOptions?.signal,
         })
       : undefined,
   });
@@ -58,7 +60,10 @@ function transportTestOptions(
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): TransportOptions | undefined {
-  if (!options || (!("scheduler" in options) && !("interceptors" in options))) {
+  if (
+    !options ||
+    (!("scheduler" in options) && !("interceptors" in options) && !("signal" in options))
+  ) {
     return undefined;
   }
   return options;

@@ -96,3 +96,6 @@ and subscribe do not require one.
 `router.subscribe()` returns a `Subscription`. Call `subscription.unsubscribe()` to stop one
 subscriber, and call `transport.close()` during process shutdown to close the NATS connection and
 JetStream resources owned by the transport.
+
+You can also pass `signal` to `createNatsTransport()`, `createNatsScheduler()`, and
+`router.subscribe({ signal })` to shut everything down with one shared `AbortController`.

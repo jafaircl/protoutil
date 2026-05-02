@@ -41,6 +41,7 @@ function createTrackedNatsTransport(
   const transport = createNatsTransport({
     servers: NATS_SERVERS,
     interceptors: testOptions?.interceptors,
+    signal: testOptions?.signal,
     stream: {
       name: NATS_EVENT_STREAM,
       subjects: ["protoutil.events.>", "protoutil.pubsub.testing.>"],
@@ -48,6 +49,7 @@ function createTrackedNatsTransport(
     scheduler: options?.scheduler
       ? createNatsScheduler({
           servers: NATS_SERVERS,
+          signal: testOptions?.signal,
           options: {
             streamName: `PROTOUTIL_PUBSUB_SCHED_${suffix.replaceAll(".", "_").toUpperCase()}`,
             subject: `${schedulerSubjectPrefix}.wake`,
@@ -68,7 +70,10 @@ function transportTestOptions(
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): TransportOptions | undefined {
-  if (!options || (!("scheduler" in options) && !("interceptors" in options))) {
+  if (
+    !options ||
+    (!("scheduler" in options) && !("interceptors" in options) && !("signal" in options))
+  ) {
     return undefined;
   }
   return options;

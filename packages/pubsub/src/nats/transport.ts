@@ -28,7 +28,7 @@ import {
 } from "../headers.js";
 import { applyPubSubInterceptors, notifyInterceptors } from "../interceptors.js";
 import { retryLaterOrThrow, scheduleOrThrow } from "../scheduler.js";
-import { retryLimitReached, stableTopicHash } from "../transport-utils.js";
+import { onAbortOnce, retryLimitReached, stableTopicHash } from "../transport-utils.js";
 import type {
   DeliveryHandler,
   Disposition,
@@ -65,11 +65,23 @@ class DefaultNatsTransport implements PubSubTransport {
   #manager?: JetStreamManager;
   #sharedConnectionKey?: string;
   #startup?: Promise<void>;
+  #aborted = false;
+  readonly #removeAbortListener: () => void;
 
   /** Create one NATS transport with lazy connection and topology startup. */
   public constructor(options: NatsTransportOptions) {
     this.#options = options;
     this.defaultSource = options.defaultSource;
+    this.#removeAbortListener = onAbortOnce(options.signal, () => {
+      this.#aborted = true;
+      void this.close();
+    });
+  }
+
+  #assertNotAborted(): void {
+    if (this.#aborted) {
+      throw new Error("NATS transport has been aborted");
+    }
   }
 
   /** Connect the shared NATS and JetStream clients once before use. */
@@ -96,6 +108,7 @@ class DefaultNatsTransport implements PubSubTransport {
 
   /** Close owned subscriptions, scheduler state, and the shared NATS connection. */
   public async close(): Promise<void> {
+    this.#removeAbortListener();
     for (const subscription of this.#subscriptions) {
       await subscription.close();
     }
@@ -111,6 +124,7 @@ class DefaultNatsTransport implements PubSubTransport {
 
   /** Publish one immediate or delayed CloudEvent through JetStream. */
   public async publish(request: PublishRequest): Promise<void> {
+    this.#assertNotAborted();
     await applyPubSubInterceptors(
       this.#options.interceptors,
       { operation: "publish", request },
@@ -130,6 +144,10 @@ class DefaultNatsTransport implements PubSubTransport {
     handler: DeliveryHandler,
     request: SubscribeRequest,
   ): Promise<Subscription> {
+    this.#assertNotAborted();
+    if (request.signal?.aborted) {
+      throw new Error("NATS subscribe signal has been aborted");
+    }
     await this.#ensureStarted();
     if (!this.#manager || !request.topics.length) {
       throw new Error("NATS subscriber transport requires at least one subscribe topic");
@@ -201,10 +219,6 @@ class DefaultNatsTransport implements PubSubTransport {
       this.#subscriptions.delete(active);
     });
 
-    if (request.signal?.aborted) {
-      await close();
-      return { unsubscribe: close };
-    }
     request.signal?.addEventListener("abort", abort, { once: true });
 
     return { unsubscribe: close };

@@ -85,6 +85,9 @@ Use both methods at their own scopes:
 - `subscription.unsubscribe()` stops one router subscription.
 - `transport.close()` closes the Kafka clients owned by the transport.
 
+If you prefer one lifecycle handle, pass `signal` to `createKafkaTransport()`, `createKafkaScheduler()`,
+and `router.subscribe({ signal })`, then call `abort()` once to stop subscriptions and close connections.
+
 ## Scheduling Topology
 
 Kafka has no native durable `notBefore` or retry-delay primitive, so the transport owns a scheduler topic pattern:

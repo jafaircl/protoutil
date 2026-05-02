@@ -36,3 +36,16 @@ export function parseAttempt(value: string | undefined): number {
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
+
+/** Register one abort callback and return a function that removes the listener. */
+export function onAbortOnce(signal: AbortSignal | undefined, onAbort: () => void): () => void {
+  if (!signal) {
+    return () => undefined;
+  }
+  if (signal.aborted) {
+    onAbort();
+    return () => undefined;
+  }
+  signal.addEventListener("abort", onAbort, { once: true });
+  return () => signal.removeEventListener("abort", onAbort);
+}

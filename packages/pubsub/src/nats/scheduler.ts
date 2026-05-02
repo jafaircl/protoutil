@@ -30,6 +30,7 @@ import { notifyInterceptors } from "../interceptors.js";
 import {
   DEFAULT_SCHEDULER_RETRY_DELAY_MS,
   delayToNotBefore,
+  onAbortOnce,
   parseAttempt,
 } from "../transport-utils.js";
 import type { PublishRequest, PubSubInterceptor, PubSubScheduler } from "../types.js";
@@ -85,6 +86,8 @@ export interface CreateNatsSchedulerOptions {
   options: NatsSchedulerOptions;
   publishTimeoutMs?: number;
   interceptors?: PubSubInterceptor[];
+  /** Optional signal that closes this scheduler when aborted. */
+  signal?: AbortSignal;
 }
 
 /** Create a self-contained NATS scheduler that can be shared across transports. */
@@ -98,10 +101,24 @@ class OwnedNatsScheduler implements PubSubScheduler {
   #scheduler?: NatsScheduler;
   #sharedConnectionKey?: string;
   #startup?: Promise<void>;
+  #aborted = false;
+  readonly #removeAbortListener: () => void;
 
-  public constructor(private readonly options: CreateNatsSchedulerOptions) {}
+  public constructor(private readonly options: CreateNatsSchedulerOptions) {
+    this.#removeAbortListener = onAbortOnce(options.signal, () => {
+      this.#aborted = true;
+      void this.close();
+    });
+  }
+
+  #assertNotAborted(): void {
+    if (this.#aborted) {
+      throw new Error("NATS scheduler has been aborted");
+    }
+  }
 
   public async start(): Promise<void> {
+    this.#assertNotAborted();
     this.#startup ??= this.#startOnce();
     await this.#startup;
   }
@@ -132,6 +149,7 @@ class OwnedNatsScheduler implements PubSubScheduler {
   }
 
   public async close(): Promise<void> {
+    this.#removeAbortListener();
     await this.#scheduler?.close();
     this.#scheduler = undefined;
     this.#manager = undefined;
@@ -144,6 +162,7 @@ class OwnedNatsScheduler implements PubSubScheduler {
   }
 
   public async publishLater(request: PublishRequest): Promise<void> {
+    this.#assertNotAborted();
     await this.start();
     await this.#scheduler!.publishLater(request);
   }
@@ -154,6 +173,7 @@ class OwnedNatsScheduler implements PubSubScheduler {
     delayMs: number,
     attempt: number,
   ): Promise<void> {
+    this.#assertNotAborted();
     await this.start();
     await this.#scheduler!.retryLater(topic, event, delayMs, attempt);
   }

@@ -88,3 +88,6 @@ The public publisher and router APIs stay identical to Kafka and future transpor
 `router.subscribe()` returns a `Subscription`. Call `subscription.unsubscribe()` to stop one
 subscriber, and call `transport.close()` during process shutdown to close the AMQP connection and
 channels owned by the transport.
+
+You can also pass `signal` to `createRabbitMqTransport()`, `createRabbitMqScheduler()`, and
+`router.subscribe({ signal })` to control shutdown with a shared `AbortController`.

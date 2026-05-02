@@ -288,6 +288,36 @@ try {
 }
 ```
 
+You can also share one `AbortController` across subscription and transport lifecycle.
+Aborting the signal stops the subscription and closes transport-owned connections (including
+an owned scheduler when one was created with the same signal):
+
+```ts
+const shutdown = new AbortController();
+
+const scheduler = createKafkaScheduler({
+  client: kafka,
+  options: {
+    schedulesTopic: "protoutil.pubsub.schedules",
+    historyTopic: "protoutil.pubsub.schedule_history",
+  },
+  signal: shutdown.signal,
+});
+
+const transport = createKafkaTransport({
+  client: kafka,
+  scheduler,
+  signal: shutdown.signal,
+});
+
+await router.subscribe({
+  consumerGroup: "billing-workers",
+  signal: shutdown.signal,
+});
+
+shutdown.abort();
+```
+
 ## Dispositions
 
 Handlers should use context methods for explicit control:

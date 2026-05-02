@@ -22,4 +22,6 @@ export interface RabbitMqTransportOptions {
   defaultSource?: string;
   /** Optional interceptors for transport operations. */
   interceptors?: PubSubInterceptor[];
+  /** Optional signal that closes this transport when aborted. */
+  signal?: AbortSignal;
 }

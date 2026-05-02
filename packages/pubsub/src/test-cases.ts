@@ -21,6 +21,7 @@ export interface PubSubTransportTestContext {
 export interface TransportOptions {
   scheduler?: SchedulerOptions;
   interceptors?: PubSubInterceptor[];
+  signal?: AbortSignal;
 }
 
 export interface SchedulerOptions {
@@ -206,6 +207,126 @@ export const groups: PubSubTransportCaseGroup[] = [
 
           await wait(300);
           expect(handledEventId).toBe("evt_1");
+        },
+      },
+      {
+        name: "stops closed consumers and lets a new transport in the same group receive delivery",
+        async run(ctx) {
+          const topic = ctx.topic("close_takeover");
+          const consumerGroup = ctx.topic("close_takeover_workers");
+          const firstTransport = ctx.transport();
+          const secondTransport = ctx.transport();
+          const publisher = createPublisher(ConformanceEvents, secondTransport, {
+            source: "test-suite",
+            topic,
+          });
+          const firstRouter = createRouter(ConformanceEvents, firstTransport, { topic });
+          const secondRouter = createRouter(ConformanceEvents, secondTransport, { topic });
+          let firstHandled = 0;
+          let secondHandled = 0;
+
+          firstRouter.service({
+            async alphaHappened(_request, handlerContext) {
+              firstHandled += 1;
+              await handlerContext.ack();
+            },
+          });
+          secondRouter.service({
+            async alphaHappened(_request, handlerContext) {
+              secondHandled += 1;
+              await handlerContext.ack();
+            },
+          });
+
+          await firstRouter.subscribe({ consumerGroup });
+          await firstTransport.close();
+          await secondRouter.subscribe({ consumerGroup });
+
+          await publisher.alphaHappened({
+            eventId: "evt_close_takeover",
+            name: "close takeover",
+            count: 1,
+          });
+          await expect
+            .poll(() => secondHandled, { timeout: DELIVERY_TIMEOUT_MS })
+            .toBeGreaterThan(0);
+
+          await wait(300);
+          expect(firstHandled).toBe(0);
+          expect(secondHandled).toBe(1);
+        },
+      },
+      {
+        name: "closes router subscription, transport, and scheduler from one abort signal",
+        async run(ctx) {
+          const topic = ctx.topic("abort_all");
+          const controller = new AbortController();
+          const transport = ctx.transport({
+            scheduler: ctx.scheduler("abort_all"),
+            signal: controller.signal,
+          });
+          const publisher = createPublisher(ConformanceEvents, transport, {
+            source: "test-suite",
+            topic,
+          });
+          const router = createRouter(ConformanceEvents, transport, { topic });
+          const handledEventIds: string[] = [];
+
+          router.service({
+            async alphaHappened(request, handlerContext) {
+              handledEventIds.push(request.eventId);
+              await handlerContext.ack();
+            },
+          });
+
+          await router.subscribe({
+            consumerGroup: ctx.topic("abort_workers"),
+            signal: controller.signal,
+          });
+
+          try {
+            await publisher.alphaHappened({
+              eventId: "evt_abort_before",
+              name: "before",
+              count: 1,
+            });
+            await expect
+              .poll(() => handledEventIds.includes("evt_abort_before"), {
+                timeout: DELIVERY_TIMEOUT_MS,
+              })
+              .toBe(true);
+
+            await publisher.alphaHappened(
+              { eventId: "evt_abort_scheduled", name: "scheduled", count: 2 },
+              { notBefore: timestampFromDate(new Date(Date.now() + 2_000)) },
+            );
+
+            controller.abort();
+            await wait(800);
+
+            expect(handledEventIds).not.toContain("evt_abort_scheduled");
+            try {
+              await publisher.alphaHappened({
+                eventId: "evt_abort_after",
+                name: "after",
+                count: 3,
+              });
+            } catch {
+              // Some transports reject publish after abort; others allow
+              // publish but with no active subscribers after shutdown.
+            }
+            await wait(300);
+            expect(handledEventIds).not.toContain("evt_abort_after");
+            await expect(
+              router.subscribe({
+                consumerGroup: ctx.topic("abort_workers_after_abort"),
+                signal: controller.signal,
+              }),
+            ).rejects.toThrow(/aborted/i);
+          } finally {
+            controller.abort();
+            await transport.close();
+          }
         },
       },
       {

@@ -18,7 +18,7 @@ import {
 } from "../headers.js";
 import { applyPubSubInterceptors, notifyInterceptors } from "../interceptors.js";
 import { retryLaterOrThrow, scheduleOrThrow } from "../scheduler.js";
-import { retryLimitReached, stableTopicHash } from "../transport-utils.js";
+import { onAbortOnce, retryLimitReached, stableTopicHash } from "../transport-utils.js";
 import type {
   DeliveryHandler,
   Disposition,
@@ -49,11 +49,23 @@ class DefaultRabbitMqTransport implements PubSubTransport {
   #connection?: ChannelModel;
   #publisher?: ConfirmChannel;
   #startup?: Promise<void>;
+  #aborted = false;
+  readonly #removeAbortListener: () => void;
 
   /** Create one RabbitMQ transport with lazy connection, publisher, and scheduler startup. */
   public constructor(options: RabbitMqTransportOptions) {
     this.#options = options;
     this.defaultSource = options.defaultSource;
+    this.#removeAbortListener = onAbortOnce(options.signal, () => {
+      this.#aborted = true;
+      void this.close();
+    });
+  }
+
+  #assertNotAborted(): void {
+    if (this.#aborted) {
+      throw new Error("RabbitMQ transport has been aborted");
+    }
   }
 
   /** Connect the AMQP connection and confirm channel once before use. */
@@ -84,6 +96,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
 
   /** Close the connection, channels, timers, and subscription state owned by this transport. */
   public async close(): Promise<void> {
+    this.#removeAbortListener();
     for (const subscription of this.#subscriptions) {
       await subscription.channel.close();
     }
@@ -97,6 +110,7 @@ class DefaultRabbitMqTransport implements PubSubTransport {
 
   /** Publish one immediate or delayed CloudEvent through RabbitMQ. */
   public async publish(request: PublishRequest): Promise<void> {
+    this.#assertNotAborted();
     await applyPubSubInterceptors(
       this.#options.interceptors,
       { operation: "publish", request },
@@ -116,6 +130,10 @@ class DefaultRabbitMqTransport implements PubSubTransport {
     handler: DeliveryHandler,
     request: SubscribeRequest,
   ): Promise<Subscription> {
+    this.#assertNotAborted();
+    if (request.signal?.aborted) {
+      throw new Error("RabbitMQ subscribe signal has been aborted");
+    }
     await this.#ensureStarted();
     if (!this.#connection) {
       throw new Error("RabbitMQ transport connection was not initialized");
@@ -141,11 +159,6 @@ class DefaultRabbitMqTransport implements PubSubTransport {
       await channel.bindQueue(queue, this.#exchange(), topic);
     }
     await this.#options.scheduler?.start();
-
-    if (request.signal?.aborted) {
-      await channel.close();
-      return { unsubscribe: async () => undefined };
-    }
 
     let consumerTag = "";
     const unsubscribe = async () => {

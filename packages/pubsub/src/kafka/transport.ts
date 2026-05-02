@@ -12,7 +12,10 @@ import {
 } from "../headers.js";
 import { applyPubSubInterceptors, notifyInterceptors } from "../interceptors.js";
 import { retryLaterOrThrow, scheduleOrThrow } from "../scheduler.js";
-import { retryLimitReached as retryLimitReachedWithMaxAttempts } from "../transport-utils.js";
+import {
+  onAbortOnce,
+  retryLimitReached as retryLimitReachedWithMaxAttempts,
+} from "../transport-utils.js";
 import type {
   DeliveryHandler,
   Disposition,
@@ -50,6 +53,8 @@ class DefaultKafkaTransport implements PubSubTransport {
   #producerStartup?: Promise<void>;
   #adminStarted = false;
   #producerStarted = false;
+  #aborted = false;
+  readonly #removeAbortListener: () => void;
 
   /** Create one Kafka transport with lazily started producer, admin, and scheduler clients. */
   public constructor(options: KafkaTransportOptions) {
@@ -58,6 +63,16 @@ class DefaultKafkaTransport implements PubSubTransport {
     this.#admin = options.client.admin(options.adminConfig);
     this.#producer = options.client.producer(options.producerConfig);
     this.#scheduler = options.scheduler;
+    this.#removeAbortListener = onAbortOnce(options.signal, () => {
+      this.#aborted = true;
+      void this.close();
+    });
+  }
+
+  #assertNotAborted(): void {
+    if (this.#aborted) {
+      throw new Error("Kafka transport has been aborted");
+    }
   }
 
   /** Lazily connect the shared Kafka producer used for immediate and delayed publish paths. */
@@ -110,6 +125,7 @@ class DefaultKafkaTransport implements PubSubTransport {
 
   /** Close every Kafka client owned by this transport instance. */
   public async close(): Promise<void> {
+    this.#removeAbortListener();
     // A transport owns all Kafka clients it creates. Close subscribers first so
     // no handler can race a producer/admin shutdown.
     for (const consumer of this.#consumers) {
@@ -129,6 +145,7 @@ class DefaultKafkaTransport implements PubSubTransport {
 
   /** Publish one immediate or delayed CloudEvent through Kafka. */
   public async publish(request: PublishRequest): Promise<void> {
+    this.#assertNotAborted();
     await applyPubSubInterceptors(
       this.#options.interceptors,
       { operation: "publish", request },
@@ -157,6 +174,10 @@ class DefaultKafkaTransport implements PubSubTransport {
     handler: DeliveryHandler,
     request: SubscribeRequest,
   ): Promise<Subscription> {
+    this.#assertNotAborted();
+    if (request.signal?.aborted) {
+      throw new Error("Kafka subscribe signal has been aborted");
+    }
     if (!request.topics.length) {
       throw new Error("Kafka subscriber transport requires at least one subscribe topic");
     }
@@ -184,10 +205,6 @@ class DefaultKafkaTransport implements PubSubTransport {
       unsubscribe().catch(() => undefined);
     };
 
-    if (request.signal?.aborted) {
-      await unsubscribe();
-      return { unsubscribe };
-    }
     request.signal?.addEventListener("abort", abort, { once: true });
 
     for (const topic of request.topics) {

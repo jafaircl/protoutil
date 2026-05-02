@@ -14,7 +14,7 @@ import {
   stringHeader,
 } from "../headers.js";
 import { notifyInterceptors } from "../interceptors.js";
-import { DEFAULT_SCHEDULER_RETRY_DELAY_MS } from "../transport-utils.js";
+import { DEFAULT_SCHEDULER_RETRY_DELAY_MS, onAbortOnce } from "../transport-utils.js";
 import type { PublishRequest, PubSubInterceptor, PubSubScheduler } from "../types.js";
 import { cloudEventMessage } from "./cloud-event.js";
 import {
@@ -53,6 +53,8 @@ export interface CreateKafkaSchedulerOptions {
   adminConfig?: KafkaJS.AdminConstructorConfig;
   publishTimeoutMs?: number;
   interceptors?: PubSubInterceptor[];
+  /** Optional signal that closes this scheduler when aborted. */
+  signal?: AbortSignal;
 }
 
 /** Create a self-contained Kafka scheduler that can be shared across transports. */
@@ -68,6 +70,8 @@ class OwnedKafkaScheduler implements PubSubScheduler {
   #adminStarted = false;
   #schedulerStarted = false;
   #startup?: Promise<void>;
+  #aborted = false;
+  readonly #removeAbortListener: () => void;
 
   public constructor(private readonly options: CreateKafkaSchedulerOptions) {
     this.#producer = options.client.producer(options.producerConfig);
@@ -82,9 +86,20 @@ class OwnedKafkaScheduler implements PubSubScheduler {
       publishTimeoutMs: options.publishTimeoutMs,
       interceptors: options.interceptors,
     });
+    this.#removeAbortListener = onAbortOnce(options.signal, () => {
+      this.#aborted = true;
+      void this.close();
+    });
+  }
+
+  #assertNotAborted(): void {
+    if (this.#aborted) {
+      throw new Error("Kafka scheduler has been aborted");
+    }
   }
 
   public async start(): Promise<void> {
+    this.#assertNotAborted();
     this.#startup ??= this.#startOnce();
     await this.#startup;
   }
@@ -102,6 +117,7 @@ class OwnedKafkaScheduler implements PubSubScheduler {
   }
 
   public async close(): Promise<void> {
+    this.#removeAbortListener();
     if (this.#schedulerStarted) {
       await this.#scheduler.close();
     }
@@ -118,6 +134,7 @@ class OwnedKafkaScheduler implements PubSubScheduler {
   }
 
   public async publishLater(request: PublishRequest): Promise<void> {
+    this.#assertNotAborted();
     await this.start();
     await this.#scheduler.publishLater(request);
   }
@@ -128,6 +145,7 @@ class OwnedKafkaScheduler implements PubSubScheduler {
     delayMs: number,
     attempt: number,
   ): Promise<void> {
+    this.#assertNotAborted();
     await this.start();
     await this.#scheduler.retryLater(topic, event, delayMs, attempt);
   }

@@ -6,7 +6,7 @@
  * pubsub conformance and benchmark infrastructure.
  */
 
-import type { HandlerContext, PubSubTransport, Subscription } from "@protoutil/pubsub";
+import type { HandlerContext, PubSubTransport } from "@protoutil/pubsub";
 import { createPublisher, createRouter } from "@protoutil/pubsub";
 import { createRabbitMqTransport } from "@protoutil/pubsub/rabbitmq";
 import type {
@@ -20,13 +20,18 @@ const RABBITMQ_URL = process.env.RABBITMQ_URL ?? "amqp://guest:guest@localhost:5
 
 /** RabbitMQ-backed transport for event publishing/subscribing. */
 let transport: PubSubTransport | null = null;
-let subscription: Subscription | null = null;
+
+/**
+ * A shared AbortController signal that can be used to trigger shutdown of the pubsub
+ */
+const shutdownController = new AbortController();
 
 /** Initialize the RabbitMQ transport. */
 export async function initPubsub(): Promise<void> {
   transport = createRabbitMqTransport({
     url: RABBITMQ_URL,
     defaultSource: "library-service",
+    signal: shutdownController.signal,
   });
 
   console.log("[pubsub] connecting to RabbitMQ...", { url: RABBITMQ_URL });
@@ -65,20 +70,15 @@ export async function startEventSubscription(): Promise<void> {
     },
   });
 
-  subscription = await router.subscribe({
+  await router.subscribe({
     consumerGroup: "library-service",
+    signal: shutdownController.signal,
   });
   console.log("[pubsub] subscribed to library events");
 }
 
 /** Close the pubsub transport and subscription. */
 export async function closePubsub(): Promise<void> {
-  if (subscription) {
-    await subscription.unsubscribe();
-    console.log("[pubsub] subscription closed");
-  }
-  if (transport) {
-    await transport.close();
-    console.log("[pubsub] transport closed");
-  }
+  shutdownController.abort();
+  console.log("[pubsub] shutting down...");
 }

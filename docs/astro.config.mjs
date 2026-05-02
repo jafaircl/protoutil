@@ -21,6 +21,7 @@ const [typeDocAipql, typeDocAipqlSidebar] = createStarlightTypeDocPlugin();
 const [typeDocPubsub, typeDocPubsubSidebar] = createStarlightTypeDocPlugin();
 const [typeDocPubsubKafka, typeDocPubsubKafkaSidebar] = createStarlightTypeDocPlugin();
 const [typeDocPubsubNats, typeDocPubsubNatsSidebar] = createStarlightTypeDocPlugin();
+const [typeDocPubsubRabbitMq, typeDocPubsubRabbitMqSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepo, typeDocRepoSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepoSqlite, typeDocRepoSqliteSidebar] = createStarlightTypeDocPlugin();
 const [typeDocRepoPostgres, typeDocRepoPostgresSidebar] = createStarlightTypeDocPlugin();
@@ -247,6 +248,19 @@ export default defineConfig({
             readme: "../packages/pubsub/src/nats/README.md",
           },
         }),
+        typeDocPubsubRabbitMq({
+          entryPoints: ["../packages/pubsub/src/rabbitmq/index.ts"],
+          tsconfig: "../packages/pubsub/tsconfig.json",
+          output: "api/pubsub/rabbitmq",
+          sidebar: { label: "pubsub/rabbitmq", collapsed: true },
+          watch: isDev,
+          typeDoc: {
+            exclude: ["**/gen/**", "**/*.spec.ts"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/pubsub/src/rabbitmq/README.md",
+          },
+        }),
         typeDocRepo({
           entryPoints: ["../packages/repo/src/index.ts"],
           tsconfig: "../packages/repo/tsconfig.json",
@@ -369,6 +383,7 @@ export default defineConfig({
                 { label: "Overview", slug: "api/pubsub" },
                 { label: "Kafka", slug: "api/pubsub/kafka" },
                 { label: "NATS", slug: "api/pubsub/nats" },
+                { label: "RabbitMQ", slug: "api/pubsub/rabbitmq" },
               ],
             },
             {
@@ -414,6 +429,7 @@ export default defineConfig({
             typeDocPubsubSidebar,
             typeDocPubsubKafkaSidebar,
             typeDocPubsubNatsSidebar,
+            typeDocPubsubRabbitMqSidebar,
             typeDocRepoSidebar,
             typeDocRepoSqliteSidebar,
             typeDocRepoPostgresSidebar,

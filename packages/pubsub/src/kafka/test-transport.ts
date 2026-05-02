@@ -42,6 +42,7 @@ function createTrackedKafkaTransport(
   const transport = createKafkaTransport({
     client: kafkaClient(),
     interceptors: testOptions?.interceptors,
+    signal: testOptions?.signal,
     consumerConfig: {
       kafkaJS: {
         fromBeginning: true,
@@ -53,6 +54,7 @@ function createTrackedKafkaTransport(
           client: kafkaClient(),
           options: options.scheduler,
           interceptors: testOptions?.interceptors,
+          signal: testOptions?.signal,
         })
       : undefined,
   });
@@ -74,7 +76,10 @@ function transportTestOptions(
     | Parameters<PubSubTransportTestContext["transport"]>[0]
     | Parameters<PubSubBenchmarkContext["transport"]>[0],
 ): TransportOptions | undefined {
-  if (!options || (!("scheduler" in options) && !("interceptors" in options))) {
+  if (
+    !options ||
+    (!("scheduler" in options) && !("interceptors" in options) && !("signal" in options))
+  ) {
     return undefined;
   }
   return options;

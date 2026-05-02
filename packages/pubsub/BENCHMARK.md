@@ -6,7 +6,7 @@ This file is rewritten by:
 pnpm moon run pubsub:benchmark
 ```
 
-Generated at: `2026-04-29T00:37:18.084Z`
+Generated at: `2026-05-02T00:32:02.383Z`
 
 ## Methodology
 
@@ -33,45 +33,45 @@ Note: Scheduled scenario durations include the configured notBefore delay; subtr
 
 | Transport | Scenario | Mode | Messages | Publish Concurrency | Subscribe Concurrency | Duration ms | Msg/s | p50 ms | p95 ms | p99 ms | Duplicates |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| kafka | immediate publish/consume | cold start | 1000 | 50 | 32 | 253 | 3945.38 | 30.77 | 40.61 | 92.36 | 0 |
-| kafka | immediate publish/consume | warmed up | 1000 | 50 | 32 | 163 | 6130.78 | 15.53 | 17.40 | 17.85 | 0 |
-| kafka | scheduled publish/consume | cold start | 1000 | 50 | 32 | 1751 | 570.97 | 1311.56 | 1651.32 | 1702.62 | 0 |
-| kafka | scheduled publish/consume | warmed up | 1000 | 50 | 32 | 1734 | 576.84 | 1297.14 | 1625.50 | 1686.62 | 0 |
-| kafka | scheduled publish/consume (scheduler only) | cold start | 1000 | 50 | 32 | 486 | 2058.24 | 230.64 | 401.03 | 444.34 | 0 |
-| kafka | scheduled publish/consume (scheduler only) | warmed up | 1000 | 50 | 32 | 364 | 2744.36 | 105.54 | 270.34 | 310.35 | 0 |
-| rabbitmq | immediate publish/consume | cold start | 1000 | 50 | 32 | 111 | 9009.97 | 4.02 | 7.88 | 10.39 | 0 |
-| rabbitmq | immediate publish/consume | warmed up | 1000 | 50 | 32 | 106 | 9468.77 | 3.60 | 5.80 | 6.64 | 0 |
-| rabbitmq | scheduled publish/consume | cold start | 1000 | 50 | 32 | 1120 | 893.12 | 1035.47 | 1039.35 | 1040.46 | 0 |
-| rabbitmq | scheduled publish/consume | warmed up | 1000 | 50 | 32 | 1098 | 911.12 | 998.16 | 1001.97 | 1007.06 | 0 |
-| rabbitmq | scheduled publish/consume (scheduler only) | cold start | 1000 | 50 | 32 | 143 | 6971.71 | 9.77 | 12.99 | 13.11 | 0 |
-| rabbitmq | scheduled publish/consume (scheduler only) | warmed up | 1000 | 50 | 32 | 144 | 6944.69 | 8.49 | 11.29 | 11.57 | 0 |
-| nats | immediate publish/consume | cold start | 1000 | 50 | 32 | 111 | 8987.17 | 32.29 | 46.31 | 46.69 | 0 |
-| nats | immediate publish/consume | warmed up | 1000 | 50 | 32 | 102 | 9848.51 | 26.15 | 36.78 | 37.80 | 0 |
-| nats | scheduled publish/consume | cold start | 1000 | 50 | 32 | 1258 | 794.83 | 1072.44 | 1115.50 | 1117.75 | 0 |
-| nats | scheduled publish/consume | warmed up | 1000 | 50 | 32 | 1406 | 711.07 | 1113.74 | 1220.66 | 1225.40 | 0 |
-| nats | scheduled publish/consume (scheduler only) | cold start | 1000 | 50 | 32 | 748 | 1336.44 | 131.28 | 170.99 | 173.70 | 0 |
-| nats | scheduled publish/consume (scheduler only) | warmed up | 1000 | 50 | 32 | 921 | 1086.04 | 173.62 | 195.89 | 203.89 | 0 |
+| kafka | immediate publish/consume | cold start | 1000 | 50 | 32 | 267 | 3738.52 | 25.63 | 42.69 | 112.75 | 0 |
+| kafka | immediate publish/consume | warmed up | 1000 | 50 | 32 | 165 | 6063.54 | 14.41 | 17.41 | 18.42 | 0 |
+| kafka | scheduled publish/consume | cold start | 1000 | 50 | 32 | 1708 | 585.60 | 1279.72 | 1591.48 | 1651.54 | 0 |
+| kafka | scheduled publish/consume | warmed up | 1000 | 50 | 32 | 1708 | 585.32 | 1288.15 | 1591.62 | 1645.62 | 0 |
+| kafka | scheduled publish/consume (scheduler only) | cold start | 1000 | 50 | 32 | 430 | 2324.04 | 191.32 | 359.49 | 399.35 | 0 |
+| kafka | scheduled publish/consume (scheduler only) | warmed up | 1000 | 50 | 32 | 320 | 3124.46 | 75.01 | 247.05 | 282.74 | 0 |
+| rabbitmq | immediate publish/consume | cold start | 1000 | 50 | 32 | 135 | 7401.30 | 3.87 | 6.98 | 9.48 | 0 |
+| rabbitmq | immediate publish/consume | warmed up | 1000 | 50 | 32 | 93 | 10789.16 | 3.56 | 6.11 | 6.88 | 0 |
+| rabbitmq | scheduled publish/consume | cold start | 1000 | 50 | 32 | 1123 | 890.43 | 1034.68 | 1037.62 | 1038.10 | 0 |
+| rabbitmq | scheduled publish/consume | warmed up | 1000 | 50 | 32 | 1086 | 920.44 | 967.15 | 1001.86 | 1014.52 | 0 |
+| rabbitmq | scheduled publish/consume (scheduler only) | cold start | 1000 | 50 | 32 | 143 | 7010.72 | 9.59 | 13.53 | 14.99 | 0 |
+| rabbitmq | scheduled publish/consume (scheduler only) | warmed up | 1000 | 50 | 32 | 142 | 7036.38 | 9.35 | 12.57 | 13.87 | 0 |
+| nats | immediate publish/consume | cold start | 1000 | 50 | 32 | 121 | 8237.40 | 29.60 | 44.97 | 46.20 | 0 |
+| nats | immediate publish/consume | warmed up | 1000 | 50 | 32 | 107 | 9328.59 | 30.47 | 42.12 | 44.91 | 0 |
+| nats | scheduled publish/consume | cold start | 1000 | 50 | 32 | 1227 | 814.95 | 1033.89 | 1076.69 | 1079.02 | 0 |
+| nats | scheduled publish/consume | warmed up | 1000 | 50 | 32 | 1407 | 710.84 | 1117.68 | 1231.98 | 1236.73 | 0 |
+| nats | scheduled publish/consume (scheduler only) | cold start | 1000 | 50 | 32 | 763 | 1311.18 | 126.42 | 164.05 | 170.61 | 0 |
+| nats | scheduled publish/consume (scheduler only) | warmed up | 1000 | 50 | 32 | 915 | 1092.67 | 177.06 | 225.24 | 232.51 | 0 |
 
 | Phase Breakdown |
 | --- |
 
 | Transport | Scenario | Mode | Subscribe Setup ms | Warmup ms | Publish Phase ms | Delivery Drain ms | First Delivery ms |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| kafka | immediate publish/consume | cold start | 245.86 | 0.00 | 228.41 | 25.05 | 81.40 |
-| kafka | immediate publish/consume | warmed up | 170.32 | 89.72 | 136.91 | 26.20 | 12.08 |
-| kafka | scheduled publish/consume | cold start | 357.05 | 0.00 | 166.04 | 1585.36 | 1020.16 |
-| kafka | scheduled publish/consume | warmed up | 354.41 | 1034.71 | 147.01 | 1586.56 | 1017.24 |
-| kafka | scheduled publish/consume (scheduler only) | cold start | 361.00 | 0.00 | 161.17 | 324.68 | 130.61 |
-| kafka | scheduled publish/consume (scheduler only) | warmed up | 387.78 | 136.36 | 136.19 | 228.19 | 28.44 |
-| rabbitmq | immediate publish/consume | cold start | 19.75 | 0.00 | 110.98 | 0.00 | 5.94 |
-| rabbitmq | immediate publish/consume | warmed up | 9.49 | 1.56 | 105.61 | 0.01 | 2.24 |
-| rabbitmq | scheduled publish/consume | cold start | 15.54 | 0.00 | 76.98 | 1042.68 | 1017.71 |
-| rabbitmq | scheduled publish/consume | warmed up | 17.15 | 1011.23 | 90.20 | 1007.35 | 1006.75 |
-| rabbitmq | scheduled publish/consume (scheduler only) | cold start | 17.10 | 0.00 | 117.73 | 25.71 | 7.55 |
-| rabbitmq | scheduled publish/consume (scheduler only) | warmed up | 15.31 | 27.08 | 118.24 | 25.75 | 6.08 |
-| nats | immediate publish/consume | cold start | 12.80 | 0.00 | 85.43 | 25.84 | 8.36 |
-| nats | immediate publish/consume | warmed up | 3.87 | 25.85 | 75.52 | 26.01 | 4.99 |
-| nats | scheduled publish/consume | cold start | 3.28 | 0.00 | 132.37 | 1125.76 | 1035.94 |
-| nats | scheduled publish/consume | warmed up | 2.74 | 1031.87 | 175.32 | 1231.02 | 1038.47 |
-| nats | scheduled publish/consume (scheduler only) | cold start | 3.44 | 0.00 | 624.74 | 123.52 | 71.86 |
-| nats | scheduled publish/consume (scheduler only) | warmed up | 4.67 | 70.76 | 756.29 | 164.48 | 38.48 |
+| kafka | immediate publish/consume | cold start | 2318.09 | 0.00 | 241.92 | 25.56 | 94.70 |
+| kafka | immediate publish/consume | warmed up | 178.92 | 93.80 | 140.52 | 24.40 | 14.10 |
+| kafka | scheduled publish/consume | cold start | 370.18 | 0.00 | 164.73 | 1542.92 | 1016.53 |
+| kafka | scheduled publish/consume | warmed up | 381.24 | 1028.00 | 145.90 | 1562.56 | 1019.52 |
+| kafka | scheduled publish/consume (scheduler only) | cold start | 359.39 | 0.00 | 155.33 | 274.96 | 137.21 |
+| kafka | scheduled publish/consume (scheduler only) | warmed up | 365.15 | 136.64 | 145.49 | 174.56 | 34.91 |
+| rabbitmq | immediate publish/consume | cold start | 19.07 | 0.00 | 109.83 | 25.28 | 5.97 |
+| rabbitmq | immediate publish/consume | warmed up | 11.06 | 1.68 | 92.68 | 0.01 | 2.72 |
+| rabbitmq | scheduled publish/consume | cold start | 15.18 | 0.00 | 79.01 | 1044.03 | 1020.83 |
+| rabbitmq | scheduled publish/consume | warmed up | 16.54 | 1019.98 | 127.11 | 959.32 | 1008.92 |
+| rabbitmq | scheduled publish/consume (scheduler only) | cold start | 17.37 | 0.00 | 116.53 | 26.11 | 7.22 |
+| rabbitmq | scheduled publish/consume (scheduler only) | warmed up | 17.37 | 27.73 | 116.22 | 25.90 | 9.37 |
+| nats | immediate publish/consume | cold start | 14.25 | 0.00 | 96.26 | 25.14 | 6.68 |
+| nats | immediate publish/consume | warmed up | 3.70 | 26.99 | 82.12 | 25.08 | 3.29 |
+| nats | scheduled publish/consume | cold start | 3.49 | 0.00 | 141.26 | 1085.82 | 1017.08 |
+| nats | scheduled publish/consume | warmed up | 3.09 | 1022.67 | 157.78 | 1249.01 | 1027.37 |
+| nats | scheduled publish/consume (scheduler only) | cold start | 4.35 | 0.00 | 629.49 | 133.18 | 70.80 |
+| nats | scheduled publish/consume (scheduler only) | warmed up | 4.48 | 84.33 | 739.19 | 176.00 | 39.22 |

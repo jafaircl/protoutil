@@ -12,6 +12,7 @@ import { notifyInterceptors } from "../interceptors.js";
 import {
   DEFAULT_SCHEDULER_RETRY_DELAY_MS,
   delayToNotBefore,
+  onAbortOnce,
   parseAttempt,
 } from "../transport-utils.js";
 import type { PublishRequest, PubSubInterceptor, PubSubScheduler } from "../types.js";
@@ -25,6 +26,8 @@ export interface CreateRabbitMqSchedulerOptions {
   scheduleQueue?: string;
   publishTimeoutMs?: number;
   interceptors?: PubSubInterceptor[];
+  /** Optional signal that closes this scheduler when aborted. */
+  signal?: AbortSignal;
 }
 
 /** Create a self-contained RabbitMQ scheduler that can be shared across transports. */
@@ -39,10 +42,24 @@ class OwnedRabbitMqScheduler implements PubSubScheduler {
   #startup?: Promise<void>;
   #schedulerStartup?: Promise<void>;
   #schedulerStarted = false;
+  #aborted = false;
+  readonly #removeAbortListener: () => void;
 
-  public constructor(private readonly options: CreateRabbitMqSchedulerOptions) {}
+  public constructor(private readonly options: CreateRabbitMqSchedulerOptions) {
+    this.#removeAbortListener = onAbortOnce(options.signal, () => {
+      this.#aborted = true;
+      void this.close();
+    });
+  }
+
+  #assertNotAborted(): void {
+    if (this.#aborted) {
+      throw new Error("RabbitMQ scheduler has been aborted");
+    }
+  }
 
   public async start(): Promise<void> {
+    this.#assertNotAborted();
     await this.#ensureConnected();
     this.#schedulerStartup ??= this.#startSchedulerOnce();
     await this.#schedulerStartup;
@@ -101,6 +118,7 @@ class OwnedRabbitMqScheduler implements PubSubScheduler {
   }
 
   public async close(): Promise<void> {
+    this.#removeAbortListener();
     if (this.#schedulerStarted) {
       await this.#scheduler?.close();
     }
@@ -115,6 +133,7 @@ class OwnedRabbitMqScheduler implements PubSubScheduler {
   }
 
   public async publishLater(request: PublishRequest): Promise<void> {
+    this.#assertNotAborted();
     await this.#ensureConnected();
     await this.#scheduler!.publishLater(request);
   }
@@ -125,6 +144,7 @@ class OwnedRabbitMqScheduler implements PubSubScheduler {
     delayMs: number,
     attempt: number,
   ): Promise<void> {
+    this.#assertNotAborted();
     await this.#ensureConnected();
     await this.#scheduler!.retryLater(topic, event, delayMs, attempt);
   }
