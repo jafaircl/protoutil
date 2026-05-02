@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/core",
   "type": "module",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Protobuf-es utilities for checksums, field access, integer helpers, and well-known types.",
   "author": "Author Name <author.name@mail.com>",
   "license": "MIT",

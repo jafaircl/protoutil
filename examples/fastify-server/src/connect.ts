@@ -4,7 +4,11 @@
  * Implements 9 of 11 LibraryService RPCs using @protoutil/repo for
  * database access. Shelves are persisted in Postgres, Books in MongoDB —
  * the repository API is identical for both.
+ *
+ * This implementation also publishes events via @protoutil/pubsub when
+ * resources are created, enabling downstream event handlers.
  */
+
 import { randomUUID } from "node:crypto";
 import { createValidator } from "@bufbuild/protovalidate";
 import { Code, ConnectError, type ConnectRouter } from "@connectrpc/connect";
@@ -18,6 +22,7 @@ import {
   ListShelvesRequestSchema,
   ShelfSchema,
 } from "./gen/library/v1/library_pb.js";
+import { getEventsPublisher } from "./pubsub.js";
 import { bookRepo, shelfRepo } from "./repositories.js";
 
 // Read resource name patterns directly from the proto annotations
@@ -58,11 +63,20 @@ export default (router: ConnectRouter) => {
     createShelf: async (req) => {
       validateRequest(LibraryService.method.createShelf.input, req);
       const name = print(SHELF_PATTERN, { shelf_id: randomUUID() });
+      let created: typeof req.shelf;
       try {
-        return await shelfRepo.create({ name, theme: req.shelf!.theme });
+        created = await shelfRepo.create({ name, theme: req.shelf!.theme });
       } catch (err) {
         toConnectError(err);
       }
+
+      // Publish a shelf.created event for downstream handlers
+      await getEventsPublisher().shelfCreated({
+        name,
+        theme: created!.theme,
+      });
+
+      return created!;
     },
 
     getShelf: async (req) => {
@@ -123,8 +137,9 @@ export default (router: ConnectRouter) => {
 
       const { shelf_id } = scan(req.parent, SHELF_PATTERN);
       const name = print(BOOK_PATTERN, { shelf: shelf_id, book: randomUUID() });
+      let created: typeof req.book;
       try {
-        return await bookRepo.create({
+        created = await bookRepo.create({
           name,
           author: req.book!.author,
           title: req.book!.title,
@@ -133,6 +148,16 @@ export default (router: ConnectRouter) => {
       } catch (err) {
         toConnectError(err);
       }
+
+      // Publish a book.created event for downstream handlers
+      await getEventsPublisher().bookCreated({
+        name,
+        shelf: req.parent,
+        title: created!.title,
+        author: created!.author,
+      });
+
+      return created!;
     },
 
     getBook: async (req) => {
@@ -179,6 +204,10 @@ export default (router: ConnectRouter) => {
       validateRequest(LibraryService.method.deleteBook.input, req);
       try {
         await bookRepo.delete({ name: req.name });
+        // Publish a book.created event for downstream handlers
+        await getEventsPublisher().bookDeleted({
+          name: req.name,
+        });
       } catch (err) {
         toConnectError(err);
       }

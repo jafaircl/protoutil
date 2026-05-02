@@ -1,0 +1,12 @@
+version: v2
+clean: true
+inputs:
+  - directory: proto
+plugins:
+  - local: ../../node_modules/.bin/protoc-gen-es
+    out: src/gen
+    include_imports: true
+    opt:
+      - target=ts
+      - import_extension=.js
+      - ts_nocheck=false

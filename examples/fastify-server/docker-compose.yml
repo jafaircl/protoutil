@@ -27,6 +27,22 @@ services:
       timeout: 5s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      # Keep the example app on its own RabbitMQ ports so it can run beside the
+      # pubsub conformance and benchmark stack.
+      - "5675:5672"
+      - "15675:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
 volumes:
   pgdata:
   mongodata:
+  rabbitmqdata:

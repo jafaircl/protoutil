@@ -30,6 +30,45 @@ option java_outer_classname = "LibraryProto";
 option java_package = "com.google.example.library.v1";
 option php_namespace = "Google\\Cloud\\Example\\Library\\V1";
 
+// Event notifications from the library service.
+// These are published when resources are created, updated, or deleted.
+service LibraryEvents {
+  // Published when a book is created.
+  rpc BookCreated(BookCreatedEvent) returns (google.protobuf.Empty) {}
+  // Published when a book is deleted.
+  rpc BookDeleted(BookDeletedEvent) returns (google.protobuf.Empty) {}
+  // Published when a shelf is created.
+  rpc ShelfCreated(ShelfCreatedEvent) returns (google.protobuf.Empty) {}
+}
+
+// Event: a book was created.
+message BookCreatedEvent {
+  // The name of the created book.
+  string name = 1;
+  // The name of the shelf containing the book.
+  string shelf = 2;
+  // The title of the book.
+  string title = 3;
+  // The author of the book.
+  string author = 4;
+}
+
+// Event: a book was deleted.
+message BookDeletedEvent {
+  // The name of the deleted book.
+  string name = 1;
+  // The name of the shelf that contained the book.
+  string shelf = 2;
+}
+
+// Event: a shelf was created.
+message ShelfCreatedEvent {
+  // The name of the created shelf.
+  string name = 1;
+  // The theme of the shelf.
+  string theme = 2;
+}
+
 // This API represents a simple digital library. It lets you manage Shelf
 // resources and Book resources in the library. It defines the following
 // resource model:

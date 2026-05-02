@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package protoutil.pubsub.testing.v1;
+
+service ConformanceEvents {
+  rpc AlphaHappened(AlphaEvent) returns (AlphaEvent);
+  rpc BetaHappened(BetaEvent) returns (BetaEvent);
+}
+
+message AlphaEvent {
+  string event_id = 1;
+  string name = 2;
+  int32 count = 3;
+}
+
+message BetaEvent {
+  string event_id = 1;
+  string detail = 2;
+  bool active = 3;
+}

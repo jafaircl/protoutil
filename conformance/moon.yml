@@ -1,0 +1,9 @@
+tasks:
+  protogen:
+    command: "true"
+  generate:
+    command: "go run ../go/cmd/fixturegen -fixtures fixtures/pubsub -out generated/pubsub -proto ../packages/conformance-runner/proto"
+    inputs:
+      - "fixtures/pubsub/**/*.textproto"
+    outputs:
+      - "generated/pubsub"

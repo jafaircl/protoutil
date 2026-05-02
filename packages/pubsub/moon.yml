@@ -1,0 +1,70 @@
+language: "javascript"
+
+tasks:
+  protogen:
+    command: "pnpm run protogen"
+    inputs:
+      - "proto/**/*"
+      - "buf.yaml"
+      - "buf.gen.yaml"
+    outputs:
+      - "src/gen"
+  typecheck:
+    command: "pnpm run typecheck"
+    dependsOn:
+      - protogen
+    inputs:
+      - "@globs(sources)"
+      - "tsconfig.json"
+  test:
+    command: "pnpm run test"
+    dependsOn:
+      - typecheck
+      - check
+    inputs:
+      - "@globs(sources)"
+      - "@globs(tests)"
+      - "docker-compose.yml"
+      - "scripts/run-tests.mjs"
+  load-test:
+    command: "pnpm run test:load"
+    dependsOn:
+      - typecheck
+      - check
+    inputs:
+      - "@globs(sources)"
+      - "src/**/load-test.spec.ts"
+      - "docker-compose.yml"
+      - "scripts/run-tests.mjs"
+  benchmark:
+    command: "pnpm run benchmark"
+    dependsOn:
+      - typecheck
+      - check
+    inputs:
+      - "@globs(sources)"
+      - "src/**/benchmark.spec.ts"
+      - "docker-compose.yml"
+      - "scripts/run-tests.mjs"
+  conformance:
+    command: "pnpm --filter @protoutil/conformance-runner run pubsub"
+    dependsOn:
+      - "conformance:generate"
+      - "conformance-runner:protogen"
+      - test
+    inputs:
+      - "@globs(sources)"
+      - "package.json"
+  build:
+    command: "pnpm run build"
+    dependsOn:
+      - conformance
+    inputs:
+      - "@globs(sources)"
+      - "tsdown.config.ts"
+    outputs:
+      - "dist"
+  pack:
+    command: "pnpm pack"
+    dependsOn:
+      - build

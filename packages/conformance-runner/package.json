@@ -1,0 +1,22 @@
+{
+  "name": "@protoutil/conformance-runner",
+  "type": "module",
+  "version": "0.3.2",
+  "private": true,
+  "description": "Conformance runner for protoutil packages.",
+  "scripts": {
+    "pubsub": "vitest run src/pubsub.spec.ts",
+    "protogen": "buf generate",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0",
+    "@protoutil/pubsub": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

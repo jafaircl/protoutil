@@ -1,4 +1,5 @@
 import type { DescMessage } from "@bufbuild/protobuf";
+import { UnexpectedInterceptorContextError } from "./errors.js";
 import type { Interceptor, InterceptorContext, InterceptorFn } from "./types.js";
 
 export function applyInterceptors<Desc extends DescMessage, R>(
@@ -23,7 +24,7 @@ export function expectOperation<
   operation: Op,
 ): Extract<InterceptorContext<Desc>, { operation: Op }> {
   if (ctx.operation !== operation) {
-    throw new Error(`Unexpected interceptor context: expected ${operation}, got ${ctx.operation}`);
+    throw new UnexpectedInterceptorContextError(operation, ctx.operation);
   }
   return ctx as Extract<InterceptorContext<Desc>, { operation: Op }>;
 }

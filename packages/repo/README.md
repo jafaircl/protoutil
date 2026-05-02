@@ -147,6 +147,25 @@ import type { Engine } from "@protoutil/repo";
 | `transaction<T>(fn)` | Execute a function within a transaction. Nested calls create savepoints when the backend supports them. |
 | `close()` | Close the underlying database connection. |
 
+## Errors
+
+Repo exposes package-level typed errors with stable `code` values for debugging and branching.
+
+```ts
+import {
+  RepoErrorCode,
+  UnexpectedInterceptorContextError,
+  UnsupportedQueryTypeRepoError,
+} from "@protoutil/repo";
+```
+
+| Error class | `code` | When raised |
+| --- | --- | --- |
+| `UnexpectedInterceptorContextError` | `RepoErrorCode.UNEXPECTED_INTERCEPTOR_CONTEXT` | `expectOperation()` receives a different interceptor operation than expected. |
+| `UnsupportedQueryTypeRepoError` | `RepoErrorCode.UNSUPPORTED_QUERY_TYPE` | Engine `execute()` gets a query type the backend does not support (for example SQL engines require string queries; Mongo requires object queries). |
+
+Note: repository CRUD/domain errors still primarily use AIP status errors from `@protoutil/aip/errors` (for example `NotFoundError`, `AlreadyExistsError`, `InvalidArgumentError`).
+
 ## Repository
 
 A repository is a thin, database-agnostic data-access layer for a single protobuf message type. It handles serialization, filtering, field masking, and deserialization so callers work with strongly-typed messages.

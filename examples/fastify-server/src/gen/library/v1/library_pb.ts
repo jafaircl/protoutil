@@ -31,7 +31,105 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file library/v1/library.proto.
  */
 export const file_library_v1_library: GenFile = /*@__PURE__*/
-  fileDesc("ChhsaWJyYXJ5L3YxL2xpYnJhcnkucHJvdG8SCmxpYnJhcnkudjEirQEKBEJvb2sSDAoEbmFtZRgBIAEoCRIOCgZhdXRob3IYAiABKAkSDQoFdGl0bGUYAyABKAkSDAoEcmVhZBgEIAEoCDpq6kFDCiNsaWJyYXJ5LWV4YW1wbGUuZ29vZ2xlYXBpcy5jb20vQm9vaxIcc2hlbHZlcy97c2hlbGZ9L2Jvb2tzL3tib29rfYKmHSAIATIcCghzaGVsZl9pZBIQbGlicmFyeV92MV9zaGVsZiJpCgVTaGVsZhIMCgRuYW1lGAEgASgJEg0KBXRoZW1lGAIgASgJOkPqQToKJGxpYnJhcnktZXhhbXBsZS5nb29nbGVhcGlzLmNvbS9TaGVsZhISc2hlbHZlcy97c2hlbGZfaWR9gqYdAggBIkEKEkNyZWF0ZVNoZWxmUmVxdWVzdBIrCgVzaGVsZhgBIAEoCzIRLmxpYnJhcnkudjEuU2hlbGZCCeBBArpIA8gBASJTCg9HZXRTaGVsZlJlcXVlc3QSQAoEbmFtZRgBIAEoCUIy4EEC+kEmCiRsaWJyYXJ5LWV4YW1wbGUuZ29vZ2xlYXBpcy5jb20vU2hlbGa6SAPIAQEiawoSTGlzdFNoZWx2ZXNSZXF1ZXN0EhEKCXBhZ2Vfc2l6ZRgBIAEoBRISCgpwYWdlX3Rva2VuGAIgASgJEgwKBHNraXAYAyABKAUSEAoIb3JkZXJfYnkYBCABKAkSDgoGZmlsdGVyGAUgASgJIoMBChNMaXN0U2hlbHZlc1Jlc3BvbnNlEiIKB3NoZWx2ZXMYASADKAsyES5saWJyYXJ5LnYxLlNoZWxmEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRIbChNwcmV2aW91c19wYWdlX3Rva2VuGAMgASgJEhIKCnRvdGFsX3NpemUYBCABKAUiVgoSRGVsZXRlU2hlbGZSZXF1ZXN0EkAKBG5hbWUYASABKAlCMuBBAvpBJgokbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL1NoZWxmukgDyAEBIqABChNNZXJnZVNoZWx2ZXNSZXF1ZXN0EkAKBG5hbWUYASABKAlCMuBBAvpBJgokbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL1NoZWxmukgDyAEBEkcKC290aGVyX3NoZWxmGAIgASgJQjLgQQL6QSYKJGxpYnJhcnktZXhhbXBsZS5nb29nbGVhcGlzLmNvbS9TaGVsZrpIA8gBASKCAQoRQ3JlYXRlQm9va1JlcXVlc3QSQgoGcGFyZW50GAEgASgJQjLgQQL6QSYKJGxpYnJhcnktZXhhbXBsZS5nb29nbGVhcGlzLmNvbS9TaGVsZrpIA8gBARIpCgRib29rGAIgASgLMhAubGlicmFyeS52MS5Cb29rQgngQQK6SAPIAQEiUQoOR2V0Qm9va1JlcXVlc3QSPwoEbmFtZRgBIAEoCUIx4EEC+kElCiNsaWJyYXJ5LWV4YW1wbGUuZ29vZ2xlYXBpcy5jb20vQm9va7pIA8gBASKtAQoQTGlzdEJvb2tzUmVxdWVzdBJCCgZwYXJlbnQYASABKAlCMuBBAvpBJgokbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL1NoZWxmukgDyAEBEhEKCXBhZ2Vfc2l6ZRgCIAEoBRISCgpwYWdlX3Rva2VuGAMgASgJEgwKBHNraXAYBCABKAUSEAoIb3JkZXJfYnkYBSABKAkSDgoGZmlsdGVyGAYgASgJIn4KEUxpc3RCb29rc1Jlc3BvbnNlEh8KBWJvb2tzGAEgAygLMhAubGlicmFyeS52MS5Cb29rEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRIbChNwcmV2aW91c19wYWdlX3Rva2VuGAMgASgJEhIKCnRvdGFsX3NpemUYBCABKAUiegoRVXBkYXRlQm9va1JlcXVlc3QSKQoEYm9vaxgBIAEoCzIQLmxpYnJhcnkudjEuQm9va0IJ4EECukgDyAEBEjoKC3VwZGF0ZV9tYXNrGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLkZpZWxkTWFza0IJ4EECukgDyAEBIlQKEURlbGV0ZUJvb2tSZXF1ZXN0Ej8KBG5hbWUYASABKAlCMeBBAvpBJQojbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL0Jvb2u6SAPIAQEioAEKD01vdmVCb29rUmVxdWVzdBI/CgRuYW1lGAEgASgJQjHgQQL6QSUKI2xpYnJhcnktZXhhbXBsZS5nb29nbGVhcGlzLmNvbS9Cb29rukgDyAEBEkwKEG90aGVyX3NoZWxmX25hbWUYAiABKAlCMuBBAvpBJgokbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL1NoZWxmukgDyAEBMowGCg5MaWJyYXJ5U2VydmljZRJCCgtDcmVhdGVTaGVsZhIeLmxpYnJhcnkudjEuQ3JlYXRlU2hlbGZSZXF1ZXN0GhEubGlicmFyeS52MS5TaGVsZiIAEj8KCEdldFNoZWxmEhsubGlicmFyeS52MS5HZXRTaGVsZlJlcXVlc3QaES5saWJyYXJ5LnYxLlNoZWxmIgOQAgESUwoLTGlzdFNoZWx2ZXMSHi5saWJyYXJ5LnYxLkxpc3RTaGVsdmVzUmVxdWVzdBofLmxpYnJhcnkudjEuTGlzdFNoZWx2ZXNSZXNwb25zZSIDkAIBEkcKC0RlbGV0ZVNoZWxmEh4ubGlicmFyeS52MS5EZWxldGVTaGVsZlJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkiABJECgxNZXJnZVNoZWx2ZXMSHy5saWJyYXJ5LnYxLk1lcmdlU2hlbHZlc1JlcXVlc3QaES5saWJyYXJ5LnYxLlNoZWxmIgASPwoKQ3JlYXRlQm9vaxIdLmxpYnJhcnkudjEuQ3JlYXRlQm9va1JlcXVlc3QaEC5saWJyYXJ5LnYxLkJvb2siABI8CgdHZXRCb29rEhoubGlicmFyeS52MS5HZXRCb29rUmVxdWVzdBoQLmxpYnJhcnkudjEuQm9vayIDkAIBEk0KCUxpc3RCb29rcxIcLmxpYnJhcnkudjEuTGlzdEJvb2tzUmVxdWVzdBodLmxpYnJhcnkudjEuTGlzdEJvb2tzUmVzcG9uc2UiA5ACARJFCgpEZWxldGVCb29rEh0ubGlicmFyeS52MS5EZWxldGVCb29rUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eSIAEj8KClVwZGF0ZUJvb2sSHS5saWJyYXJ5LnYxLlVwZGF0ZUJvb2tSZXF1ZXN0GhAubGlicmFyeS52MS5Cb29rIgASOwoITW92ZUJvb2sSGy5saWJyYXJ5LnYxLk1vdmVCb29rUmVxdWVzdBoQLmxpYnJhcnkudjEuQm9vayIAQpMBCh1jb20uZ29vZ2xlLmV4YW1wbGUubGlicmFyeS52MUIMTGlicmFyeVByb3RvUAFaQGdvb2dsZS5nb2xhbmcub3JnL2dlbnByb3RvL2dvb2dsZWFwaXMvZXhhbXBsZS9saWJyYXJ5L3YxO2xpYnJhcnnKAh9Hb29nbGVcQ2xvdWRcRXhhbXBsZVxMaWJyYXJ5XFYxYgZwcm90bzM", [file_buf_validate_validate, file_google_api_field_behavior, file_google_api_resource, file_google_protobuf_empty, file_google_protobuf_field_mask, file_protoutil_sql_v1_options]);
+  fileDesc("ChhsaWJyYXJ5L3YxL2xpYnJhcnkucHJvdG8SCmxpYnJhcnkudjEiTgoQQm9va0NyZWF0ZWRFdmVudBIMCgRuYW1lGAEgASgJEg0KBXNoZWxmGAIgASgJEg0KBXRpdGxlGAMgASgJEg4KBmF1dGhvchgEIAEoCSIvChBCb29rRGVsZXRlZEV2ZW50EgwKBG5hbWUYASABKAkSDQoFc2hlbGYYAiABKAkiMAoRU2hlbGZDcmVhdGVkRXZlbnQSDAoEbmFtZRgBIAEoCRINCgV0aGVtZRgCIAEoCSKtAQoEQm9vaxIMCgRuYW1lGAEgASgJEg4KBmF1dGhvchgCIAEoCRINCgV0aXRsZRgDIAEoCRIMCgRyZWFkGAQgASgIOmrqQUMKI2xpYnJhcnktZXhhbXBsZS5nb29nbGVhcGlzLmNvbS9Cb29rEhxzaGVsdmVzL3tzaGVsZn0vYm9va3Mve2Jvb2t9gqYdIAgBMhwKCHNoZWxmX2lkEhBsaWJyYXJ5X3YxX3NoZWxmImkKBVNoZWxmEgwKBG5hbWUYASABKAkSDQoFdGhlbWUYAiABKAk6Q+pBOgokbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL1NoZWxmEhJzaGVsdmVzL3tzaGVsZl9pZH2Cph0CCAEiQQoSQ3JlYXRlU2hlbGZSZXF1ZXN0EisKBXNoZWxmGAEgASgLMhEubGlicmFyeS52MS5TaGVsZkIJ4EECukgDyAEBIlMKD0dldFNoZWxmUmVxdWVzdBJACgRuYW1lGAEgASgJQjLgQQL6QSYKJGxpYnJhcnktZXhhbXBsZS5nb29nbGVhcGlzLmNvbS9TaGVsZrpIA8gBASJrChJMaXN0U2hlbHZlc1JlcXVlc3QSEQoJcGFnZV9zaXplGAEgASgFEhIKCnBhZ2VfdG9rZW4YAiABKAkSDAoEc2tpcBgDIAEoBRIQCghvcmRlcl9ieRgEIAEoCRIOCgZmaWx0ZXIYBSABKAkigwEKE0xpc3RTaGVsdmVzUmVzcG9uc2USIgoHc2hlbHZlcxgBIAMoCzIRLmxpYnJhcnkudjEuU2hlbGYSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhsKE3ByZXZpb3VzX3BhZ2VfdG9rZW4YAyABKAkSEgoKdG90YWxfc2l6ZRgEIAEoBSJWChJEZWxldGVTaGVsZlJlcXVlc3QSQAoEbmFtZRgBIAEoCUIy4EEC+kEmCiRsaWJyYXJ5LWV4YW1wbGUuZ29vZ2xlYXBpcy5jb20vU2hlbGa6SAPIAQEioAEKE01lcmdlU2hlbHZlc1JlcXVlc3QSQAoEbmFtZRgBIAEoCUIy4EEC+kEmCiRsaWJyYXJ5LWV4YW1wbGUuZ29vZ2xlYXBpcy5jb20vU2hlbGa6SAPIAQESRwoLb3RoZXJfc2hlbGYYAiABKAlCMuBBAvpBJgokbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL1NoZWxmukgDyAEBIoIBChFDcmVhdGVCb29rUmVxdWVzdBJCCgZwYXJlbnQYASABKAlCMuBBAvpBJgokbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL1NoZWxmukgDyAEBEikKBGJvb2sYAiABKAsyEC5saWJyYXJ5LnYxLkJvb2tCCeBBArpIA8gBASJRCg5HZXRCb29rUmVxdWVzdBI/CgRuYW1lGAEgASgJQjHgQQL6QSUKI2xpYnJhcnktZXhhbXBsZS5nb29nbGVhcGlzLmNvbS9Cb29rukgDyAEBIq0BChBMaXN0Qm9va3NSZXF1ZXN0EkIKBnBhcmVudBgBIAEoCUIy4EEC+kEmCiRsaWJyYXJ5LWV4YW1wbGUuZ29vZ2xlYXBpcy5jb20vU2hlbGa6SAPIAQESEQoJcGFnZV9zaXplGAIgASgFEhIKCnBhZ2VfdG9rZW4YAyABKAkSDAoEc2tpcBgEIAEoBRIQCghvcmRlcl9ieRgFIAEoCRIOCgZmaWx0ZXIYBiABKAkifgoRTGlzdEJvb2tzUmVzcG9uc2USHwoFYm9va3MYASADKAsyEC5saWJyYXJ5LnYxLkJvb2sSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhsKE3ByZXZpb3VzX3BhZ2VfdG9rZW4YAyABKAkSEgoKdG90YWxfc2l6ZRgEIAEoBSJ6ChFVcGRhdGVCb29rUmVxdWVzdBIpCgRib29rGAEgASgLMhAubGlicmFyeS52MS5Cb29rQgngQQK6SAPIAQESOgoLdXBkYXRlX21hc2sYAiABKAsyGi5nb29nbGUucHJvdG9idWYuRmllbGRNYXNrQgngQQK6SAPIAQEiVAoRRGVsZXRlQm9va1JlcXVlc3QSPwoEbmFtZRgBIAEoCUIx4EEC+kElCiNsaWJyYXJ5LWV4YW1wbGUuZ29vZ2xlYXBpcy5jb20vQm9va7pIA8gBASKgAQoPTW92ZUJvb2tSZXF1ZXN0Ej8KBG5hbWUYASABKAlCMeBBAvpBJQojbGlicmFyeS1leGFtcGxlLmdvb2dsZWFwaXMuY29tL0Jvb2u6SAPIAQESTAoQb3RoZXJfc2hlbGZfbmFtZRgCIAEoCUIy4EEC+kEmCiRsaWJyYXJ5LWV4YW1wbGUuZ29vZ2xlYXBpcy5jb20vU2hlbGa6SAPIAQEy5gEKDUxpYnJhcnlFdmVudHMSRQoLQm9va0NyZWF0ZWQSHC5saWJyYXJ5LnYxLkJvb2tDcmVhdGVkRXZlbnQaFi5nb29nbGUucHJvdG9idWYuRW1wdHkiABJFCgtCb29rRGVsZXRlZBIcLmxpYnJhcnkudjEuQm9va0RlbGV0ZWRFdmVudBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eSIAEkcKDFNoZWxmQ3JlYXRlZBIdLmxpYnJhcnkudjEuU2hlbGZDcmVhdGVkRXZlbnQaFi5nb29nbGUucHJvdG9idWYuRW1wdHkiADKMBgoOTGlicmFyeVNlcnZpY2USQgoLQ3JlYXRlU2hlbGYSHi5saWJyYXJ5LnYxLkNyZWF0ZVNoZWxmUmVxdWVzdBoRLmxpYnJhcnkudjEuU2hlbGYiABI/CghHZXRTaGVsZhIbLmxpYnJhcnkudjEuR2V0U2hlbGZSZXF1ZXN0GhEubGlicmFyeS52MS5TaGVsZiIDkAIBElMKC0xpc3RTaGVsdmVzEh4ubGlicmFyeS52MS5MaXN0U2hlbHZlc1JlcXVlc3QaHy5saWJyYXJ5LnYxLkxpc3RTaGVsdmVzUmVzcG9uc2UiA5ACARJHCgtEZWxldGVTaGVsZhIeLmxpYnJhcnkudjEuRGVsZXRlU2hlbGZSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5IgASRAoMTWVyZ2VTaGVsdmVzEh8ubGlicmFyeS52MS5NZXJnZVNoZWx2ZXNSZXF1ZXN0GhEubGlicmFyeS52MS5TaGVsZiIAEj8KCkNyZWF0ZUJvb2sSHS5saWJyYXJ5LnYxLkNyZWF0ZUJvb2tSZXF1ZXN0GhAubGlicmFyeS52MS5Cb29rIgASPAoHR2V0Qm9vaxIaLmxpYnJhcnkudjEuR2V0Qm9va1JlcXVlc3QaEC5saWJyYXJ5LnYxLkJvb2siA5ACARJNCglMaXN0Qm9va3MSHC5saWJyYXJ5LnYxLkxpc3RCb29rc1JlcXVlc3QaHS5saWJyYXJ5LnYxLkxpc3RCb29rc1Jlc3BvbnNlIgOQAgESRQoKRGVsZXRlQm9vaxIdLmxpYnJhcnkudjEuRGVsZXRlQm9va1JlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkiABI/CgpVcGRhdGVCb29rEh0ubGlicmFyeS52MS5VcGRhdGVCb29rUmVxdWVzdBoQLmxpYnJhcnkudjEuQm9vayIAEjsKCE1vdmVCb29rEhsubGlicmFyeS52MS5Nb3ZlQm9va1JlcXVlc3QaEC5saWJyYXJ5LnYxLkJvb2siAEKTAQodY29tLmdvb2dsZS5leGFtcGxlLmxpYnJhcnkudjFCDExpYnJhcnlQcm90b1ABWkBnb29nbGUuZ29sYW5nLm9yZy9nZW5wcm90by9nb29nbGVhcGlzL2V4YW1wbGUvbGlicmFyeS92MTtsaWJyYXJ5ygIfR29vZ2xlXENsb3VkXEV4YW1wbGVcTGlicmFyeVxWMWIGcHJvdG8z", [file_buf_validate_validate, file_google_api_field_behavior, file_google_api_resource, file_google_protobuf_empty, file_google_protobuf_field_mask, file_protoutil_sql_v1_options]);
+
+/**
+ * Event: a book was created.
+ *
+ * @generated from message library.v1.BookCreatedEvent
+ */
+export type BookCreatedEvent = Message<"library.v1.BookCreatedEvent"> & {
+  /**
+   * The name of the created book.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * The name of the shelf containing the book.
+   *
+   * @generated from field: string shelf = 2;
+   */
+  shelf: string;
+
+  /**
+   * The title of the book.
+   *
+   * @generated from field: string title = 3;
+   */
+  title: string;
+
+  /**
+   * The author of the book.
+   *
+   * @generated from field: string author = 4;
+   */
+  author: string;
+};
+
+/**
+ * Describes the message library.v1.BookCreatedEvent.
+ * Use `create(BookCreatedEventSchema)` to create a new message.
+ */
+export const BookCreatedEventSchema: GenMessage<BookCreatedEvent> = /*@__PURE__*/
+  messageDesc(file_library_v1_library, 0);
+
+/**
+ * Event: a book was deleted.
+ *
+ * @generated from message library.v1.BookDeletedEvent
+ */
+export type BookDeletedEvent = Message<"library.v1.BookDeletedEvent"> & {
+  /**
+   * The name of the deleted book.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * The name of the shelf that contained the book.
+   *
+   * @generated from field: string shelf = 2;
+   */
+  shelf: string;
+};
+
+/**
+ * Describes the message library.v1.BookDeletedEvent.
+ * Use `create(BookDeletedEventSchema)` to create a new message.
+ */
+export const BookDeletedEventSchema: GenMessage<BookDeletedEvent> = /*@__PURE__*/
+  messageDesc(file_library_v1_library, 1);
+
+/**
+ * Event: a shelf was created.
+ *
+ * @generated from message library.v1.ShelfCreatedEvent
+ */
+export type ShelfCreatedEvent = Message<"library.v1.ShelfCreatedEvent"> & {
+  /**
+   * The name of the created shelf.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * The theme of the shelf.
+   *
+   * @generated from field: string theme = 2;
+   */
+  theme: string;
+};
+
+/**
+ * Describes the message library.v1.ShelfCreatedEvent.
+ * Use `create(ShelfCreatedEventSchema)` to create a new message.
+ */
+export const ShelfCreatedEventSchema: GenMessage<ShelfCreatedEvent> = /*@__PURE__*/
+  messageDesc(file_library_v1_library, 2);
 
 /**
  * A single book in the library.
@@ -75,7 +173,7 @@ export type Book = Message<"library.v1.Book"> & {
  * Use `create(BookSchema)` to create a new message.
  */
 export const BookSchema: GenMessage<Book> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 0);
+  messageDesc(file_library_v1_library, 3);
 
 /**
  * A Shelf contains a collection of books with a theme.
@@ -105,7 +203,7 @@ export type Shelf = Message<"library.v1.Shelf"> & {
  * Use `create(ShelfSchema)` to create a new message.
  */
 export const ShelfSchema: GenMessage<Shelf> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 1);
+  messageDesc(file_library_v1_library, 4);
 
 /**
  * Request message for LibraryService.CreateShelf.
@@ -126,7 +224,7 @@ export type CreateShelfRequest = Message<"library.v1.CreateShelfRequest"> & {
  * Use `create(CreateShelfRequestSchema)` to create a new message.
  */
 export const CreateShelfRequestSchema: GenMessage<CreateShelfRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 2);
+  messageDesc(file_library_v1_library, 5);
 
 /**
  * Request message for LibraryService.GetShelf.
@@ -147,7 +245,7 @@ export type GetShelfRequest = Message<"library.v1.GetShelfRequest"> & {
  * Use `create(GetShelfRequestSchema)` to create a new message.
  */
 export const GetShelfRequestSchema: GenMessage<GetShelfRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 3);
+  messageDesc(file_library_v1_library, 6);
 
 /**
  * Request message for LibraryService.ListShelves.
@@ -203,7 +301,7 @@ export type ListShelvesRequest = Message<"library.v1.ListShelvesRequest"> & {
  * Use `create(ListShelvesRequestSchema)` to create a new message.
  */
 export const ListShelvesRequestSchema: GenMessage<ListShelvesRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 4);
+  messageDesc(file_library_v1_library, 7);
 
 /**
  * Response message for LibraryService.ListShelves.
@@ -254,7 +352,7 @@ export type ListShelvesResponse = Message<"library.v1.ListShelvesResponse"> & {
  * Use `create(ListShelvesResponseSchema)` to create a new message.
  */
 export const ListShelvesResponseSchema: GenMessage<ListShelvesResponse> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 5);
+  messageDesc(file_library_v1_library, 8);
 
 /**
  * Request message for LibraryService.DeleteShelf.
@@ -275,7 +373,7 @@ export type DeleteShelfRequest = Message<"library.v1.DeleteShelfRequest"> & {
  * Use `create(DeleteShelfRequestSchema)` to create a new message.
  */
 export const DeleteShelfRequestSchema: GenMessage<DeleteShelfRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 6);
+  messageDesc(file_library_v1_library, 9);
 
 /**
  * Describes the shelf being removed (other_shelf_name) and updated
@@ -304,7 +402,7 @@ export type MergeShelvesRequest = Message<"library.v1.MergeShelvesRequest"> & {
  * Use `create(MergeShelvesRequestSchema)` to create a new message.
  */
 export const MergeShelvesRequestSchema: GenMessage<MergeShelvesRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 7);
+  messageDesc(file_library_v1_library, 10);
 
 /**
  * Request message for LibraryService.CreateBook.
@@ -332,7 +430,7 @@ export type CreateBookRequest = Message<"library.v1.CreateBookRequest"> & {
  * Use `create(CreateBookRequestSchema)` to create a new message.
  */
 export const CreateBookRequestSchema: GenMessage<CreateBookRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 8);
+  messageDesc(file_library_v1_library, 11);
 
 /**
  * Request message for LibraryService.GetBook.
@@ -353,7 +451,7 @@ export type GetBookRequest = Message<"library.v1.GetBookRequest"> & {
  * Use `create(GetBookRequestSchema)` to create a new message.
  */
 export const GetBookRequestSchema: GenMessage<GetBookRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 9);
+  messageDesc(file_library_v1_library, 12);
 
 /**
  * Request message for LibraryService.ListBooks.
@@ -417,7 +515,7 @@ export type ListBooksRequest = Message<"library.v1.ListBooksRequest"> & {
  * Use `create(ListBooksRequestSchema)` to create a new message.
  */
 export const ListBooksRequestSchema: GenMessage<ListBooksRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 10);
+  messageDesc(file_library_v1_library, 13);
 
 /**
  * Response message for LibraryService.ListBooks.
@@ -468,7 +566,7 @@ export type ListBooksResponse = Message<"library.v1.ListBooksResponse"> & {
  * Use `create(ListBooksResponseSchema)` to create a new message.
  */
 export const ListBooksResponseSchema: GenMessage<ListBooksResponse> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 11);
+  messageDesc(file_library_v1_library, 14);
 
 /**
  * Request message for LibraryService.UpdateBook.
@@ -496,7 +594,7 @@ export type UpdateBookRequest = Message<"library.v1.UpdateBookRequest"> & {
  * Use `create(UpdateBookRequestSchema)` to create a new message.
  */
 export const UpdateBookRequestSchema: GenMessage<UpdateBookRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 12);
+  messageDesc(file_library_v1_library, 15);
 
 /**
  * Request message for LibraryService.DeleteBook.
@@ -517,7 +615,7 @@ export type DeleteBookRequest = Message<"library.v1.DeleteBookRequest"> & {
  * Use `create(DeleteBookRequestSchema)` to create a new message.
  */
 export const DeleteBookRequestSchema: GenMessage<DeleteBookRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 13);
+  messageDesc(file_library_v1_library, 16);
 
 /**
  * Describes what book to move (name) and what shelf we're moving it
@@ -546,7 +644,47 @@ export type MoveBookRequest = Message<"library.v1.MoveBookRequest"> & {
  * Use `create(MoveBookRequestSchema)` to create a new message.
  */
 export const MoveBookRequestSchema: GenMessage<MoveBookRequest> = /*@__PURE__*/
-  messageDesc(file_library_v1_library, 14);
+  messageDesc(file_library_v1_library, 17);
+
+/**
+ * Event notifications from the library service.
+ * These are published when resources are created, updated, or deleted.
+ *
+ * @generated from service library.v1.LibraryEvents
+ */
+export const LibraryEvents: GenService<{
+  /**
+   * Published when a book is created.
+   *
+   * @generated from rpc library.v1.LibraryEvents.BookCreated
+   */
+  bookCreated: {
+    methodKind: "unary";
+    input: typeof BookCreatedEventSchema;
+    output: typeof EmptySchema;
+  },
+  /**
+   * Published when a book is deleted.
+   *
+   * @generated from rpc library.v1.LibraryEvents.BookDeleted
+   */
+  bookDeleted: {
+    methodKind: "unary";
+    input: typeof BookDeletedEventSchema;
+    output: typeof EmptySchema;
+  },
+  /**
+   * Published when a shelf is created.
+   *
+   * @generated from rpc library.v1.LibraryEvents.ShelfCreated
+   */
+  shelfCreated: {
+    methodKind: "unary";
+    input: typeof ShelfCreatedEventSchema;
+    output: typeof EmptySchema;
+  },
+}> = /*@__PURE__*/
+  serviceDesc(file_library_v1_library, 0);
 
 /**
  * This API represents a simple digital library. It lets you manage Shelf
@@ -684,5 +822,5 @@ export const LibraryService: GenService<{
     output: typeof BookSchema;
   },
 }> = /*@__PURE__*/
-  serviceDesc(file_library_v1_library, 0);
+  serviceDesc(file_library_v1_library, 1);
 

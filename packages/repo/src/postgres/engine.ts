@@ -20,6 +20,7 @@ import type {
   EngineReplaceManyOptions,
   EngineUpdateOptions,
 } from "../engine.js";
+import { UnsupportedQueryTypeRepoError } from "../errors.js";
 
 /**
  * Configuration for {@link createPostgresEngine}.
@@ -350,7 +351,12 @@ function createPostgresEngineImpl(pool: Pool, dialect: Dialect, client?: PoolCli
       params?: unknown[],
     ): Promise<T[]> {
       if (typeof query !== "string") {
-        throw new Error("PostgreSQL engine only supports string queries");
+        throw new UnsupportedQueryTypeRepoError(
+          "postgres",
+          "string",
+          typeof query,
+          "PostgreSQL engine only supports string queries",
+        );
       }
       try {
         const result = await queryable.query(query, params);

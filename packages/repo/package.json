@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/repo",
   "type": "module",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "AIP-style protobuf repositories for SQLite, Postgres, MySQL, and MongoDB.",
   "author": "Author Name <author.name@mail.com>",
   "license": "MIT",

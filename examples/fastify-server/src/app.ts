@@ -6,6 +6,7 @@ import AutoLoad, { type AutoloadPluginOptions } from "@fastify/autoload";
 import cors from "@fastify/cors";
 import type { FastifyPluginAsync } from "fastify";
 import routes from "./connect.js";
+import { initPubsub, startEventSubscription } from "./pubsub.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,12 +35,18 @@ const connectLogger: Interceptor = (next) => async (req) => {
 };
 
 const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void> => {
+  // Initialize pubsub AFTER fastify is ready but BEFORE accepting requests
+  await initPubsub();
+
   // Place here your custom code!
   fastify.register(cors);
   fastify.register(fastifyConnectPlugin, {
     routes,
     interceptors: [connectLogger],
   });
+
+  // Start the event subscription (runs handlers when resources are created/updated/deleted)
+  await startEventSubscription();
 
   // Do not touch the following lines
 
