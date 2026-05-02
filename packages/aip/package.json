@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/aip",
   "type": "module",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "TypeScript utilities for implementing Google API Improvement Proposals",
   "author": "Author Name <author.name@mail.com>",
   "license": "MIT",
