@@ -54,7 +54,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "@confluentinc/kafka-javascript",
-      "better-sqlite3"
+      "better-sqlite3",
+      "peggy-ts"
     ]
   }
 }

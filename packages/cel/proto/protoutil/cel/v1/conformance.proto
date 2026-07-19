@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package protoutil.cel.v1;
+
+import "cel/expr/conformance/conformance_service.proto";
+import "cel/expr/conformance/env_config.proto";
+import "cel/expr/conformance/proto2/test_all_types.proto";
+import "cel/expr/conformance/proto2/test_all_types_extensions.proto";
+import "cel/expr/conformance/proto3/test_all_types.proto";
+import "cel/expr/conformance/test/simple.proto";
+import "cel/expr/conformance/test/suite.proto";
+import "test/proto2pb/test_all_types.proto";
+import "test/proto3pb/test_all_types.proto";
+import "test/proto3pb/test_import.proto";
+
+message CelConformanceTypes {
+  .cel.expr.conformance.ParseRequest parse_request = 1;
+  .cel.expr.conformance.ParseResponse parse_response = 2;
+  .cel.expr.conformance.CheckRequest check_request = 3;
+  .cel.expr.conformance.CheckResponse check_response = 4;
+  .cel.expr.conformance.EvalRequest eval_request = 5;
+  .cel.expr.conformance.EvalResponse eval_response = 6;
+  .cel.expr.conformance.Environment environment = 7;
+  .cel.expr.conformance.test.SimpleTestFile simple_test_file = 8;
+  .cel.expr.conformance.test.TestSuite suite = 9;
+  .cel.expr.conformance.proto2.TestAllTypes proto2_test_all_types = 10;
+  .cel.expr.conformance.proto3.TestAllTypes proto3_test_all_types = 11;
+  .google.expr.proto2.test.TestAllTypes cel_go_proto2_test_all_types = 12;
+  .google.expr.proto3.test.TestAllTypes cel_go_proto3_test_all_types = 13;
+  .google.expr.proto3.test.ImportedGlobalEnum cel_go_imported_global_enum = 14;
+}

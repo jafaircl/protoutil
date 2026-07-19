@@ -1,0 +1,113 @@
+{
+  "name": "@protoutil/cel",
+  "type": "module",
+  "version": "0.3.2",
+  "description": "TypeScript utilities and generated protobuf types for CEL expressions.",
+  "author": "Author Name <author.name@mail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/cel#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jafaircl/protoutil.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jafaircl/protoutil/issues"
+  },
+  "exports": {
+    ".": {
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.mjs"
+    },
+    "./common": {
+      "require": "./dist/common/index.cjs",
+      "import": "./dist/common/index.mjs"
+    },
+    "./parser": {
+      "require": "./dist/parser/index.cjs",
+      "import": "./dist/parser/index.mjs"
+    },
+    "./checker": {
+      "require": "./dist/checker/index.cjs",
+      "import": "./dist/checker/index.mjs"
+    },
+    "./interpreter": {
+      "require": "./dist/interpreter/index.cjs",
+      "import": "./dist/interpreter/index.mjs"
+    },
+    "./expr/checked": {
+      "require": "./dist/gen/cel/expr/checked_pb.cjs",
+      "import": "./dist/gen/cel/expr/checked_pb.mjs"
+    },
+    "./expr/conformance/conformance_service": {
+      "require": "./dist/gen/cel/expr/conformance/conformance_service_pb.cjs",
+      "import": "./dist/gen/cel/expr/conformance/conformance_service_pb.mjs"
+    },
+    "./expr/conformance/env_config": {
+      "require": "./dist/gen/cel/expr/conformance/env_config_pb.cjs",
+      "import": "./dist/gen/cel/expr/conformance/env_config_pb.mjs"
+    },
+    "./expr/conformance/proto2/test_all_types": {
+      "require": "./dist/gen/cel/expr/conformance/proto2/test_all_types_pb.cjs",
+      "import": "./dist/gen/cel/expr/conformance/proto2/test_all_types_pb.mjs"
+    },
+    "./expr/conformance/proto2/test_all_types_extensions": {
+      "require": "./dist/gen/cel/expr/conformance/proto2/test_all_types_extensions_pb.cjs",
+      "import": "./dist/gen/cel/expr/conformance/proto2/test_all_types_extensions_pb.mjs"
+    },
+    "./expr/conformance/proto3/test_all_types": {
+      "require": "./dist/gen/cel/expr/conformance/proto3/test_all_types_pb.cjs",
+      "import": "./dist/gen/cel/expr/conformance/proto3/test_all_types_pb.mjs"
+    },
+    "./expr/conformance/test/simple": {
+      "require": "./dist/gen/cel/expr/conformance/test/simple_pb.cjs",
+      "import": "./dist/gen/cel/expr/conformance/test/simple_pb.mjs"
+    },
+    "./expr/conformance/test/suite": {
+      "require": "./dist/gen/cel/expr/conformance/test/suite_pb.cjs",
+      "import": "./dist/gen/cel/expr/conformance/test/suite_pb.mjs"
+    },
+    "./expr/eval": {
+      "require": "./dist/gen/cel/expr/eval_pb.cjs",
+      "import": "./dist/gen/cel/expr/eval_pb.mjs"
+    },
+    "./expr/syntax": {
+      "require": "./dist/gen/cel/expr/syntax_pb.cjs",
+      "import": "./dist/gen/cel/expr/syntax_pb.mjs"
+    },
+    "./expr/value": {
+      "require": "./dist/gen/cel/expr/value_pb.cjs",
+      "import": "./dist/gen/cel/expr/value_pb.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run --exclude src/benchmark.spec.ts",
+    "benchmark": "vitest run src/benchmark.spec.ts",
+    "typecheck": "tsc --noEmit",
+    "typecheck:spec": "tsc -p tsconfig.spec.json --noEmit",
+    "sync:conformance-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-conformance-sync -proto . -out ./testdata/conformance -workdir ./.tmp/cel-spec-upstream",
+    "sync:cel-go-tests": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-test-sync -out ./testdata/cel-go/cel-go-test-cases.json -report ./testdata/cel-go/cel-go-test-cases.report.json -workdir ./.tmp/cel-go-upstream",
+    "sync:testdata": "pnpm run sync:conformance-testdata && pnpm run sync:cel-go-tests",
+    "prepublishOnly": "pnpm run build",
+    "protogen": "buf generate"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "tsdown": "^0.18.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "@protoutil/core": "workspace:*",
+    "@bufbuild/protobuf": "^2.11.0"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs"
+}

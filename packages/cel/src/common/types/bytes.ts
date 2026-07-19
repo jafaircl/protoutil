@@ -1,0 +1,92 @@
+import { Bool } from "./bool.js";
+import { err, maybeNoSuchOverloadErr } from "./err.js";
+import { Int } from "./int.js";
+import type { Type as RefType, Val } from "./ref/index.js";
+import { String as CelString } from "./string.js";
+import { BytesType, StringType, TypeType } from "./types.js";
+
+/**
+ * Bytes supports add, compare, and size operations.
+ */
+export class Bytes {
+  constructor(private readonly inner: Uint8Array) {}
+
+  /** Add concatenates byte sequences. */
+  public add(other: Val): Val {
+    if (!(other instanceof Bytes)) {
+      return maybeNoSuchOverloadErr(other);
+    }
+    const out = new Uint8Array(this.inner.length + other.inner.length);
+    out.set(this.inner);
+    out.set(other.inner, this.inner.length);
+    return new Bytes(out);
+  }
+
+  /** Compare provides lexicographic ordering. */
+  public compare(other: Val): Val {
+    if (!(other instanceof Bytes)) {
+      return maybeNoSuchOverloadErr(other);
+    }
+    const min = Math.min(this.inner.length, other.inner.length);
+    for (let i = 0; i < min; i++) {
+      if (this.inner[i] !== other.inner[i]) {
+        return new Int(BigInt(this.inner[i]! < other.inner[i]! ? -1 : 1));
+      }
+    }
+    if (this.inner.length === other.inner.length) {
+      return new Int(0n);
+    }
+    return new Int(BigInt(this.inner.length < other.inner.length ? -1 : 1));
+  }
+
+  /** ConvertToNative implements the ref.Val interface method. */
+  public convertToNative(): Uint8Array {
+    return new Uint8Array(this.inner);
+  }
+
+  /** ConvertToType implements the ref.Val interface method. */
+  public convertToType(typeValue: RefType): Val {
+    switch (typeValue) {
+      case StringType:
+        try {
+          return new CelString(new TextDecoder("utf-8", { fatal: true }).decode(this.inner));
+        } catch {
+          return err("invalid UTF-8 in bytes, cannot convert to string");
+        }
+      case BytesType:
+        return this;
+      case TypeType:
+        return BytesType;
+      default:
+        return err(`type conversion error from '${BytesType}' to '${typeValue.typeName()}'`);
+    }
+  }
+
+  /** Equal implements the ref.Val interface method. */
+  public equal(other: Val): Val {
+    if (!(other instanceof Bytes) || this.inner.length !== other.inner.length) {
+      return new Bool(false);
+    }
+    return new Bool(this.inner.every((value, index) => value === other.inner[index]));
+  }
+
+  /** IsZeroValue returns true if the byte array is empty. */
+  public isZeroValue(): boolean {
+    return this.inner.length === 0;
+  }
+
+  /** Size implements the traits.Sizer interface method. */
+  public size(): Val {
+    return new Int(BigInt(this.inner.length));
+  }
+
+  /** Type implements the ref.Val interface method. */
+  public type(): RefType {
+    return BytesType;
+  }
+
+  /** Value implements the ref.Val interface method. */
+  public value(): Uint8Array {
+    return new Uint8Array(this.inner);
+  }
+}

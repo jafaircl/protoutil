@@ -1,0 +1,391 @@
+{
+  "testFilesScanned": 97,
+  "candidateTablesFound": 233,
+  "exportedTables": 229,
+  "rowsExported": 3146,
+  "structuredFields": 6247,
+  "fallbackFields": 2607,
+  "skippedTables": [],
+  "unresolvedTableUsages": [
+    {
+      "file": "cel/cel_test.go",
+      "test": "TestParseWithMacroTracking",
+      "table": "macroCalls"
+    },
+    {
+      "file": "cel/cel_test.go",
+      "test": "TestRegexOptimizer",
+      "table": "asts"
+    },
+    {
+      "file": "cel/decls_test.go",
+      "test": "TestSingletonFunctionBinding",
+      "table": "args"
+    },
+    {
+      "file": "cel/decls_test.go",
+      "test": "TestFunctionBinding",
+      "table": "args"
+    },
+    {
+      "file": "cel/env_test.go",
+      "test": "TestFormatCELTypeEquivalence",
+      "table": "values"
+    },
+    {
+      "file": "cel/env_test.go",
+      "test": "TestLibraries",
+      "table": "libraries"
+    },
+    {
+      "file": "cel/fieldpaths_test.go",
+      "test": "TestFieldPathsForTestAllTypes",
+      "table": "paths"
+    },
+    {
+      "file": "cel/optimizer_test.go",
+      "test": "TestStaticOptimizerNewAST",
+      "table": "tests"
+    },
+    {
+      "file": "checker/format_test.go",
+      "test": "TestFormatType",
+      "table": "tests"
+    },
+    {
+      "file": "common/ast/ast_test.go",
+      "test": "TestASTCopy",
+      "table": "tests"
+    },
+    {
+      "file": "common/ast/ast_test.go",
+      "test": "TestASTJsonNames",
+      "table": "tests"
+    },
+    {
+      "file": "common/ast/ast_test.go",
+      "test": "TestASTNilSafety",
+      "table": "tests"
+    },
+    {
+      "file": "common/ast/ast_test.go",
+      "test": "TestASTNilSafety",
+      "table": "asts"
+    },
+    {
+      "file": "common/ast/ast_test.go",
+      "test": "TestSourceInfoNilSafety",
+      "table": "tests"
+    },
+    {
+      "file": "common/ast/conversion_test.go",
+      "test": "TestConvertVal",
+      "table": "tests"
+    },
+    {
+      "file": "common/ast/expr_test.go",
+      "test": "TestSetKindCase",
+      "table": "tests"
+    },
+    {
+      "file": "common/ast/navigable_test.go",
+      "test": "TestNavigateAST",
+      "table": "descendants"
+    },
+    {
+      "file": "common/decls/decls_test.go",
+      "test": "TestFunctionBindings",
+      "table": "bindings"
+    },
+    {
+      "file": "common/decls/decls_test.go",
+      "test": "TestFunctionVariableArgBindings",
+      "table": "bindings"
+    },
+    {
+      "file": "common/source_test.go",
+      "test": "TestStringSource_LocationOffset",
+      "table": "expectedLineOffsets"
+    },
+    {
+      "file": "common/types/list_test.go",
+      "test": "TestStringListAdd_Heterogenous",
+      "table": "expected"
+    },
+    {
+      "file": "common/types/list_test.go",
+      "test": "TestStringListAdd_StringLists",
+      "table": "expected"
+    },
+    {
+      "file": "common/types/list_test.go",
+      "test": "TestStringListConvertToNative_ListInterface",
+      "table": "want"
+    },
+    {
+      "file": "common/types/list_test.go",
+      "test": "TestListFold",
+      "table": "foldKinds"
+    },
+    {
+      "file": "common/types/map_test.go",
+      "test": "TestDynamicMapConvertToNative_Struct",
+      "table": "tests"
+    },
+    {
+      "file": "common/types/map_test.go",
+      "test": "TestStringMapIterator",
+      "table": "fieldNames"
+    },
+    {
+      "file": "common/types/map_test.go",
+      "test": "TestProtoMap",
+      "table": "strMap"
+    },
+    {
+      "file": "common/types/map_test.go",
+      "test": "TestMapFold",
+      "table": "foldKinds"
+    },
+    {
+      "file": "common/types/pb/file_test.go",
+      "test": "TestFileDescriptionGetTypes",
+      "table": "expected"
+    },
+    {
+      "file": "common/types/pb/file_test.go",
+      "test": "TestFileDescriptionGetImportedEnumNames",
+      "table": "fdMap"
+    },
+    {
+      "file": "common/types/pb/file_test.go",
+      "test": "TestFileDescriptionGetImportedEnumNames",
+      "table": "imported"
+    },
+    {
+      "file": "common/types/pb/pb_test.go",
+      "test": "TestDbJSONFieldNames",
+      "table": "wantFields"
+    },
+    {
+      "file": "common/types/pb/pb_test.go",
+      "test": "TestDbJSONFieldNames",
+      "table": "fieldNames"
+    },
+    {
+      "file": "common/types/pb/pb_test.go",
+      "test": "TestProtoReflectRoundTrip",
+      "table": "fdMap"
+    },
+    {
+      "file": "common/types/pb/type_test.go",
+      "test": "TestTypeDescription",
+      "table": "types"
+    },
+    {
+      "file": "common/types/pb/type_test.go",
+      "test": "TestFieldDescriptionGetFrom",
+      "table": "expected"
+    },
+    {
+      "file": "common/types/type_test.go",
+      "test": "TestType_ConvertToType",
+      "table": "stdTypes"
+    },
+    {
+      "file": "common/types/unknown_test.go",
+      "test": "TestUnknownIDs",
+      "table": "ids"
+    },
+    {
+      "file": "common/types/unknown_test.go",
+      "test": "TestUnknownString",
+      "table": "want"
+    },
+    {
+      "file": "conformance/conformance_test.go",
+      "test": "TestConformance",
+      "table": "tests"
+    },
+    {
+      "file": "conformance/conformance_test.go",
+      "test": "TestConformance",
+      "table": "files"
+    },
+    {
+      "file": "conformance/policy/policy_conformance_test.go",
+      "test": "TestConformance",
+      "table": "testDirs"
+    },
+    {
+      "file": "ext/bindings_test.go",
+      "test": "TestBindings",
+      "table": "asts"
+    },
+    {
+      "file": "ext/comprehensions_test.go",
+      "test": "TestTwoVarComprehensions",
+      "table": "asts"
+    },
+    {
+      "file": "ext/comprehensions_test.go",
+      "test": "TestTwoVarComprehensionsCost",
+      "table": "asts"
+    },
+    {
+      "file": "ext/encoders_test.go",
+      "test": "TestEncoders",
+      "table": "asts"
+    },
+    {
+      "file": "ext/formatting_test.go",
+      "test": "TestStringFormat",
+      "table": "vars"
+    },
+    {
+      "file": "ext/formatting_v2_test.go",
+      "test": "TestStringFormatV2",
+      "table": "vars"
+    },
+    {
+      "file": "ext/lists_test.go",
+      "test": "TestLists",
+      "table": "asts"
+    },
+    {
+      "file": "ext/lists_test.go",
+      "test": "TestListsCosts",
+      "table": "asts"
+    },
+    {
+      "file": "ext/math_test.go",
+      "test": "TestMath",
+      "table": "asts"
+    },
+    {
+      "file": "ext/math_test.go",
+      "test": "TestMathNonMatch",
+      "table": "asts"
+    },
+    {
+      "file": "ext/native_test.go",
+      "test": "TestNativeTypes",
+      "table": "asts"
+    },
+    {
+      "file": "ext/native_test.go",
+      "test": "TestNativeTypesWithOptional",
+      "table": "asts"
+    },
+    {
+      "file": "ext/native_test.go",
+      "test": "TestNativeTypesWithCELTypedFields",
+      "table": "asts"
+    },
+    {
+      "file": "ext/native_test.go",
+      "test": "TestNativeStructEmbedded",
+      "table": "asts"
+    },
+    {
+      "file": "ext/native_test.go",
+      "test": "TestNativeNestedStruct",
+      "table": "asts"
+    },
+    {
+      "file": "ext/protos_test.go",
+      "test": "TestProtos",
+      "table": "asts"
+    },
+    {
+      "file": "ext/protos_test.go",
+      "test": "TestProtosNonMatch",
+      "table": "asts"
+    },
+    {
+      "file": "ext/regex_test.go",
+      "test": "TestRegex",
+      "table": "asts"
+    },
+    {
+      "file": "ext/regex_test.go",
+      "test": "TestRegexCosts",
+      "table": "asts"
+    },
+    {
+      "file": "ext/sets_test.go",
+      "test": "TestSets",
+      "table": "asts"
+    },
+    {
+      "file": "ext/sets_test.go",
+      "test": "TestSetsMembershipRewriter",
+      "table": "asts"
+    },
+    {
+      "file": "ext/strings_test.go",
+      "test": "TestStrings",
+      "table": "asts"
+    },
+    {
+      "file": "ext/strings_test.go",
+      "test": "TestFunctionsForVersions",
+      "table": "functions"
+    },
+    {
+      "file": "interpreter/attribute_patterns_test.go",
+      "test": "TestAttributePattern_UnknownResolution",
+      "table": "patternTests"
+    },
+    {
+      "file": "interpreter/interpreter_test.go",
+      "test": "TestInterpreter",
+      "table": "opts"
+    },
+    {
+      "file": "policy/compiler_test.go",
+      "test": "TestCompile",
+      "table": "policyTests"
+    },
+    {
+      "file": "policy/compiler_test.go",
+      "test": "TestRuleComposerUnnest",
+      "table": "composerUnnestTests"
+    },
+    {
+      "file": "policy/compiler_test.go",
+      "test": "TestCompileError",
+      "table": "policyErrorTests"
+    },
+    {
+      "file": "policy/compiler_test.go",
+      "test": "TestWhitespaceHandlingErrorPresentation",
+      "table": "wantErrors"
+    },
+    {
+      "file": "policy/config_test.go",
+      "test": "TestConfig",
+      "table": "tests"
+    },
+    {
+      "file": "policy/parser_test.go",
+      "test": "TestParse",
+      "table": "policyTests"
+    },
+    {
+      "file": "repl/parser/commands_test.go",
+      "test": "TestAccept",
+      "table": "testCases"
+    },
+    {
+      "file": "repl/parser/commands_test.go",
+      "test": "TestReject",
+      "table": "testCases"
+    },
+    {
+      "file": "tools/celtest/test_coverage_reporter_test.go",
+      "test": "TestCoverageStats",
+      "table": "tests"
+    }
+  ]
+}

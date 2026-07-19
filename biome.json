@@ -12,6 +12,7 @@
       "!**/dist",
       "!**/gen",
       "!**/node_modules",
+      "!packages/cel/src/parser/generated-parser.ts",
       "!examples/angular-client/**/*.html",
       "!packages/angular/**/*.html",
       "!docs/**/*.astro"

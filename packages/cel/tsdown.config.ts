@@ -1,0 +1,19 @@
+import { defineConfig } from "tsdown";
+
+export default defineConfig({
+  entry: [
+    "!src/*.spec.ts",
+    "!src/**/*.spec.ts",
+    "src/index.ts",
+    "src/common/index.ts",
+    "src/parser/index.ts",
+    "src/parser/macro.ts",
+    "src/checker/index.ts",
+    "src/gen/cel/expr/**/*.ts",
+  ],
+  exports: false,
+  format: ["esm", "cjs"],
+  dts: true,
+  clean: true,
+  tsconfig: "tsconfig.json",
+});
