@@ -1,6 +1,9 @@
+import { AnySchema, BytesValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
+import { anyValueType } from "./any-value.js";
 import { Bool } from "./bool.js";
 import { err, maybeNoSuchOverloadErr } from "./err.js";
 import { Int } from "./int.js";
+import { nativeTypeName, packAnyBytes } from "./native.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
 import type { Adder, Comparer, Sizer } from "./traits/index.js";
@@ -39,8 +42,25 @@ export class Bytes implements Val, Adder, Comparer, Sizer {
     }
     return new Int(BigInt(this.inner.length < other.inner.length ? -1 : 1));
   }
-  public convertToNative(): Uint8Array {
-    return new Uint8Array(this.inner);
+  public convertToNative(typeDesc?: unknown): unknown {
+    if (typeDesc === Uint8Array || typeDesc === undefined) {
+      return new Uint8Array(this.inner);
+    }
+    if (typeDesc === anyValueType || typeDesc === AnySchema) {
+      return packAnyBytes(BytesValueSchema, this.value());
+    }
+    if (typeDesc === BytesValueSchema) {
+      return { $typeName: BytesValueSchema.typeName, value: this.value() };
+    }
+    if (typeDesc === ValueSchema) {
+      return {
+        $typeName: ValueSchema.typeName,
+        kind: { case: "stringValue", value: globalThis.btoa(String.fromCharCode(...this.inner)) },
+      };
+    }
+    throw new globalThis.Error(
+      `type conversion error from ${BytesType} to '${nativeTypeName(typeDesc)}'`,
+    );
   }
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {

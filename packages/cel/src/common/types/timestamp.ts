@@ -1,10 +1,12 @@
-import { TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { AnySchema, anyPack, TimestampSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { timestampInstant, timestampToString } from "@protoutil/core/wkt";
 import * as overloads from "../overloads.js";
+import { anyValueType } from "./any-value.js";
 import { Bool } from "./bool.js";
 import { Duration, durationOf } from "./duration.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import { Int, IntNegOne, IntOne, IntZero } from "./int.js";
+import { nativeTypeName } from "./native.js";
 import {
   addTimeDurationChecked,
   minUnixTime,
@@ -56,14 +58,37 @@ export class Timestamp implements Val, Adder, Comparer, Receiver, Subtractor {
     return IntZero;
   }
   public convertToNative(typeDesc?: unknown): unknown {
+    if (typeDesc === Timestamp || typeDesc === undefined) {
+      return this;
+    }
+    if (typeDesc === Date) {
+      return new Date(Number(this.secondsValue) * 1000 + Math.trunc(this.nanosValue / 1_000_000));
+    }
+    if (typeDesc === anyValueType || typeDesc === AnySchema) {
+      return anyPack(TimestampSchema, {
+        $typeName: TimestampSchema.typeName,
+        ...this.value(),
+      } as never);
+    }
     if (typeDesc === TimestampSchema) {
+      return { $typeName: TimestampSchema.typeName, ...this.value() };
+    }
+    if (typeDesc === ValueSchema) {
       return {
-        $typeName: "google.protobuf.Timestamp",
-        seconds: this.secondsValue,
-        nanos: this.nanosValue,
+        $typeName: ValueSchema.typeName,
+        kind: {
+          case: "stringValue",
+          value: timestampToString({
+            $typeName: "google.protobuf.Timestamp",
+            seconds: this.secondsValue,
+            nanos: this.nanosValue,
+          }),
+        },
       };
     }
-    return { seconds: this.secondsValue, nanos: this.nanosValue };
+    throw new globalThis.Error(
+      `type conversion error from '${TimestampType}' to '${nativeTypeName(typeDesc)}'`,
+    );
   }
   public convertToType(typeValue: RefType): Val {
     const proto = {

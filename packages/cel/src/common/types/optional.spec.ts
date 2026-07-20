@@ -12,9 +12,12 @@ import {
 import { resolveSyncedExpr } from "./spec-helpers.js";
 
 describe("common/types optional", () => {
-  it.todo(
-    "common/types/optional_test.go/TestOptionalConvertToNative blocked: Go native conversion seam is not ported yet",
-  );
+  it("common/types/optional_test.go/TestOptionalConvertToNative", () => {
+    expect(() => OptionalNone.convertToNative(Number)).toThrow("optional.none() dereference");
+    expect(optionalOf(new Int(1n)).convertToNative(BigInt)).toBe(1n);
+    const optInt = optionalOf(new Int(20n));
+    expect(optInt.convertToNative(Optional)).toBe(optInt);
+  });
 
   it("common/types/optional_test.go/TestOptionalOptionalOf", () => {
     expect(optionalOf(new Int(1n)).hasValue()).toBe(true);

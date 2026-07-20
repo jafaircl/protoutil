@@ -1,21 +1,53 @@
+import { type Any, anyUnpack, DurationSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import * as overloads from "../overloads.js";
 import { syncedCases } from "../spec-helpers.js";
+import { anyValueType } from "./any-value.js";
 import { type Duration, durationOf, False, Int } from "./index.js";
 
 describe("common/types duration", () => {
-  it.todo(
-    "common/types/duration_test.go/TestDurationConvertToNative blocked: Go reflect-based native conversion seam is not ported 1:1 yet",
-  );
-  it.todo(
-    "common/types/duration_test.go/TestDurationConvertToNative_Any blocked: protobuf Any packing seam is not ported 1:1 yet",
-  );
-  it.todo(
-    "common/types/duration_test.go/TestDurationConvertToNative_Error blocked: Go protobuf JSON native conversion seam is not ported 1:1 yet",
-  );
-  it.todo(
-    "common/types/duration_test.go/TestDurationConvertToNative_Json blocked: Go protobuf JSON native conversion seam is not ported 1:1 yet",
-  );
+  it("common/types/duration_test.go/TestDurationConvertToNative", () => {
+    const duration = durationOf(7_506_000_001_000n);
+    expect(duration.convertToNative(DurationSchema)).toEqual({
+      $typeName: DurationSchema.typeName,
+      seconds: 7506n,
+      nanos: 1000,
+    });
+    expect(
+      duration.convertToNative(
+        duration.constructor as typeof durationOf extends (...args: never[]) => infer T
+          ? new (
+              ...args: never[]
+            ) => T
+          : never,
+      ),
+    ).toEqual(duration);
+    expect(duration.convertToNative(BigInt)).toBe(7_506_000_001_000n);
+  });
+
+  it("common/types/duration_test.go/TestDurationConvertToNative_Any", () => {
+    const duration = durationOf(7_506_000_001_000n);
+    const actual = duration.convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, DurationSchema)).toEqual({
+      $typeName: DurationSchema.typeName,
+      seconds: 7506n,
+      nanos: 1000,
+    });
+  });
+
+  it("common/types/duration_test.go/TestDurationConvertToNative_Error", () => {
+    expect(durationOf(7_506_000_001_000n).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "stringValue", value: "7506.000001s" },
+    });
+  });
+
+  it("common/types/duration_test.go/TestDurationConvertToNative_Json", () => {
+    expect(durationOf(7_506_000_001_000n).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "stringValue", value: "7506.000001s" },
+    });
+  });
 
   it("common/types/duration_test.go/TestDurationOperators", () => {
     const cases = syncedCases<{ name: string; op: unknown; out: unknown }>(

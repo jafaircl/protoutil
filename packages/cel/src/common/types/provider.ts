@@ -333,6 +333,9 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   ): Error | undefined {
     try {
       if (field.isList() && !field.isMap()) {
+        if (!isListerValue(val)) {
+          return new Error(`unsupported field type: ${field.name()}`);
+        }
         const list = val.convertToNative([]);
         if (!Array.isArray(list)) {
           return new Error(`unsupported field type: ${field.name()}`);
@@ -364,6 +367,10 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
         );
         return undefined;
       }
+      if (isJSONValueField(field)) {
+        setField(target, field.descriptor() as DescField, jsonValueForField(val));
+        return undefined;
+      }
       const [wrapped, isWrapper, wrapErr] = wrapWrapperField(field, val);
       if (wrapErr) {
         return wrapErr;
@@ -377,7 +384,7 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       const native =
         field.isEnum() && val instanceof Int
           ? Number(val.value())
-          : val.convertToNative(field.reflectType());
+          : val.convertToNative(nativeFieldType(field));
       if (native !== undefined) {
         setField(target, field.descriptor() as DescField, native);
       }
@@ -418,6 +425,68 @@ export function registry(...messages: Array<[Message, DescMessage?]>): Registry 
  */
 export function emptyRegistry(): Registry {
   return new Registry(DefaultDb.copy());
+}
+
+function nativeFieldType(field: FieldDescription): unknown {
+  if (field.isMessage()) {
+    return (field.descriptor() as DescField).message;
+  }
+  const reflectType = field.reflectType();
+  if (typeof reflectType === "boolean") {
+    return Boolean;
+  }
+  if (typeof reflectType === "string") {
+    return String;
+  }
+  if (typeof reflectType === "number") {
+    return Number;
+  }
+  if (typeof reflectType === "bigint") {
+    return BigInt;
+  }
+  if (reflectType instanceof Uint8Array) {
+    return Uint8Array;
+  }
+  return reflectType;
+}
+
+function isJSONValueField(field: FieldDescription): boolean {
+  const descriptor = field.descriptor();
+  return (
+    descriptor.kind === "field" &&
+    descriptor.fieldKind === "message" &&
+    descriptor.message === ValueSchema
+  );
+}
+
+function jsonValueForField(val: Val): unknown {
+  if (val === NullValue) {
+    return null;
+  }
+  if (isListerValue(val)) {
+    return val.convertToNative([]);
+  }
+  if (isMapperValue(val)) {
+    return val.convertToNative({});
+  }
+  return val.value();
+}
+
+function isListerValue(
+  value: Val,
+): value is Val & { size(): Val; get(index: Val): Val; iterator(): unknown } {
+  return (
+    typeof (value as { size?: unknown }).size === "function" &&
+    typeof (value as { get?: unknown }).get === "function" &&
+    typeof (value as { iterator?: unknown }).iterator === "function"
+  );
+}
+
+function isMapperValue(value: Val): value is Val & { get(index: Val): Val; iterator(): unknown } {
+  return (
+    typeof (value as { get?: unknown }).get === "function" &&
+    typeof (value as { iterator?: unknown }).iterator === "function"
+  );
 }
 
 export function fieldDescToCelType(field: FieldDescription): Type {

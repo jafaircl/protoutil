@@ -1,9 +1,27 @@
-import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import {
+  AnySchema,
+  UInt32ValueSchema,
+  UInt64ValueSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
+import { anyValueType } from "./any-value.js";
 import { Bool, False } from "./bool.js";
 import { compareUint, compareUintDouble, compareUintInt } from "./compare.js";
 import { Double } from "./double.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
+import {
+  isNativeDescriptor,
+  jsonIntegerValue,
+  nativeTypeName,
+  packAnyUint,
+  toUint8Checked,
+  toUint16Checked,
+  toUint32Checked,
+  Uint8NativeType,
+  Uint16NativeType,
+  Uint32NativeType,
+} from "./native.js";
 import {
   addUint64Checked,
   divideUint64Checked,
@@ -48,13 +66,34 @@ export class Uint implements Val, Adder, Comparer, Divider, Modder, Multiplier, 
     return maybeNoSuchOverloadErr(other);
   }
   public convertToNative(typeDesc?: unknown): unknown {
-    if (typeDesc === ValueSchema) {
-      return {
-        $typeName: "google.protobuf.Value",
-        kind: { case: "numberValue", value: Number(this.inner) },
-      };
+    if (typeDesc === BigInt || typeDesc === undefined) {
+      return this.inner;
     }
-    return this.inner;
+    if (typeDesc === anyValueType || typeDesc === AnySchema) {
+      return packAnyUint(UInt64ValueSchema, this.inner);
+    }
+    if (typeDesc === UInt32ValueSchema) {
+      return { $typeName: UInt32ValueSchema.typeName, value: toUint32Checked(this.inner) };
+    }
+    if (typeDesc === UInt64ValueSchema) {
+      return { $typeName: UInt64ValueSchema.typeName, value: this.inner };
+    }
+    if (typeDesc === ValueSchema) {
+      return jsonIntegerValue(this.inner);
+    }
+    if (isNativeDescriptor(typeDesc)) {
+      switch (typeDesc) {
+        case Uint8NativeType:
+          return toUint8Checked(this.inner);
+        case Uint16NativeType:
+          return toUint16Checked(this.inner);
+        case Uint32NativeType:
+          return toUint32Checked(this.inner);
+      }
+    }
+    throw new globalThis.Error(
+      `unsupported type conversion from 'uint' to ${nativeTypeName(typeDesc)}`,
+    );
   }
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {

@@ -1,8 +1,10 @@
-import { DurationSchema } from "@bufbuild/protobuf/wkt";
+import { AnySchema, anyPack, DurationSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import * as overloads from "../overloads.js";
+import { anyValueType } from "./any-value.js";
 import { Bool } from "./bool.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import { Int, IntNegOne, IntOne, IntZero } from "./int.js";
+import { nativeTypeName } from "./native.js";
 import { addDurationChecked, negateDurationChecked, subtractDurationChecked } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
@@ -43,13 +45,30 @@ export class Duration implements Val, Adder, Comparer, Negater, Receiver, Subtra
     return IntZero;
   }
   public convertToNative(typeDesc?: unknown): unknown {
-    if (typeDesc === DurationSchema) {
-      return {
-        $typeName: "google.protobuf.Duration",
+    if (typeDesc === BigInt) {
+      return this.inner;
+    }
+    if (typeDesc === Duration || typeDesc === undefined) {
+      return this;
+    }
+    if (typeDesc === anyValueType || typeDesc === AnySchema) {
+      return anyPack(DurationSchema, {
+        $typeName: DurationSchema.typeName,
         ...durationProto(this.inner),
+      } as never);
+    }
+    if (typeDesc === DurationSchema) {
+      return { $typeName: DurationSchema.typeName, ...durationProto(this.inner) };
+    }
+    if (typeDesc === ValueSchema) {
+      return {
+        $typeName: ValueSchema.typeName,
+        kind: { case: "stringValue", value: durationString(this.inner) },
       };
     }
-    return this.inner;
+    throw new globalThis.Error(
+      `type conversion error from '${DurationType}' to '${nativeTypeName(typeDesc)}'`,
+    );
   }
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {

@@ -1,33 +1,74 @@
+import {
+  type Any,
+  anyUnpack,
+  DoubleValueSchema,
+  FloatValueSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import { syncedCases } from "../spec-helpers.js";
+import { anyValueType } from "./any-value.js";
 import { type Bool, type String as CelString, Double, Int, Uint } from "./index.js";
+import { Float32NativeType } from "./native.js";
 import { resolveSyncedExpr, resolveSyncedVal } from "./spec-helpers.js";
 
 describe("common/types double", () => {
-  it.todo(
-    "common/types/double_test.go/TestDoubleConvertToNative_Any blocked: Go-style native/protobuf wrapper conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/double_test.go/TestDoubleConvertToNative_Error blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/double_test.go/TestDoubleConvertToNative_Float32 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/double_test.go/TestDoubleConvertToNative_Float64 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/double_test.go/TestDoubleConvertToNative_Json blocked: Go protobuf JSON native conversion seam is not ported yet",
-  );
+  it("common/types/double_test.go/TestDoubleConvertToNative_Any", () => {
+    const actual = new Double(Number.MAX_VALUE).convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, DoubleValueSchema)).toEqual({
+      $typeName: DoubleValueSchema.typeName,
+      value: Number.MAX_VALUE,
+    });
+  });
+
+  it("common/types/double_test.go/TestDoubleConvertToNative_Error", () => {
+    expect(() => new Double(-10000).convertToNative(String)).toThrow();
+  });
+
+  it("common/types/double_test.go/TestDoubleConvertToNative_Float32", () => {
+    expect(new Double(3.1415).convertToNative(Float32NativeType)).toBe(Math.fround(3.1415));
+  });
+
+  it("common/types/double_test.go/TestDoubleConvertToNative_Float64", () => {
+    expect(new Double(30000000.1).convertToNative(Number)).toBe(30000000.1);
+  });
+
+  it("common/types/double_test.go/TestDoubleConvertToNative_Json", () => {
+    expect(new Double(-1.4).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "numberValue", value: -1.4 },
+    });
+    expect(new Double(Number.NaN).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "numberValue", value: Number.NaN },
+    });
+    expect(new Double(Number.NEGATIVE_INFINITY).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "numberValue", value: Number.NEGATIVE_INFINITY },
+    });
+    expect(new Double(Number.POSITIVE_INFINITY).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "numberValue", value: Number.POSITIVE_INFINITY },
+    });
+  });
+
   it.todo(
     "common/types/double_test.go/TestDoubleConvertToNative_Ptr_Float32 blocked: Go pointer conversion semantics are not portable to TypeScript",
   );
   it.todo(
     "common/types/double_test.go/TestDoubleConvertToNative_Ptr_Float64 blocked: Go pointer conversion semantics are not portable to TypeScript",
   );
-  it.todo(
-    "common/types/double_test.go/TestDoubleConvertToNative_Wrapper blocked: protobuf wrapper native conversion seam is not ported yet",
-  );
+
+  it("common/types/double_test.go/TestDoubleConvertToNative_Wrapper", () => {
+    expect(new Double(3.1415).convertToNative(FloatValueSchema)).toEqual({
+      $typeName: FloatValueSchema.typeName,
+      value: Math.fround(3.1415),
+    });
+    expect(new Double(Number.MAX_VALUE).convertToNative(DoubleValueSchema)).toEqual({
+      $typeName: DoubleValueSchema.typeName,
+      value: Number.MAX_VALUE,
+    });
+  });
 
   it("common/types/double_test.go/TestDoubleAdd", () => {
     expect((new Double(3).add(new Double(4)) as Double).value()).toBe(7);

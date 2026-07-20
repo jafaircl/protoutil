@@ -1,4 +1,6 @@
+import { type Any, anyUnpack, StringValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
+import { anyValueType } from "./any-value.js";
 import {
   Bool,
   Bytes,
@@ -11,27 +13,48 @@ import {
 } from "./index.js";
 
 describe("common/types string", () => {
-  it.todo(
-    "common/types/string_test.go/TestStringConvertToNative_Any blocked: Go-style native/protobuf wrapper conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/string_test.go/TestStringConvertToNative_Error blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/string_test.go/TestStringConvertToNative_Json blocked: Go protobuf JSON native conversion seam is not ported yet",
-  );
+  it("common/types/string_test.go/TestStringConvertToNative_Any", () => {
+    const actual = new CelString("hello").convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, StringValueSchema)).toEqual({
+      $typeName: StringValueSchema.typeName,
+      value: "hello",
+    });
+  });
+
+  it("common/types/string_test.go/TestStringConvertToNative_Error", () => {
+    expect(() => new CelString("hello").convertToNative(globalThis.Number)).toThrow();
+  });
+
+  it("common/types/string_test.go/TestStringConvertToNative_Json", () => {
+    expect(new CelString("hello").convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "stringValue", value: "hello" },
+    });
+  });
+
   it.todo(
     "common/types/string_test.go/TestStringConvertToNative_Ptr blocked: Go pointer conversion semantics are not portable to TypeScript",
   );
-  it.todo(
-    "common/types/string_test.go/TestStringConvertToNative_String blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/string_test.go/TestStringConvertToNative_CustomString blocked: Go named-string conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/string_test.go/TestStringConvertToNative_Wrapper blocked: protobuf wrapper native conversion seam is not ported yet",
-  );
+
+  it("common/types/string_test.go/TestStringConvertToNative_String", () => {
+    expect(new CelString("hello").convertToNative(globalThis.String)).toBe("hello");
+  });
+
+  it("common/types/string_test.go/TestStringConvertToNative_CustomString", () => {
+    class CustomString {
+      constructor(readonly value: string) {}
+    }
+    const actual = new CelString("hello").convertToNative(CustomString);
+    expect(actual).toBeInstanceOf(CustomString);
+    expect((actual as CustomString).value).toBe("hello");
+  });
+
+  it("common/types/string_test.go/TestStringConvertToNative_Wrapper", () => {
+    expect(new CelString("hello").convertToNative(StringValueSchema)).toEqual({
+      $typeName: StringValueSchema.typeName,
+      value: "hello",
+    });
+  });
 
   it("common/types/string_test.go/TestStringAdd", () => {
     expect((new CelString("hello").add(new CelString(" world")) as CelString).value()).toBe(

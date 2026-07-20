@@ -1,25 +1,42 @@
+import { type Any, anyUnpack, BoolValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
+import { anyValueType } from "./any-value.js";
 import { String as CelString, False, isBool, TimestampType, True, TypeType } from "./index.js";
 
 describe("common/types bool", () => {
-  it.todo(
-    "common/types/bool_test.go/TestBoolConvertToNative_Any blocked: Go-style native/protobuf wrapper conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/bool_test.go/TestBoolConvertToNative_Bool blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/bool_test.go/TestBoolConvertToNative_Error blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/bool_test.go/TestBoolConvertToNative_Json blocked: Go protobuf JSON native conversion seam is not ported yet",
-  );
+  it("common/types/bool_test.go/TestBoolConvertToNative_Any", () => {
+    const actual = True.convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, BoolValueSchema)).toEqual({
+      $typeName: BoolValueSchema.typeName,
+      value: true,
+    });
+  });
+
+  it("common/types/bool_test.go/TestBoolConvertToNative_Bool", () => {
+    expect(True.convertToNative(Boolean)).toBe(true);
+  });
+
+  it("common/types/bool_test.go/TestBoolConvertToNative_Error", () => {
+    expect(() => True.convertToNative(String)).toThrow();
+  });
+
+  it("common/types/bool_test.go/TestBoolConvertToNative_Json", () => {
+    expect(True.convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "boolValue", value: true },
+    });
+  });
+
   it.todo(
     "common/types/bool_test.go/TestBoolConvertToNative_Ptr blocked: Go pointer conversion semantics are not portable to TypeScript",
   );
-  it.todo(
-    "common/types/bool_test.go/TestBoolConvertToNative_Wrapper blocked: protobuf wrapper native conversion seam is not ported yet",
-  );
+
+  it("common/types/bool_test.go/TestBoolConvertToNative_Wrapper", () => {
+    expect(True.convertToNative(BoolValueSchema)).toEqual({
+      $typeName: BoolValueSchema.typeName,
+      value: true,
+    });
+  });
 
   it("common/types/bool_test.go/TestBoolCompare", () => {
     expect(True.compare(True).value()).toBe(0n);

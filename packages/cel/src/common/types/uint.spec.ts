@@ -1,36 +1,79 @@
+import {
+  type Any,
+  anyUnpack,
+  UInt32ValueSchema,
+  UInt64ValueSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import { syncedCases } from "../spec-helpers.js";
+import { anyValueType } from "./any-value.js";
 import { type Bool, type String as CelString, Double, Int, Uint } from "./index.js";
+import { Uint8NativeType, Uint16NativeType, Uint32NativeType } from "./native.js";
 import { resolveSyncedExpr, resolveSyncedVal } from "./spec-helpers.js";
 
 describe("common/types uint", () => {
-  it.todo(
-    "common/types/uint_test.go/TestUintConvertToNative_Any blocked: Go-style native/protobuf wrapper conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/uint_test.go/TestUintConvertToNative_Error blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/uint_test.go/TestUintConvertToNative_Json blocked: Go protobuf JSON native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/uint_test.go/TestUintConvertToNative_Uint8 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/uint_test.go/TestUintConvertToNative_Uint16 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/uint_test.go/TestUintConvertToNative_Uint32 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
+  it("common/types/uint_test.go/TestUintConvertToNative_Any", () => {
+    const actual = new Uint(18_446_744_073_709_551_615n).convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, UInt64ValueSchema)).toEqual({
+      $typeName: UInt64ValueSchema.typeName,
+      value: 18_446_744_073_709_551_615n,
+    });
+  });
+
+  it("common/types/uint_test.go/TestUintConvertToNative_Error", () => {
+    expect(() => new Uint(10000n).convertToNative(Number)).toThrow();
+  });
+
+  it("common/types/uint_test.go/TestUintConvertToNative_Json", () => {
+    expect(new Uint(9_007_199_254_740_991n).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "numberValue", value: 9_007_199_254_740_991 },
+    });
+    expect(new Uint(9_007_199_254_740_992n).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "stringValue", value: "9007199254740992" },
+    });
+  });
+
+  it("common/types/uint_test.go/TestUintConvertToNative_Uint8", () => {
+    expect(new Uint(128n).convertToNative(Uint8NativeType)).toBe(128);
+    expect(() => new Uint(256n).convertToNative(Uint8NativeType)).toThrow(
+      "unsigned integer overflow",
+    );
+  });
+
+  it("common/types/uint_test.go/TestUintConvertToNative_Uint16", () => {
+    expect(new Uint(20_050n).convertToNative(Uint16NativeType)).toBe(20_050);
+    expect(() => new Uint(65_536n).convertToNative(Uint16NativeType)).toThrow(
+      "unsigned integer overflow",
+    );
+  });
+
+  it("common/types/uint_test.go/TestUintConvertToNative_Uint32", () => {
+    expect(new Uint(20_050n).convertToNative(Uint32NativeType)).toBe(20_050);
+    expect(() => new Uint(4_294_967_296n).convertToNative(Uint32NativeType)).toThrow(
+      "unsigned integer overflow",
+    );
+  });
+
   it.todo(
     "common/types/uint_test.go/TestUintConvertToNative_Ptr_Uint32 blocked: Go pointer conversion semantics are not portable to TypeScript",
   );
   it.todo(
     "common/types/uint_test.go/TestUintConvertToNative_Ptr_Uint64 blocked: Go pointer conversion semantics are not portable to TypeScript",
   );
-  it.todo(
-    "common/types/uint_test.go/TestUintConvertToNative_Wrapper blocked: protobuf wrapper native conversion seam is not ported yet",
-  );
+
+  it("common/types/uint_test.go/TestUintConvertToNative_Wrapper", () => {
+    expect(new Uint(4_294_967_295n).convertToNative(UInt32ValueSchema)).toEqual({
+      $typeName: UInt32ValueSchema.typeName,
+      value: 4_294_967_295,
+    });
+    expect(new Uint(18_446_744_073_709_551_615n).convertToNative(UInt64ValueSchema)).toEqual({
+      $typeName: UInt64ValueSchema.typeName,
+      value: 18_446_744_073_709_551_615n,
+    });
+  });
 
   it("common/types/uint_test.go/TestUintAdd", () => {
     expect((new Uint(4n).add(new Uint(3n)) as Uint).value()).toBe(7n);

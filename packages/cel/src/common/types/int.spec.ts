@@ -1,39 +1,79 @@
+import {
+  type Any,
+  anyUnpack,
+  Int32ValueSchema,
+  Int64ValueSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import { syncedCases } from "../spec-helpers.js";
+import { anyValueType } from "./any-value.js";
 import { type Bool, String as CelString, Double, Int, Uint } from "./index.js";
+import { Int8NativeType, Int16NativeType, Int32NativeType } from "./native.js";
 import { resolveSyncedExpr, resolveSyncedVal } from "./spec-helpers.js";
 
 describe("common/types int", () => {
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToNative_Any blocked: Go-style native/protobuf wrapper conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToNative_Error blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToNative_Int8 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToNative_Int16 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToNative_Int32 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToNative_Int64 blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToNative_Json blocked: Go protobuf JSON native conversion seam is not ported yet",
-  );
+  it("common/types/int_test.go/TestIntConvertToNative_Any", () => {
+    const actual = new Int(9_223_372_036_854_775_807n).convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, Int64ValueSchema)).toEqual({
+      $typeName: Int64ValueSchema.typeName,
+      value: 9_223_372_036_854_775_807n,
+    });
+  });
+
+  it("common/types/int_test.go/TestIntConvertToNative_Error", () => {
+    expect(() => new Int(1n).convertToNative({})).toThrow();
+  });
+
+  it("common/types/int_test.go/TestIntConvertToNative_Int8", () => {
+    expect(new Int(127n).convertToNative(Int8NativeType)).toBe(127);
+    expect(() => new Int(128n).convertToNative(Int8NativeType)).toThrow("integer overflow");
+  });
+
+  it("common/types/int_test.go/TestIntConvertToNative_Int16", () => {
+    expect(new Int(20_050n).convertToNative(Int16NativeType)).toBe(20_050);
+    expect(() => new Int(32_768n).convertToNative(Int16NativeType)).toThrow("integer overflow");
+  });
+
+  it("common/types/int_test.go/TestIntConvertToNative_Int32", () => {
+    expect(new Int(20_050n).convertToNative(Int32NativeType)).toBe(20_050);
+    expect(() => new Int(2_147_483_648n).convertToNative(Int32NativeType)).toThrow(
+      "integer overflow",
+    );
+  });
+
+  it("common/types/int_test.go/TestIntConvertToNative_Int64", () => {
+    expect(new Int(4_147_483_648n).convertToNative(BigInt)).toBe(4_147_483_648n);
+  });
+
+  it("common/types/int_test.go/TestIntConvertToNative_Json", () => {
+    expect(new Int(9_007_199_254_740_991n).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "numberValue", value: 9_007_199_254_740_991 },
+    });
+    expect(new Int(9_007_199_254_740_992n).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "stringValue", value: "9007199254740992" },
+    });
+  });
+
   it.todo(
     "common/types/int_test.go/TestIntConvertToNative_Ptr_Int32 blocked: Go pointer conversion semantics are not portable to TypeScript",
   );
   it.todo(
     "common/types/int_test.go/TestIntConvertToNative_Ptr_Int64 blocked: Go pointer conversion semantics are not portable to TypeScript",
   );
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToNative_Wrapper blocked: protobuf wrapper native conversion seam is not ported yet",
-  );
+
+  it("common/types/int_test.go/TestIntConvertToNative_Wrapper", () => {
+    expect(new Int(-2_147_483_648n).convertToNative(Int32ValueSchema)).toEqual({
+      $typeName: Int32ValueSchema.typeName,
+      value: -2_147_483_648,
+    });
+    expect(new Int(-9_223_372_036_854_775_808n).convertToNative(Int64ValueSchema)).toEqual({
+      $typeName: Int64ValueSchema.typeName,
+      value: -9_223_372_036_854_775_808n,
+    });
+  });
 
   it("common/types/int_test.go/TestIntAdd", () => {
     expect((new Int(4n).add(new Int(-3n)) as Int).value()).toBe(1n);

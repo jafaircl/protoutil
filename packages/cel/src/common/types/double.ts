@@ -1,8 +1,15 @@
-import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import {
+  AnySchema,
+  DoubleValueSchema,
+  FloatValueSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
+import { anyValueType } from "./any-value.js";
 import { False, True } from "./bool.js";
 import { compareDouble, compareDoubleInt, compareDoubleUint } from "./compare.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
+import { Float32NativeType, isNativeDescriptor, nativeTypeName, packAnyDouble } from "./native.js";
 import { doubleToInt64Checked, doubleToUint64Checked } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
@@ -40,13 +47,27 @@ export class Double implements Val, Adder, Comparer, Divider, Multiplier, Negate
     return maybeNoSuchOverloadErr(other);
   }
   public convertToNative(typeDesc?: unknown): unknown {
-    if (typeDesc === ValueSchema) {
-      return {
-        $typeName: "google.protobuf.Value",
-        kind: { case: "numberValue", value: this.inner },
-      };
+    if (typeDesc === Number || typeDesc === undefined) {
+      return this.inner;
     }
-    return this.inner;
+    if (typeDesc === anyValueType || typeDesc === AnySchema) {
+      return packAnyDouble(DoubleValueSchema, this.inner);
+    }
+    if (typeDesc === DoubleValueSchema) {
+      return { $typeName: DoubleValueSchema.typeName, value: this.inner };
+    }
+    if (typeDesc === FloatValueSchema) {
+      return { $typeName: FloatValueSchema.typeName, value: Math.fround(this.inner) };
+    }
+    if (typeDesc === ValueSchema) {
+      return { $typeName: ValueSchema.typeName, kind: { case: "numberValue", value: this.inner } };
+    }
+    if (isNativeDescriptor(typeDesc) && typeDesc === Float32NativeType) {
+      return Math.fround(this.inner);
+    }
+    throw new globalThis.Error(
+      `type conversion error from '${DoubleType}' to '${nativeTypeName(typeDesc)}'`,
+    );
   }
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {

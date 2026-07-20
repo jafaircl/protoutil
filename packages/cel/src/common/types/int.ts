@@ -1,8 +1,21 @@
-import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import { AnySchema, Int32ValueSchema, Int64ValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
+import { anyValueType } from "./any-value.js";
 import { False, True } from "./bool.js";
 import { compareInt, compareIntDouble, compareIntUint } from "./compare.js";
 import { Double } from "./double.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
+import {
+  Int8NativeType,
+  Int16NativeType,
+  Int32NativeType,
+  isNativeDescriptor,
+  jsonIntegerValue,
+  nativeTypeName,
+  packAnyInt,
+  toInt8Checked,
+  toInt16Checked,
+  toInt32Checked,
+} from "./native.js";
 import {
   addInt64Checked,
   divideInt64Checked,
@@ -57,13 +70,34 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
     return maybeNoSuchOverloadErr(other);
   }
   public convertToNative(typeDesc?: unknown): unknown {
-    if (typeDesc === ValueSchema) {
-      return {
-        $typeName: "google.protobuf.Value",
-        kind: { case: "numberValue", value: Number(this.inner) },
-      };
+    if (typeDesc === BigInt || typeDesc === undefined) {
+      return this.inner;
     }
-    return this.inner;
+    if (typeDesc === anyValueType || typeDesc === AnySchema) {
+      return packAnyInt(Int64ValueSchema, this.inner);
+    }
+    if (typeDesc === Int32ValueSchema) {
+      return { $typeName: Int32ValueSchema.typeName, value: toInt32Checked(this.inner) };
+    }
+    if (typeDesc === Int64ValueSchema) {
+      return { $typeName: Int64ValueSchema.typeName, value: this.inner };
+    }
+    if (typeDesc === ValueSchema) {
+      return jsonIntegerValue(this.inner);
+    }
+    if (isNativeDescriptor(typeDesc)) {
+      switch (typeDesc) {
+        case Int8NativeType:
+          return toInt8Checked(this.inner);
+        case Int16NativeType:
+          return toInt16Checked(this.inner);
+        case Int32NativeType:
+          return toInt32Checked(this.inner);
+      }
+    }
+    throw new globalThis.Error(
+      `type conversion error from '${IntType}' to '${nativeTypeName(typeDesc)}'`,
+    );
   }
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {

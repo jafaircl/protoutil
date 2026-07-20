@@ -1,28 +1,47 @@
+import { type Any, anyUnpack, BytesValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
+import { anyValueType } from "./any-value.js";
 import { type Bool, Bytes, String as CelString, type Int, TypeType } from "./index.js";
 
 describe("common/types bytes", () => {
-  it.todo(
-    "common/types/bytes_test.go/TestBytesConvertToNative_Any blocked: Go-style native/protobuf wrapper conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/bytes_test.go/TestBytesConvertToNative_ByteSlice blocked: Go byte-slice native conversion seam is not ported yet",
-  );
+  it("common/types/bytes_test.go/TestBytesConvertToNative_Any", () => {
+    const actual = new Bytes(new TextEncoder().encode("123")).convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, BytesValueSchema)).toEqual({
+      $typeName: BytesValueSchema.typeName,
+      value: new TextEncoder().encode("123"),
+    });
+  });
+
+  it("common/types/bytes_test.go/TestBytesConvertToNative_ByteSlice", () => {
+    expect(new Bytes(new TextEncoder().encode("123")).convertToNative(Uint8Array)).toEqual(
+      new Uint8Array([49, 50, 51]),
+    );
+  });
+
   it.todo(
     "common/types/bytes_test.go/TestBytesConvertToNative_ByteArray blocked: Go fixed-array native conversion seam is not portable to TypeScript",
   );
   it.todo(
     "common/types/bytes_test.go/TestBytesConvertToNative_ByteArrayError blocked: Go fixed-array native conversion seam is not portable to TypeScript",
   );
-  it.todo(
-    "common/types/bytes_test.go/TestBytesConvertToNative_Error blocked: Go reflect-based native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/bytes_test.go/TestBytesConvertToNative_Json blocked: Go protobuf JSON native conversion seam is not ported yet",
-  );
-  it.todo(
-    "common/types/bytes_test.go/TestBytesConvertToNative_Wrapper blocked: protobuf wrapper native conversion seam is not ported yet",
-  );
+
+  it("common/types/bytes_test.go/TestBytesConvertToNative_Error", () => {
+    expect(() => new Bytes(new TextEncoder().encode("123")).convertToNative(String)).toThrow();
+  });
+
+  it("common/types/bytes_test.go/TestBytesConvertToNative_Json", () => {
+    expect(new Bytes(new TextEncoder().encode("123")).convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "stringValue", value: "MTIz" },
+    });
+  });
+
+  it("common/types/bytes_test.go/TestBytesConvertToNative_Wrapper", () => {
+    expect(new Bytes(new TextEncoder().encode("123")).convertToNative(BytesValueSchema)).toEqual({
+      $typeName: BytesValueSchema.typeName,
+      value: new TextEncoder().encode("123"),
+    });
+  });
 
   it("common/types/bytes_test.go/TestBytesAdd", () => {
     expect(

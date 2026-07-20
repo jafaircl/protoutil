@@ -1,6 +1,8 @@
-import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import { AnySchema, BoolValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
+import { anyValueType } from "./any-value.js";
 import { err, maybeNoSuchOverloadErr } from "./err.js";
 import { IntNegOne, IntOne, IntZero } from "./int.js";
+import { nativeTypeName, packAnyPrimitive } from "./native.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
 import type { Comparer, Negater } from "./traits/index.js";
@@ -21,10 +23,21 @@ export class Bool implements Val, Comparer, Negater {
     return this.inner ? IntOne : IntNegOne;
   }
   public convertToNative(typeDesc?: unknown): unknown {
-    if (typeDesc === ValueSchema) {
-      return { $typeName: "google.protobuf.Value", kind: { case: "boolValue", value: this.inner } };
+    if (typeDesc === Boolean || typeDesc === undefined) {
+      return this.inner;
     }
-    return this.inner;
+    if (typeDesc === anyValueType || typeDesc === AnySchema) {
+      return packAnyPrimitive(BoolValueSchema, this.inner);
+    }
+    if (typeDesc === BoolValueSchema) {
+      return { $typeName: BoolValueSchema.typeName, value: this.inner };
+    }
+    if (typeDesc === ValueSchema) {
+      return { $typeName: ValueSchema.typeName, kind: { case: "boolValue", value: this.inner } };
+    }
+    throw new globalThis.Error(
+      `type conversion error from '${BoolType}' to '${nativeTypeName(typeDesc)}'`,
+    );
   }
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {

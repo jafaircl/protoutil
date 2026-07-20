@@ -11,6 +11,7 @@ import {
   exprTypeToType,
   FieldTesterType,
   IntType,
+  Kind,
   ListType,
   listType,
   MapType,
@@ -23,6 +24,7 @@ import {
   registry,
   StringType,
   TimestampType,
+  Type,
   TypeType,
   typeParamType,
   typeToExprType,
@@ -145,9 +147,26 @@ describe("common/types types", () => {
     expect(typeToExprType(opaqueType("vector", IntType)).typeKind.case).toBe("abstractType");
   });
 
-  it.todo(
-    "common/types/types_test.go/TestTypeToExprTypeInvalid blocked: invalid checked type construction seam is not ported 1:1 yet",
-  );
+  it("common/types/types_test.go/TestTypeToExprTypeInvalid", () => {
+    const invalidMap = new Type(Kind.Map, [], "map");
+    const invalidList = new Type(Kind.List, [], "list");
+    expect(() => typeToExprType(invalidList)).toThrow("invalid list");
+    expect(() => typeToExprType(new Type(Kind.List, [invalidMap], "list"))).toThrow("invalid map");
+    expect(() => typeToExprType(invalidMap)).toThrow("invalid map");
+    expect(() => typeToExprType(new Type(Kind.Map, [StringType, invalidMap], "map"))).toThrow(
+      "invalid map",
+    );
+    expect(() => typeToExprType(new Type(Kind.Map, [invalidMap, StringType], "map"))).toThrow(
+      "invalid map",
+    );
+    expect(() => typeToExprType(new Type(Kind.Type, [invalidList], "type"))).toThrow(
+      "invalid list",
+    );
+    expect(() => typeToExprType(opaqueType("bad_list", invalidList))).toThrow("invalid list");
+    expect(() => typeToExprType(new Type(Kind.Unspecified, [], ""))).toThrow(
+      "missing type conversion",
+    );
+  });
 
   it("common/types/types_test.go/TestExprTypeToType", () => {
     const cases = syncedCases<{ in: unknown; out: unknown }>(
@@ -160,9 +179,97 @@ describe("common/types types", () => {
     }
   });
 
-  it.todo(
-    "common/types/types_test.go/TestExprTypeToTypeInvalid blocked: invalid checked type construction seam is not ported 1:1 yet",
-  );
+  it("common/types/types_test.go/TestExprTypeToTypeInvalid", () => {
+    expect(() =>
+      exprTypeToType({ $typeName: "cel.expr.Type", typeKind: { case: undefined } } as never),
+    ).toThrow("unsupported type");
+    expect(() =>
+      exprTypeToType({
+        $typeName: "cel.expr.Type",
+        typeKind: { case: "primitive", value: 0 as never },
+      }),
+    ).toThrow("unsupported primitive type");
+    expect(() =>
+      exprTypeToType({
+        $typeName: "cel.expr.Type",
+        typeKind: { case: "wellKnown", value: 0 as never },
+      }),
+    ).toThrow("unsupported well-known type");
+    expect(() =>
+      exprTypeToType({
+        $typeName: "cel.expr.Type",
+        typeKind: {
+          case: "listType",
+          value: {
+            $typeName: "cel.expr.Type.ListType",
+            elemType: { $typeName: "cel.expr.Type", typeKind: { case: undefined } } as never,
+          },
+        },
+      }),
+    ).toThrow("unsupported type");
+    expect(() =>
+      exprTypeToType({
+        $typeName: "cel.expr.Type",
+        typeKind: {
+          case: "mapType",
+          value: {
+            $typeName: "cel.expr.Type.MapType",
+            keyType: { $typeName: "cel.expr.Type", typeKind: { case: undefined } } as never,
+            valueType: typeToExprType(DynType),
+          },
+        },
+      }),
+    ).toThrow("unsupported type");
+    expect(() =>
+      exprTypeToType({
+        $typeName: "cel.expr.Type",
+        typeKind: {
+          case: "mapType",
+          value: {
+            $typeName: "cel.expr.Type.MapType",
+            keyType: typeToExprType(DynType),
+            valueType: { $typeName: "cel.expr.Type", typeKind: { case: undefined } } as never,
+          },
+        },
+      }),
+    ).toThrow("unsupported type");
+    expect(() =>
+      exprTypeToType({
+        $typeName: "cel.expr.Type",
+        typeKind: {
+          case: "abstractType",
+          value: {
+            $typeName: "cel.expr.Type.AbstractType",
+            name: "bad",
+            parameterTypes: [
+              { $typeName: "cel.expr.Type", typeKind: { case: undefined } } as never,
+            ],
+          },
+        },
+      }),
+    ).toThrow("unsupported type");
+    expect(() =>
+      exprTypeToType({
+        $typeName: "cel.expr.Type",
+        typeKind: { case: "wrapper", value: 0 as never },
+      }),
+    ).toThrow("unsupported primitive type");
+    expect(() =>
+      exprTypeToType({
+        $typeName: "cel.expr.Type",
+        typeKind: {
+          case: "type",
+          value: {
+            $typeName: "cel.expr.Type",
+            typeKind: {
+              case: "function",
+              value: { $typeName: "cel.expr.Type.FunctionType" } as never,
+            },
+          } as never,
+        },
+      }),
+    ).toThrow("unsupported type");
+  });
 
   it("common/types/types_test.go/TestTypeHasTrait", () => {
     expect(BoolType.hasTrait(ComparerType)).toBe(true);
@@ -179,7 +286,7 @@ describe("common/types types", () => {
     expect((BoolType.convertToType(CelString.prototype.type()) as CelString).value()).toBe("bool");
   });
 
-  it.todo(
-    "common/types/types_test.go/TestTypeConvertToNative blocked: Go reflect-based native conversion seam is not ported yet",
-  );
+  it("common/types/types_test.go/TestTypeConvertToNative", () => {
+    expect(() => BoolType.convertToNative(Boolean)).toThrow("type conversion not supported");
+  });
 });

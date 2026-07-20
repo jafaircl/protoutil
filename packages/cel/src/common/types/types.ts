@@ -71,7 +71,7 @@ export class Type implements RefType, Val {
     private readonly isAssignableRuntimeTypeFn?: (other: Val) => boolean,
     private readonly traitMaskValue = 0,
   ) {}
-  public convertToNative(): never {
+  public convertToNative(_typeDesc?: unknown): never {
     throw new globalThis.Error("type conversion not supported for 'type'");
   }
   public convertToType(typeValue: RefType): Val {

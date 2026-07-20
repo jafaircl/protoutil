@@ -1,12 +1,14 @@
-import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import { AnySchema, StringValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { timestampFromString } from "@protoutil/core/wkt";
 import * as overloads from "../overloads.js";
+import { anyValueType } from "./any-value.js";
 import { Bool, False, True } from "./bool.js";
 import { Bytes } from "./bytes.js";
 import { Double } from "./double.js";
 import { durationOf } from "./duration.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
+import { nativeTypeName, packAnyString } from "./native.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { timestampOf } from "./timestamp.js";
 import type { Adder, Comparer, Matcher, Receiver, Sizer } from "./traits/index.js";
@@ -54,13 +56,33 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
     return new Int(0n);
   }
   public convertToNative(typeDesc?: unknown): unknown {
-    if (typeDesc === ValueSchema) {
-      return {
-        $typeName: "google.protobuf.Value",
-        kind: { case: "stringValue", value: this.inner },
-      };
+    if (typeDesc === globalThis.String || typeDesc === undefined) {
+      return this.inner;
     }
-    return this.inner;
+    if (typeDesc === anyValueType || typeDesc === AnySchema) {
+      return packAnyString(StringValueSchema, this.inner);
+    }
+    if (typeDesc === StringValueSchema) {
+      return { $typeName: StringValueSchema.typeName, value: this.inner };
+    }
+    if (typeDesc === ValueSchema) {
+      return { $typeName: ValueSchema.typeName, kind: { case: "stringValue", value: this.inner } };
+    }
+    if (
+      typeDesc instanceof Function &&
+      typeDesc !== globalThis.Number &&
+      typeDesc !== globalThis.Boolean &&
+      typeDesc !== globalThis.String
+    ) {
+      try {
+        return new (typeDesc as { new (value: string): unknown })(this.inner);
+      } catch {
+        // Fall through to the conversion error below when the constructor is not a string-like target.
+      }
+    }
+    throw new globalThis.Error(
+      `unsupported native conversion from string to '${nativeTypeName(typeDesc)}'`,
+    );
   }
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {

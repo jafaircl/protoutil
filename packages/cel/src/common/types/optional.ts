@@ -28,11 +28,14 @@ export class Optional implements Val {
     }
     return this.inner!;
   }
-  public convertToNative(): unknown {
+  public convertToNative(typeDesc?: unknown): unknown {
+    if (typeDesc === Optional || typeDesc === undefined) {
+      return this;
+    }
     if (!this.hasValue()) {
       throw new globalThis.Error("optional.none() dereference");
     }
-    return this.inner!.value();
+    return this.inner!.convertToNative(typeDesc);
   }
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {

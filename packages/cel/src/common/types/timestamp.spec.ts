@@ -1,6 +1,8 @@
+import { type Any, anyUnpack, TimestampSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import * as overloads from "../overloads.js";
 import { syncedCases } from "../spec-helpers.js";
+import { anyValueType } from "./any-value.js";
 import {
   Bool,
   String as CelString,
@@ -11,12 +13,44 @@ import {
 } from "./index.js";
 
 describe("common/types timestamp", () => {
-  it.todo(
-    "common/types/timestamp_test.go/TestTimestampConvertToNative_Any blocked: protobuf Any packing seam is not ported 1:1 yet",
-  );
-  it.todo(
-    "common/types/timestamp_test.go/TestTimestampConvertToNative blocked: Go reflect-based native conversion seam is not ported 1:1 yet",
-  );
+  it("common/types/timestamp_test.go/TestTimestampConvertToNative_Any", () => {
+    const ts = timestampOf(7506n, 0);
+    const actual = ts.convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, TimestampSchema)).toEqual({
+      $typeName: TimestampSchema.typeName,
+      seconds: 7506n,
+      nanos: 0,
+    });
+  });
+
+  it("common/types/timestamp_test.go/TestTimestampConvertToNative", () => {
+    const ts = timestampOf(7506n, 0);
+    expect(ts.convertToNative(TimestampSchema)).toEqual({
+      $typeName: TimestampSchema.typeName,
+      seconds: 7506n,
+      nanos: 0,
+    });
+    expect(ts.convertToNative(ValueSchema)).toEqual({
+      $typeName: ValueSchema.typeName,
+      kind: { case: "stringValue", value: "1970-01-01T02:05:06Z" },
+    });
+    const actual = ts.convertToNative(anyValueType) as Any;
+    expect(anyUnpack(actual, TimestampSchema)).toEqual({
+      $typeName: TimestampSchema.typeName,
+      seconds: 7506n,
+      nanos: 0,
+    });
+    expect(
+      ts.convertToNative(
+        ts.constructor as typeof timestampOf extends (...args: never[]) => infer T
+          ? new (
+              ...args: never[]
+            ) => T
+          : never,
+      ),
+    ).toEqual(ts);
+    expect(ts.convertToNative(Date)).toEqual(new Date("1970-01-01T02:05:06.000Z"));
+  });
 
   it("common/types/timestamp_test.go/TestTimestampConvertToType", () => {
     const ts = timestampOf(7654n, 321);
