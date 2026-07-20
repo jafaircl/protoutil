@@ -1,7 +1,9 @@
 import type { CheckedExpr, Reference, Type } from "../../gen/cel/expr/checked_pb.js";
 import type {
   Expr_CreateStruct_Entry,
+  ParsedExpr,
   Expr as ProtoExpr,
+  ParsedExpr as ProtoParsedExpr,
   SourceInfo as ProtoSourceInfo,
 } from "../../gen/cel/expr/syntax_pb.js";
 import { type Location, NO_LOCATION, SourceLocation } from "../location.js";
@@ -479,12 +481,10 @@ export class AST {
   /** Ids returns the set of ids referenced by the AST and macro calls. */
   public ids(): Set<number> {
     const ids = new Set<number>();
-    postOrderVisit(this.exprValue, (expr) => {
-      ids.add(expr.id());
-    });
+    collectIds(this.exprValue, ids);
     for (const [id, expr] of this.sourceInfo().macroCalls()) {
       ids.add(id);
-      postOrderVisit(expr, (node) => ids.add(node.id()));
+      collectIds(expr, ids);
     }
     return ids;
   }
@@ -497,6 +497,31 @@ export class AST {
         this.sourceInfo().clearOffsetRange(id);
       }
     }
+  }
+
+  /**
+   * toParsedExpr converts an unchecked AST to a ParsedExpr protobuf value.
+   */
+  public toParsedExpr(): ParsedExpr {
+    return {
+      $typeName: "cel.expr.ParsedExpr",
+      expr: this.expr().toProto(),
+      sourceInfo: sourceInfoToProto(this.sourceInfo()),
+    };
+  }
+
+  /**
+   * toCheckedExpr converts a checked AST to a CheckedExpr protobuf value.
+   */
+  public toCheckedExpr(): CheckedExpr {
+    return toProto(this);
+  }
+
+  /**
+   * toProto converts the AST to either ParsedExpr or CheckedExpr depending on whether it is checked.
+   */
+  public toProto(): ProtoParsedExpr | CheckedExpr {
+    return this.isChecked() ? this.toCheckedExpr() : this.toParsedExpr();
   }
 }
 
@@ -647,6 +672,43 @@ export function postOrderVisit(expr: Expr, visitor: (expr: Expr) => void): void 
     postOrderVisit(child, visitor);
   }
   visitor(expr);
+}
+
+/**
+ * collectIds records expression ids together with map-entry and struct-field ids.
+ */
+function collectIds(expr: Expr, ids: Set<number>): void {
+  switch (expr.kind()) {
+    case 6:
+      for (const entry of expr.asMap()?.entries() ?? []) {
+        ids.add(entry.id());
+      }
+      break;
+    case 8:
+      for (const entry of expr.asStruct()?.fields() ?? []) {
+        ids.add(entry.id());
+      }
+      break;
+    default:
+      break;
+  }
+  postOrderVisit(expr, (node) => {
+    ids.add(node.id());
+    switch (node.kind()) {
+      case 6:
+        for (const entry of node.asMap()?.entries() ?? []) {
+          ids.add(entry.id());
+        }
+        break;
+      case 8:
+        for (const entry of node.asStruct()?.fields() ?? []) {
+          ids.add(entry.id());
+        }
+        break;
+      default:
+        break;
+    }
+  });
 }
 
 export function preOrderVisit(expr: Expr, visitor: (expr: Expr) => void): void {

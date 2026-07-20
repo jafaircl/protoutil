@@ -59,13 +59,3 @@ export interface Subtractor {
    */
   subtract(subtrahend: Val): Val;
 }
-
-/**
- * Sizer supports the size() method.
- */
-export interface Sizer {
-  /**
-   * Size returns the number of elements or length of the value.
-   */
-  size(): Val;
-}

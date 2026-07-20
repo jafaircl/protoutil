@@ -1,5 +1,7 @@
+import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import { timestampFromString } from "@protoutil/core/wkt";
 import * as overloads from "../overloads.js";
-import { Bool } from "./bool.js";
+import { Bool, False, True } from "./bool.js";
 import { Bytes } from "./bytes.js";
 import { Double } from "./double.js";
 import { durationOf } from "./duration.js";
@@ -7,6 +9,7 @@ import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { timestampOf } from "./timestamp.js";
+import type { Adder, Comparer, Matcher, Receiver, Sizer } from "./traits/index.js";
 import {
   BoolType,
   BytesType,
@@ -30,18 +33,14 @@ const stringOneArgOverloads = new Map<string, (lhs: Val, rhs: Val) => Val>([
  * String supports addition, comparison, matching, and size functions.
  */
 // biome-ignore lint/suspicious/noShadowRestrictedNames: cel-go defines this runtime value type as String and the port preserves that seam.
-export class String {
+export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
   constructor(private readonly inner: string) {}
-
-  /** Add implements traits.Adder.Add. */
   public add(other: Val): Val {
     if (!(other instanceof String)) {
       return maybeNoSuchOverloadErr(other);
     }
     return new String(this.inner + other.inner);
   }
-
-  /** Compare implements traits.Comparer.Compare. */
   public compare(other: Val): Val {
     if (!(other instanceof String)) {
       return maybeNoSuchOverloadErr(other);
@@ -54,13 +53,15 @@ export class String {
     }
     return new Int(0n);
   }
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
-  public convertToNative(): string {
+  public convertToNative(typeDesc?: unknown): unknown {
+    if (typeDesc === ValueSchema) {
+      return {
+        $typeName: "google.protobuf.Value",
+        kind: { case: "stringValue", value: this.inner },
+      };
+    }
     return this.inner;
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {
       case IntType: {
@@ -120,23 +121,12 @@ export class String {
         return durationOf(match[1] ? -nanos : nanos);
       }
       case TimestampType: {
-        const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/.exec(
-          this.inner,
-        );
-        if (!match) {
+        try {
+          const ts = timestampFromString(this.inner);
+          return timestampOf(ts.seconds, ts.nanos);
+        } catch {
           break;
         }
-        const millis = Date.UTC(
-          Number(match[1]),
-          Number(match[2]) - 1,
-          Number(match[3]),
-          Number(match[4]),
-          Number(match[5]),
-          Number(match[6]),
-        );
-        const seconds = BigInt(Math.trunc(millis / 1000));
-        const nanos = Number((match[7] ?? "").padEnd(9, "0"));
-        return timestampOf(seconds, nanos);
       }
       case StringType:
         return this;
@@ -145,18 +135,14 @@ export class String {
     }
     return err(`type conversion error from '${StringType}' to '${typeValue.typeName()}'`);
   }
-
-  /** Equal implements ref.Val.Equal. */
   public equal(other: Val): Val {
-    return new Bool(other instanceof String && this.inner === other.inner);
+    return other instanceof String && this.inner === other.inner ? True : False;
   }
 
   /** IsZeroValue returns true if the string is empty. */
   public isZeroValue(): boolean {
     return this.inner.length === 0;
   }
-
-  /** Match implements traits.Matcher.Match. */
   public match(pattern: Val): Val {
     if (!(pattern instanceof String)) {
       return maybeNoSuchOverloadErr(pattern);
@@ -167,8 +153,6 @@ export class String {
       return wrapErr(error);
     }
   }
-
-  /** Receive implements traits.Receiver.Receive. */
   public receive(functionName: string, _overload: string, args: Val[]): Val {
     switch (args.length) {
       case 1: {
@@ -180,18 +164,12 @@ export class String {
     }
     return maybeNoSuchOverloadErr(this);
   }
-
-  /** Size implements traits.Sizer.Size. */
   public size(): Val {
     return new Int(BigInt([...this.inner].length));
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return StringType;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): string {
     return this.inner;
   }

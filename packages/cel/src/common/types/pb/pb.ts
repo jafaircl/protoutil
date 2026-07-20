@@ -164,9 +164,9 @@ export class Db {
 }
 
 /**
- * JSONFieldNames configures the Db to support proto field accesses by their JSON names.
+ * jsonFieldNamesOption configures the Db to support proto field accesses by their JSON names.
  */
-export function JSONFieldNames(enabled: boolean): DbOption {
+export function jsonFieldNamesOption(enabled: boolean): DbOption {
   return (pbdb) => {
     pbdb.setJSONFieldNames(enabled);
     return pbdb;
@@ -189,9 +189,9 @@ export function db(...opts: DbOption[]): Db {
 }
 
 /**
- * Merge will copy the source proto message into the destination, or error if the merge cannot be completed.
+ * mergeMessagesInto will copy the source proto message into the destination, or error if the merge cannot be completed.
  */
-export function Merge<Desc extends DescMessage>(
+export function mergeMessagesInto<Desc extends DescMessage>(
   schema: Desc,
   dstPB: MessageShape<Desc>,
   srcPB: Message,

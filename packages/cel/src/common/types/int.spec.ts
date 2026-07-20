@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { syncedCases } from "../spec-helpers.js";
 import { type Bool, String as CelString, Double, Int, Uint } from "./index.js";
-import { resolveSyncedExpr, resolveSyncedVal, syncedTypeCases } from "./spec-helpers.js";
+import { resolveSyncedExpr, resolveSyncedVal } from "./spec-helpers.js";
 
 describe("common/types int", () => {
   it.todo(
@@ -40,7 +41,7 @@ describe("common/types int", () => {
   });
 
   it("common/types/int_test.go/TestIntCompare", () => {
-    const cases = syncedTypeCases<{ a: unknown; b: unknown; out: unknown }>(
+    const cases = syncedCases<{ a: unknown; b: unknown; out: unknown }>(
       "common/types/int_test.go/TestIntCompare",
     );
     for (const testCase of cases) {
@@ -56,7 +57,7 @@ describe("common/types int", () => {
   });
 
   it("common/types/int_test.go/TestIntConvertToType", () => {
-    const cases = syncedTypeCases<{ in: unknown; name: string; out: unknown; toType: unknown }>(
+    const cases = syncedCases<{ in: unknown; name: string; out: unknown; toType: unknown }>(
       "common/types/int_test.go/TestIntConvertToType",
     );
     const blocked = new Set([
@@ -88,11 +89,6 @@ describe("common/types int", () => {
       }
     }
   });
-
-  it.todo(
-    "common/types/int_test.go/TestIntConvertToType blocked: timestamp and duration value files are not ported 1:1 yet",
-  );
-
   it("common/types/int_test.go/TestIntDivide", () => {
     expect((new Int(4n).divide(new Int(2n)) as Int).value()).toBe(2n);
     expect(new Int(1n).divide(new Int(0n)).type().typeName()).toBe("error");

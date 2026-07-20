@@ -1,7 +1,11 @@
 import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
-import syncedCases from "../../../testdata/cel-go/cel-go-test-cases.json";
+import { check } from "../../checker/checker.js";
+import { env } from "../../checker/env.js";
 import { CheckedExprSchema } from "../../gen/cel/expr/checked_pb.js";
+import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "../../gen/test/proto3pb/test_all_types_pb.js";
+import { parse } from "../../parser/parser.js";
+import { defaultContainer } from "../containers.js";
 import {
   AST,
   ast,
@@ -33,177 +37,29 @@ import {
   toAst,
   toProto,
 } from "../index.js";
-
-const astCases = syncedCases as Record<string, unknown>;
-const factory = exprFactory();
-
-/**
- * This is only necessary because we don't yet have a working parser.
- * TODO: replace this once ther parser works
- */
-// biome-ignore lint/suspicious/noExplicitAny: this is temporary
-function exprFor(source: string): any {
-  switch (source) {
-    case "'a' == 'b'":
-      return factory.call(2, "_==_", factory.literal(1, "a"), factory.literal(3, "b"));
-    case "'a'.size()":
-      return factory.memberCall(2, "size", factory.literal(1, "a"));
-    case "a.size()":
-      return factory.memberCall(2, "size", factory.ident(1, "a"));
-    case "size('a')":
-      return factory.call(2, "size", factory.literal(1, "a"));
-    case "[1, 2].size()":
-      return factory.memberCall(
-        4,
-        "size",
-        factory.list(1, [factory.literal(2, BigInt(1)), factory.literal(3, BigInt(2))], []),
-      );
-    case "has({'a': 1}.a)":
-      return factory.presenceTest(
-        5,
-        factory.map(1, [
-          factory.mapEntry(2, factory.literal(3, "a"), factory.literal(4, BigInt(1)), false),
-        ]),
-        "a",
-      );
-    case "{'a': 1}":
-      return factory.map(1, [
-        factory.mapEntry(2, factory.literal(3, "a"), factory.literal(4, BigInt(1)), false),
-      ]);
-    case "{'a': 1}['a']":
-      return factory.call(
-        5,
-        "_[_]_",
-        factory.map(1, [
-          factory.mapEntry(2, factory.literal(3, "a"), factory.literal(4, BigInt(1)), false),
-        ]),
-        factory.literal(6, "a"),
-      );
-    case "[1, 2, 3]":
-      return factory.list(
-        1,
-        [
-          factory.literal(2, BigInt(1)),
-          factory.literal(3, BigInt(2)),
-          factory.literal(4, BigInt(3)),
-        ],
-        [],
-      );
-    case "[1, 2, 3][0]":
-      return factory.call(5, "_[_]_", exprFor("[1, 2, 3]"), factory.literal(6, BigInt(0)));
-    case "[1, 2, 3].exists(i, i % 2 == 1)":
-      return factory.comprehension(
-        12,
-        exprFor("[1, 2, 3]"),
-        "i",
-        factory.accuIdentName(),
-        factory.literal(5, false),
-        factory.call(8, "@not_strictly_false", factory.call(7, "!_", factory.accuIdent(6))),
-        factory.call(
-          11,
-          "_||_",
-          factory.accuIdent(9),
-          factory.call(
-            10,
-            "_==_",
-            factory.call(4, "_%_", factory.ident(3, "i"), factory.literal(2, BigInt(2))),
-            factory.literal(1, BigInt(1)),
-          ),
-        ),
-        factory.accuIdent(13),
-      );
-    case "google.expr.proto3.test.TestAllTypes{}":
-      return factory.struct(1, "google.expr.proto3.test.TestAllTypes", []);
-    case "google.expr.proto3.test.TestAllTypes{repeated_int32: [1, 2]}":
-      return factory.struct(1, "google.expr.proto3.test.TestAllTypes", [
-        factory.structField(
-          2,
-          "repeated_int32",
-          factory.list(3, [factory.literal(4, BigInt(1)), factory.literal(5, BigInt(2))], []),
-          false,
-        ),
-      ]);
-    case "google.expr.proto3.test.TestAllTypes{single_int32: 1}":
-      return factory.struct(1, "google.expr.proto3.test.TestAllTypes", [
-        factory.structField(2, "single_int32", factory.literal(3, BigInt(1)), false),
-      ]);
-    case "google.expr.proto3.test.TestAllTypes{repeatedInt32: [1, 2]}":
-      return factory.struct(1, "google.expr.proto3.test.TestAllTypes", [
-        factory.structField(
-          2,
-          "repeatedInt32",
-          factory.list(3, [factory.literal(4, BigInt(1)), factory.literal(5, BigInt(2))], []),
-          false,
-        ),
-      ]);
-    case "google.expr.proto3.test.TestAllTypes{singleInt32: 2}.singleInt32 == 2":
-      return factory.call(
-        5,
-        "_==_",
-        factory.select(
-          3,
-          factory.struct(1, "google.expr.proto3.test.TestAllTypes", [
-            factory.structField(2, "singleInt32", factory.literal(4, BigInt(2)), false),
-          ]),
-          "singleInt32",
-        ),
-        factory.literal(6, BigInt(2)),
-      );
-    case "{1u: 'hello'}":
-      return factory.map(1, [
-        factory.mapEntry(
-          2,
-          factory.literal(3, {
-            $typeName: "cel.expr.Constant",
-            constantKind: { case: "uint64Value", value: BigInt(1) },
-          }),
-          factory.literal(4, "hello"),
-          false,
-        ),
-      ]);
-    case "{'hello': 'world'}.hello":
-      return factory.select(
-        5,
-        factory.map(1, [
-          factory.mapEntry(2, factory.literal(3, "hello"), factory.literal(4, "world"), false),
-        ]),
-        "hello",
-      );
-    case "type(1) == int":
-      return factory.call(
-        3,
-        "_==_",
-        factory.call(1, "type", factory.literal(2, BigInt(1))),
-        factory.ident(4, "int"),
-      );
-    case "a":
-      return factory.ident(1, "a");
-    case "[true].exists(i, i)":
-      return factory.comprehension(
-        13,
-        factory.list(1, [factory.literal(2, true)], []),
-        "i",
-        factory.accuIdentName(),
-        factory.literal(6, false),
-        factory.call(9, "@not_strictly_false", factory.call(8, "!_", factory.accuIdent(7))),
-        factory.call(11, "_||_", factory.accuIdent(10), factory.ident(5, "i")),
-        factory.accuIdent(12),
-      );
-    default:
-      throw new Error(`unknown ast.spec expr: ${source}`);
-  }
-}
+import { syncedCases } from "../spec-helpers.js";
+import { standardFunctions } from "../stdlib.js";
+import { registry } from "../types/index.js";
 
 function astFor(source: string): AST {
-  return ast(exprFor(source), sourceInfo(textSource(source)));
+  return parse(source, { enableOptionalSyntax: true, populateMacroCalls: true });
+}
+
+function mustTypeCheck(source: string, jsonFieldNames = false): AST {
+  const parsed = parse(source);
+  const reg = registry([create(Proto3TestAllTypesSchema), Proto3TestAllTypesSchema]);
+  reg.withJSONFieldNames(jsonFieldNames);
+  const checkerEnv = env(defaultContainer, reg, { jsonFieldNames });
+  checkerEnv.addFunctions(...standardFunctions());
+  return check(parsed, textSource(source), checkerEnv);
 }
 
 describe("common/ast", () => {
   it("common/ast/ast_test.go/TestReferenceInfoEquals", () => {
-    const cases = astCases["common/ast/ast_test.go/TestReferenceInfoEquals"] as Array<{
+    const cases = syncedCases<{
       name: string;
       equal: boolean;
-    }>;
+    }>("common/ast/ast_test.go/TestReferenceInfoEquals");
 
     const references = {
       addBytes: functionReference("add_bytes"),
@@ -259,19 +115,19 @@ describe("common/ast", () => {
     };
     const info = sourceInfo(relativeSource);
 
-    const cases = astCases["common/ast/ast_test.go/TestNewSourceInfoRelative"] as Array<{
+    const cases = syncedCases<{
       offset: number;
-    }>;
+    }>("common/ast/ast_test.go/TestNewSourceInfoRelative");
     expect(info.computeOffset(1, 0)).toBe(cases[0].offset);
     expect(info.computeOffset(2, 3)).toBe(cases[1].offset);
     expect(info.computeOffset(3, 1)).toBe(cases[2].offset);
   });
 
   it("common/ast/ast_test.go/TestHeights", () => {
-    const cases = astCases["common/ast/ast_test.go/TestHeights"] as Array<{
+    const cases = syncedCases<{
       expr: string;
       height: number;
-    }>;
+    }>("common/ast/ast_test.go/TestHeights");
     for (const testCase of cases) {
       const exprAst = astFor(testCase.expr);
       const rootHeight = heights(exprAst).get(exprAst.expr().id());
@@ -315,9 +171,36 @@ describe("common/ast", () => {
     }
   });
 
-  it.todo(
-    "common/ast/ast_test.go/TestASTJsonNames blocked: checker/type-registry JSON field-name support is not ported yet",
-  );
+  it("common/ast/ast_test.go/TestASTJsonNames", () => {
+    const cases = [
+      "google.expr.proto3.test.TestAllTypes{}",
+      "google.expr.proto3.test.TestAllTypes{repeatedInt32: [1, 2]}",
+      "google.expr.proto3.test.TestAllTypes{singleInt32: 2}.singleInt32 == 2",
+    ] as const;
+
+    for (const source of cases) {
+      const checked = mustTypeCheck(source, true);
+      const copied = copyAst(checked);
+      expect(copied?.expr().toProto()).toEqual(checked.expr().toProto());
+      expect(copied?.sourceInfo().extensions()).toEqual(checked.sourceInfo().extensions());
+
+      const parsedCopy = copyAst(ast(checked.expr(), checked.sourceInfo()));
+      expect(parsedCopy?.expr().toProto()).toEqual(checked.expr().toProto());
+      expect(parsedCopy?.sourceInfo().extensions()).toEqual(checked.sourceInfo().extensions());
+
+      const checkedProto = toProto(checked);
+      const copiedProto = copied ? toProto(copied) : undefined;
+      expect(copiedProto).toEqual(checkedProto);
+
+      const roundtrip = toAst(checkedProto);
+      expect(roundtrip.expr().toProto()).toEqual(checked.expr().toProto());
+      expect(roundtrip.referenceMap()).toEqual(checked.referenceMap());
+      expect(roundtrip.typeMap()).toEqual(checked.typeMap());
+      expect(
+        [...roundtrip.sourceInfo().macroCalls()].map(([id, expr]) => [id, expr.toProto()]),
+      ).toEqual([...checked.sourceInfo().macroCalls()].map(([id, expr]) => [id, expr.toProto()]));
+    }
+  });
 
   it("common/ast/ast_test.go/TestASTNilSafety", () => {
     const exprAst = ast(undefined, undefined);
@@ -387,10 +270,10 @@ describe("common/ast", () => {
   });
 
   it("converts expressions and entry expressions to and from protobuf", () => {
-    const expr = exprFor("{1u: 'hello'}");
+    const expr = parse("{1u: 'hello'}").expr();
     expect(protoToExpr(exprToProto(expr)).toProto()).toEqual(exprToProto(expr));
 
-    const entry = exprFor("{1u: 'hello'}").asMap()?.entries()[0];
+    const entry = parse("{1u: 'hello'}").expr().asMap()?.entries()[0];
     expect(entry).toBeDefined();
     if (!entry) {
       return;
@@ -399,13 +282,13 @@ describe("common/ast", () => {
   });
 
   it("navigates AST descendants using upstream-shaped fixture ids", () => {
-    const cases = astCases["common/ast/navigable_test.go/TestNavigateAST"] as Array<{
+    const cases = syncedCases<{
       expr: string;
       descendantCount: number;
       callCount: number;
       maxDepth: number;
       maxID: number;
-    }>;
+    }>("common/ast/navigable_test.go/TestNavigateAST");
 
     for (const testCase of cases) {
       const nav = navigateAst(astFor(testCase.expr));
@@ -440,7 +323,7 @@ describe("common/ast", () => {
   it("common/ast/ast_test.go/TestMaxID", () => {
     const exprAst = astFor("has({'a': 1}.a)");
     const currentMax = maxId(exprAst);
-    const dummy = exprFor("a");
+    const dummy = parse("a").expr();
     dummy.renumberIds(() => currentMax + 1);
     exprAst.sourceInfo().setMacroCall(currentMax + 2, dummy);
     expect(maxId(exprAst)).toBe(currentMax + 3);
@@ -449,14 +332,14 @@ describe("common/ast", () => {
   it("supports source-info cleanup behaviors", () => {
     const info = sourceInfo(textSource("a"));
     info.setOffsetRange(99, { start: 0, stop: 0 });
-    const wrapped = ast(exprFor("a"), info);
+    const wrapped = ast(parse("a").expr(), info);
     wrapped.clearUnusedIds();
     expect(wrapped.sourceInfo().getOffsetRange(99)[1]).toBe(false);
   });
 
   it("supports checked-expr conversion for the first common pass", () => {
     const checked = create(CheckedExprSchema, {
-      expr: exprToProto(exprFor("type(1) == int")),
+      expr: exprToProto(parse("type(1) == int").expr()),
       sourceInfo: sourceInfoToProto(sourceInfo(textSource("type(1) == int"))),
     });
 
@@ -465,9 +348,10 @@ describe("common/ast", () => {
   });
 
   it("replaces an expression kind case in place for rewrite-style use", () => {
-    const expr = exprFor("a.size()");
-    expr.setKindCase(exprFor("'a' == 'b'"));
-    expect(expr.toProto()).toEqual(exprToProto(exprFor("'a' == 'b'")));
+    const expr = parse("a.size()").expr();
+    const replacement = parse("'a' == 'b'").expr();
+    expr.setKindCase(replacement);
+    expect(expr.toProto()).toEqual(exprToProto(replacement));
   });
 
   it("common/ast/ast_test.go/TestReferenceInfoAddOverload", () => {

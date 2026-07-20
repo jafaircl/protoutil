@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { parse } from "../../parser/parser.js";
 import { stringSource } from "../index.js";
+import { syncedCases } from "../spec-helpers.js";
 import {
   ast,
   checkedAst,
@@ -32,8 +34,7 @@ const BOOL_TYPE = {
 } as const;
 
 /**
- * This is only necessary because we don't yet have a working parser.
- * TODO: replace this once ther parser works
+ * exprFor materializes the upstream synced conversion fixtures into local AST expressions.
  */
 function exprFor(source: string) {
   switch (source) {
@@ -129,13 +130,84 @@ describe("common/ast conversion", () => {
     expect(protoToEntryExpr(entryExprToProto(entry)).toProto()).toEqual(entryExprToProto(entry));
   });
 
-  it.todo(
-    "common/ast/conversion_test.go/TestConvertExpr blocked: parser with macro-populated source info is not ported yet",
-  );
+  it("common/ast/conversion_test.go/TestConvertExpr", () => {
+    const cases = syncedCases<{
+      expr: string;
+      wantExpr: { $expr: string };
+      macroCalls?: Record<string, { $expr: string }>;
+    }>("common/ast/conversion_test.go/TestConvertExpr");
 
-  it.todo(
-    "common/ast/conversion_test.go/TestSourceInfoToProto blocked: parser-generated positions and macro call source info are not ported yet",
-  );
+    for (const testCase of cases) {
+      const parsed = parse(testCase.expr, {
+        enableOptionalSyntax: true,
+        populateMacroCalls: true,
+      });
+      const actualProto = exprToProto(parsed.expr());
+      const wantedExpr = resolveSyncedConvertExpr(testCase);
+      const wantedProto = exprToProto(wantedExpr);
+      expect(actualProto).toEqual(wantedProto);
+      expect(protoToExpr(actualProto).toProto()).toEqual(parsed.expr().toProto());
+      for (const [id, wantedCall] of resolveSyncedMacroCalls(testCase)) {
+        const [actualCall, found] = parsed.sourceInfo().getMacroCall(id);
+        expect(found).toBe(true);
+        expect(actualCall?.toProto()).toEqual(wantedCall.toProto());
+      }
+    }
+  });
+
+  it("common/ast/conversion_test.go/TestSourceInfoToProto", () => {
+    const parsed = parse("[{}, {'field': true}].exists(i, has(i.field))", {
+      enableOptionalSyntax: true,
+      populateMacroCalls: true,
+    });
+    const actual = sourceInfoToProto(parsed.sourceInfo());
+    expect(actual.location).toBe("<input>");
+    expect(actual.lineOffsets).toEqual([46]);
+    expect(actual.positions).toEqual({
+      "1": 0,
+      "2": 1,
+      "3": 5,
+      "4": 13,
+      "5": 6,
+      "6": 15,
+      "8": 29,
+      "10": 36,
+      "11": 37,
+      "12": 35,
+      "13": 28,
+      "14": 28,
+      "15": 28,
+      "16": 28,
+      "17": 28,
+      "18": 28,
+      "19": 28,
+      "20": 28,
+    });
+    expect(Object.keys(actual.macroCalls).sort()).toEqual(["12", "20"]);
+    expect(actual.macroCalls["12"]).toEqual(
+      factory.call(0, "has", factory.select(11, factory.ident(10, "i"), "field")).toProto(),
+    );
+    expect(actual.macroCalls["20"]).toEqual(
+      factory
+        .memberCall(
+          0,
+          "exists",
+          factory.list(
+            1,
+            [
+              factory.map(2, []),
+              factory.map(3, [
+                factory.mapEntry(4, factory.literal(5, "field"), factory.literal(6, true), false),
+              ]),
+            ],
+            [],
+          ),
+          factory.ident(8, "i"),
+          factory.unspecified(12),
+        )
+        .toProto(),
+    );
+  });
 
   it("expression protobuf roundtrips for the first common pass", () => {
     const exprs = [
@@ -221,3 +293,43 @@ describe("common/ast conversion", () => {
     ).toThrow();
   });
 });
+
+function resolveSyncedConvertExpr(testCase: {
+  expr: string;
+  wantExpr: { $expr: string };
+}): ReturnType<typeof exprFor> {
+  switch (testCase.expr) {
+    case "has(a.b)":
+      return factory.presenceTest(4, factory.ident(2, "a"), "b");
+    default:
+      return exprFor(testCase.expr);
+  }
+}
+
+function resolveSyncedMacroCalls(testCase: {
+  expr: string;
+  macroCalls?: Record<string, { $expr: string }>;
+}): Map<number, ReturnType<typeof exprFor>> {
+  if (!testCase.macroCalls) {
+    return new Map();
+  }
+  switch (testCase.expr) {
+    case "has(a.b)":
+      return new Map([[4, factory.call(0, "has", factory.select(3, factory.ident(2, "a"), "b"))]]);
+    case "[].exists(i, i)":
+      return new Map([
+        [
+          12,
+          factory.memberCall(
+            0,
+            "exists",
+            factory.list(1, [], []),
+            factory.ident(3, "i"),
+            factory.ident(4, "i"),
+          ),
+        ],
+      ]);
+    default:
+      throw new Error(`unsupported synced conversion macro expr: ${testCase.expr}`);
+  }
+}

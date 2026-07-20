@@ -45,9 +45,9 @@ describe("common/types string", () => {
   });
 
   it("common/types/string_test.go/TestStringConvertToType", () => {
-    expect((new CelString("1").convertToType(TypeType) as { typeName(): string }).typeName()).toBe(
-      "string",
-    );
+    expect(
+      (new CelString("1").convertToType(TypeType) as unknown as { typeName(): string }).typeName(),
+    ).toBe("string");
     expect((new CelString("1").convertToType(new Int(0n).type()) as Int).value()).toBe(1n);
     expect(new CelString("1x").convertToType(new Int(0n).type()).type().typeName()).toBe("error");
     expect((new CelString("TRUE").convertToType(new Bool(true).type()) as Bool).value()).toBe(true);

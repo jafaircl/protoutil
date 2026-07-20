@@ -13,7 +13,7 @@ export function optionalOf(value: Val): Optional {
 /**
  * Optional points to a value if non-empty.
  */
-export class Optional {
+export class Optional implements Val {
   constructor(private readonly inner?: Val) {}
 
   /** HasValue returns true if the optional has a value. */
@@ -28,16 +28,12 @@ export class Optional {
     }
     return this.inner!;
   }
-
-  /** ConvertToNative implements the ref.Val interface method. */
   public convertToNative(): unknown {
     if (!this.hasValue()) {
       throw new globalThis.Error("optional.none() dereference");
     }
     return this.inner!.value();
   }
-
-  /** ConvertToType implements the ref.Val interface method. */
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {
       case OptionalType:
@@ -65,10 +61,12 @@ export class Optional {
 
   /** String returns the string representation of the optional. */
   public toString(): string {
-    return this.hasValue() ? `optional(${this.getValue().value()})` : "optional.none()";
+    if (!this.hasValue()) {
+      return "optional.none()";
+    }
+    const value = this.getValue();
+    return `optional.of(${value instanceof Optional ? value.toString() : value.value()})`;
   }
-
-  /** Type implements the ref.Val interface method. */
   public type(): RefType {
     return OptionalType;
   }

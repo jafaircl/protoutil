@@ -1,4 +1,5 @@
 import { TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { timestampInstant, timestampToString } from "@protoutil/core/wkt";
 import * as overloads from "../overloads.js";
 import { Bool } from "./bool.js";
 import { Duration, durationOf } from "./duration.js";
@@ -12,6 +13,7 @@ import {
 } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
+import type { Adder, Comparer, Receiver, Subtractor } from "./traits/index.js";
 import { DurationType, IntType, StringType, TimestampType, TypeType } from "./types.js";
 
 /**
@@ -19,13 +21,11 @@ import { DurationType, IntType, StringType, TimestampType, TypeType } from "./ty
  * operations. Timestamps are also capable of participating in dynamic
  * function dispatch to instance methods.
  */
-export class Timestamp {
+export class Timestamp implements Val, Adder, Comparer, Receiver, Subtractor {
   constructor(
     private readonly secondsValue: bigint,
     private readonly nanosValue = 0,
   ) {}
-
-  /** Add implements traits.Adder.Add. */
   public add(other: Val): Val {
     if (other.type() === DurationType && other instanceof Duration) {
       try {
@@ -37,8 +37,6 @@ export class Timestamp {
     }
     return maybeNoSuchOverloadErr(other);
   }
-
-  /** Compare implements traits.Comparer.Compare. */
   public compare(other: Val): Val {
     if (!(other instanceof Timestamp)) {
       return maybeNoSuchOverloadErr(other);
@@ -57,8 +55,6 @@ export class Timestamp {
     }
     return IntZero;
   }
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
   public convertToNative(typeDesc?: unknown): unknown {
     if (typeDesc === TimestampSchema) {
       return {
@@ -69,12 +65,15 @@ export class Timestamp {
     }
     return { seconds: this.secondsValue, nanos: this.nanosValue };
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(typeValue: RefType): Val {
+    const proto = {
+      $typeName: "google.protobuf.Timestamp" as const,
+      seconds: this.secondsValue,
+      nanos: this.nanosValue,
+    };
     switch (typeValue) {
       case StringType:
-        return new CelString(timestampString(this.secondsValue, this.nanosValue));
+        return new CelString(timestampToString(proto));
       case IntType:
         return new Int(this.secondsValue);
       case TimestampType:
@@ -85,8 +84,6 @@ export class Timestamp {
         return err(`type conversion error from '${TimestampType}' to '${typeValue.typeName()}'`);
     }
   }
-
-  /** Equal implements ref.Val.Equal. */
   public equal(other: Val): Val {
     return new Bool(
       other instanceof Timestamp &&
@@ -99,8 +96,6 @@ export class Timestamp {
   public isZeroValue(): boolean {
     return this.secondsValue === minUnixTime && this.nanosValue === 0;
   }
-
-  /** Receive implements traits.Receiver.Receive. */
   public receive(functionName: string, _overload: string, args: Val[]): Val {
     switch (args.length) {
       case 0:
@@ -111,8 +106,6 @@ export class Timestamp {
         return maybeNoSuchOverloadErr(this);
     }
   }
-
-  /** Subtract implements traits.Subtractor.Subtract. */
   public subtract(subtrahend: Val): Val {
     if (subtrahend.type() === DurationType && subtrahend instanceof Duration) {
       try {
@@ -142,13 +135,9 @@ export class Timestamp {
     }
     return maybeNoSuchOverloadErr(subtrahend);
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return TimestampType;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): { seconds: bigint; nanos: number } {
     return { seconds: this.secondsValue, nanos: this.nanosValue };
   }
@@ -165,7 +154,13 @@ export class Timestamp {
 
   /** Format appends the human-readable representation. */
   public format(sb: string[]): void {
-    sb.push(`timestamp("${timestampString(this.secondsValue, this.nanosValue)}")`);
+    sb.push(
+      `timestamp("${timestampToString({
+        $typeName: "google.protobuf.Timestamp",
+        seconds: this.secondsValue,
+        nanos: this.nanosValue,
+      })}")`,
+    );
   }
 }
 
@@ -206,130 +201,33 @@ function timestampOneArg(functionName: string, seconds: bigint, nanos: number, t
 }
 
 function timestampVisit(functionName: string, seconds: bigint, nanos: number, tz?: string): Val {
-  const parts = tz ? partsInTimezone(seconds, nanos, tz) : utcParts(seconds, nanos);
+  const zoned = timestampInstant({
+    $typeName: "google.protobuf.Timestamp",
+    seconds,
+    nanos,
+  }).toZonedDateTimeISO(tz ?? "UTC");
   switch (functionName) {
     case overloads.TimeGetFullYear:
-      return new Int(BigInt(parts.year));
+      return new Int(BigInt(zoned.year));
     case overloads.TimeGetMonth:
-      return new Int(BigInt(parts.month - 1));
+      return new Int(BigInt(zoned.month - 1));
     case overloads.TimeGetDayOfYear:
-      return new Int(BigInt(dayOfYear(parts.year, parts.month, parts.day) - 1));
+      return new Int(BigInt(zoned.dayOfYear - 1));
     case overloads.TimeGetDate:
-      return new Int(BigInt(parts.day));
+      return new Int(BigInt(zoned.day));
     case overloads.TimeGetDayOfMonth:
-      return new Int(BigInt(parts.day - 1));
+      return new Int(BigInt(zoned.day - 1));
     case overloads.TimeGetDayOfWeek:
-      return new Int(BigInt(parts.weekday));
+      return new Int(BigInt(zoned.dayOfWeek % 7));
     case overloads.TimeGetHours:
-      return new Int(BigInt(parts.hour));
+      return new Int(BigInt(zoned.hour));
     case overloads.TimeGetMinutes:
-      return new Int(BigInt(parts.minute));
+      return new Int(BigInt(zoned.minute));
     case overloads.TimeGetSeconds:
-      return new Int(BigInt(parts.second));
+      return new Int(BigInt(zoned.second));
     case overloads.TimeGetMilliseconds:
       return new Int(BigInt(Math.trunc(nanos / 1_000_000)));
     default:
       return err("no such overload");
   }
-}
-
-function timestampString(seconds: bigint, nanos: number): string {
-  const date = new Date(Number(seconds) * 1000);
-  const year = `${date.getUTCFullYear()}`.padStart(4, "0");
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getUTCDate()}`.padStart(2, "0");
-  const hours = `${date.getUTCHours()}`.padStart(2, "0");
-  const minutes = `${date.getUTCMinutes()}`.padStart(2, "0");
-  const secs = `${date.getUTCSeconds()}`.padStart(2, "0");
-  if (nanos === 0) {
-    return `${year}-${month}-${day}T${hours}:${minutes}:${secs}Z`;
-  }
-  return `${year}-${month}-${day}T${hours}:${minutes}:${secs}.${`${nanos}`.padStart(9, "0").replace(/0+$/, "")}Z`;
-}
-
-function utcParts(seconds: bigint, nanos: number) {
-  const date = new Date(Number(seconds) * 1000 + Math.trunc(nanos / 1_000_000));
-  return {
-    year: date.getUTCFullYear(),
-    month: date.getUTCMonth() + 1,
-    day: date.getUTCDate(),
-    hour: date.getUTCHours(),
-    minute: date.getUTCMinutes(),
-    second: date.getUTCSeconds(),
-    weekday: date.getUTCDay(),
-  };
-}
-
-function partsInTimezone(seconds: bigint, nanos: number, tz: string) {
-  if (tz.includes(":")) {
-    return offsetParts(seconds, nanos, tz);
-  }
-  const date = new Date(Number(seconds) * 1000 + Math.trunc(nanos / 1_000_000));
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    weekday: "short",
-    hour12: false,
-  });
-  const parts = Object.fromEntries(
-    formatter
-      .formatToParts(date)
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]),
-  );
-  return {
-    year: Number(parts.year),
-    month: Number(parts.month),
-    day: Number(parts.day),
-    hour: Number(parts.hour),
-    minute: Number(parts.minute),
-    second: Number(parts.second),
-    weekday: weekdayValue(parts.weekday ?? "Sun"),
-  };
-}
-
-function offsetParts(seconds: bigint, nanos: number, tz: string) {
-  const match = /^([+-])(\d{2}):(\d{2})$/.exec(tz);
-  if (!match) {
-    throw new globalThis.Error(`invalid timezone: ${tz}`);
-  }
-  const minutes = Number(match[3]);
-  if (minutes < 0 || minutes > 59) {
-    throw new globalThis.Error(`timezone offset minutes out of range [0, 59]: ${tz}`);
-  }
-  const hours = Number(match[2]);
-  const offset = match[1] === "-" ? -(hours * 60 + minutes) : hours * 60 + minutes;
-  return utcParts(seconds + BigInt(offset * 60), nanos);
-}
-
-function weekdayValue(value: string): number {
-  switch (value) {
-    case "Sun":
-      return 0;
-    case "Mon":
-      return 1;
-    case "Tue":
-      return 2;
-    case "Wed":
-      return 3;
-    case "Thu":
-      return 4;
-    case "Fri":
-      return 5;
-    case "Sat":
-      return 6;
-    default:
-      return 0;
-  }
-}
-
-function dayOfYear(year: number, month: number, day: number): number {
-  const current = Date.UTC(year, month - 1, day);
-  const start = Date.UTC(year, 0, 1);
-  return Math.floor((current - start) / 86_400_000) + 1;
 }

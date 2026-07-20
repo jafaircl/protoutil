@@ -160,6 +160,53 @@ func TestStable(t *testing.T) {
 	}
 }
 
+func TestExtractRepoHelperReturnedTable(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeTestFile(t, repoRoot, "helper/helper_test.go", `package helper
+
+import "testing"
+
+type testInfo struct {
+	name string
+	want int
+}
+
+func testCases(t testing.TB) []testInfo {
+	t.Helper()
+	return []testInfo{
+		{name: "first", want: 1},
+		{name: "second", want: 2},
+	}
+}
+
+func TestFromHelper(t *testing.T) {
+	for _, tc := range testCases(t) {
+		t.Run(tc.name, func(t *testing.T) {})
+	}
+}
+`)
+
+	result, err := extractRepo(repoRoot)
+	if err != nil {
+		t.Fatalf("extractRepo() failed: %v", err)
+	}
+
+	key := "helper/helper_test.go/TestFromHelper"
+	rows := result.Cases[key]
+	if got := len(rows); got != 2 {
+		t.Fatalf("%s rows = %d, want 2", key, got)
+	}
+	if got, want := rows[0]["name"], "first"; got != want {
+		t.Fatalf("%s first name = %#v, want %#v", key, got, want)
+	}
+	if got, want := rows[1]["want"], json.Number("2"); got != want {
+		t.Fatalf("%s second want = %#v, want %#v", key, got, want)
+	}
+	if len(result.Report.UnresolvedTableUsages) != 0 {
+		t.Fatalf("UnresolvedTableUsages = %#v, want none", result.Report.UnresolvedTableUsages)
+	}
+}
+
 func TestExtractRepoUpstreamSamples(t *testing.T) {
 	repoRoot := t.TempDir()
 	for _, relPath := range []string{

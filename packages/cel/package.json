@@ -93,8 +93,9 @@
     "typecheck": "tsc --noEmit",
     "typecheck:spec": "tsc -p tsconfig.spec.json --noEmit",
     "sync:conformance-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-conformance-sync -proto . -out ./testdata/conformance -workdir ./.tmp/cel-spec-upstream",
+    "sync:cel-go-file-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-env-testdata-sync -workdir ./.tmp/cel-go-upstream",
     "sync:cel-go-tests": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-test-sync -out ./testdata/cel-go/cel-go-test-cases.json -report ./testdata/cel-go/cel-go-test-cases.report.json -workdir ./.tmp/cel-go-upstream",
-    "sync:testdata": "pnpm run sync:conformance-testdata && pnpm run sync:cel-go-tests",
+    "sync:testdata": "pnpm run sync:conformance-testdata && pnpm run sync:cel-go-file-testdata && pnpm run sync:cel-go-tests",
     "prepublishOnly": "pnpm run build",
     "protogen": "buf generate"
   },
@@ -106,7 +107,8 @@
   },
   "dependencies": {
     "@protoutil/core": "workspace:*",
-    "@bufbuild/protobuf": "^2.11.0"
+    "@bufbuild/protobuf": "^2.11.0",
+    "js-yaml": "^4.1.1"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs"

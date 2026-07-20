@@ -98,6 +98,9 @@ class BaseExprFactory implements ExprFactory {
         mapEntry?.isOptional() ?? false,
       );
     }
+    if (entry.kind() !== 2) {
+      return this.structField(entry.id(), "", unspecifiedExpr(), false);
+    }
     const field = entry.asStructField();
     return this.structField(
       entry.id(),

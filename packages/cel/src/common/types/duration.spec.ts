@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as overloads from "../overloads.js";
+import { syncedCases } from "../spec-helpers.js";
 import { type Duration, durationOf, False, Int } from "./index.js";
-import { syncedTypeCases } from "./spec-helpers.js";
 
 describe("common/types duration", () => {
   it.todo(
@@ -18,7 +18,7 @@ describe("common/types duration", () => {
   );
 
   it("common/types/duration_test.go/TestDurationOperators", () => {
-    const cases = syncedTypeCases<{ name: string; op: unknown; out: unknown }>(
+    const cases = syncedCases<{ name: string; op: unknown; out: unknown }>(
       "common/types/duration_test.go/TestDurationOperators",
     );
     for (const testCase of cases) {

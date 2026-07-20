@@ -1,28 +1,26 @@
-import { Bool, False } from "./bool.js";
+import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import { False, True } from "./bool.js";
 import { compareDouble, compareDoubleInt, compareDoubleUint } from "./compare.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
 import { doubleToInt64Checked, doubleToUint64Checked } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
+import type { Adder, Comparer, Divider, Multiplier, Negater, Subtractor } from "./traits/index.js";
 import { DoubleType, IntType, StringType, TypeType, UintType } from "./types.js";
 import { Uint } from "./uint.js";
 
 /**
  * Double implements comparison and mathematical operations.
  */
-export class Double {
+export class Double implements Val, Adder, Comparer, Divider, Multiplier, Negater, Subtractor {
   constructor(private readonly inner: number) {}
-
-  /** Add implements traits.Adder.Add. */
   public add(other: Val): Val {
     if (!(other instanceof Double)) {
       return maybeNoSuchOverloadErr(other);
     }
     return new Double(this.inner + other.inner);
   }
-
-  /** Compare implements traits.Comparer.Compare. */
   public compare(other: Val): Val {
     if (Number.isNaN(this.inner)) {
       return wrapErr(new globalThis.Error("NaN values cannot be ordered"));
@@ -41,13 +39,15 @@ export class Double {
     }
     return maybeNoSuchOverloadErr(other);
   }
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
-  public convertToNative(): number {
+  public convertToNative(typeDesc?: unknown): unknown {
+    if (typeDesc === ValueSchema) {
+      return {
+        $typeName: "google.protobuf.Value",
+        kind: { case: "numberValue", value: this.inner },
+      };
+    }
     return this.inner;
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {
       case IntType:
@@ -72,28 +72,24 @@ export class Double {
         return err(`type conversion error from '${DoubleType}' to '${typeValue.typeName()}'`);
     }
   }
-
-  /** Divide implements traits.Divider.Divide. */
   public divide(other: Val): Val {
     if (!(other instanceof Double)) {
       return maybeNoSuchOverloadErr(other);
     }
     return new Double(this.inner / other.inner);
   }
-
-  /** Equal implements ref.Val.Equal. */
   public equal(other: Val): Val {
     if (Number.isNaN(this.inner)) {
       return False;
     }
     if (other instanceof Double) {
-      return new Bool(!Number.isNaN(other.inner) && this.inner === other.inner);
+      return !Number.isNaN(other.inner) && this.inner === other.inner ? True : False;
     }
     if (other instanceof Int) {
-      return new Bool((compareDoubleInt(this, other) as Int).value() === 0n);
+      return (compareDoubleInt(this, other) as Int).value() === 0n ? True : False;
     }
     if (other instanceof Uint) {
-      return new Bool((compareDoubleUint(this, other) as Int).value() === 0n);
+      return (compareDoubleUint(this, other) as Int).value() === 0n ? True : False;
     }
     return False;
   }
@@ -102,34 +98,24 @@ export class Double {
   public isZeroValue(): boolean {
     return this.inner === 0;
   }
-
-  /** Multiply implements traits.Multiplier.Multiply. */
   public multiply(other: Val): Val {
     if (!(other instanceof Double)) {
       return maybeNoSuchOverloadErr(other);
     }
     return new Double(this.inner * other.inner);
   }
-
-  /** Negate implements traits.Negater.Negate. */
   public negate(): Val {
     return new Double(-this.inner);
   }
-
-  /** Subtract implements traits.Subtractor.Subtract. */
   public subtract(other: Val): Val {
     if (!(other instanceof Double)) {
       return maybeNoSuchOverloadErr(other);
     }
     return new Double(this.inner - other.inner);
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return DoubleType;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): number {
     return this.inner;
   }

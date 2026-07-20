@@ -532,20 +532,20 @@ class BaseEntryExpr implements EntryExpr {
 
   public renumberIds(generator: IdGenerator): void {
     this.idValue = generator(this.idValue);
-    const mapEntry = this.asMapEntry();
-    if (mapEntry) {
+    if (this.entryKind === EntryExprKind.MapEntry) {
+      const mapEntry = this.asMapEntry()!;
       mapEntry.key().renumberIds(generator);
       mapEntry.value().renumberIds(generator);
     }
-    const structField = this.asStructField();
-    if (structField) {
+    if (this.entryKind === EntryExprKind.StructField) {
+      const structField = this.asStructField()!;
       structField.value().renumberIds(generator);
     }
   }
 
   public toProto(): Expr_CreateStruct_Entry {
-    const mapEntry = this.asMapEntry();
-    if (mapEntry) {
+    if (this.entryKind === EntryExprKind.MapEntry) {
+      const mapEntry = this.asMapEntry()!;
       return {
         $typeName: "cel.expr.Expr.CreateStruct.Entry",
         id: BigInt(this.idValue),
@@ -554,7 +554,7 @@ class BaseEntryExpr implements EntryExpr {
         optionalEntry: mapEntry.isOptional(),
       };
     }
-    const structField = this.asStructField();
+    const structField = this.asStructField()!;
     return {
       $typeName: "cel.expr.Expr.CreateStruct.Entry",
       id: BigInt(this.idValue),

@@ -93,6 +93,11 @@ type tableUse struct {
 	RelPath      string
 }
 
+type helperTable struct {
+	Name      string
+	Candidate tableCandidate
+}
+
 type rowEncodingResult struct {
 	Row            map[string]any
 	StructuredUsed int
@@ -385,6 +390,7 @@ func buildTypeMaps(files []fileParse) map[string]map[string][]string {
 
 func extractFileTables(parsed fileParse, typeMap map[string][]string, report *ExtractorReport) (map[string]tableCandidate, []tableUse, []UnresolvedUsage) {
 	topLevelTables := map[string]tableCandidate{}
+	helperTables := map[string]tableCandidate{}
 	for _, decl := range parsed.file.Decls {
 		gen, ok := decl.(*ast.GenDecl)
 		if !ok || gen.Tok != token.VAR {
@@ -409,12 +415,34 @@ func extractFileTables(parsed fileParse, typeMap map[string][]string, report *Ex
 			}
 		}
 	}
+	for _, decl := range parsed.file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil || strings.HasPrefix(fn.Name.Name, "Test") {
+			continue
+		}
+		candidate, ok := buildHelperTableCandidate(
+			fn,
+			parsed.relPath,
+			parsed.file,
+			parsed.fset,
+			parsed.src,
+			typeMap,
+		)
+		if !ok {
+			continue
+		}
+		report.CandidateTablesFound++
+		helperTables[candidate.Name] = candidate.Candidate
+	}
 
 	var uses []tableUse
 	var unresolved []UnresolvedUsage
 	fileTables := map[string]tableCandidate{}
 	for name, candidate := range topLevelTables {
 		fileTables[name] = candidate
+	}
+	for name, candidate := range helperTables {
+		fileTables[candidateStorageKey("", name)] = candidate
 	}
 
 	for _, decl := range parsed.file.Decls {
@@ -469,7 +497,25 @@ func extractFileTables(parsed fileParse, typeMap map[string][]string, report *Ex
 					}
 				}
 			case *ast.RangeStmt:
-				tableName := identName(stmt.X)
+				tableName, helperName := rangeTableName(stmt.X)
+				if helperName != "" {
+					helperKey := candidateStorageKey("", helperName)
+					if _, ok := helperTables[helperName]; ok {
+						uses = append(uses, tableUse{
+							CandidateKey: helperKey,
+							TableName:    helperName,
+							TestName:     fn.Name.Name,
+							RelPath:      parsed.relPath,
+						})
+						return true
+					}
+					unresolved = append(unresolved, UnresolvedUsage{
+						File:  parsed.relPath,
+						Test:  fn.Name.Name,
+						Table: helperName,
+					})
+					return true
+				}
 				if tableName == "" {
 					return true
 				}
@@ -496,6 +542,37 @@ func extractFileTables(parsed fileParse, typeMap map[string][]string, report *Ex
 	return fileTables, dedupeUses(uses), dedupeUnresolvedUses(dedupeUnresolved(unresolved, fileTables))
 }
 
+func buildHelperTableCandidate(
+	fn *ast.FuncDecl,
+	relPath string,
+	file *ast.File,
+	fset *token.FileSet,
+	src []byte,
+	typeMap map[string][]string,
+) (helperTable, bool) {
+	for _, stmt := range fn.Body.List {
+		returnStmt, ok := stmt.(*ast.ReturnStmt)
+		if !ok || len(returnStmt.Results) != 1 {
+			continue
+		}
+		candidate, ok := buildTableCandidate(
+			fn.Name.Name,
+			relPath,
+			"",
+			file,
+			fset,
+			src,
+			returnStmt.Results[0],
+			typeMap,
+		)
+		if !ok {
+			continue
+		}
+		return helperTable{Name: fn.Name.Name, Candidate: candidate}, true
+	}
+	return helperTable{}, false
+}
+
 func dedupeUses(uses []tableUse) []tableUse {
 	seen := map[string]bool{}
 	result := make([]tableUse, 0, len(uses))
@@ -514,6 +591,9 @@ func dedupeUnresolved(unresolved []UnresolvedUsage, tables map[string]tableCandi
 	var result []UnresolvedUsage
 	for _, item := range unresolved {
 		if _, ok := tables[item.Table]; ok {
+			continue
+		}
+		if _, ok := tables[candidateStorageKey("", item.Table)]; ok {
 			continue
 		}
 		result = append(result, item)
@@ -799,6 +879,21 @@ func identName(expr ast.Expr) string {
 		return ""
 	}
 	return ident.Name
+}
+
+func rangeTableName(expr ast.Expr) (string, string) {
+	if ident := identName(expr); ident != "" {
+		return ident, ""
+	}
+	call, ok := expr.(*ast.CallExpr)
+	if !ok {
+		return "", ""
+	}
+	helperName := identName(call.Fun)
+	if helperName == "" {
+		return "", ""
+	}
+	return "", helperName
 }
 
 func candidateStorageKey(testName, tableName string) string {

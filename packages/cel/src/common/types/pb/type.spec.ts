@@ -8,7 +8,8 @@ import {
 } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import { String as CelString, listType, mapType, objectType } from "../../../checker/decls.js";
-import { db, JSONFieldNames } from "./pb.js";
+import { syncedCases } from "../../spec-helpers.js";
+import { db, jsonFieldNamesOption } from "./pb.js";
 import {
   expectProtoEqual,
   isUnsupportedSyncedPbExpr,
@@ -16,8 +17,7 @@ import {
   Proto3NestedTestAllTypesSchema,
   Proto3TestAllTypesSchema,
   resolveSyncedPbExpr,
-  syncedPbCases,
-} from "./spec_helpers.js";
+} from "./spec-helpers.js";
 
 describe("common/types/pb/type_test.go", () => {
   it("common/types/pb/type_test.go/TestTypeDescription", () => {
@@ -41,7 +41,7 @@ describe("common/types/pb/type_test.go", () => {
   });
 
   it("common/types/pb/type_test.go/TestTypeDescriptionJSONFieldNames", () => {
-    const pbdb = db(JSONFieldNames(true));
+    const pbdb = db(jsonFieldNamesOption(true));
     pbdb.registerMessage(
       { $typeName: Proto2TestAllTypesSchema.typeName },
       Proto2TestAllTypesSchema,
@@ -92,7 +92,7 @@ describe("common/types/pb/type_test.go", () => {
   });
 
   it("common/types/pb/type_test.go/TestTypeDescriptionJSONFieldMap", () => {
-    const pbdb = db(JSONFieldNames(true));
+    const pbdb = db(jsonFieldNamesOption(true));
     pbdb.registerMessage(
       { $typeName: Proto3TestAllTypesSchema.typeName },
       Proto3TestAllTypesSchema,
@@ -135,7 +135,7 @@ describe("common/types/pb/type_test.go", () => {
       standaloneEnum: 1,
       nestedType: { case: "singleNestedMessage", value: { bb: 123 } },
       singleValue: fromJson(ValueSchema, "hello world"),
-      singleStruct: fromJson(StructSchema, { null: null }),
+      singleStruct: fromJson(StructSchema, { null: null }) as never,
     });
     pbdb.registerMessage(msg, Proto3TestAllTypesSchema);
     const [td, found] = pbdb.describeType(Proto3TestAllTypesSchema.typeName);
@@ -173,7 +173,7 @@ describe("common/types/pb/type_test.go", () => {
     );
     const [td, found] = pbdb.describeType(Proto3TestAllTypesSchema.typeName);
     expect(found).toBe(true);
-    const tests = syncedPbCases<{ field: string; isSet: boolean; msg: unknown }>(
+    const tests = syncedCases<{ field: string; isSet: boolean; msg: unknown }>(
       "common/types/pb/type_test.go/TestFieldDescriptionIsSet",
     );
     for (const tc of tests) {
@@ -189,7 +189,7 @@ describe("common/types/pb/type_test.go", () => {
       { $typeName: Proto3TestAllTypesSchema.typeName },
       Proto3TestAllTypesSchema,
     );
-    const tests = syncedPbCases<{ in: { $expr?: string }; out: unknown }>(
+    const tests = syncedCases<{ in: { $expr?: string }; out: unknown }>(
       "common/types/pb/type_test.go/TestTypeDescriptionMaybeUnwrap",
     );
     for (const tc of tests) {

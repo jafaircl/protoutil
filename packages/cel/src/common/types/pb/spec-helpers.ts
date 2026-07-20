@@ -32,7 +32,6 @@ import {
   ValueSchema,
 } from "@bufbuild/protobuf/wkt";
 import { expect } from "vitest";
-import syncedCases from "../../../../testdata/cel-go/cel-go-test-cases.json";
 import {
   ExampleTypeSchema,
   ExtendedExampleTypeSchema,
@@ -60,7 +59,6 @@ const registry = createRegistry(
   TimestampSchema.file,
   ValueSchema.file,
 );
-const jsonCases = syncedCases as Record<string, unknown>;
 const schemaByTypeName = new Map<string, DescMessage>([
   [AnySchema.typeName, AnySchema],
   [BoolValueSchema.typeName, BoolValueSchema],
@@ -97,10 +95,6 @@ export function expectProtoEqual(actual: unknown, expected: unknown): void {
   ).toBe(true);
 }
 
-export function syncedPbCases<T>(name: string): T[] {
-  return (jsonCases[name] as T[] | undefined) ?? [];
-}
-
 export function descriptorRoundTripFiles() {
   const files = new Map<
     string,
@@ -122,10 +116,6 @@ export function dynamicMessage<Desc extends DescMessage>(
   message: MessageShape<Desc>,
 ): MessageShape<Desc> {
   return fromBinary(schema, toBinary(schema, message));
-}
-
-export function packAny<Desc extends DescMessage>(schema: Desc, message: MessageShape<Desc>) {
-  return anyPack(schema, message);
 }
 
 export function jsonList(values: unknown[]) {
@@ -340,7 +330,7 @@ function maybeResolveAnyMessage(expr: string): unknown {
   if (!schema) {
     throw new Error(`message descriptor not found for ${nested.$typeName}`);
   }
-  return packAny(schema, nested as MessageShape<typeof schema>);
+  return anyPack(schema, nested as MessageShape<typeof schema>);
 }
 
 function maybeResolveDynamicMessage(expr: string): unknown {

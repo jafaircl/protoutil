@@ -1,16 +1,16 @@
+import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import { err, maybeNoSuchOverloadErr } from "./err.js";
 import { IntNegOne, IntOne, IntZero } from "./int.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
+import type { Comparer, Negater } from "./traits/index.js";
 import { BoolType, StringType, TypeType } from "./types.js";
 
 /**
  * Bool implements ref.Val and supports comparison and negation.
  */
-export class Bool {
+export class Bool implements Val, Comparer, Negater {
   constructor(private readonly inner: boolean) {}
-
-  /** Compare implements the traits.Comparer interface method. */
   public compare(other: Val): Val {
     if (!(other instanceof Bool)) {
       return maybeNoSuchOverloadErr(other);
@@ -20,13 +20,12 @@ export class Bool {
     }
     return this.inner ? IntOne : IntNegOne;
   }
-
-  /** ConvertToNative implements the ref.Val interface method. */
-  public convertToNative(): boolean {
+  public convertToNative(typeDesc?: unknown): unknown {
+    if (typeDesc === ValueSchema) {
+      return { $typeName: "google.protobuf.Value", kind: { case: "boolValue", value: this.inner } };
+    }
     return this.inner;
   }
-
-  /** ConvertToType implements the ref.Val interface method. */
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {
       case StringType:
@@ -39,28 +38,20 @@ export class Bool {
         return err(`type conversion error from '${BoolType}' to '${typeValue.typeName()}'`);
     }
   }
-
-  /** Equal implements the ref.Val interface method. */
   public equal(other: Val): Val {
-    return new Bool(other instanceof Bool && this.inner === other.inner);
+    return other instanceof Bool && this.inner === other.inner ? True : False;
   }
 
   /** IsZeroValue returns true if the boolean value is false. */
   public isZeroValue(): boolean {
     return !this.inner;
   }
-
-  /** Negate implements the traits.Negater interface method. */
   public negate(): Val {
     return this.inner ? False : True;
   }
-
-  /** Type implements the ref.Val interface method. */
   public type(): RefType {
     return BoolType;
   }
-
-  /** Value implements the ref.Val interface method. */
   public value(): boolean {
     return this.inner;
   }

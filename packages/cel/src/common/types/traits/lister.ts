@@ -2,7 +2,8 @@ import type { Val } from "../ref/index.js";
 import type { Container } from "./container.js";
 import type { Indexer } from "./indexer.js";
 import type { Iterable } from "./iterator.js";
-import type { Adder, Sizer } from "./math.js";
+import type { Adder } from "./math.js";
+import type { Sizer } from "./sizer.js";
 
 /**
  * Lister aggregates the traits of a list.

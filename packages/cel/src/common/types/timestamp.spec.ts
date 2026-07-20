@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as overloads from "../overloads.js";
+import { syncedCases } from "../spec-helpers.js";
 import {
   Bool,
   String as CelString,
@@ -8,7 +9,6 @@ import {
   type Timestamp,
   timestampOf,
 } from "./index.js";
-import { syncedTypeCases } from "./spec-helpers.js";
 
 describe("common/types timestamp", () => {
   it.todo(
@@ -29,7 +29,7 @@ describe("common/types timestamp", () => {
   });
 
   it("common/types/timestamp_test.go/TestTimestampOperators", () => {
-    const cases = syncedTypeCases<{ name: string; op: unknown; out: unknown }>(
+    const cases = syncedCases<{ name: string; op: unknown; out: unknown }>(
       "common/types/timestamp_test.go/TestTimestampOperators",
     );
     for (const testCase of cases) {

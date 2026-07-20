@@ -1,0 +1,37 @@
+import { describe, expect, it } from "vitest";
+import { container, defaultContainer } from "../common/containers.js";
+import { functionDecl, overload } from "../common/decls.js";
+import { textSource } from "../common/source.js";
+import { standardFunctions } from "../common/stdlib.js";
+import { BoolType, StringType } from "../common/types/index.js";
+import { registry } from "../common/types/provider.js";
+import { parseSource } from "../parser/parser.js";
+import { tryCheck } from "./checker.js";
+import { env } from "./env.js";
+import { validatedDeclarations } from "./options.js";
+
+describe("checker/env", () => {
+  it("checker/env_test.go/TestOverlappingMacro", () => {
+    const e = env(defaultContainer, registry());
+    e.addFunctions(...standardFunctions());
+    expect(() =>
+      e.addFunctions(functionDecl("has", { overloads: [overload("has", [StringType], BoolType)] })),
+    ).toThrow(/overlapping macro/);
+  });
+
+  it("checker/env_test.go/TestCopyDeclarations", () => {
+    const source = textSource("1 + 2 != 3 - 4");
+    const parsed = parseSource(source);
+
+    const original = env(defaultContainer, registry());
+    original.addFunctions(...standardFunctions());
+    const originalResult = tryCheck(parsed, source, original);
+    expect(originalResult.errors).toBeUndefined();
+
+    const copy = env(container(), registry(), {
+      validatedDeclarations: validatedDeclarations(original),
+    });
+    const copiedResult = tryCheck(parsed, source, copy);
+    expect(copiedResult.errors).toBeUndefined();
+  });
+});

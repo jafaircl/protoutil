@@ -1,10 +1,10 @@
 {
   "testFilesScanned": 97,
-  "candidateTablesFound": 233,
-  "exportedTables": 229,
-  "rowsExported": 3146,
-  "structuredFields": 6247,
-  "fallbackFields": 2607,
+  "candidateTablesFound": 235,
+  "exportedTables": 231,
+  "rowsExported": 3442,
+  "structuredFields": 6972,
+  "fallbackFields": 2991,
   "skippedTables": [],
   "unresolvedTableUsages": [
     {
@@ -386,6 +386,11 @@
       "file": "tools/celtest/test_coverage_reporter_test.go",
       "test": "TestCoverageStats",
       "table": "tests"
+    },
+    {
+      "file": "tools/celtest/test_runner_test.go",
+      "test": "TestTriggerTests",
+      "table": "setupTests"
     }
   ]
 }

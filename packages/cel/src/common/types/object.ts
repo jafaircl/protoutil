@@ -17,10 +17,11 @@ import { AnySchema, anyPack } from "@bufbuild/protobuf/wkt";
 import { getField as getProtoField } from "@protoutil/core";
 import { anyValueType } from "./any-value.js";
 import { err, errFromString, maybeNoSuchOverloadErr } from "./err.js";
-import { Format } from "./format.js";
+import { formatVal } from "./format.js";
 import { JSONValueType } from "./json-value.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
+import type { FieldTester, Indexer } from "./traits/index.js";
 import { TypeType } from "./types.js";
 
 const registryMap = new WeakMap<DescMessage, Registry>();
@@ -35,15 +36,13 @@ const fieldMap = new WeakMap<DescMessage, Map<string, DescField>>();
  * type provider. If the proto type is not registered within the type provider,
  * then this will result in an error within the type adapter / provider.
  */
-export class protoObj implements Val {
+export class protoObj implements Val, FieldTester, Indexer {
   constructor(
     private readonly adapter: TypeAdapter,
     private readonly typeDesc: DescMessage,
     private readonly typeValue: Val,
     private readonly pbValue: Message,
   ) {}
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
   public convertToNative(typeDesc: unknown): unknown {
     const srcPB = this.pbValue;
     if (typeDesc === this.typeDesc) {
@@ -81,8 +80,6 @@ export class protoObj implements Val {
       `type conversion error from '${this.pbValue.$typeName}' to '${String(typeDesc)}'`,
     );
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(typeVal: RefType): Val {
     switch (typeVal) {
       case TypeType:
@@ -98,8 +95,6 @@ export class protoObj implements Val {
       typeVal.typeName(),
     );
   }
-
-  /** Equal implements ref.Val.Equal. */
   public equal(other: Val): Val {
     const otherPB = other.value();
     const ok = isMessage(otherPB);
@@ -157,13 +152,9 @@ export class protoObj implements Val {
       return errFromString((cause as Error).message);
     }
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return this.typeValue as unknown as RefType;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): unknown {
     return this.pbValue;
   }
@@ -179,14 +170,14 @@ export class protoObj implements Val {
       if (index > 0) {
         sb.push(", ");
       }
-      sb.push(field.name, ": ", Format(this.get(new CelString(field.name))));
+      sb.push(field.name, ": ", formatVal(this.get(new CelString(field.name))));
     }
     sb.push("}");
   }
 
   /** String returns the human-readable formatted value. */
   public toString(): string {
-    return Format(this);
+    return formatVal(this);
   }
 }
 

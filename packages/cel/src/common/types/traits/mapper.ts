@@ -2,7 +2,7 @@ import type { Val } from "../ref/index.js";
 import type { Container } from "./container.js";
 import type { Indexer } from "./indexer.js";
 import type { Iterable } from "./iterator.js";
-import type { Sizer } from "./math.js";
+import type { Sizer } from "./sizer.js";
 
 /**
  * Mapper aggregates the traits of a map.

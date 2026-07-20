@@ -11,9 +11,9 @@ export function setIteratorType(type: RefType): void {
 }
 
 /**
- * baseIterator is the basis for list, map, and object iterators.
+ * BaseIterator provides the shared ref.Val implementation used by concrete CEL iterators.
  */
-export class BaseIterator {
+export class BaseIterator implements Val {
   /** ConvertToNative reports that iterator conversion is unsupported. */
   public convertToNative(): never {
     throw new globalThis.Error("type conversion on iterators not supported");

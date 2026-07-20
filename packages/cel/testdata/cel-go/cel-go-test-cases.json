@@ -3739,6 +3739,1213 @@
       "expr": "timestamp(x)"
     }
   ],
+  "checker/checker_test.go/TestCheck": [
+    {
+      "in": "\"A\"",
+      "out": "\"A\"~string",
+      "outType": {
+        "$expr": "types.StringType"
+      }
+    },
+    {
+      "in": "12",
+      "out": "12~int",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "in": "12u",
+      "out": "12u~uint",
+      "outType": {
+        "$expr": "types.UintType"
+      }
+    },
+    {
+      "in": "true",
+      "out": "true~bool",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "false",
+      "out": "false~bool",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "12.23",
+      "out": "12.23~double",
+      "outType": {
+        "$expr": "types.DoubleType"
+      }
+    },
+    {
+      "in": "null",
+      "out": "null~null",
+      "outType": {
+        "$expr": "types.NullType"
+      }
+    },
+    {
+      "in": "b\"ABC\"",
+      "out": "b\"ABC\"~bytes",
+      "outType": {
+        "$expr": "types.BytesType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "is",
+      "out": "is~string^is",
+      "outType": {
+        "$expr": "types.StringType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "ii",
+      "out": "ii~int^ii",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "iu",
+      "out": "iu~uint^iu",
+      "outType": {
+        "$expr": "types.UintType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "iz",
+      "out": "iz~bool^iz",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "id",
+      "out": "id~double^id",
+      "outType": {
+        "$expr": "types.DoubleType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "ix",
+      "out": "ix~null^ix",
+      "outType": {
+        "$expr": "types.NullType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "ib",
+      "out": "ib~bytes^ib",
+      "outType": {
+        "$expr": "types.BytesType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "id",
+      "out": "id~double^id",
+      "outType": {
+        "$expr": "types.DoubleType"
+      }
+    },
+    {
+      "in": "[]",
+      "out": "[]~list(dyn)",
+      "outType": {
+        "$expr": "types.NewListType(types.DynType)"
+      }
+    },
+    {
+      "in": "[1]",
+      "out": "[1~int]~list(int)",
+      "outType": {
+        "$expr": "types.NewListType(types.IntType)"
+      }
+    },
+    {
+      "in": "[1, \"A\"]",
+      "out": "[1~int, \"A\"~string]~list(dyn)",
+      "outType": {
+        "$expr": "types.NewListType(types.DynType)"
+      }
+    },
+    {
+      "err": "\nERROR: \u003cinput\u003e:1:1: undeclared reference to 'foo' (in container '')\n| foo\n| ^",
+      "in": "foo",
+      "out": "foo~!error!",
+      "outType": {
+        "$expr": "types.ErrorType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "fg_s()",
+      "out": "fg_s()~string^fg_s_0",
+      "outType": {
+        "$expr": "types.StringType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "is.fi_s_s()",
+      "out": "is~string^is.fi_s_s()~string^fi_s_s_0",
+      "outType": {
+        "$expr": "types.StringType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "1 + 2",
+      "out": "_+_(1~int, 2~int)~int^add_int64",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "1 + ii",
+      "out": "_+_(1~int, ii~int^ii)~int^add_int64",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnvs(t)[\"default\"]"
+      },
+      "in": "[1] + [2]",
+      "out": "_+_([1~int]~list(int), [2~int]~list(int))~list(int)^add_list",
+      "outType": {
+        "$expr": "types.NewListType(types.IntType)"
+      }
+    },
+    {
+      "in": "[] + [1,2,3,] + [4]",
+      "out": "\n\t_+_(\n\t\t_+_(\n\t\t\t[]~list(int),\n\t\t\t[1~int, 2~int, 3~int]~list(int))~list(int)^add_list,\n\t\t\t[4~int]~list(int))\n\t~list(int)^add_list\n\t",
+      "outType": {
+        "$expr": "types.NewListType(types.IntType)"
+      }
+    },
+    {
+      "in": "[1, 2u] + []",
+      "out": "_+_(\n\t\t\t[\n\t\t\t\t1~int,\n\t\t\t\t2u~uint\n\t\t\t]~list(dyn),\n\t\t\t[]~list(dyn)\n\t\t)~list(dyn)^add_list",
+      "outType": {
+        "$expr": "types.NewListType(types.DynType)"
+      }
+    },
+    {
+      "in": "{1:2u, 2:3u}",
+      "out": "{1~int : 2u~uint, 2~int : 3u~uint}~map(int, uint)",
+      "outType": {
+        "$expr": "types.NewMapType(types.IntType, types.UintType)"
+      }
+    },
+    {
+      "in": "{\"a\":1, \"b\":2}.a",
+      "out": "{\"a\"~string : 1~int, \"b\"~string : 2~int}~map(string, int).a~int",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "in": "{1:2u, 2u:3}",
+      "out": "{1~int : 2u~uint, 2u~uint : 3~int}~map(dyn, dyn)",
+      "outType": {
+        "$expr": "types.NewMapType(types.DynType, types.DynType)"
+      }
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "in": "TestAllTypes{single_int32: 1, single_int64: 2}",
+      "out": "\n\t\tgoogle.expr.proto3.test.TestAllTypes{\n\t\t\tsingle_int32 : 1~int,\n\t\t\tsingle_int64 : 2~int\n\t\t}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes",
+      "outType": {
+        "$expr": "types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")"
+      }
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "err": "\n\tERROR: \u003cinput\u003e:1:26: expected type of field 'single_int32' is 'int' but provided type is 'uint'\n\t  | TestAllTypes{single_int32: 1u}\n\t  | .........................^",
+      "in": "TestAllTypes{single_int32: 1u}"
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "err": "\n\tERROR: \u003cinput\u003e:1:40: undefined field 'undefined'\n\t  | TestAllTypes{single_int32: 1, undefined: 2}\n\t  | .......................................^",
+      "in": "TestAllTypes{single_int32: 1, undefined: 2}"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewListType(types.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "size(x) == x.size()",
+      "out": "\n_==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^list_size)\n  ~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "int(1u) + int(uint(\"1\"))",
+      "out": "\n_+_(int(1u~uint)~int^uint64_to_int64,\n      int(uint(\"1\"~string)~uint^string_to_uint64)~int^uint64_to_int64)\n  ~int^add_int64",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "in": "false \u0026\u0026 !true || false ? 2 : 3",
+      "out": "\n_?_:_(_||_(_\u0026\u0026_(false~bool, !_(true~bool)~bool^logical_not)~bool^logical_and,\n            false~bool)\n        ~bool^logical_or,\n      2~int,\n      3~int)\n  ~int^conditional\n",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "in": "b\"abc\" + b\"def\"",
+      "out": "_+_(b\"abc\"~bytes, b\"def\"~bytes)~bytes^add_bytes",
+      "outType": {
+        "$expr": "types.BytesType"
+      }
+    },
+    {
+      "in": "1.0 + 2.0 * 3.0 - 1.0 / 2.20202 != 66.6",
+      "out": "\n_!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)\n           ~double^add_double,\n           _/_(1~double, 2.20202~double)~double^divide_double)\n       ~double^subtract_double,\n      66.6~double)\n  ~bool^not_equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "null == null \u0026\u0026 null != null",
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_==_(\n\t\t\t\tnull~null,\n\t\t\t\tnull~null\n\t\t\t)~bool^equals,\n\t\t\t_!=_(\n\t\t\t\tnull~null,\n\t\t\t\tnull~null\n\t\t\t)~bool^not_equals\n\t\t)~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "1 == 1 \u0026\u0026 2 != 1",
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_==_(\n\t\t\t\t1~int,\n\t\t\t\t1~int\n\t\t\t)~bool^equals,\n\t\t\t_!=_(\n\t\t\t\t2~int,\n\t\t\t\t1~int\n\t\t\t)~bool^not_equals\n\t\t)~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "1 + 2 * 3 - 1 / 2 == 6 % 1",
+      "out": " _==_(_-_(_+_(1~int, _*_(2~int, 3~int)~int^multiply_int64)~int^add_int64, _/_(1~int, 2~int)~int^divide_int64)~int^subtract_int64, _%_(6~int, 1~int)~int^modulo_int64)~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "\"abc\" + \"def\"",
+      "out": "_+_(\"abc\"~string, \"def\"~string)~string^add_string",
+      "outType": {
+        "$expr": "types.StringType"
+      }
+    },
+    {
+      "in": "1u + 2u * 3u - 1u / 2u == 6u % 1u",
+      "out": "_==_(_-_(_+_(1u~uint, _*_(2u~uint, 3u~uint)~uint^multiply_uint64)\n\t         ~uint^add_uint64,\n\t         _/_(1u~uint, 2u~uint)~uint^divide_uint64)\n\t     ~uint^subtract_uint64,\n\t    _%_(6u~uint, 1u~uint)~uint^modulo_uint64)\n\t~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.Proto2Message\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "\n\tERROR: \u003cinput\u003e:1:2: unexpected failed resolution of 'google.expr.proto3.test.Proto2Message'\n\t  | x.single_int32 != null\n\t  | .^\n\t",
+      "in": "x.single_int32 != null"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_value + 1 / x.single_struct.y == 23",
+      "out": "_==_(\n\t\t\t_+_(\n\t\t\t  x~google.expr.proto3.test.TestAllTypes^x.single_value~dyn,\n\t\t\t  _/_(\n\t\t\t\t1~int,\n\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn).y~dyn\n\t\t\t  )~int^divide_int64\n\t\t\t)~int^add_int64,\n\t\t\t23~int\n\t\t  )~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_value[23] + x.single_struct['y']",
+      "out": "_+_(\n\t\t\t_[_](\n\t\t\t  x~google.expr.proto3.test.TestAllTypes^x.single_value~dyn,\n\t\t\t  23~int\n\t\t\t)~dyn^index_list|index_map,\n\t\t\t_[_](\n\t\t\t  x~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn),\n\t\t\t  \"y\"~string\n\t\t\t)~dyn^index_map\n\t\t  )~dyn^add_bytes|add_double|add_duration_duration|add_duration_timestamp|add_int64|add_list|add_string|add_timestamp_duration|add_uint64\n\t\t  ",
+      "outType": {
+        "$expr": "types.DynType"
+      }
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "in": "TestAllTypes.NestedEnum.BAR != 99",
+      "out": "_!=_(google.expr.proto3.test.TestAllTypes.NestedEnum.BAR\n\t     ~int^google.expr.proto3.test.TestAllTypes.NestedEnum.BAR,\n\t    99~int)\n\t~bool^not_equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "size([] + [1])",
+      "out": "size(_+_([]~list(int), [1~int]~list(int))~list(int)^add_list)~int^size_list",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.protobuf.Struct\")),\n\t\t\t\t\tdecls.NewVariable(\"y\", types.NewObjectType(\"google.protobuf.ListValue\")),\n\t\t\t\t\tdecls.NewVariable(\"z\", types.NewObjectType(\"google.protobuf.Value\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x[\"claims\"][\"groups\"][0].name == \"dummy\"\n\t\t\u0026\u0026 x.claims[\"exp\"] == y[1].time\n\t\t\u0026\u0026 x.claims.structured == {'key': z}\n\t\t\u0026\u0026 z == 1.0",
+      "out": "_\u0026\u0026_(\n\t\t\t_\u0026\u0026_(\n\t\t\t\t_==_(\n\t\t\t\t\t_[_](\n\t\t\t\t\t\t_[_](\n\t\t\t\t\t\t\t_[_](\n\t\t\t\t\t\t\t\tx~map(string, dyn)^x,\n\t\t\t\t\t\t\t\t\"claims\"~string\n\t\t\t\t\t\t\t)~dyn^index_map,\n\t\t\t\t\t\t\t\"groups\"~string\n\t\t\t\t\t\t)~list(dyn)^index_map,\n\t\t\t\t\t\t0~int\n\t\t\t\t\t)~dyn^index_list.name~dyn,\n\t\t\t\t\t\"dummy\"~string\n\t\t\t\t)~bool^equals,\n\t\t\t\t_==_(\n\t\t\t\t\t_[_](\n\t\t\t\t\t\tx~map(string, dyn)^x.claims~dyn,\n\t\t\t\t\t\t\"exp\"~string\n\t\t\t\t\t)~dyn^index_map,\n\t\t\t\t\t_[_](\n\t\t\t\t\t\ty~list(dyn)^y,\n\t\t\t\t\t\t1~int\n\t\t\t\t\t)~dyn^index_list.time~dyn\n\t\t\t\t)~bool^equals\n\t\t\t)~bool^logical_and,\n\t\t\t_\u0026\u0026_(\n\t\t\t\t_==_(\n\t\t\t\t\tx~map(string, dyn)^x.claims~dyn.structured~dyn,\n\t\t\t\t\t{\n\t\t\t\t\t\t\"key\"~string:z~dyn^z\n\t\t\t\t\t}~map(string, dyn)\n\t\t\t\t)~bool^equals,\n\t\t\t\t_==_(\n\t\t\t\t\tz~dyn^z,\n\t\t\t\t\t1~double\n\t\t\t\t)~bool^equals\n\t\t\t)~bool^logical_and\n\t\t)~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewListType(types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))),\n\t\t\t\t\tdecls.NewVariable(\"y\", types.NewListType(types.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "\nERROR: \u003cinput\u003e:1:3: found no matching overload for '_+_' applied to '(list(google.expr.proto3.test.TestAllTypes), list(int))'\n  | x + y\n  | ..^\n\t\t",
+      "in": "x + y",
+      "out": ""
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewListType(types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "\nERROR: \u003cinput\u003e:1:2: found no matching overload for '_[_]' applied to '(list(google.expr.proto3.test.TestAllTypes), uint)'\n  | x[1u]\n  | .^\n",
+      "in": "x[1u]"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewListType(types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "(x + x)[1].single_int32 == size(x)",
+      "out": "\n_==_(_[_](_+_(x~list(google.expr.proto3.test.TestAllTypes)^x,\n                x~list(google.expr.proto3.test.TestAllTypes)^x)\n            ~list(google.expr.proto3.test.TestAllTypes)^add_list,\n           1~int)\n       ~google.expr.proto3.test.TestAllTypes^index_list\n       .\n       single_int32\n       ~int,\n      size(x~list(google.expr.proto3.test.TestAllTypes)^x)~int^size_list)\n  ~bool^equals\n\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.repeated_int64[x.single_int32] == 23",
+      "out": "\n_==_(_[_](x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),\n           x~google.expr.proto3.test.TestAllTypes^x.single_int32~int)\n       ~int^index_list,\n      23~int)\n  ~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "size(x.map_int64_nested_type) == 0",
+      "out": "\n_==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type\n            ~map(int, google.expr.proto3.test.NestedTestAllTypes))\n       ~int^size_map,\n      0~int)\n  ~bool^equals\n\t\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.BoolType),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "ERROR: \u003cinput\u003e:1:1: expression of type 'bool' cannot be range of a comprehension (must be list, map, or dynamic)\n\t\t| x.all(y, y == true)\n\t\t| ^",
+      "in": "x.all(y, y == true)",
+      "out": "\n\t\t__comprehension__(\n\t\t// Variable\n\t\ty,\n\t\t// Target\n\t\tx~bool^x,\n\t\t// Accumulator\n\t\t@result,\n\t\t// Init\n\t\ttrue~bool,\n\t\t// LoopCondition\n\t\t@not_strictly_false(\n\t\t\t@result~bool^@result\n\t\t)~bool^not_strictly_false,\n\t\t// LoopStep\n\t\t_\u0026\u0026_(\n\t\t\t@result~bool^@result,\n\t\t\t_==_(\n\t\t\ty~!error!^y,\n\t\t\ttrue~bool\n\t\t\t)~bool^equals\n\t\t)~bool^logical_and,\n\t\t// Result\n\t\t@result~bool^@result)~bool\n\t\t"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.repeated_int64.map(x, double(x))",
+      "out": "\n\t\t__comprehension__(\n    \t\t  // Variable\n    \t\t  x,\n    \t\t  // Target\n    \t\t  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),\n    \t\t  // Accumulator\n    \t\t  @result,\n    \t\t  // Init\n    \t\t  []~list(double),\n    \t\t  // LoopCondition\n    \t\t  true~bool,\n    \t\t  // LoopStep\n    \t\t  _+_(\n    \t\t    @result~list(double)^@result,\n    \t\t    [\n    \t\t      double(\n    \t\t        x~int^x\n    \t\t      )~double^int64_to_double\n    \t\t    ]~list(double)\n    \t\t  )~list(double)^add_list,\n    \t\t  // Result\n    \t\t  @result~list(double)^@result)~list(double)\n\t\t",
+      "outType": {
+        "$expr": "types.NewListType(types.DoubleType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.repeated_int64.map(x, x \u003e 0, double(x))",
+      "out": "\n\t__comprehension__(\n    \t\t  // Variable\n    \t\t  x,\n    \t\t  // Target\n    \t\t  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),\n    \t\t  // Accumulator\n    \t\t  @result,\n    \t\t  // Init\n    \t\t  []~list(double),\n    \t\t  // LoopCondition\n    \t\t  true~bool,\n    \t\t  // LoopStep\n    \t\t  _?_:_(\n    \t\t    _\u003e_(\n    \t\t      x~int^x,\n    \t\t      0~int\n    \t\t    )~bool^greater_int64,\n    \t\t    _+_(\n    \t\t      @result~list(double)^@result,\n    \t\t      [\n    \t\t        double(\n    \t\t          x~int^x\n    \t\t        )~double^int64_to_double\n    \t\t      ]~list(double)\n    \t\t    )~list(double)^add_list,\n    \t\t    @result~list(double)^@result\n    \t\t  )~list(double)^conditional,\n    \t\t  // Result\n    \t\t  @result~list(double)^@result)~list(double)\n\t\t",
+      "outType": {
+        "$expr": "types.NewListType(types.DoubleType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\",\n\t\t\t\t\t\ttypes.NewMapType(types.StringType,\n\t\t\t\t\t\t\ttypes.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "\nERROR: \u003cinput\u003e:1:2: found no matching overload for '_[_]' applied to '(map(string, google.expr.proto3.test.TestAllTypes), int)'\n  | x[2].single_int32 == 23\n  | .^\n\t\t",
+      "in": "x[2].single_int32 == 23"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\",\n\t\t\t\t\t\ttypes.NewMapType(types.StringType,\n\t\t\t\t\t\t\ttypes.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x[\"a\"].single_int32 == 23",
+      "out": "\n\t\t_==_(_[_](x~map(string, google.expr.proto3.test.TestAllTypes)^x, \"a\"~string)\n\t\t~google.expr.proto3.test.TestAllTypes^index_map\n\t\t.\n\t\tsingle_int32\n\t\t~int,\n\t\t23~int)\n\t\t~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_nested_message.bb == 43 \u0026\u0026 has(x.single_nested_message)",
+      "out": "_\u0026\u0026_(\n    \t\t  _==_(\n    \t\t    x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~google.expr.proto3.test.TestAllTypes.NestedMessage.bb~int,\n    \t\t    43~int\n    \t\t  )~bool^equals,\n    \t\t  x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~test-only~~bool\n    \t\t)~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "\nERROR: \u003cinput\u003e:1:24: undefined field 'undefined'\n| x.single_nested_message.undefined == x.undefined \u0026\u0026 has(x.single_int32) \u0026\u0026 has(x.repeated_int32)\n| .......................^\nERROR: \u003cinput\u003e:1:39: undefined field 'undefined'\n| x.single_nested_message.undefined == x.undefined \u0026\u0026 has(x.single_int32) \u0026\u0026 has(x.repeated_int32)\n| ......................................^",
+      "in": "x.single_nested_message.undefined == x.undefined \u0026\u0026 has(x.single_int32) \u0026\u0026 has(x.repeated_int32)"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_nested_message != null",
+      "out": "\n\t\t_!=_(x~google.expr.proto3.test.TestAllTypes^x.single_nested_message\n\t\t~google.expr.proto3.test.TestAllTypes.NestedMessage,\n\t\tnull~null)\n\t\t~bool^not_equals\n\t\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "\nERROR: \u003cinput\u003e:1:16: found no matching overload for '_!=_' applied to '(int, null)'\n | x.single_int64 != null\n | ...............^\n\t\t",
+      "in": "x.single_int64 != null"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_int64_wrapper == null",
+      "out": "\n\t\t_==_(x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper\n\t\t~wrapper(int),\n\t\tnull~null)\n\t\t~bool^equals\n\t\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_bool_wrapper\n\t\t\u0026\u0026 x.single_bytes_wrapper == b'hi'\n\t\t\u0026\u0026 x.single_double_wrapper != 2.0\n\t\t\u0026\u0026 x.single_float_wrapper == 1.0\n\t\t\u0026\u0026 x.single_int32_wrapper != 2\n\t\t\u0026\u0026 x.single_int64_wrapper == 1\n\t\t\u0026\u0026 x.single_string_wrapper == 'hi'\n\t\t\u0026\u0026 x.single_uint32_wrapper == 1u\n\t\t\u0026\u0026 x.single_uint64_wrapper != 42u",
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_\u0026\u0026_(\n\t\t\t\t_\u0026\u0026_(\n\t\t\t\t_\u0026\u0026_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_bool_wrapper~wrapper(bool),\n\t\t\t\t\t_==_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_bytes_wrapper~wrapper(bytes),\n\t\t\t\t\tb\"hi\"~bytes\n\t\t\t\t\t)~bool^equals\n\t\t\t\t)~bool^logical_and,\n\t\t\t\t_!=_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_double_wrapper~wrapper(double),\n\t\t\t\t\t2~double\n\t\t\t\t)~bool^not_equals\n\t\t\t\t)~bool^logical_and,\n\t\t\t\t_\u0026\u0026_(\n\t\t\t\t_==_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_float_wrapper~wrapper(double),\n\t\t\t\t\t1~double\n\t\t\t\t)~bool^equals,\n\t\t\t\t_!=_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_int32_wrapper~wrapper(int),\n\t\t\t\t\t2~int\n\t\t\t\t)~bool^not_equals\n\t\t\t\t)~bool^logical_and\n\t\t\t)~bool^logical_and,\n\t\t\t_\u0026\u0026_(\n\t\t\t\t_\u0026\u0026_(\n\t\t\t\t_==_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper~wrapper(int),\n\t\t\t\t\t1~int\n\t\t\t\t)~bool^equals,\n\t\t\t\t_==_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_string_wrapper~wrapper(string),\n\t\t\t\t\t\"hi\"~string\n\t\t\t\t)~bool^equals\n\t\t\t\t)~bool^logical_and,\n\t\t\t\t_\u0026\u0026_(\n\t\t\t\t_==_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_uint32_wrapper~wrapper(uint),\n\t\t\t\t\t1u~uint\n\t\t\t\t)~bool^equals,\n\t\t\t\t_!=_(\n\t\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.single_uint64_wrapper~wrapper(uint),\n\t\t\t\t\t42u~uint\n\t\t\t\t)~bool^not_equals\n\t\t\t\t)~bool^logical_and\n\t\t\t)~bool^logical_and\n\t\t)~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_timestamp == google.protobuf.Timestamp{seconds: 20} \u0026\u0026\n\t\t     x.single_duration \u003c google.protobuf.Duration{seconds: 10}",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_bool_wrapper == google.protobuf.BoolValue{value: true}\n\t\t\t\u0026\u0026 x.single_bytes_wrapper == google.protobuf.BytesValue{value: b'hi'}\n\t\t\t\u0026\u0026 x.single_double_wrapper != google.protobuf.DoubleValue{value: 2.0}\n\t\t\t\u0026\u0026 x.single_float_wrapper == google.protobuf.FloatValue{value: 1.0}\n\t\t\t\u0026\u0026 x.single_int32_wrapper != google.protobuf.Int32Value{value: -2}\n\t\t\t\u0026\u0026 x.single_int64_wrapper == google.protobuf.Int64Value{value: 1}\n\t\t\t\u0026\u0026 x.single_string_wrapper == google.protobuf.StringValue{value: 'hi'}\n\t\t\t\u0026\u0026 x.single_string_wrapper == google.protobuf.Value{string_value: 'hi'}\n\t\t\t\u0026\u0026 x.single_uint32_wrapper == google.protobuf.UInt32Value{value: 1u}\n\t\t\t\u0026\u0026 x.single_uint64_wrapper != google.protobuf.UInt64Value{value: 42u}",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "ERROR: \u003cinput\u003e:1:39: undeclared reference to 'y' (in container '')\n\t\t| x.repeated_int64.exists(y, y \u003e 10) \u0026\u0026 y \u003c 5\n\t\t| ......................................^",
+      "in": "x.repeated_int64.exists(y, y \u003e 10) \u0026\u0026 y \u003c 5"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.repeated_int64.all(e, e \u003e 0) \u0026\u0026 x.repeated_int64.exists(e, e \u003c 0) \u0026\u0026 x.repeated_int64.exists_one(e, e == 0)",
+      "out": "_\u0026\u0026_(\n\t\t\t_\u0026\u0026_(\n\t\t\t  __comprehension__(\n\t\t\t\t// Variable\n\t\t\t\te,\n\t\t\t\t// Target\n\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),\n\t\t\t\t// Accumulator\n\t\t\t\t@result,\n\t\t\t\t// Init\n\t\t\t\ttrue~bool,\n\t\t\t\t// LoopCondition\n\t\t\t\t@not_strictly_false(\n\t\t\t\t  @result~bool^@result\n\t\t\t\t)~bool^not_strictly_false,\n\t\t\t\t// LoopStep\n\t\t\t\t_\u0026\u0026_(\n\t\t\t\t  @result~bool^@result,\n\t\t\t\t  _\u003e_(\n\t\t\t\t\te~int^e,\n\t\t\t\t\t0~int\n\t\t\t\t  )~bool^greater_int64\n\t\t\t\t)~bool^logical_and,\n\t\t\t\t// Result\n\t\t\t\t@result~bool^@result)~bool,\n\t\t\t  __comprehension__(\n\t\t\t\t// Variable\n\t\t\t\te,\n\t\t\t\t// Target\n\t\t\t\tx~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),\n\t\t\t\t// Accumulator\n\t\t\t\t@result,\n\t\t\t\t// Init\n\t\t\t\tfalse~bool,\n\t\t\t\t// LoopCondition\n\t\t\t\t@not_strictly_false(\n\t\t\t\t  !_(\n\t\t\t\t\t@result~bool^@result\n\t\t\t\t  )~bool^logical_not\n\t\t\t\t)~bool^not_strictly_false,\n\t\t\t\t// LoopStep\n\t\t\t\t_||_(\n\t\t\t\t  @result~bool^@result,\n\t\t\t\t  _\u003c_(\n\t\t\t\t\te~int^e,\n\t\t\t\t\t0~int\n\t\t\t\t  )~bool^less_int64\n\t\t\t\t)~bool^logical_or,\n\t\t\t\t// Result\n\t\t\t\t@result~bool^@result)~bool\n\t\t\t)~bool^logical_and,\n\t\t\t__comprehension__(\n\t\t\t  // Variable\n\t\t\t  e,\n\t\t\t  // Target\n\t\t\t  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),\n\t\t\t  // Accumulator\n\t\t\t  @result,\n\t\t\t  // Init\n\t\t\t  0~int,\n\t\t\t  // LoopCondition\n\t\t\t  true~bool,\n\t\t\t  // LoopStep\n\t\t\t  _?_:_(\n\t\t\t\t_==_(\n\t\t\t\t  e~int^e,\n\t\t\t\t  0~int\n\t\t\t\t)~bool^equals,\n\t\t\t\t_+_(\n\t\t\t\t  @result~int^@result,\n\t\t\t\t  1~int\n\t\t\t\t)~int^add_int64,\n\t\t\t\t@result~int^@result\n\t\t\t  )~int^conditional,\n\t\t\t  // Result\n\t\t\t  _==_(\n\t\t\t\t@result~int^@result,\n\t\t\t\t1~int\n\t\t\t  )~bool^equals)~bool\n\t\t  )~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "\nERROR: \u003cinput\u003e:1:1: expression of type 'google.expr.proto3.test.TestAllTypes' cannot be range of a comprehension (must be list, map, or dynamic)\n | x.all(e, 0)\n | ^\nERROR: \u003cinput\u003e:1:10: expected type 'bool' but found 'int'\n | x.all(e, 0)\n | .........^\n\t\t",
+      "in": "x.all(e, 0)"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"lists\", types.DynType),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "lists.filter(x, x \u003e 1.5)",
+      "out": "__comprehension__(\n\t\t\t// Variable\n\t\t\tx,\n\t\t\t// Target\n\t\t\tlists~dyn^lists,\n\t\t\t// Accumulator\n\t\t\t@result,\n\t\t\t// Init\n\t\t\t[]~list(dyn),\n\t\t\t// LoopCondition\n\t\t\ttrue~bool,\n\t\t\t// LoopStep\n\t\t\t_?_:_(\n\t\t\t  _\u003e_(\n\t\t\t\tx~dyn^x,\n\t\t\t\t1.5~double\n\t\t\t  )~bool^greater_double|greater_int64_double|greater_uint64_double,\n\t\t\t  _+_(\n\t\t\t\t@result~list(dyn)^@result,\n\t\t\t\t[\n\t\t\t\t  x~dyn^x\n\t\t\t\t]~list(dyn)\n\t\t\t  )~list(dyn)^add_list,\n\t\t\t  @result~list(dyn)^@result\n\t\t\t)~list(dyn)^conditional,\n\t\t\t// Result\n\t\t\t@result~list(dyn)^@result)~list(dyn)",
+      "outType": {
+        "$expr": "types.NewListType(types.DynType)"
+      }
+    },
+    {
+      "in": ".google.expr.proto3.test.TestAllTypes",
+      "out": "google.expr.proto3.test.TestAllTypes\n\t~type(google.expr.proto3.test.TestAllTypes)\n\t^google.expr.proto3.test.TestAllTypes",
+      "outType": {
+        "$expr": "types.NewTypeTypeWithParam(\n\t\t\t\ttypes.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+      }
+    },
+    {
+      "container": "google.expr.proto3",
+      "in": "test.TestAllTypes",
+      "out": "\n\tgoogle.expr.proto3.test.TestAllTypes\n\t~type(google.expr.proto3.test.TestAllTypes)\n\t^google.expr.proto3.test.TestAllTypes\n\t\t",
+      "outType": {
+        "$expr": "types.NewTypeTypeWithParam(\n\t\t\t\ttypes.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+      }
+    },
+    {
+      "err": "\nERROR: \u003cinput\u003e:1:5: undeclared reference to 'x' (in container '')\n | 1 + x\n | ....^",
+      "in": "1 + x"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.AnyType),\n\t\t\t\t\tdecls.NewVariable(\"y\", types.NewNullableType(types.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x == google.protobuf.Any{\n\t\t\t\ttype_url:'types.googleapis.com/google.expr.proto3.test.TestAllTypes'\n\t\t\t} \u0026\u0026 x.single_nested_message.bb == 43\n\t\t\t|| x == google.expr.proto3.test.TestAllTypes{}\n\t\t\t|| y \u003c x\n\t\t\t|| x \u003e= x",
+      "out": "\n\t\t_||_(\n\t\t\t_||_(\n\t\t\t\t_\u0026\u0026_(\n\t\t\t\t\t_==_(\n\t\t\t\t\t\tx~any^x,\n\t\t\t\t\t\tgoogle.protobuf.Any{\n\t\t\t\t\t\t\ttype_url:\"types.googleapis.com/google.expr.proto3.test.TestAllTypes\"~string\n\t\t\t\t\t\t}~any^google.protobuf.Any\n\t\t\t\t\t)~bool^equals,\n\t\t\t\t\t_==_(\n\t\t\t\t\t\tx~any^x.single_nested_message~dyn.bb~dyn,\n\t\t\t\t\t\t43~int\n\t\t\t\t\t)~bool^equals\n\t\t\t\t)~bool^logical_and,\n\t\t\t\t_==_(\n\t\t\t\t\tx~any^x,\n\t\t\t\t\tgoogle.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes\n\t\t\t\t)~bool^equals\n\t\t\t)~bool^logical_or,\n\t\t\t_||_(\n\t\t\t\t_\u003c_(\n\t\t\t\t\ty~wrapper(int)^y,\n\t\t\t\t\tx~any^x\n\t\t\t\t)~bool^less_int64|less_int64_double|less_int64_uint64,\n\t\t\t\t_\u003e=_(\n\t\t\t\t\tx~any^x,\n\t\t\t\t\tx~any^x\n\t\t\t\t)~bool^greater_equals_bool|greater_equals_bytes|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_duration|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_string|greater_equals_timestamp|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64\n\t\t\t)~bool^logical_or\n\t\t)~bool^logical_or\n\t\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tvariadicASTs: true,\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.AnyType),\n\t\t\t\t\tdecls.NewVariable(\"y\", types.NewNullableType(types.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x == google.protobuf.Any{\n\t\t\t\ttype_url:'types.googleapis.com/google.expr.proto3.test.TestAllTypes'\n\t\t\t} \u0026\u0026 x.single_nested_message.bb == 43\n\t\t\t|| x == google.expr.proto3.test.TestAllTypes{}\n\t\t\t|| y \u003c x\n\t\t\t|| x \u003e= x",
+      "out": "\n\t\t_||_(\n\t\t\t_\u0026\u0026_(\n\t\t\t  _==_(\n\t\t\t\tx~any^x,\n\t\t\t\tgoogle.protobuf.Any{\n\t\t\t\t  type_url:\"types.googleapis.com/google.expr.proto3.test.TestAllTypes\"~string\n\t\t\t\t}~any^google.protobuf.Any\n\t\t\t  )~bool^equals,\n\t\t\t  _==_(\n\t\t\t\tx~any^x.single_nested_message~dyn.bb~dyn,\n\t\t\t\t43~int\n\t\t\t  )~bool^equals\n\t\t\t)~bool^logical_and,\n\t\t\t_==_(\n\t\t\t  x~any^x,\n\t\t\t  google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes\n\t\t\t)~bool^equals,\n\t\t\t_\u003c_(\n\t\t\t  y~wrapper(int)^y,\n\t\t\t  x~any^x\n\t\t\t)~bool^less_int64|less_int64_double|less_int64_uint64,\n\t\t\t_\u003e=_(\n\t\t\t  x~any^x,\n\t\t\t  x~any^x\n\t\t\t)~bool^greater_equals_bool|greater_equals_bytes|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_duration|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_string|greater_equals_timestamp|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64\n\t\t  )~bool^logical_or\n\t\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "container": "container",
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"container.x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x",
+      "out": "container.x~google.expr.proto3.test.TestAllTypes^container.x",
+      "outType": {
+        "$expr": "types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")"
+      }
+    },
+    {
+      "in": "list == type([1]) \u0026\u0026 map == type({1:2u})",
+      "out": "\n_\u0026\u0026_(_==_(list~type(list(dyn))^list,\n           type([1~int]~list(int))~type(list(int))^type)\n       ~bool^equals,\n      _==_(map~type(map(dyn, dyn))^map,\n            type({1~int : 2u~uint}~map(int, uint))~type(map(int, uint))^type)\n        ~bool^equals)\n  ~bool^logical_and\n\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tfunctions: []*decls.FunctionDecl{\n\t\t\t\t\ttestFunction(t, \"myfun\",\n\t\t\t\t\t\tdecls.MemberOverload(\"myfun_instance\",\n\t\t\t\t\t\t\t[]*types.Type{types.IntType, types.BoolType, types.UintType}, types.IntType),\n\t\t\t\t\t\tdecls.Overload(\"myfun_static\",\n\t\t\t\t\t\t\t[]*types.Type{types.IntType, types.BoolType, types.UintType}, types.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "myfun(1, true, 3u) + 1.myfun(false, 3u).myfun(true, 42u)",
+      "out": "_+_(\n    \t\t  myfun(\n    \t\t    1~int,\n    \t\t    true~bool,\n    \t\t    3u~uint\n    \t\t  )~int^myfun_static,\n    \t\t  1~int.myfun(\n    \t\t    false~bool,\n    \t\t    3u~uint\n    \t\t  )~int^myfun_instance.myfun(\n    \t\t    true~bool,\n    \t\t    42u~uint\n    \t\t  )~int^myfun_instance\n    \t\t)~int^add_int64",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t\tfunctions: []*decls.FunctionDecl{\n\t\t\t\t\ttestFunction(t, \"size\",\n\t\t\t\t\t\tdecls.Overload(\"size_message\",\n\t\t\t\t\t\t\t[]*types.Type{types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")},\n\t\t\t\t\t\t\ttypes.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "size(x) \u003e 4",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_int64_wrapper + 1 != 23",
+      "out": "\n\t\t_!=_(_+_(x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper\n\t\t~wrapper(int),\n\t\t1~int)\n\t\t~int^add_int64,\n\t\t23~int)\n\t\t~bool^not_equals\n\t\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t\tdecls.NewVariable(\"y\", types.NewObjectType(\"google.protobuf.Int32Value\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "x.single_int64_wrapper + y != 23",
+      "out": "\n\t\t_!=_(\n\t\t\t_+_(\n\t\t\t  x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper~wrapper(int),\n\t\t\t  y~wrapper(int)^y\n\t\t\t)~int^add_int64,\n\t\t\t23~int\n\t\t  )~bool^not_equals\n\t\t",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "1 in [1, 2, 3]",
+      "out": "@in(\n    \t\t  1~int,\n    \t\t  [\n    \t\t    1~int,\n    \t\t    2~int,\n    \t\t    3~int\n    \t\t  ]~list(int)\n    \t\t)~bool^in_list",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "1 in dyn([1, 2, 3])",
+      "out": "@in(\n\t\t\t1~int,\n\t\t\tdyn(\n\t\t\t  [\n\t\t\t\t1~int,\n\t\t\t\t2~int,\n\t\t\t\t3~int\n\t\t\t  ]~list(int)\n\t\t\t)~dyn^to_dyn\n\t\t  )~bool^in_list|in_map",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "type(null) == null_type",
+      "out": "_==_(\n    \t\t  type(\n    \t\t    null~null\n    \t\t  )~type(null)^type,\n    \t\t  null_type~type(null)^null_type\n    \t\t)~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "type(type) == type",
+      "out": "_==_(\n\t\t  type(\n\t\t    type~type(type)^type\n\t\t  )~type(type(type))^type,\n\t\t  type~type(type)^type\n\t\t)~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3]",
+      "out": "_[_](\n\t\t\t_+_(\n\t\t\t\t_[_](\n\t\t\t\t\t_[_](\n\t\t\t\t\t\t[\n\t\t\t\t\t\t\t[\n\t\t\t\t\t\t\t\t[\n\t\t\t\t\t\t\t\t\t1~int\n\t\t\t\t\t\t\t\t]~list(int)\n\t\t\t\t\t\t\t]~list(list(int)),\n\t\t\t\t\t\t\t[\n\t\t\t\t\t\t\t\t[\n\t\t\t\t\t\t\t\t\t2~int\n\t\t\t\t\t\t\t\t]~list(int)\n\t\t\t\t\t\t\t]~list(list(int)),\n\t\t\t\t\t\t\t[\n\t\t\t\t\t\t\t\t[\n\t\t\t\t\t\t\t\t\t3~int\n\t\t\t\t\t\t\t\t]~list(int)\n\t\t\t\t\t\t\t]~list(list(int))\n\t\t\t\t\t\t]~list(list(list(int))),\n\t\t\t\t\t\t0~int\n\t\t\t\t\t)~list(list(int))^index_list,\n\t\t\t\t\t0~int\n\t\t\t\t)~list(int)^index_list,\n\t\t\t\t[\n\t\t\t\t\t2~int,\n\t\t\t\t\t3~int,\n\t\t\t\t\t{\n\t\t\t\t\t\t\"four\"~string:{\n\t\t\t\t\t\t\t\"five\"~string:\"six\"~string\n\t\t\t\t\t\t}~map(string, string)\n\t\t\t\t\t}~map(string, map(string, string))\n\t\t\t\t]~list(dyn)\n\t\t\t)~list(dyn)^add_list,\n\t\t\t3~int\n\t\t)~dyn^index_list",
+      "outType": {
+        "$expr": "types.DynType"
+      }
+    },
+    {
+      "in": "[1] + [dyn('string')]",
+      "out": "_+_(\n\t\t\t[\n\t\t\t\t1~int\n\t\t\t]~list(int),\n\t\t\t[\n\t\t\t\tdyn(\n\t\t\t\t\t\"string\"~string\n\t\t\t\t)~dyn^to_dyn\n\t\t\t]~list(dyn)\n\t\t)~list(dyn)^add_list",
+      "outType": {
+        "$expr": "types.NewListType(types.DynType)"
+      }
+    },
+    {
+      "in": "[dyn('string')] + [1]",
+      "out": "_+_(\n\t\t\t[\n\t\t\t\tdyn(\n\t\t\t\t\t\"string\"~string\n\t\t\t\t)~dyn^to_dyn\n\t\t\t]~list(dyn),\n\t\t\t[\n\t\t\t\t1~int\n\t\t\t]~list(int)\n\t\t)~list(dyn)^add_list",
+      "outType": {
+        "$expr": "types.NewListType(types.DynType)"
+      }
+    },
+    {
+      "err": "\n\t\tERROR: \u003cinput\u003e:1:33: found no matching overload for '@in' applied to '(list(dyn), dyn)'\n\t\t| [].map(x, [].map(y, x in y \u0026\u0026 y in x))\n\t\t| ................................^",
+      "in": "[].map(x, [].map(y, x in y \u0026\u0026 y in x))"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"args\", types.NewMapType(types.StringType, types.DynType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "args.user[\"myextension\"].customAttributes.filter(x, x.name == \"hobbies\")",
+      "out": "__comprehension__(\n\t\t\t// Variable\n\t\t\tx,\n\t\t\t// Target\n\t\t\t_[_](\n\t\t\targs~map(string, dyn)^args.user~dyn,\n\t\t\t\"myextension\"~string\n\t\t\t)~dyn^index_map.customAttributes~dyn,\n\t\t\t// Accumulator\n\t\t\t@result,\n\t\t\t// Init\n\t\t\t[]~list(dyn),\n\t\t\t// LoopCondition\n\t\t\ttrue~bool,\n\t\t\t// LoopStep\n\t\t\t_?_:_(\n\t\t\t_==_(\n\t\t\t\tx~dyn^x.name~dyn,\n\t\t\t\t\"hobbies\"~string\n\t\t\t)~bool^equals,\n\t\t\t_+_(\n\t\t\t\t@result~list(dyn)^@result,\n\t\t\t\t[\n\t\t\t\tx~dyn^x\n\t\t\t\t]~list(dyn)\n\t\t\t)~list(dyn)^add_list,\n\t\t\t@result~list(dyn)^@result\n\t\t\t)~list(dyn)^conditional,\n\t\t\t// Result\n\t\t\t@result~list(dyn)^@result)~list(dyn)",
+      "outType": {
+        "$expr": "types.NewListType(types.DynType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewTypeParamType(\"T\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "a.b + 1 == a[0]",
+      "out": "_==_(\n\t\t\t_+_(\n\t\t\t  a~dyn^a.b~dyn,\n\t\t\t  1~int\n\t\t\t)~int^add_int64,\n\t\t\t_[_](\n\t\t\t  a~dyn^a,\n\t\t\t  0~int\n\t\t\t)~dyn^index_list|index_map\n\t\t  )~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"pb2\", types.NewObjectType(\"google.expr.proto2.test.TestAllTypes\")),\n\t\t\t\t\tdecls.NewVariable(\"pb3\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "!has(pb2.single_int64)\n\t\t\u0026\u0026 !has(pb2.repeated_int32)\n\t\t\u0026\u0026 !has(pb2.map_string_string)\n\t\t\u0026\u0026 !has(pb3.single_int64)\n\t\t\u0026\u0026 !has(pb3.repeated_int32)\n\t\t\u0026\u0026 !has(pb3.map_string_string)",
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t!_(\n\t\t\t\t  pb2~google.expr.proto2.test.TestAllTypes^pb2.single_int64~test-only~~bool\n\t\t\t\t)~bool^logical_not,\n\t\t\t\t!_(\n\t\t\t\t  pb2~google.expr.proto2.test.TestAllTypes^pb2.repeated_int32~test-only~~bool\n\t\t\t\t)~bool^logical_not\n\t\t\t  )~bool^logical_and,\n\t\t\t  !_(\n\t\t\t\tpb2~google.expr.proto2.test.TestAllTypes^pb2.map_string_string~test-only~~bool\n\t\t\t  )~bool^logical_not\n\t\t\t)~bool^logical_and,\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t!_(\n\t\t\t\t  pb3~google.expr.proto3.test.TestAllTypes^pb3.single_int64~test-only~~bool\n\t\t\t\t)~bool^logical_not,\n\t\t\t\t!_(\n\t\t\t\t  pb3~google.expr.proto3.test.TestAllTypes^pb3.repeated_int32~test-only~~bool\n\t\t\t\t)~bool^logical_not\n\t\t\t  )~bool^logical_and,\n\t\t\t  !_(\n\t\t\t\tpb3~google.expr.proto3.test.TestAllTypes^pb3.map_string_string~test-only~~bool\n\t\t\t  )~bool^logical_not\n\t\t\t)~bool^logical_and\n\t\t  )~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "in": "TestAllTypes{}.repeated_nested_message",
+      "out": "\n\t\tgoogle.expr.proto2.test.TestAllTypes{}~google.expr.proto2.test.TestAllTypes^\n\t\tgoogle.expr.proto2.test.TestAllTypes.repeated_nested_message\n\t\t~list(google.expr.proto2.test.TestAllTypes.NestedMessage)",
+      "outType": {
+        "$expr": "types.NewListType(\n\t\t\t\ttypes.NewObjectType(\n\t\t\t\t\t\"google.expr.proto2.test.TestAllTypes.NestedMessage\",\n\t\t\t\t),\n\t\t\t)"
+      }
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "in": "TestAllTypes{}.repeated_nested_message",
+      "out": "\n\t\tgoogle.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^\n\t\tgoogle.expr.proto3.test.TestAllTypes.repeated_nested_message\n\t\t~list(google.expr.proto3.test.TestAllTypes.NestedMessage)",
+      "outType": {
+        "$expr": "types.NewListType(\n\t\t\t\ttypes.NewObjectType(\n\t\t\t\t\t\"google.expr.proto3.test.TestAllTypes.NestedMessage\",\n\t\t\t\t),\n\t\t\t)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tfunctions: []*decls.FunctionDecl{\n\t\t\t\t\ttestFunction(t, \"base64.encode\",\n\t\t\t\t\t\tdecls.Overload(\n\t\t\t\t\t\t\t\"base64_encode_string\",\n\t\t\t\t\t\t\t[]*types.Type{types.StringType},\n\t\t\t\t\t\t\ttypes.StringType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "base64.encode('hello')",
+      "out": "\n\t\tbase64.encode(\n\t\t\t\"hello\"~string\n\t\t)~string^base64_encode_string",
+      "outType": {
+        "$expr": "types.StringType"
+      }
+    },
+    {
+      "container": "base64",
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tfunctions: []*decls.FunctionDecl{\n\t\t\t\t\ttestFunction(t, \"base64.encode\",\n\t\t\t\t\t\tdecls.Overload(\n\t\t\t\t\t\t\t\"base64_encode_string\",\n\t\t\t\t\t\t\t[]*types.Type{types.StringType},\n\t\t\t\t\t\t\ttypes.StringType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "encode('hello')",
+      "out": "\n\t\tbase64.encode(\n\t\t\t\"hello\"~string\n\t\t)~string^base64_encode_string",
+      "outType": {
+        "$expr": "types.StringType"
+      }
+    },
+    {
+      "in": "{}",
+      "out": "{}~map(dyn, dyn)",
+      "outType": {
+        "$expr": "types.NewMapType(types.DynType, types.DynType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tfunctions: []*decls.FunctionDecl{\n\t\t\t\t\ttestFunction(t, \"set\",\n\t\t\t\t\t\tdecls.Overload(\"set_list\",\n\t\t\t\t\t\t\t[]*types.Type{types.NewListType(types.NewTypeParamType(\"T\"))},\n\t\t\t\t\t\t\ttypes.NewOpaqueType(\"set\", types.NewTypeParamType(\"T\")))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "set([1, 2, 3])",
+      "out": "\n\t\tset(\n\t\t  [\n\t\t    1~int,\n\t\t    2~int,\n\t\t    3~int\n\t\t  ]~list(int)\n\t\t)~set(int)^set_list",
+      "outType": {
+        "$expr": "types.NewOpaqueType(\"set\", types.IntType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tfunctions: []*decls.FunctionDecl{\n\t\t\t\t\ttestFunction(t, \"set\",\n\t\t\t\t\t\tdecls.Overload(\n\t\t\t\t\t\t\t\"set_list\", []*types.Type{types.NewListType(types.NewTypeParamType(\"T\"))},\n\t\t\t\t\t\t\ttypes.NewOpaqueType(\"set\", types.NewTypeParamType(\"T\")))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "set([1, 2]) == set([2, 1])",
+      "out": "\n\t\t_==_(\n\t\t  set([1~int, 2~int]~list(int))~set(int)^set_list,\n\t\t  set([2~int, 1~int]~list(int))~set(int)^set_list\n\t\t)~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewOpaqueType(\"set\", types.NewTypeParamType(\"T\"))),\n\t\t\t\t},\n\t\t\t\tfunctions: []*decls.FunctionDecl{\n\t\t\t\t\ttestFunction(t, \"set\",\n\t\t\t\t\t\tdecls.Overload(\n\t\t\t\t\t\t\t\"set_list\", []*types.Type{types.NewListType(types.NewTypeParamType(\"T\"))},\n\t\t\t\t\t\t\ttypes.NewOpaqueType(\"set\", types.NewTypeParamType(\"T\")))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "set([1, 2]) == x",
+      "out": "\n\t\t_==_(\n\t\t  set([1~int, 2~int]~list(int))~set(int)^set_list,\n\t\t  x~set(int)^x\n\t\t)~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "err": "\n\t\tERROR: \u003cinput\u003e:1:4: 'int' is not a message type\n\t\t | int{}\n\t\t | ...^\n\t\t",
+      "in": "int{}"
+    },
+    {
+      "err": "\n\t\tERROR: \u003cinput\u003e:1:4: undeclared reference to 'Msg' (in container '')\n\t\t | Msg{}\n\t\t | ...^\n\t\t",
+      "in": "Msg{}"
+    },
+    {
+      "err": "\n\t\tERROR: \u003cinput\u003e:1:4: undeclared reference to 'fun' (in container '')\n\t\t | fun()\n\t\t | ...^\n\t\t",
+      "in": "fun()"
+    },
+    {
+      "err": "\n\t\tERROR: \u003cinput\u003e:1:13: undeclared reference to 'fun' (in container '')\n\t\t | 'string'.fun()\n\t\t | ............^\n\t\t",
+      "in": "'string'.fun()"
+    },
+    {
+      "err": "\n\t\tERROR: \u003cinput\u003e:1:3: type 'list(_var0)' does not support field selection\n\t\t | [].length\n\t\t | ..^\n\t\t",
+      "in": "[].length"
+    },
+    {
+      "err": "\n\t\tERROR: \u003cinput\u003e:1:3: found no matching overload for '_\u003c=_' applied to '(int, double)'\n\t\t | 1 \u003c= 1.0 \u0026\u0026 1u \u003c= 1.0 \u0026\u0026 1.0 \u003c= 1 \u0026\u0026 1.0 \u003c= 1u \u0026\u0026 1 \u003c= 1u \u0026\u0026 1u \u003c= 1\n\t\t | ..^\n\t\tERROR: \u003cinput\u003e:1:16: found no matching overload for '_\u003c=_' applied to '(uint, double)'\n\t\t | 1 \u003c= 1.0 \u0026\u0026 1u \u003c= 1.0 \u0026\u0026 1.0 \u003c= 1 \u0026\u0026 1.0 \u003c= 1u \u0026\u0026 1 \u003c= 1u \u0026\u0026 1u \u003c= 1\n\t\t | ...............^\n\t\tERROR: \u003cinput\u003e:1:30: found no matching overload for '_\u003c=_' applied to '(double, int)'\n\t\t | 1 \u003c= 1.0 \u0026\u0026 1u \u003c= 1.0 \u0026\u0026 1.0 \u003c= 1 \u0026\u0026 1.0 \u003c= 1u \u0026\u0026 1 \u003c= 1u \u0026\u0026 1u \u003c= 1\n\t\t | .............................^\n\t\tERROR: \u003cinput\u003e:1:42: found no matching overload for '_\u003c=_' applied to '(double, uint)'\n\t\t | 1 \u003c= 1.0 \u0026\u0026 1u \u003c= 1.0 \u0026\u0026 1.0 \u003c= 1 \u0026\u0026 1.0 \u003c= 1u \u0026\u0026 1 \u003c= 1u \u0026\u0026 1u \u003c= 1\n\t\t | .........................................^\n\t\tERROR: \u003cinput\u003e:1:53: found no matching overload for '_\u003c=_' applied to '(int, uint)'\n\t\t | 1 \u003c= 1.0 \u0026\u0026 1u \u003c= 1.0 \u0026\u0026 1.0 \u003c= 1 \u0026\u0026 1.0 \u003c= 1u \u0026\u0026 1 \u003c= 1u \u0026\u0026 1u \u003c= 1\n\t\t | ....................................................^\n\t\tERROR: \u003cinput\u003e:1:65: found no matching overload for '_\u003c=_' applied to '(uint, int)'\n\t\t | 1 \u003c= 1.0 \u0026\u0026 1u \u003c= 1.0 \u0026\u0026 1.0 \u003c= 1 \u0026\u0026 1.0 \u003c= 1u \u0026\u0026 1 \u003c= 1u \u0026\u0026 1u \u003c= 1\n\t\t | ................................................................^\n\t\t",
+      "in": "1 \u003c= 1.0 \u0026\u0026 1u \u003c= 1.0 \u0026\u0026 1.0 \u003c= 1 \u0026\u0026 1.0 \u003c= 1u \u0026\u0026 1 \u003c= 1u \u0026\u0026 1u \u003c= 1",
+      "opts": [
+        {
+          "$expr": "CrossTypeNumericComparisons(false)"
+        }
+      ]
+    },
+    {
+      "in": "1 \u003c= 1.0 \u0026\u0026 1u \u003c= 1.0 \u0026\u0026 1.0 \u003c= 1 \u0026\u0026 1.0 \u003c= 1u \u0026\u0026 1 \u003c= 1u \u0026\u0026 1u \u003c= 1",
+      "opts": [
+        {
+          "$expr": "CrossTypeNumericComparisons(true)"
+        }
+      ],
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t_\u003c=_(\n\t\t\t\t  1~int,\n\t\t\t\t  1~double\n\t\t\t\t)~bool^less_equals_int64_double,\n\t\t\t\t_\u003c=_(\n\t\t\t\t  1u~uint,\n\t\t\t\t  1~double\n\t\t\t\t)~bool^less_equals_uint64_double\n\t\t\t  )~bool^logical_and,\n\t\t\t  _\u003c=_(\n\t\t\t\t1~double,\n\t\t\t\t1~int\n\t\t\t  )~bool^less_equals_double_int64\n\t\t\t)~bool^logical_and,\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t_\u003c=_(\n\t\t\t\t  1~double,\n\t\t\t\t  1u~uint\n\t\t\t\t)~bool^less_equals_double_uint64,\n\t\t\t\t_\u003c=_(\n\t\t\t\t  1~int,\n\t\t\t\t  1u~uint\n\t\t\t\t)~bool^less_equals_int64_uint64\n\t\t\t  )~bool^logical_and,\n\t\t\t  _\u003c=_(\n\t\t\t\t1u~uint,\n\t\t\t\t1~int\n\t\t\t  )~bool^less_equals_uint64_int64\n\t\t\t)~bool^logical_and\n\t\t  )~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "1 \u003c 1.0 \u0026\u0026 1u \u003c 1.0 \u0026\u0026 1.0 \u003c 1 \u0026\u0026 1.0 \u003c 1u \u0026\u0026 1 \u003c 1u \u0026\u0026 1u \u003c 1",
+      "opts": [
+        {
+          "$expr": "CrossTypeNumericComparisons(true)"
+        }
+      ],
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t_\u003c_(\n\t\t\t\t  1~int,\n\t\t\t\t  1~double\n\t\t\t\t)~bool^less_int64_double,\n\t\t\t\t_\u003c_(\n\t\t\t\t  1u~uint,\n\t\t\t\t  1~double\n\t\t\t\t)~bool^less_uint64_double\n\t\t\t  )~bool^logical_and,\n\t\t\t  _\u003c_(\n\t\t\t\t1~double,\n\t\t\t\t1~int\n\t\t\t  )~bool^less_double_int64\n\t\t\t)~bool^logical_and,\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t_\u003c_(\n\t\t\t\t  1~double,\n\t\t\t\t  1u~uint\n\t\t\t\t)~bool^less_double_uint64,\n\t\t\t\t_\u003c_(\n\t\t\t\t  1~int,\n\t\t\t\t  1u~uint\n\t\t\t\t)~bool^less_int64_uint64\n\t\t\t  )~bool^logical_and,\n\t\t\t  _\u003c_(\n\t\t\t\t1u~uint,\n\t\t\t\t1~int\n\t\t\t  )~bool^less_uint64_int64\n\t\t\t)~bool^logical_and\n\t\t  )~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "1 \u003e 1.0 \u0026\u0026 1u \u003e 1.0 \u0026\u0026 1.0 \u003e 1 \u0026\u0026 1.0 \u003e 1u \u0026\u0026 1 \u003e 1u \u0026\u0026 1u \u003e 1",
+      "opts": [
+        {
+          "$expr": "CrossTypeNumericComparisons(true)"
+        }
+      ],
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t_\u003e_(\n\t\t\t\t  1~int,\n\t\t\t\t  1~double\n\t\t\t\t)~bool^greater_int64_double,\n\t\t\t\t_\u003e_(\n\t\t\t\t  1u~uint,\n\t\t\t\t  1~double\n\t\t\t\t)~bool^greater_uint64_double\n\t\t\t  )~bool^logical_and,\n\t\t\t  _\u003e_(\n\t\t\t\t1~double,\n\t\t\t\t1~int\n\t\t\t  )~bool^greater_double_int64\n\t\t\t)~bool^logical_and,\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t_\u003e_(\n\t\t\t\t  1~double,\n\t\t\t\t  1u~uint\n\t\t\t\t)~bool^greater_double_uint64,\n\t\t\t\t_\u003e_(\n\t\t\t\t  1~int,\n\t\t\t\t  1u~uint\n\t\t\t\t)~bool^greater_int64_uint64\n\t\t\t  )~bool^logical_and,\n\t\t\t  _\u003e_(\n\t\t\t\t1u~uint,\n\t\t\t\t1~int\n\t\t\t  )~bool^greater_uint64_int64\n\t\t\t)~bool^logical_and\n\t\t  )~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "1 \u003e= 1.0 \u0026\u0026 1u \u003e= 1.0 \u0026\u0026 1.0 \u003e= 1 \u0026\u0026 1.0 \u003e= 1u \u0026\u0026 1 \u003e= 1u \u0026\u0026 1u \u003e= 1",
+      "opts": [
+        {
+          "$expr": "CrossTypeNumericComparisons(true)"
+        }
+      ],
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t_\u003e=_(\n\t\t\t\t  1~int,\n\t\t\t\t  1~double\n\t\t\t\t)~bool^greater_equals_int64_double,\n\t\t\t\t_\u003e=_(\n\t\t\t\t  1u~uint,\n\t\t\t\t  1~double\n\t\t\t\t)~bool^greater_equals_uint64_double\n\t\t\t  )~bool^logical_and,\n\t\t\t  _\u003e=_(\n\t\t\t\t1~double,\n\t\t\t\t1~int\n\t\t\t  )~bool^greater_equals_double_int64\n\t\t\t)~bool^logical_and,\n\t\t\t_\u0026\u0026_(\n\t\t\t  _\u0026\u0026_(\n\t\t\t\t_\u003e=_(\n\t\t\t\t  1~double,\n\t\t\t\t  1u~uint\n\t\t\t\t)~bool^greater_equals_double_uint64,\n\t\t\t\t_\u003e=_(\n\t\t\t\t  1~int,\n\t\t\t\t  1u~uint\n\t\t\t\t)~bool^greater_equals_int64_uint64\n\t\t\t  )~bool^logical_and,\n\t\t\t  _\u003e=_(\n\t\t\t\t1u~uint,\n\t\t\t\t1~int\n\t\t\t  )~bool^greater_equals_uint64_int64\n\t\t\t)~bool^logical_and\n\t\t  )~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{variadicASTs: true}"
+      },
+      "in": "1 \u003e= 1.0 \u0026\u0026 1u \u003e= 1.0 \u0026\u0026 1.0 \u003e= 1 \u0026\u0026 1.0 \u003e= 1u \u0026\u0026 1 \u003e= 1u \u0026\u0026 1u \u003e= 1",
+      "opts": [
+        {
+          "$expr": "CrossTypeNumericComparisons(true)"
+        }
+      ],
+      "out": "\n\t\t_\u0026\u0026_(\n\t\t\t_\u003e=_(\n\t\t\t  1~int,\n\t\t\t  1~double\n\t\t\t)~bool^greater_equals_int64_double,\n\t\t\t_\u003e=_(\n\t\t\t  1u~uint,\n\t\t\t  1~double\n\t\t\t)~bool^greater_equals_uint64_double,\n\t\t\t_\u003e=_(\n\t\t\t  1~double,\n\t\t\t  1~int\n\t\t\t)~bool^greater_equals_double_int64,\n\t\t\t_\u003e=_(\n\t\t\t  1~double,\n\t\t\t  1u~uint\n\t\t\t)~bool^greater_equals_double_uint64,\n\t\t\t_\u003e=_(\n\t\t\t  1~int,\n\t\t\t  1u~uint\n\t\t\t)~bool^greater_equals_int64_uint64,\n\t\t\t_\u003e=_(\n\t\t\t  1u~uint,\n\t\t\t  1~int\n\t\t\t)~bool^greater_equals_uint64_int64\n\t\t  )~bool^logical_and",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "in": "[1].map(x, [x, x]).map(x, [x, x])",
+      "out": "__comprehension__(\n\t\t\t// Variable\n\t\t\tx,\n\t\t\t// Target\n\t\t\t__comprehension__(\n\t\t\t  // Variable\n\t\t\t  x,\n\t\t\t  // Target\n\t\t\t  [\n\t\t\t\t1~int\n\t\t\t  ]~list(int),\n\t\t\t  // Accumulator\n\t\t\t  @result,\n\t\t\t  // Init\n\t\t\t  []~list(list(int)),\n\t\t\t  // LoopCondition\n\t\t\t  true~bool,\n\t\t\t  // LoopStep\n\t\t\t  _+_(\n\t\t\t\t@result~list(list(int))^@result,\n\t\t\t\t[\n\t\t\t\t  [\n\t\t\t\t\tx~int^x,\n\t\t\t\t\tx~int^x\n\t\t\t\t  ]~list(int)\n\t\t\t\t]~list(list(int))\n\t\t\t  )~list(list(int))^add_list,\n\t\t\t  // Result\n\t\t\t  @result~list(list(int))^@result)~list(list(int)),\n\t\t\t// Accumulator\n\t\t\t@result,\n\t\t\t// Init\n\t\t\t[]~list(list(list(int))),\n\t\t\t// LoopCondition\n\t\t\ttrue~bool,\n\t\t\t// LoopStep\n\t\t\t_+_(\n\t\t\t  @result~list(list(list(int)))^@result,\n\t\t\t  [\n\t\t\t\t[\n\t\t\t\t  x~list(int)^x,\n\t\t\t\t  x~list(int)^x\n\t\t\t\t]~list(list(int))\n\t\t\t  ]~list(list(list(int)))\n\t\t\t)~list(list(list(int)))^add_list,\n\t\t\t// Result\n\t\t\t@result~list(list(list(int)))^@result)~list(list(list(int)))\n\t\t  ",
+      "outType": {
+        "$expr": "types.NewListType(types.NewListType(types.NewListType(types.IntType)))"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"values\", types.NewListType(types.NewMapType(types.StringType, types.StringType))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "values.filter(i, i.content != \"\").map(i, i.content)",
+      "out": "__comprehension__(\n\t\t\t// Variable\n\t\t\ti,\n\t\t\t// Target\n\t\t\t__comprehension__(\n\t\t\t  // Variable\n\t\t\t  i,\n\t\t\t  // Target\n\t\t\t  values~list(map(string, string))^values,\n\t\t\t  // Accumulator\n\t\t\t  @result,\n\t\t\t  // Init\n\t\t\t  []~list(map(string, string)),\n\t\t\t  // LoopCondition\n\t\t\t  true~bool,\n\t\t\t  // LoopStep\n\t\t\t  _?_:_(\n\t\t\t\t_!=_(\n\t\t\t\t  i~map(string, string)^i.content~string,\n\t\t\t\t  \"\"~string\n\t\t\t\t)~bool^not_equals,\n\t\t\t\t_+_(\n\t\t\t\t  @result~list(map(string, string))^@result,\n\t\t\t\t  [\n\t\t\t\t\ti~map(string, string)^i\n\t\t\t\t  ]~list(map(string, string))\n\t\t\t\t)~list(map(string, string))^add_list,\n\t\t\t\t@result~list(map(string, string))^@result\n\t\t\t  )~list(map(string, string))^conditional,\n\t\t\t  // Result\n\t\t\t  @result~list(map(string, string))^@result)~list(map(string, string)),\n\t\t\t// Accumulator\n\t\t\t@result,\n\t\t\t// Init\n\t\t\t[]~list(string),\n\t\t\t// LoopCondition\n\t\t\ttrue~bool,\n\t\t\t// LoopStep\n\t\t\t_+_(\n\t\t\t  @result~list(string)^@result,\n\t\t\t  [\n\t\t\t\ti~map(string, string)^i.content~string\n\t\t\t  ]~list(string)\n\t\t\t)~list(string)^add_list,\n\t\t\t// Result\n\t\t\t@result~list(string)^@result)~list(string)",
+      "outType": {
+        "$expr": "types.NewListType(types.StringType)"
+      }
+    },
+    {
+      "in": "[{}.map(c,c,c)]+[{}.map(c,c,c)]",
+      "out": "_+_(\n\t\t\t[\n\t\t\t  __comprehension__(\n\t\t\t\t// Variable\n\t\t\t\tc,\n\t\t\t\t// Target\n\t\t\t\t{}~map(bool, dyn),\n\t\t\t\t// Accumulator\n\t\t\t\t@result,\n\t\t\t\t// Init\n\t\t\t\t[]~list(bool),\n\t\t\t\t// LoopCondition\n\t\t\t\ttrue~bool,\n\t\t\t\t// LoopStep\n\t\t\t\t_?_:_(\n\t\t\t\t  c~bool^c,\n\t\t\t\t  _+_(\n\t\t\t\t\t@result~list(bool)^@result,\n\t\t\t\t\t[\n\t\t\t\t\t  c~bool^c\n\t\t\t\t\t]~list(bool)\n\t\t\t\t  )~list(bool)^add_list,\n\t\t\t\t  @result~list(bool)^@result\n\t\t\t\t)~list(bool)^conditional,\n\t\t\t\t// Result\n\t\t\t\t@result~list(bool)^@result)~list(bool)\n\t\t\t]~list(list(bool)),\n\t\t\t[\n\t\t\t  __comprehension__(\n\t\t\t\t// Variable\n\t\t\t\tc,\n\t\t\t\t// Target\n\t\t\t\t{}~map(bool, dyn),\n\t\t\t\t// Accumulator\n\t\t\t\t@result,\n\t\t\t\t// Init\n\t\t\t\t[]~list(bool),\n\t\t\t\t// LoopCondition\n\t\t\t\ttrue~bool,\n\t\t\t\t// LoopStep\n\t\t\t\t_?_:_(\n\t\t\t\t  c~bool^c,\n\t\t\t\t  _+_(\n\t\t\t\t\t@result~list(bool)^@result,\n\t\t\t\t\t[\n\t\t\t\t\t  c~bool^c\n\t\t\t\t\t]~list(bool)\n\t\t\t\t  )~list(bool)^add_list,\n\t\t\t\t  @result~list(bool)^@result\n\t\t\t\t)~list(bool)^conditional,\n\t\t\t\t// Result\n\t\t\t\t@result~list(bool)^@result)~list(bool)\n\t\t\t]~list(list(bool))\n\t\t  )~list(list(bool))^add_list",
+      "outType": {
+        "$expr": "types.NewListType(types.NewListType(types.BoolType))"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"testAllTypes\", types.NewObjectType(\"google.expr.proto2.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "type(testAllTypes.nestedgroup.nested_id) == int",
+      "out": "_==_(\n\t\t\ttype(\n\t\t\t  testAllTypes~google.expr.proto2.test.TestAllTypes^testAllTypes.nestedgroup~google.expr.proto2.test.TestAllTypes.NestedGroup.nested_id~int\n\t\t\t)~type(int)^type,\n\t\t\tint~type(int)^int\n\t\t  )~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\toptionalSyntax: true,\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewMapType(types.StringType, types.StringType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "a.?b",
+      "out": "_?._(\n\t\t\ta~map(string, string)^a,\n\t\t\t\"b\"\n\t\t  )~optional_type(string)^select_optional_field",
+      "outType": {
+        "$expr": "types.NewOptionalType(types.StringType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\toptionalSyntax: true,\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewMapType(types.StringType, types.StringType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "type(a.?b) == optional_type",
+      "out": "_==_(\n\t\t\t\ttype(\n\t\t\t\t  _?._(\n\t\t\t\t\ta~map(string, string)^a,\n\t\t\t\t\t\"b\"\n\t\t\t\t  )~optional_type(string)^select_optional_field\n\t\t\t\t)~type(optional_type(string))^type,\n\t\t\t\toptional_type~type(optional_type(dyn))^optional_type\n\t\t\t  )~bool^equals",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewOptionalType(types.NewMapType(types.StringType, types.StringType))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "a.b",
+      "out": "a~optional_type(map(string, string))^a.b~optional_type(string)",
+      "outType": {
+        "$expr": "types.NewOptionalType(types.StringType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewOptionalType(types.DynType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "a.dynamic",
+      "out": "a~optional_type(dyn)^a.dynamic~optional_type(dyn)",
+      "outType": {
+        "$expr": "types.NewOptionalType(types.DynType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewOptionalType(types.DynType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "has(a.dynamic)",
+      "out": "a~optional_type(dyn)^a.dynamic~test-only~~bool",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\toptionalSyntax: true,\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewOptionalType(types.NewMapType(types.StringType, types.DynType))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "has(a.?b.c)",
+      "out": "_?._(\n\t\t\ta~optional_type(map(string, dyn))^a,\n\t\t\t\"b\"\n\t\t  )~optional_type(dyn)^select_optional_field.c~test-only~~bool",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true}"
+      },
+      "in": "{?'key': {'a': 'b'}.?value}",
+      "out": "{\n\t\t\t?\"key\"~string:_?._(\n\t\t\t  {\n\t\t\t\t\"a\"~string:\"b\"~string\n\t\t\t  }~map(string, string),\n\t\t\t  \"value\"\n\t\t\t)~optional_type(string)^select_optional_field\n\t\t  }~map(string, string)",
+      "outType": {
+        "$expr": "types.NewMapType(types.StringType, types.StringType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true}"
+      },
+      "in": "{?'key': {'a': 'b'}.?value}.key",
+      "out": "{\n\t\t\t?\"key\"~string:_?._(\n\t\t\t  {\n\t\t\t\t\"a\"~string:\"b\"~string\n\t\t\t  }~map(string, string),\n\t\t\t  \"value\"\n\t\t\t)~optional_type(string)^select_optional_field\n\t\t  }~map(string, string).key~string",
+      "outType": {
+        "$expr": "types.StringType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\toptionalSyntax: true,\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewOptionalType(types.NewMapType(types.StringType, types.StringType))),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "{?'nested': a.b}",
+      "out": "{\n\t\t\t?\"nested\"~string:a~optional_type(map(string, string))^a.b~optional_type(string)\n\t\t  }~map(string, string)",
+      "outType": {
+        "$expr": "types.NewMapType(types.StringType, types.StringType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true}"
+      },
+      "err": "ERROR: \u003cinput\u003e:1:10: expected type 'optional_type(string)' but found 'string'\n\t\t| {?'key': 'hi'}\n\t\t| .........^",
+      "in": "{?'key': 'hi'}"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\toptionalSyntax: true,\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"a\", types.NewOptionalType(types.StringType)),\n\t\t\t\t\tdecls.NewVariable(\"b\", types.NewOptionalType(types.StringType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "[?a, ?b, 'world']",
+      "out": "[\n\t\t\ta~optional_type(string)^a,\n\t\t\tb~optional_type(string)^b,\n\t\t\t\"world\"~string\n\t\t  ]~list(string)",
+      "outType": {
+        "$expr": "types.NewListType(types.StringType)"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true}"
+      },
+      "err": "ERROR: \u003cinput\u003e:1:3: expected type 'optional_type(string)' but found 'string'\n\t\t| [?'value']\n\t\t| ..^",
+      "in": "[?'value']"
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true}"
+      },
+      "in": "TestAllTypes{?single_int32: {}.?i}",
+      "out": "google.expr.proto2.test.TestAllTypes{\n\t\t\t?single_int32:_?._(\n\t\t\t  {}~map(dyn, int),\n\t\t\t  \"i\"\n\t\t\t)~optional_type(int)^select_optional_field\n\t\t  }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes",
+      "outType": {
+        "$expr": "types.NewObjectType(\n\t\t\t\t\"google.expr.proto2.test.TestAllTypes\",\n\t\t\t)"
+      }
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true}"
+      },
+      "err": "ERROR: \u003cinput\u003e:1:29: expected type 'optional_type(int)' but found 'int'\n\t\t| TestAllTypes{?single_int32: 1}\n\t\t| ............................^",
+      "in": "TestAllTypes{?single_int32: 1}"
+    },
+    {
+      "err": "ERROR: \u003cinput\u003e:1:1: undeclared reference to 'undef' (in container '')\n\t\t\t| undef\n\t\t\t| ^",
+      "in": "undef"
+    },
+    {
+      "err": "ERROR: \u003cinput\u003e:1:6: undeclared reference to 'undef' (in container '')\n\t\t\t| undef()\n\t\t\t| .....^",
+      "in": "undef()"
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"null_int\", types.NewNullableType(types.IntType)),\n\t\t\t\t\tdecls.NewVariable(\"null_msg\", types.NewObjectType(\"google.expr.proto2.test.TestAllTypes\")),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "null_int == null || null == null_int || null_msg == null || null == null_msg",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"NotAMessage\", types.NewNullableType(types.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "err": "ERROR: \u003cinput\u003e:1:12: undeclared reference to 'NotAMessage' (in container '')\n             | NotAMessage{}\n             | ...........^",
+      "in": "NotAMessage{}"
+    },
+    {
+      "in": "{}.map(c,[c,type(c)])",
+      "out": "__comprehension__(\n\t\t\t\t// Variable\n\t\t\t\tc,\n\t\t\t\t// Target\n\t\t\t\t{}~map(dyn, dyn),\n\t\t\t\t// Accumulator\n\t\t\t\t@result,\n\t\t\t\t// Init\n\t\t\t\t[]~list(list(dyn)),\n\t\t\t\t// LoopCondition\n\t\t\t\ttrue~bool,\n\t\t\t\t// LoopStep\n\t\t\t\t_+_(\n\t\t\t\t  @result~list(list(dyn))^@result,\n\t\t\t\t  [\n\t\t\t\t\t[\n\t\t\t\t\t  c~dyn^c,\n\t\t\t\t\t  type(\n\t\t\t\t\t\tc~dyn^c\n\t\t\t\t\t  )~type(dyn)^type\n\t\t\t\t\t]~list(dyn)\n\t\t\t\t  ]~list(list(dyn))\n\t\t\t\t)~list(list(dyn))^add_list,\n\t\t\t\t// Result\n\t\t\t\t@result~list(list(dyn))^@result)~list(list(dyn))",
+      "outType": {
+        "$expr": "types.NewListType(types.NewListType(types.DynType))"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"cel.example.y\", types.NewMapType(types.StringType, types.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "[{'z': 0}].exists(y, y.z == 0)",
+      "out": "__comprehension__(\n              // Variable\n              y,\n              // Target\n              [\n                {\n                  \"z\"~string:0~int\n                }~map(string, int)\n              ]~list(map(string, int)),\n              // Accumulator\n              @result,\n              // Init\n              false~bool,\n              // LoopCondition\n              @not_strictly_false(\n                !_(\n                  @result~bool^@result\n                )~bool^logical_not\n              )~bool^not_strictly_false,\n              // LoopStep\n              _||_(\n                @result~bool^@result,\n                _==_(\n                  y~map(string, int)^y.z~int,\n                  0~int\n                )~bool^equals\n              )~bool^logical_or,\n              // Result\n              @result~bool^@result)~bool",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.NewMapType(types.StringType, types.IntType)),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "[{'y': 0}].exists(x, x.y == 0)",
+      "out": "__comprehension__(\n              // Variable\n              x,\n              // Target\n              [\n                {\n                  \"y\"~string:0~int\n                }~map(string, int)\n              ]~list(map(string, int)),\n              // Accumulator\n              @result,\n              // Init\n              false~bool,\n              // LoopCondition\n              @not_strictly_false(\n                !_(\n                  @result~bool^@result\n                )~bool^logical_not\n              )~bool^not_strictly_false,\n              // LoopStep\n              _||_(\n                @result~bool^@result,\n                _==_(\n                  x~map(string, int)^x.y~int,\n                  0~int\n                )~bool^equals\n              )~bool^logical_or,\n              // Result\n              @result~bool^@result)~bool",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"x\", types.IntType),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "[0].exists(x, x != .x)",
+      "out": "__comprehension__(\n              // Variable\n              x,\n              // Target\n              [\n                0~int\n              ]~list(int),\n              // Accumulator\n              @result,\n              // Init\n              false~bool,\n              // LoopCondition\n              @not_strictly_false(\n                !_(\n                  @result~bool^@result\n                )~bool^logical_not\n              )~bool^not_strictly_false,\n              // LoopStep\n              _||_(\n                @result~bool^@result,\n                _!=_(\n                  x~int^x,\n                  .x~int^.x\n                )~bool^not_equals\n              )~bool^logical_or,\n              // Result\n              @result~bool^@result)~bool",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "env": {
+        "$expr": "testEnv{\n\t\t\t\tidents: []*decls.VariableDecl{\n\t\t\t\t\tdecls.NewVariable(\"y.z\", types.IntType),\n\t\t\t\t},\n\t\t\t}"
+      },
+      "in": "[{'z': 0}].exists(y, .y.z == y.z)",
+      "out": "__comprehension__(\n              // Variable\n              y,\n              // Target\n              [\n                {\n                  \"z\"~string:0~int\n                }~map(string, int)\n              ]~list(map(string, int)),\n              // Accumulator\n              @result,\n              // Init\n              false~bool,\n              // LoopCondition\n              @not_strictly_false(\n                !_(\n                  @result~bool^@result\n                )~bool^logical_not\n              )~bool^not_strictly_false,\n              // LoopStep\n              _||_(\n                @result~bool^@result,\n                _==_(\n                  .y.z~int^.y.z,\n                  y~map(string, int)^y.z~int\n                )~bool^equals\n              )~bool^logical_or,\n              // Result\n              @result~bool^@result)~bool",
+      "outType": {
+        "$expr": "types.BoolType"
+      }
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true, jsonFieldNames: true}"
+      },
+      "in": "TestAllTypes{?singleInt32: {}.?i}",
+      "out": "google.expr.proto2.test.TestAllTypes{\n\t\t\t?singleInt32:_?._(\n\t\t\t  {}~map(dyn, int),\n\t\t\t  \"i\"\n\t\t\t)~optional_type(int)^select_optional_field\n\t\t  }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes",
+      "outType": {
+        "$expr": "types.NewObjectType(\n\t\t\t\t\"google.expr.proto2.test.TestAllTypes\",\n\t\t\t)"
+      }
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true, jsonFieldNames: true}"
+      },
+      "in": "TestAllTypes{?singleInt32: {'i': 20}.?i}.singleInt32",
+      "out": "google.expr.proto2.test.TestAllTypes{\n              ?singleInt32:_?._(\n                {\n                  \"i\"~string:20~int\n                }~map(string, int),\n                \"i\"\n              )~optional_type(int)^select_optional_field\n            }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes.singleInt32~int",
+      "outType": {
+        "$expr": "types.IntType"
+      }
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "env": {
+        "$expr": "testEnv{optionalSyntax: true, jsonFieldNames: true}"
+      },
+      "err": "ERROR: \u003cinput\u003e:1:41: undefined field 'single_bool'\n             | TestAllTypes{singleInt32: 1, single_bool: true}.singleInt32\n             | ........................................^",
+      "in": "TestAllTypes{singleInt32: 1, single_bool: true}.singleInt32"
+    }
+  ],
   "checker/cost_test.go/TestCost": [
     {
       "expr": "\"Hello World!\"",
@@ -18749,6 +19956,1831 @@
       },
       "name": "evalVarArgs",
       "want": 1
+    }
+  ],
+  "interpreter/interpreter_test.go/TestInterpreter": [
+    {
+      "expr": "0.0/0.0 == 0.0/0.0",
+      "name": "double_ne_nan",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "false \u0026\u0026 true",
+      "name": "and_false_1st",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "true \u0026\u0026 false",
+      "name": "and_false_2nd",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "1/0 != 0 \u0026\u0026 false",
+      "name": "and_error_1st_false",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "false \u0026\u0026 1/0 != 0",
+      "name": "and_error_2nd_false",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "err": "division by zero",
+      "expr": "1/0 != 0 \u0026\u0026 true",
+      "name": "and_error_1st_error"
+    },
+    {
+      "err": "division by zero",
+      "expr": "true \u0026\u0026 1/0 != 0",
+      "name": "and_error_2nd_error"
+    },
+    {
+      "expr": "zero()",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"zero\",\n\t\t\t\t\tdecls.Overload(\"zero\", []*types.Type{}, types.IntType),\n\t\t\t\t\tdecls.SingletonFunctionBinding(func(args ...ref.Val) ref.Val {\n\t\t\t\t\t\treturn types.IntZero\n\t\t\t\t\t}),\n\t\t\t\t)"
+        }
+      ],
+      "name": "call_no_args",
+      "out": {
+        "$expr": "types.IntZero"
+      },
+      "unchecked": true
+    },
+    {
+      "expr": "neg(1)",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"neg\",\n\t\t\t\t\tdecls.Overload(\"neg_int\", []*types.Type{types.IntType}, types.IntType,\n\t\t\t\t\t\tdecls.OverloadOperandTrait(traits.NegatorType),\n\t\t\t\t\t\tdecls.UnaryBinding(func(arg ref.Val) ref.Val {\n\t\t\t\t\t\t\treturn arg.(traits.Negater).Negate()\n\t\t\t\t\t\t}),\n\t\t\t\t\t),\n\t\t\t\t)"
+        }
+      ],
+      "name": "call_one_arg",
+      "out": {
+        "$expr": "types.IntNegOne"
+      },
+      "unchecked": true
+    },
+    {
+      "expr": "b'abc'.concat(b'def')",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"concat\",\n\t\t\t\t\tdecls.MemberOverload(\"bytes_concat_bytes\", []*types.Type{types.BytesType, types.BytesType}, types.BytesType,\n\t\t\t\t\t\tdecls.OverloadOperandTrait(traits.AdderType),\n\t\t\t\t\t\tdecls.BinaryBinding(func(lhs, rhs ref.Val) ref.Val {\n\t\t\t\t\t\t\treturn lhs.(traits.Adder).Add(rhs)\n\t\t\t\t\t\t})))"
+        }
+      ],
+      "name": "call_two_arg",
+      "out": [
+        {
+          "$expr": "'a'"
+        },
+        {
+          "$expr": "'b'"
+        },
+        {
+          "$expr": "'c'"
+        },
+        {
+          "$expr": "'d'"
+        },
+        {
+          "$expr": "'e'"
+        },
+        {
+          "$expr": "'f'"
+        }
+      ],
+      "unchecked": true
+    },
+    {
+      "expr": "addall(a, b, c, d) == 10",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"addall\",\n\t\t\t\t\tdecls.Overload(\"addall_four\",\n\t\t\t\t\t\t[]*types.Type{types.IntType, types.IntType, types.IntType, types.IntType},\n\t\t\t\t\t\ttypes.IntType),\n\t\t\t\t\tdecls.DisableTypeGuards(true),\n\t\t\t\t\tdecls.SingletonFunctionBinding(func(args ...ref.Val) ref.Val {\n\t\t\t\t\t\tval := types.Int(0)\n\t\t\t\t\t\tfor _, arg := range args {\n\t\t\t\t\t\t\tval += arg.(types.Int)\n\t\t\t\t\t\t}\n\t\t\t\t\t\treturn val\n\t\t\t\t\t}, traits.AdderType))"
+        }
+      ],
+      "in": {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": 4
+      },
+      "name": "call_four_args",
+      "unchecked": true
+    },
+    {
+      "expr": "base64.encode('hello')",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"base64.encode\",\n\t\t\t\t\tdecls.Overload(\"base64_encode_string\", []*types.Type{types.StringType}, types.StringType),\n\t\t\t\t\tdecls.SingletonUnaryBinding(base64Encode))"
+        }
+      ],
+      "name": "call_ns_func",
+      "out": "aGVsbG8="
+    },
+    {
+      "expr": "base64.encode('hello')",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"base64.encode\",\n\t\t\t\t\tdecls.Overload(\"base64_encode_string\", []*types.Type{types.StringType}, types.StringType),\n\t\t\t\t\tdecls.SingletonUnaryBinding(base64Encode))"
+        }
+      ],
+      "name": "call_ns_func_unchecked",
+      "out": "aGVsbG8=",
+      "unchecked": true
+    },
+    {
+      "container": "base64",
+      "expr": "encode('hello')",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"base64.encode\",\n\t\t\t\t\tdecls.Overload(\"base64_encode_string\", []*types.Type{types.StringType}, types.StringType),\n\t\t\t\t\tdecls.SingletonUnaryBinding(base64Encode))"
+        }
+      ],
+      "name": "call_ns_func_in_pkg",
+      "out": "aGVsbG8="
+    },
+    {
+      "container": "base64",
+      "expr": "encode('hello')",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"base64.encode\",\n\t\t\t\t\tdecls.Overload(\"base64_encode_string\", []*types.Type{types.StringType}, types.StringType),\n\t\t\t\t\tdecls.SingletonUnaryBinding(base64Encode))"
+        }
+      ],
+      "name": "call_ns_func_unchecked_in_pkg",
+      "out": "aGVsbG8=",
+      "unchecked": true
+    },
+    {
+      "expr": "\n\t\t\t!(headers.ip in [\"10.0.1.4\", \"10.0.1.5\"]) \u0026\u0026\n\t\t\t\t((headers.path.startsWith(\"v1\") \u0026\u0026 headers.token in [\"v1\", \"v2\", \"admin\"]) ||\n\t\t\t\t(headers.path.startsWith(\"v2\") \u0026\u0026 headers.token in [\"v2\", \"admin\"]) ||\n\t\t\t\t(headers.path.startsWith(\"/admin\") \u0026\u0026 headers.token == \"admin\" \u0026\u0026 headers.ip in [\"10.0.1.2\", \"10.0.1.2\", \"10.0.1.2\"]))\n\t\t\t",
+      "in": {
+        "headers": {
+          "ip": "10.0.1.2",
+          "path": "/admin/edit",
+          "token": "admin"
+        }
+      },
+      "name": "complex",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"headers\", types.NewMapType(types.StringType, types.StringType))"
+        }
+      ]
+    },
+    {
+      "expr": "\n\t\t\t!(headers.ip in [\"10.0.1.4\", \"10.0.1.5\"]) \u0026\u0026\n\t\t\t\t((headers.path.startsWith(\"v1\") \u0026\u0026 headers.token in [\"v1\", \"v2\", \"admin\"]) ||\n\t\t\t\t(headers.path.startsWith(\"v2\") \u0026\u0026 headers.token in [\"v2\", \"admin\"]) ||\n\t\t\t\t(headers.path.startsWith(\"/admin\") \u0026\u0026 headers.token == \"admin\" \u0026\u0026 headers.ip in [\"10.0.1.2\", \"10.0.1.2\", \"10.0.1.2\"]))\n\t\t\t",
+      "in": {
+        "headers.ip": "10.0.1.2",
+        "headers.path": "/admin/edit",
+        "headers.token": "admin"
+      },
+      "name": "complex_qual_vars",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"headers.ip\", types.StringType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"headers.path\", types.StringType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"headers.token\", types.StringType)"
+        }
+      ]
+    },
+    {
+      "expr": "a ? b \u003c 1.2 : c == ['hello']",
+      "in": {
+        "a": true,
+        "b": 2.0,
+        "c": ["hello"]
+      },
+      "name": "cond",
+      "out": {
+        "$expr": "types.False"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.BoolType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.DoubleType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"c\", types.NewListType(types.StringType))"
+        }
+      ]
+    },
+    {
+      "err": "index out of bounds: 1",
+      "expr": "m[(x ? 0 : 1)] \u003e= 0",
+      "in": {
+        "m": [-1],
+        "x": false
+      },
+      "name": "cond_attr_out_of_bounds_error",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"m\", types.NewListType(types.IntType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"x\", types.BoolType)"
+        }
+      ]
+    },
+    {
+      "err": "invalid qualifier type",
+      "expr": "m[(x ? a : b)] \u003e= 0",
+      "in": {
+        "a": {
+          "$expr": "time.Millisecond"
+        },
+        "b": {
+          "$expr": "time.Millisecond"
+        },
+        "m": [1],
+        "x": false
+      },
+      "name": "cond_attr_qualify_bad_type_error",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"m\", types.NewListType(types.DynType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"a\", types.DynType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.DynType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"x\", types.BoolType)"
+        }
+      ]
+    },
+    {
+      "err": "no such key: c",
+      "expr": "m[(x ? a : b).c] \u003e= 0",
+      "in": {
+        "a": {
+          "$expr": "int32(1)"
+        },
+        "b": {
+          "$expr": "int32(2)"
+        },
+        "m": [1],
+        "x": false
+      },
+      "name": "cond_attr_qualify_bad_field_error",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"m\", types.NewListType(types.DynType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"a\", types.DynType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.DynType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"x\", types.BoolType)"
+        }
+      ]
+    },
+    {
+      "expr": "6 in []",
+      "name": "in_empty_list",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "6 in [2, 12, 6]",
+      "name": "in_constant_list"
+    },
+    {
+      "expr": "b'hello' in [b'world', b'universe', b'hello']",
+      "name": "bytes_in_constant_list"
+    },
+    {
+      "expr": "[6] in [2, 12, [6]]",
+      "name": "list_in_constant_list"
+    },
+    {
+      "expr": "dyn(12u) in [2, 12, 6]",
+      "name": "in_constant_list_cross_type_uint_int"
+    },
+    {
+      "expr": "dyn(6.0) in [2, 12, 6]",
+      "name": "in_constant_list_cross_type_double_int"
+    },
+    {
+      "expr": "dyn(6) in [2.1, 12.0, 6.0]",
+      "name": "in_constant_list_cross_type_int_double"
+    },
+    {
+      "expr": "dyn(2) in [2.1, 12.0, 6.0]",
+      "name": "not_in_constant_list_cross_type_int_double",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "dyn(6) in [2u, 12u, 6u]",
+      "name": "in_constant_list_cross_type_int_uint"
+    },
+    {
+      "expr": "dyn(-6) in [2u, 12u, 6u]",
+      "name": "in_constant_list_cross_type_negative_int_uint",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "dyn(-6.1) in [2u, 12u, 6u]",
+      "name": "in_constant_list_cross_type_negative_double_uint",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "6 in [2, 12, x]",
+      "in": {
+        "x": 6
+      },
+      "name": "in_var_list_int",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.DynType)"
+        }
+      ]
+    },
+    {
+      "expr": "6 in [2, 12, x]",
+      "in": {
+        "x": {
+          "$expr": "uint64(6)"
+        }
+      },
+      "name": "in_var_list_uint",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.DynType)"
+        }
+      ]
+    },
+    {
+      "expr": "6 in [2, 12, x]",
+      "in": {
+        "x": 6.0
+      },
+      "name": "in_var_list_double",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.DynType)"
+        }
+      ]
+    },
+    {
+      "expr": "dyn(6.0) in [2, 12, x]",
+      "in": {
+        "x": 6
+      },
+      "name": "in_var_list_double_double",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "expr": "'other-key' in {'key': null, 'other-key': 42}",
+      "name": "in_constant_map",
+      "out": {
+        "$expr": "types.True"
+      }
+    },
+    {
+      "expr": "'other-key' in {1: null, 2u: 42}",
+      "name": "in_constant_map_cross_type_string_number",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "2.0 in {1: null, 2u: 42}",
+      "name": "in_constant_map_cross_type_double_int"
+    },
+    {
+      "expr": "2.1 in {1: null, 2u: 42}",
+      "name": "not_in_constant_map_cross_type_double_int",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "'hello' in {1: 'one', false: true, 'hello': 'world'}",
+      "name": "in_constant_heterogeneous_map",
+      "out": {
+        "$expr": "types.True"
+      }
+    },
+    {
+      "expr": "!('hello' in {1: 'one', false: true})",
+      "name": "not_in_constant_heterogeneous_map",
+      "out": {
+        "$expr": "types.True"
+      }
+    },
+    {
+      "expr": "!('hello' in {1: 'one', 'world': true})",
+      "name": "not_in_constant_heterogeneous_map_with_same_key_type",
+      "out": {
+        "$expr": "types.True"
+      }
+    },
+    {
+      "expr": "'other-key' in {x: null, y: 42}",
+      "in": {
+        "x": "other-key",
+        "y": 2
+      },
+      "name": "in_var_key_map",
+      "out": {
+        "$expr": "types.True"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.StringType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"y\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "expr": "'other-key' in {1: x, 2u: y}",
+      "in": {
+        "x": "other-value",
+        "y": 2
+      },
+      "name": "in_var_value_map",
+      "out": {
+        "$expr": "types.False"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.StringType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"y\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "expr": "m['key'][1] == 42u \u0026\u0026 m['null'] == null \u0026\u0026 m[string(0)] == 10",
+      "in": {
+        "m": {
+          "0": 10,
+          "key": [21, 42],
+          "null": null
+        }
+      },
+      "name": "index",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"m\", types.NewMapType(types.StringType, types.DynType))"
+        }
+      ]
+    },
+    {
+      "expr": "{1: 'hello'}[x] == 'hello' \u0026\u0026 {2: 'world'}[y] == 'world'",
+      "in": {
+        "x": {
+          "$expr": "float32(1.0)"
+        },
+        "y": {
+          "$expr": "uint(2)"
+        }
+      },
+      "name": "index_cross_type_float_uint",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.DynType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"y\", types.DynType)"
+        }
+      ]
+    },
+    {
+      "err": "no such key: 2",
+      "expr": "{1: 'hello'}[x] == 'hello' \u0026\u0026 ['world'][y] == 'world'",
+      "in": {
+        "x": {
+          "$expr": "float32(2.0)"
+        },
+        "y": {
+          "$expr": "uint(3)"
+        }
+      },
+      "name": "no_index_cross_type_float_uint",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.DynType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"y\", types.DynType)"
+        }
+      ]
+    },
+    {
+      "expr": "{1: 'hello', 2: 'world'}[x] == 'hello'",
+      "in": {
+        "x": 1.0
+      },
+      "name": "index_cross_type_double",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.DynType)"
+        }
+      ]
+    },
+    {
+      "expr": "{1: 'hello', 2: 'world'}[dyn(2.0)] == 'world'",
+      "name": "index_cross_type_double_const"
+    },
+    {
+      "expr": "{1: 'hello', 2: 'world'}[dyn(2u)] == 'world'",
+      "name": "index_cross_type_uint"
+    },
+    {
+      "err": "invalid qualifier type",
+      "expr": "{1: 'hello', 2: 'world'}[x] == 'world'",
+      "in": {
+        "x": {
+          "$expr": "time.Millisecond"
+        }
+      },
+      "name": "index_cross_type_bad_qualifier",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.DynType)"
+        }
+      ]
+    },
+    {
+      "expr": "[7, 8, 9][dyn(0.0)] == 7",
+      "name": "index_list_int_double_type_index"
+    },
+    {
+      "expr": "[7, 8, 9][dyn(0u)] == 7",
+      "name": "index_list_int_uint_type_index"
+    },
+    {
+      "err": "unsupported index value",
+      "expr": "[7, 8, 9][dyn(0.1)] == 7",
+      "name": "index_list_int_bad_double_type_index"
+    },
+    {
+      "expr": "([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3].four.five == 'six'",
+      "name": "index_relative"
+    },
+    {
+      "expr": "['string', 1] == [2, 3]",
+      "name": "list_eq_false_with_error",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "['string', true] == [2, 3]",
+      "name": "list_eq_error",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "false",
+      "name": "literal_bool_false",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "true",
+      "name": "literal_bool_true"
+    },
+    {
+      "expr": "null",
+      "name": "literal_null",
+      "out": {
+        "$expr": "types.NullValue"
+      }
+    },
+    {
+      "expr": "[1, 2, 3]",
+      "name": "literal_list",
+      "out": [1, 2, 3]
+    },
+    {
+      "expr": "{'hi': 21, 'world': 42u}",
+      "name": "literal_map",
+      "out": {
+        "hi": 21,
+        "world": {
+          "$expr": "uint(42)"
+        }
+      }
+    },
+    {
+      "expr": "string(bytes(\"\\303\\277\")) == '''\\303\\277'''",
+      "name": "literal_equiv_string_bytes"
+    },
+    {
+      "expr": "string(b\"\\303\\277\") != '''\\303\\277'''",
+      "name": "literal_not_equiv_string_bytes"
+    },
+    {
+      "expr": "string(b\"\\303\\277\") == 'ÿ'",
+      "name": "literal_equiv_bytes_string"
+    },
+    {
+      "expr": "string(b'aaa\"bbb')",
+      "name": "literal_bytes_string",
+      "out": "aaa\"bbb"
+    },
+    {
+      "expr": "string(b\"\"\"Kim\\t\"\"\")",
+      "name": "literal_bytes_string2",
+      "out": "Kim\t"
+    },
+    {
+      "container": "google.api.expr",
+      "expr": "v1alpha1.Expr{\n\t\t\t\tid: 1,\n\t\t\t\tconst_expr: v1alpha1.Constant{\n\t\t\t\t\tstring_value: \"oneof_test\"\n\t\t\t\t}\n\t\t\t}",
+      "name": "literal_pb3_msg",
+      "out": {
+        "$expr": "\u0026exprpb.Expr{Id: 1,\n\t\t\t\tExprKind: \u0026exprpb.Expr_ConstExpr{\n\t\t\t\t\tConstExpr: \u0026exprpb.Constant{\n\t\t\t\t\t\tConstantKind: \u0026exprpb.Constant_StringValue{\n\t\t\t\t\t\t\tStringValue: \"oneof_test\"}}}}"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026exprpb.Expr{})"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{\n\t\t\t\trepeated_nested_enum: [\n\t\t\t\t\t0,\n\t\t\t\t\tTestAllTypes.NestedEnum.BAZ,\n\t\t\t\t\tTestAllTypes.NestedEnum.BAR],\n\t\t\t\trepeated_int32: [\n\t\t\t\t\tTestAllTypes.NestedEnum.FOO,\n\t\t\t\t\tTestAllTypes.NestedEnum.BAZ]}",
+      "name": "literal_pb_enum",
+      "out": {
+        "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\tRepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{\n\t\t\t\t\tproto3pb.TestAllTypes_FOO,\n\t\t\t\t\tproto3pb.TestAllTypes_BAZ,\n\t\t\t\t\tproto3pb.TestAllTypes_BAR,\n\t\t\t\t},\n\t\t\t\tRepeatedInt32: []int32{0, 2},\n\t\t\t}"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{\n\t\t\t\tsingle_int64_wrapper: 10,\n\t\t\t\tsingle_int32_wrapper: TestAllTypes{}.single_int32_wrapper,\n\t\t\t}",
+      "name": "literal_pb_wrapper_assign",
+      "out": {
+        "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\tSingleInt64Wrapper: wrapperspb.Int64(10),\n\t\t\t}"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{\n\t\t\t\tsingle_int32_wrapper: TestAllTypes{}.single_int32_wrapper,\n\t\t\t}.single_int32_wrapper == null",
+      "name": "literal_pb_wrapper_assign_roundtrip",
+      "out": true,
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "err": "field type conversion error",
+      "expr": "TestAllTypes{\n\t\t\t\trepeated_int32: [123, 456, TestAllTypes{}.single_int32_wrapper],\n\t\t\t}",
+      "name": "literal_pb_list_assign_null_wrapper",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "err": "field type conversion error",
+      "expr": "TestAllTypes{\n\t\t\t\tmap_string_string: {\n\t\t\t\t\t'hello': 'world',\n\t\t\t\t\t'goodbye': TestAllTypes{}.single_string_wrapper,\n\t\t\t\t},\n\t\t\t}",
+      "name": "literal_pb_map_assign_null_entry_value",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{}.single_string_wrapper",
+      "name": "unset_wrapper_access",
+      "out": {
+        "$expr": "types.NullValue"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ]
+    },
+    {
+      "expr": "timestamp(0) == timestamp(0)",
+      "name": "timestamp_eq_timestamp"
+    },
+    {
+      "expr": "timestamp(1) != timestamp(2)",
+      "name": "timestamp_ne_timestamp"
+    },
+    {
+      "expr": "timestamp(0) \u003c timestamp(1)",
+      "name": "timestamp_lt_timestamp"
+    },
+    {
+      "expr": "timestamp(2) \u003c= timestamp(2)",
+      "name": "timestamp_le_timestamp"
+    },
+    {
+      "expr": "timestamp(1) \u003e timestamp(0)",
+      "name": "timestamp_gt_timestamp"
+    },
+    {
+      "expr": "timestamp(2) \u003e= timestamp(2)",
+      "name": "timestamp_ge_timestamp"
+    },
+    {
+      "expr": "\n\t\t\tx.getFullYear() == 1970\n\t\t\t\u0026\u0026 x.getMonth() == 0\n\t\t\t\u0026\u0026 x.getDayOfYear() == 0\n\t\t\t\u0026\u0026 x.getDayOfMonth() == 0\n\t\t\t\u0026\u0026 x.getDate() == 1\n\t\t\t\u0026\u0026 x.getDayOfWeek() == 4\n\t\t\t\u0026\u0026 x.getHours() == 2\n\t\t\t\u0026\u0026 x.getMinutes() == 5\n\t\t\t\u0026\u0026 x.getSeconds() == 6\n\t\t\t\u0026\u0026 x.getMilliseconds() == 1\n\t\t\t\u0026\u0026 x.getFullYear('-07:30') == 1969\n\t\t\t\u0026\u0026 x.getDayOfYear('-07:30') == 364\n\t\t\t\u0026\u0026 x.getMonth('-07:30') == 11\n\t\t\t\u0026\u0026 x.getDayOfMonth('-07:30') == 30\n\t\t\t\u0026\u0026 x.getDate('-07:30') == 31\n\t\t\t\u0026\u0026 x.getDayOfWeek('-07:30') == 3\n\t\t\t\u0026\u0026 x.getHours('-07:30') == 18\n\t\t\t\u0026\u0026 x.getMinutes('-07:30') == 35\n\t\t\t\u0026\u0026 x.getSeconds('-07:30') == 6\n\t\t\t\u0026\u0026 x.getMilliseconds('-07:30') == 1\n\t\t\t\u0026\u0026 x.getFullYear('23:15') == 1970\n\t\t\t\u0026\u0026 x.getDayOfYear('23:15') == 1\n\t\t\t\u0026\u0026 x.getMonth('23:15') == 0\n\t\t\t\u0026\u0026 x.getDayOfMonth('23:15') == 1\n\t\t\t\u0026\u0026 x.getDate('23:15') == 2\n\t\t\t\u0026\u0026 x.getDayOfWeek('23:15') == 5\n\t\t\t\u0026\u0026 x.getHours('23:15') == 1\n\t\t\t\u0026\u0026 x.getMinutes('23:15') == 20\n\t\t\t\u0026\u0026 x.getSeconds('23:15') == 6\n\t\t\t\u0026\u0026 x.getMilliseconds('23:15') == 1",
+      "in": {
+        "x": {
+          "$expr": "time.Unix(7506, 1000000).Local()"
+        }
+      },
+      "name": "timestamp_methods",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.TimestampType)"
+        }
+      ]
+    },
+    {
+      "expr": "timestamp('1986-04-26T01:23:40Z')",
+      "name": "string_to_timestamp",
+      "out": {
+        "$expr": "\u0026tpb.Timestamp{Seconds: 514862620}"
+      }
+    },
+    {
+      "expr": "![0, 2, 4].all(x, 4/x != 2 \u0026\u0026 4/(4-x) != 2)",
+      "name": "macro_all_non_strict"
+    },
+    {
+      "expr": "code == \"111\" \u0026\u0026 [\"a\", \"b\"].all(x, x in tags)\n\t\t\t\t|| code == \"222\" \u0026\u0026 [\"a\", \"b\"].all(x, x in tags)",
+      "in": {
+        "code": "222",
+        "tags": ["a", "b"]
+      },
+      "name": "macro_all_non_strict_var",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"code\", types.StringType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"tags\", types.NewListType(types.StringType))"
+        }
+      ]
+    },
+    {
+      "expr": "[1, 2, 3, 4, 5u, 1.0].exists(e, type(e) == uint)",
+      "name": "macro_exists_lit"
+    },
+    {
+      "expr": "[0, 2, 4].exists(x, 4/x == 2 \u0026\u0026 4/(4-x) == 2)",
+      "name": "macro_exists_nonstrict"
+    },
+    {
+      "expr": "elems.exists(e, type(e) == uint)",
+      "in": {
+        "elems": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          {
+            "$expr": "uint(5)"
+          },
+          6
+        ]
+      },
+      "name": "macro_exists_var",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"elems\", types.NewListType(types.DynType))"
+        }
+      ]
+    },
+    {
+      "expr": "[1, 2, 3].exists_one(x, (x % 2) == 0)",
+      "name": "macro_exists_one"
+    },
+    {
+      "expr": "[-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3].filter(x, x \u003e 0)",
+      "name": "macro_filter",
+      "out": [1, 2, 3]
+    },
+    {
+      "expr": "has({'a':1}.a) \u0026\u0026 !has({}.a)",
+      "name": "macro_has_map_key"
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "err": "no such field 'invalid_field'",
+      "expr": "has(TestAllTypes{}.invalid_field)",
+      "name": "macro_has_pb2_field_undefined",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto2pb.TestAllTypes{})"
+        }
+      ],
+      "unchecked": true
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "expr": "has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.BAR}.standalone_enum)\n\t\t\t\u0026\u0026 has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.FOO}.standalone_enum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_message)\n\t\t\t\u0026\u0026 has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_enum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{}.standalone_enum)\n\t\t\t\u0026\u0026 !has(pb2.single_int64)\n\t\t\t\u0026\u0026 has(pb2.repeated_bool)\n\t\t\t\u0026\u0026 !has(pb2.repeated_int32)\n\t\t\t\u0026\u0026 has(pb2.map_int64_nested_type)\n\t\t\t\u0026\u0026 !has(pb2.map_string_string)",
+      "in": {
+        "pb2": {
+          "$expr": "\u0026proto2pb.TestAllTypes{\n\t\t\t\t\tRepeatedBool: []bool{false},\n\t\t\t\t\tMapInt64NestedType: map[int64]*proto2pb.NestedTestAllTypes{\n\t\t\t\t\t\t1: {},\n\t\t\t\t\t},\n\t\t\t\t\tMapStringString: map[string]string{},\n\t\t\t\t}"
+        }
+      },
+      "name": "macro_has_pb2_field",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto2pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"pb2\", types.NewObjectType(\"google.expr.proto2.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto2.test",
+      "expr": "has(TestAllTypes{standaloneEnum: TestAllTypes.NestedEnum.BAR}.standaloneEnum)\n\t\t\t\u0026\u0026 has(TestAllTypes{standaloneEnum: TestAllTypes.NestedEnum.FOO}.standaloneEnum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{singleNestedEnum: TestAllTypes.NestedEnum.FOO}.singleNestedMessage)\n\t\t\t\u0026\u0026 has(TestAllTypes{singleNestedEnum: TestAllTypes.NestedEnum.FOO}.singleNestedEnum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{}.singleNestedMessage)\n\t\t\t\u0026\u0026 has(TestAllTypes{singleNestedMessage: TestAllTypes.NestedMessage{}}.singleNestedMessage)\n\t\t\t\u0026\u0026 !has(TestAllTypes{}.standaloneEnum)\n\t\t\t\u0026\u0026 !has(pb2.singleInt64)\n\t\t\t\u0026\u0026 has(pb2.repeatedBool)\n\t\t\t\u0026\u0026 !has(pb2.repeatedInt32)\n\t\t\t\u0026\u0026 has(pb2.mapInt64NestedType)\n\t\t\t\u0026\u0026 !has(pb2.mapStringString)",
+      "in": {
+        "pb2": {
+          "$expr": "\u0026proto2pb.TestAllTypes{\n\t\t\t\t\tRepeatedBool: []bool{false},\n\t\t\t\t\tMapInt64NestedType: map[int64]*proto2pb.NestedTestAllTypes{\n\t\t\t\t\t\t1: {},\n\t\t\t\t\t},\n\t\t\t\t\tMapStringString: map[string]string{},\n\t\t\t\t}"
+        }
+      },
+      "name": "macro_has_pb2_field_json",
+      "typeOpts": [
+        {
+          "$expr": "types.JSONFieldNames(true)"
+        },
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto2pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"pb2\", types.NewObjectType(\"google.expr.proto2.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.BAR}.standalone_enum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.FOO}.standalone_enum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_message)\n\t\t\t\u0026\u0026 has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_enum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{}.single_nested_message)\n\t\t\t\u0026\u0026 has(TestAllTypes{single_nested_message: TestAllTypes.NestedMessage{}}.single_nested_message)\n\t\t\t\u0026\u0026 !has(TestAllTypes{}.standalone_enum)\n\t\t\t\u0026\u0026 !has(pb3.single_int64)\n\t\t\t\u0026\u0026 has(pb3.repeated_bool)\n\t\t\t\u0026\u0026 !has(pb3.repeated_int32)\n\t\t\t\u0026\u0026 has(pb3.map_int64_nested_type)\n\t\t\t\u0026\u0026 !has(pb3.map_string_string)",
+      "in": {
+        "pb3": {
+          "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\t\tRepeatedBool: []bool{false},\n\t\t\t\t\tMapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{\n\t\t\t\t\t\t1: {},\n\t\t\t\t\t},\n\t\t\t\t\tMapStringString: map[string]string{},\n\t\t\t\t}"
+        }
+      },
+      "name": "macro_has_pb3_field",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"pb3\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "has(TestAllTypes{standaloneEnum: TestAllTypes.NestedEnum.BAR}.standaloneEnum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{standaloneEnum: TestAllTypes.NestedEnum.FOO}.standaloneEnum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{singleNestedEnum: TestAllTypes.NestedEnum.FOO}.singleNestedMessage)\n\t\t\t\u0026\u0026 has(TestAllTypes{singleNestedEnum: TestAllTypes.NestedEnum.FOO}.singleNestedEnum)\n\t\t\t\u0026\u0026 !has(TestAllTypes{}.singleNestedMessage)\n\t\t\t\u0026\u0026 has(TestAllTypes{singleNestedMessage: TestAllTypes.NestedMessage{}}.singleNestedMessage)\n\t\t\t\u0026\u0026 !has(TestAllTypes{}.standaloneEnum)\n\t\t\t\u0026\u0026 !has(pb3.singleInt64)\n\t\t\t\u0026\u0026 has(pb3.repeatedBool)\n\t\t\t\u0026\u0026 !has(pb3.repeatedInt32)\n\t\t\t\u0026\u0026 has(pb3.mapInt64NestedType)\n\t\t\t\u0026\u0026 !has(pb3.mapStringString)",
+      "in": {
+        "pb3": {
+          "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\t\tRepeatedBool: []bool{false},\n\t\t\t\t\tMapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{\n\t\t\t\t\t\t1: {},\n\t\t\t\t\t},\n\t\t\t\t\tMapStringString: map[string]string{},\n\t\t\t\t}"
+        }
+      },
+      "name": "macro_has_pb3_field_json",
+      "typeOpts": [
+        {
+          "$expr": "types.JSONFieldNames(true)"
+        },
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"pb3\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "expr": "[1, 2, 3].map(x, x * 2) == [2, 4, 6]",
+      "name": "macro_map"
+    },
+    {
+      "expr": "matches(input, 'k.*')",
+      "in": {
+        "input": "kathmandu"
+      },
+      "name": "matches_global",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"input\", types.StringType)"
+        }
+      ]
+    },
+    {
+      "expr": "input.matches('k.*')\n\t\t\t\t\u0026\u0026 !'foo'.matches('k.*')\n\t\t\t\t\u0026\u0026 !'bar'.matches('k.*')\n\t\t\t\t\u0026\u0026 'kilimanjaro'.matches('.*ro')",
+      "in": {
+        "input": "kathmandu"
+      },
+      "name": "matches_member",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"input\", types.StringType)"
+        }
+      ]
+    },
+    {
+      "err": "unexpected ): `)k.*`",
+      "expr": "input.matches(')k.*')",
+      "extraOpts": [
+        {
+          "$expr": "CompileRegexConstants(MatchesRegexOptimization)"
+        }
+      ],
+      "in": {
+        "input": "kathmandu"
+      },
+      "name": "matches_error",
+      "progErr": "unexpected ): `)k.*`",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"input\", types.StringType)"
+        }
+      ]
+    },
+    {
+      "expr": "pb3.single_nested_message.bb",
+      "in": {
+        "pb3": {
+          "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\t\tNestedType: \u0026proto3pb.TestAllTypes_SingleNestedMessage{\n\t\t\t\t\t\tSingleNestedMessage: \u0026proto3pb.TestAllTypes_NestedMessage{\n\t\t\t\t\t\t\tBb: 1234,\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t}"
+        }
+      },
+      "name": "nested_proto_field",
+      "out": {
+        "$expr": "types.Int(1234)"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"pb3\",\n\t\t\t\t\ttypes.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "expr": "pb3.map_int64_nested_type[0].child.payload.single_int32 == 1",
+      "in": {
+        "pb3": {
+          "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\t\tMapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{\n\t\t\t\t\t\t0: {\n\t\t\t\t\t\t\tChild: \u0026proto3pb.NestedTestAllTypes{\n\t\t\t\t\t\t\t\tPayload: \u0026proto3pb.TestAllTypes{\n\t\t\t\t\t\t\t\t\tSingleInt32: 1,\n\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t}"
+        }
+      },
+      "name": "nested_proto_field_with_index",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"pb3\",\n\t\t\t\t\ttypes.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "expr": "ai == 20 || ar[\"foo\"] == \"bar\"",
+      "in": {
+        "ai": 20,
+        "ar": {
+          "foo": "bar"
+        }
+      },
+      "name": "or_true_1st",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"ai\", types.IntType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"ar\", types.NewMapType(types.StringType, types.StringType))"
+        }
+      ]
+    },
+    {
+      "expr": "ai == 20 || ar[\"foo\"] == \"bar\"",
+      "in": {
+        "ai": 2,
+        "ar": {
+          "foo": "bar"
+        }
+      },
+      "name": "or_true_2nd",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"ai\", types.IntType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"ar\", types.NewMapType(types.StringType, types.StringType))"
+        }
+      ]
+    },
+    {
+      "expr": "ai == 20 || ar[\"foo\"] == \"bar\"",
+      "in": {
+        "ai": 2,
+        "ar": {
+          "foo": "baz"
+        }
+      },
+      "name": "or_false",
+      "out": {
+        "$expr": "types.False"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"ai\", types.IntType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"ar\", types.NewMapType(types.StringType, types.StringType))"
+        }
+      ]
+    },
+    {
+      "err": "division by zero",
+      "expr": "1/0 != 0 || false",
+      "name": "or_error_1st_error"
+    },
+    {
+      "err": "division by zero",
+      "expr": "false || 1/0 != 0",
+      "name": "or_error_2nd_error"
+    },
+    {
+      "expr": "1/0 != 0 || true",
+      "name": "or_error_1st_true",
+      "out": {
+        "$expr": "types.True"
+      }
+    },
+    {
+      "expr": "true || 1/0 != 0",
+      "name": "or_error_2nd_true",
+      "out": {
+        "$expr": "types.True"
+      }
+    },
+    {
+      "container": "a.b",
+      "expr": "b.c.d != 10",
+      "in": {
+        "a.b.c.d": 9
+      },
+      "name": "pkg_qualified_id",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a.b.c.d\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "container": "a.b",
+      "expr": "c.d != 10",
+      "in": {
+        "a.c.d": 9
+      },
+      "name": "pkg_qualified_id_unchecked",
+      "unchecked": true
+    },
+    {
+      "container": "a.b",
+      "expr": "b.c['d'] == 10",
+      "in": {
+        "a.b.c": {
+          "d": 10
+        }
+      },
+      "name": "pkg_qualified_index_unchecked",
+      "unchecked": true
+    },
+    {
+      "expr": "type(dyn('')) == string",
+      "name": "type_dyn_equals_string"
+    },
+    {
+      "expr": "type == 'string'",
+      "in": {
+        "type": "string"
+      },
+      "name": "type_override",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"type\", types.StringType)"
+        }
+      ]
+    },
+    {
+      "expr": "m.strMap['val'] == 'string'\n\t\t\t\t\u0026\u0026 m.floatMap['val'] == 1.5\n\t\t\t\t\u0026\u0026 m.doubleMap['val'] == -2.0\n\t\t\t\t\u0026\u0026 m.intMap['val'] == -3\n\t\t\t\t\u0026\u0026 m.int32Map['val'] == 4\n\t\t\t\t\u0026\u0026 m.int64Map['val'] == -5\n\t\t\t\t\u0026\u0026 m.uintMap['val'] == 6u\n\t\t\t\t\u0026\u0026 m.uint32Map['val'] == 7u\n\t\t\t\t\u0026\u0026 m.uint64Map['val'] == 8u\n\t\t\t\t\u0026\u0026 m.boolMap['val'] == true\n\t\t\t\t\u0026\u0026 m.boolMap['val'] != false",
+      "in": {
+        "m": {
+          "boolMap": {
+            "val": true
+          },
+          "doubleMap": {
+            "val": -2.0
+          },
+          "floatMap": {
+            "val": 1.5
+          },
+          "int32Map": {
+            "val": 4
+          },
+          "int64Map": {
+            "val": -5
+          },
+          "intMap": {
+            "val": -3
+          },
+          "strMap": {
+            "val": "string"
+          },
+          "uint32Map": {
+            "val": 7
+          },
+          "uint64Map": {
+            "val": 8
+          },
+          "uintMap": {
+            "val": 6
+          }
+        }
+      },
+      "name": "select_key",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"m\", types.NewMapType(types.StringType, types.DynType))"
+        }
+      ]
+    },
+    {
+      "expr": "m.boolStr[true] == 'string'\n\t\t\t\t\u0026\u0026 m.boolFloat32[true] == 1.5\n\t\t\t\t\u0026\u0026 m.boolFloat64[false] == -2.1\n\t\t\t\t\u0026\u0026 m.boolInt[false] == -3\n\t\t\t\t\u0026\u0026 m.boolInt32[false] == 0\n\t\t\t\t\u0026\u0026 m.boolInt64[true] == 4\n\t\t\t\t\u0026\u0026 m.boolUint[true] == 5u\n\t\t\t\t\u0026\u0026 m.boolUint32[true] == 6u\n\t\t\t\t\u0026\u0026 m.boolUint64[false] == 7u\n\t\t\t\t\u0026\u0026 m.boolBool[true]\n\t\t\t\t\u0026\u0026 m.boolIface[false] == true",
+      "in": {
+        "m": {
+          "boolBool": {
+            "true": true
+          },
+          "boolFloat32": {
+            "true": 1.5
+          },
+          "boolFloat64": {
+            "false": -2.1
+          },
+          "boolIface": {
+            "false": true
+          },
+          "boolInt": {
+            "false": -3
+          },
+          "boolInt32": {
+            "false": 0
+          },
+          "boolInt64": {
+            "true": 4
+          },
+          "boolStr": {
+            "true": "string"
+          },
+          "boolUint": {
+            "true": 5
+          },
+          "boolUint32": {
+            "true": 6
+          },
+          "boolUint64": {
+            "false": 7
+          }
+        }
+      },
+      "name": "select_bool_key",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"m\", types.NewMapType(types.StringType, types.DynType))"
+        }
+      ]
+    },
+    {
+      "expr": "m.uintIface[1u] == 'string'\n\t\t\t\t\u0026\u0026 m.uint32Iface[2u] == 1.5\n\t\t\t\t\u0026\u0026 m.uint64Iface[3u] == -2.1\n\t\t\t\t\u0026\u0026 m.uint64String[4u] == 'three'",
+      "in": {
+        "m": {
+          "uint32Iface": {
+            "2": 1.5
+          },
+          "uint64Iface": {
+            "3": -2.1
+          },
+          "uint64String": {
+            "4": "three"
+          },
+          "uintIface": {
+            "1": "string"
+          }
+        }
+      },
+      "name": "select_uint_key",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"m\", types.NewMapType(types.StringType, types.DynType))"
+        }
+      ]
+    },
+    {
+      "expr": "m.strList[0] == 'string'\n\t\t\t\t\u0026\u0026 m.floatList[0] == 1.5\n\t\t\t\t\u0026\u0026 m.doubleList[0] == -2.0\n\t\t\t\t\u0026\u0026 m.intList[0] == -3\n\t\t\t\t\u0026\u0026 m.int32List[0] == 4\n\t\t\t\t\u0026\u0026 m.int64List[0] == -5\n\t\t\t\t\u0026\u0026 m.uintList[0] == 6u\n\t\t\t\t\u0026\u0026 m.uint32List[0] == 7u\n\t\t\t\t\u0026\u0026 m.uint64List[0] == 8u\n\t\t\t\t\u0026\u0026 m.boolList[0] == true\n\t\t\t\t\u0026\u0026 m.boolList[1] != true\n\t\t\t\t\u0026\u0026 m.ifaceList[0] == {}",
+      "in": {
+        "m": {
+          "boolList": [true, false],
+          "doubleList": [-2.0],
+          "floatList": [1.5],
+          "ifaceList": [{}],
+          "int32List": [4],
+          "int64List": [-5],
+          "intList": [-3],
+          "strList": ["string"],
+          "uint32List": [7],
+          "uint64List": [8],
+          "uintList": [6]
+        }
+      },
+      "name": "select_index",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"m\", types.NewMapType(types.StringType, types.DynType))"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3",
+      "expr": "a.b.c\n\t\t\t\t\u0026\u0026 pb3.repeated_nested_enum[0] == test.TestAllTypes.NestedEnum.BAR\n\t\t\t\t\u0026\u0026 json.list[0] == 'world'",
+      "in": {
+        "a.b": {
+          "c": true
+        },
+        "json": {
+          "$expr": "\u0026structpb.Value{\n\t\t\t\t\tKind: \u0026structpb.Value_StructValue{\n\t\t\t\t\t\tStructValue: \u0026structpb.Struct{\n\t\t\t\t\t\t\tFields: map[string]*structpb.Value{\n\t\t\t\t\t\t\t\t\"list\": {Kind: \u0026structpb.Value_ListValue{\n\t\t\t\t\t\t\t\t\tListValue: \u0026structpb.ListValue{\n\t\t\t\t\t\t\t\t\t\tValues: []*structpb.Value{\n\t\t\t\t\t\t\t\t\t\t\tstructpb.NewStringValue(\"world\"),\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t}},\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t}"
+        },
+        "pb3": {
+          "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\t\tRepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{proto3pb.TestAllTypes_BAR},\n\t\t\t\t}"
+        }
+      },
+      "name": "select_field",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a.b\", types.NewMapType(types.StringType, types.BoolType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"pb3\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"json\", types.NewMapType(types.StringType, types.DynType))"
+        }
+      ]
+    },
+    {
+      "expr": "!has(a.single_int32)\n\t\t\t\u0026\u0026 a.single_int32 == -32\n\t\t\t\u0026\u0026 a.single_int64 == -64\n\t\t\t\u0026\u0026 a.single_uint32 == 32u\n\t\t\t\u0026\u0026 a.single_uint64 == 64u\n\t\t\t\u0026\u0026 a.single_float == 3.0\n\t\t\t\u0026\u0026 a.single_double == 6.4\n\t\t\t\u0026\u0026 a.single_bool\n\t\t\t\u0026\u0026 \"empty\" == a.single_string",
+      "in": {
+        "a": {
+          "$expr": "\u0026proto2pb.TestAllTypes{}"
+        }
+      },
+      "name": "select_pb2_primitive_fields",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto2pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewObjectType(\"google.expr.proto2.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "abbrevs": ["google.protobuf.Int32Value"],
+      "expr": "!has(a.single_int32_wrapper) \u0026\u0026 a.single_int32_wrapper == null\n\t\t\t\t\u0026\u0026 has(a.single_int64_wrapper) \u0026\u0026 a.single_int64_wrapper == 0\n\t\t\t\t\u0026\u0026 has(a.single_string_wrapper) \u0026\u0026 a.single_string_wrapper == \"hello\"\n\t\t\t\t\u0026\u0026 a.single_int64_wrapper == Int32Value{value: 0}",
+      "in": {
+        "a": {
+          "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\t\tSingleInt64Wrapper:  \u0026wrapperspb.Int64Value{},\n\t\t\t\t\tSingleStringWrapper: wrapperspb.String(\"hello\"),\n\t\t\t\t}"
+        }
+      },
+      "name": "select_pb3_wrapper_fields",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "a.single_uint64 \u003e 3u",
+      "in": {
+        "a": {
+          "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\t\tSingleUint64: 10,\n\t\t\t\t}"
+        }
+      },
+      "name": "select_pb3_compare",
+      "out": {
+        "$expr": "types.True"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewObjectType(\"google.expr.proto3.test.TestAllTypes\"))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "\u0026custAttrFactory{\n\t\t\t\tAttributeFactory: NewAttributeFactory(\n\t\t\t\t\ttestContainer(\"google.expr.proto3.test\"),\n\t\t\t\t\tnewTestRegistry(t, types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes_NestedMessage{})),\n\t\t\t\t\tnewTestRegistry(t, types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes_NestedMessage{})),\n\t\t\t\t),\n\t\t\t}"
+      },
+      "container": "google.expr.proto3.test",
+      "expr": "a.bb \u003e 100",
+      "in": {
+        "a": {
+          "$expr": "\u0026proto3pb.TestAllTypes_NestedMessage{\n\t\t\t\t\tBb: 101,\n\t\t\t\t}"
+        }
+      },
+      "name": "select_custom_pb3_compare",
+      "out": {
+        "$expr": "types.True"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes_NestedMessage{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\",\n\t\t\t\t\ttypes.NewObjectType(\"google.expr.proto3.test.TestAllTypes.NestedMessage\"))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "\u0026custAttrFactory{\n\t\t\t\tAttributeFactory: NewAttributeFactory(\n\t\t\t\t\ttestContainer(\"google.expr.proto3.test\"),\n\t\t\t\t\tnewTestRegistry(t, types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes_NestedMessage{})),\n\t\t\t\t\tnewTestRegistry(t, types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes_NestedMessage{})),\n\t\t\t\t),\n\t\t\t}"
+      },
+      "container": "google.expr.proto3.test",
+      "expr": "a.?bb",
+      "in": {
+        "a": {
+          "$expr": "\u0026proto3pb.TestAllTypes_NestedMessage{\n\t\t\t\t\tBb: 101,\n\t\t\t\t}"
+        }
+      },
+      "name": "select_custom_pb3_optional_field",
+      "out": {
+        "$expr": "types.OptionalOf(types.Int(101))"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes_NestedMessage{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\",\n\t\t\t\t\ttypes.NewObjectType(\"google.expr.proto3.test.TestAllTypes.NestedMessage\"))"
+        }
+      ]
+    },
+    {
+      "expr": "json('{\"hi\":\"world\"}').hi == 'world'",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"json\",\n\t\t\t\t\tdecls.Overload(\"json_string\", []*types.Type{types.StringType}, types.DynType,\n\t\t\t\t\t\tdecls.UnaryBinding(func(val ref.Val) ref.Val {\n\t\t\t\t\t\t\tstr, ok := val.(types.String)\n\t\t\t\t\t\t\tif !ok {\n\t\t\t\t\t\t\t\treturn types.MaybeNoSuchOverloadErr(val)\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tm := make(map[string]any)\n\t\t\t\t\t\t\terr := json.Unmarshal([]byte(str), \u0026m)\n\t\t\t\t\t\t\tif err != nil {\n\t\t\t\t\t\t\t\treturn types.NewErr(\"invalid json: %v\", err)\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn types.DefaultTypeAdapter.NativeToValue(m)\n\t\t\t\t\t\t}),\n\t\t\t\t\t),\n\t\t\t\t)"
+        }
+      ],
+      "name": "select_relative"
+    },
+    {
+      "expr": "a.b.c",
+      "in": {
+        "a.b": {
+          "c": "ten"
+        },
+        "a.b.c": 10
+      },
+      "name": "select_subsumed_field",
+      "out": {
+        "$expr": "types.Int(10)"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a.b.c\", types.IntType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"a.b\", types.NewMapType(types.StringType, types.StringType))"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{}.repeated_nested_message.size() == 0",
+      "name": "select_empty_repeated_nested",
+      "out": {
+        "$expr": "types.True"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ]
+    },
+    {
+      "expr": "try(0/0)",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"try\",\n\t\t\t\t\tdecls.Overload(\"try_dyn\", []*types.Type{types.DynType}, types.DynType,\n\t\t\t\t\t\tdecls.OverloadIsNonStrict(),\n\t\t\t\t\t\tdecls.UnaryBinding(func(arg ref.Val) ref.Val {\n\t\t\t\t\t\t\tif types.IsError(arg) {\n\t\t\t\t\t\t\t\treturn types.String(fmt.Sprintf(\"error: %s\", arg))\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn arg\n\t\t\t\t\t\t}),\n\t\t\t\t\t),\n\t\t\t\t)"
+        }
+      ],
+      "name": "call_with_error_unary",
+      "out": {
+        "$expr": "types.String(\"error: division by zero\")"
+      },
+      "unchecked": true
+    },
+    {
+      "expr": "try(0/0, 0)",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"try\",\n\t\t\t\t\tdecls.Overload(\"try_dyn\",\n\t\t\t\t\t\t[]*types.Type{types.DynType, types.DynType},\n\t\t\t\t\t\ttypes.NewListType(types.DynType),\n\t\t\t\t\t\tdecls.OverloadIsNonStrict(),\n\t\t\t\t\t\tdecls.BinaryBinding(func(arg0, arg1 ref.Val) ref.Val {\n\t\t\t\t\t\t\tif types.IsError(arg0) {\n\t\t\t\t\t\t\t\treturn types.String(fmt.Sprintf(\"error: %s\", arg0))\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn types.NewDynamicList(types.DefaultTypeAdapter, []ref.Val{arg0, arg1})\n\t\t\t\t\t\t}),\n\t\t\t\t\t),\n\t\t\t\t)"
+        }
+      ],
+      "name": "call_with_error_binary",
+      "out": {
+        "$expr": "types.String(\"error: division by zero\")"
+      },
+      "unchecked": true
+    },
+    {
+      "expr": "try(0/0, 0, 0)",
+      "funcs": [
+        {
+          "$expr": "funcDecl(t, \"try\",\n\t\t\t\t\tdecls.Overload(\"try_dyn\",\n\t\t\t\t\t\t[]*types.Type{types.DynType, types.DynType, types.DynType},\n\t\t\t\t\t\ttypes.NewListType(types.DynType),\n\t\t\t\t\t\tdecls.OverloadIsNonStrict(),\n\t\t\t\t\t\tdecls.FunctionBinding(func(args ...ref.Val) ref.Val {\n\t\t\t\t\t\t\tif types.IsError(args[0]) {\n\t\t\t\t\t\t\t\treturn types.String(fmt.Sprintf(\"error: %s\", args[0]))\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn types.NewDynamicList(types.DefaultTypeAdapter, args)\n\t\t\t\t\t\t}),\n\t\t\t\t\t),\n\t\t\t\t)"
+        }
+      ],
+      "name": "call_with_error_function",
+      "out": {
+        "$expr": "types.String(\"error: division by zero\")"
+      },
+      "unchecked": true
+    },
+    {
+      "expr": "{?'hi': {}.?missing,\n\t\t\t        ?'world': {'present': 42u}.?present}",
+      "name": "literal_map_optional_field",
+      "out": {
+        "world": {
+          "$expr": "uint(42)"
+        }
+      }
+    },
+    {
+      "err": "cannot initialize optional entry 'hi' from non-optional",
+      "expr": "{?'hi': 'world'}",
+      "name": "literal_map_optional_field_bad_init",
+      "unchecked": true
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{?single_int32: {'value': 1}.?value, ?single_string: {}.?missing}",
+      "name": "literal_pb_optional_field",
+      "out": {
+        "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\tSingleInt32: 1,\n\t\t\t}"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ]
+    },
+    {
+      "container": "google.expr.proto3.test",
+      "err": "cannot initialize optional entry 'single_int32' from non-optional",
+      "expr": "TestAllTypes{?single_int32: 1}",
+      "name": "literal_pb_optional_field_bad_init",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "unchecked": true
+    },
+    {
+      "expr": "[?{}.?missing, ?{'present': 42u}.?present]",
+      "name": "literal_list_optional_element",
+      "out": [42]
+    },
+    {
+      "err": "cannot initialize optional list element from non-optional value 123",
+      "expr": "[?123]",
+      "name": "literal_list_optional_bad_element",
+      "unchecked": true
+    },
+    {
+      "err": "division by zero",
+      "expr": "1/0 in [1, 2, 3]",
+      "name": "bad_argument_in_optimized_list"
+    },
+    {
+      "err": "no such attribute(s): mylistundef",
+      "expr": "mylistundef[0]",
+      "name": "list_index_error",
+      "unchecked": true
+    },
+    {
+      "container": "goog",
+      "err": "no such attribute(s): goog.pkg.mylistundef, pkg.mylistundef",
+      "expr": "pkg.mylistundef[0]",
+      "name": "pkg_list_index_error",
+      "unchecked": true
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "a[0]",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{\n\t\t\t\t\"a\": map[int64]any{\n\t\t\t\t\t1: true,\n\t\t\t\t},\n\t\t\t}, NewAttributePattern(\"a\").QualInt(0))"
+      },
+      "name": "unknown_attribute",
+      "out": {
+        "$expr": "types.NewUnknown(2, types.QualifyAttribute[int64](types.NewAttributeTrail(\"a\"), 0))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\",\n\t\t\t\t\ttypes.NewMapType(types.IntType, types.BoolType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "has(a.b)",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "macro_has_map_key_unknown_propagates",
+      "out": {
+        "$expr": "types.NewUnknown(4, types.NewAttributeTrail(\"a\"))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewMapType(types.StringType, types.BoolType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "a[dyn(0u)]",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{\n\t\t\t\t\"a\": map[int64]any{\n\t\t\t\t\t1: true,\n\t\t\t\t},\n\t\t\t}, NewAttributePattern(\"a\").QualInt(0))"
+      },
+      "name": "unknown_attribute_mixed_qualifier",
+      "out": {
+        "$expr": "types.NewUnknown(2, types.QualifyAttribute[uint64](types.NewAttributeTrail(\"a\"), 0))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\",\n\t\t\t\t\ttypes.NewMapType(types.IntType, types.BoolType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry(),\n\t\t\t\tEnableErrorOnBadPresenceTest(true))"
+      },
+      "err": "no such key: invalid",
+      "expr": "has(dyn(1).invalid)",
+      "name": "invalid_presence_test_on_int_literal"
+    },
+    {
+      "attrs": {
+        "$expr": "NewAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry(),\n\t\t\t\tEnableErrorOnBadPresenceTest(true))"
+      },
+      "err": "unsupported index type 'string' in list",
+      "expr": "has(dyn([]).invalid)",
+      "name": "invalid_presence_test_on_list_literal"
+    },
+    {
+      "expr": "{}.?invalid",
+      "name": "optional_select_on_undefined",
+      "out": {
+        "$expr": "types.OptionalNone"
+      }
+    },
+    {
+      "expr": "{\"invalid\": dyn(null)}.?invalid.?nested",
+      "name": "optional_select_on_null_literal",
+      "out": {
+        "$expr": "types.OptionalNone"
+      }
+    },
+    {
+      "container": "cel.example",
+      "expr": "[{'z': 0}].exists(y, y.z == 0)",
+      "in": {
+        "cel.example.y": {
+          "z": 1
+        }
+      },
+      "name": "local_shadow_identifier_in_select",
+      "out": {
+        "$expr": "types.True"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"cel.example.y\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "container": "y",
+      "expr": "[{'z': 0}].exists(y, y.z == 0 \u0026\u0026 .y.z == 1)",
+      "in": {
+        "y.z": 1
+      },
+      "name": "local_shadow_identifier_in_select_global_disambiguation",
+      "out": {
+        "$expr": "types.True"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"y.z\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "expr": "[0].exists(x, x == 0 \u0026\u0026 .x == 1)",
+      "in": {
+        "x": 1
+      },
+      "name": "local_shadow_identifier_with_global_disambiguation",
+      "out": {
+        "$expr": "types.True"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "expr": "[0].exists(x, [x+1].exists(x, x == .x))",
+      "in": {
+        "x": 1
+      },
+      "name": "local_double_shadow_identifier_with_global_disambiguation",
+      "out": {
+        "$expr": "types.True"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "container": "cel.example",
+      "expr": "[{'z': 0}].exists(y, y.z == 0)",
+      "in": {
+        "cel.example.y": {
+          "z": 1
+        }
+      },
+      "name": "unchecked_local_shadow_identifier_in_select",
+      "out": {
+        "$expr": "types.True"
+      },
+      "unchecked": true,
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"cel.example.y\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "container": "y",
+      "expr": "[{'z': 0}].exists(y, y.z == 0 \u0026\u0026 .y.z == 1)",
+      "in": {
+        "y.z": 1
+      },
+      "name": "unchecked_local_shadow_identifier_in_select_global_disambiguation",
+      "out": {
+        "$expr": "types.True"
+      },
+      "unchecked": true,
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"y.z\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "expr": "[0].exists(x, x == 0 \u0026\u0026 .x == 1)",
+      "in": {
+        "x": 1
+      },
+      "name": "unchecked_local_shadow_identifier_with_global_disambiguation",
+      "out": {
+        "$expr": "types.True"
+      },
+      "unchecked": true,
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "expr": "[0].exists(x, [x+1].exists(x, x == .x))",
+      "in": {
+        "x": 1
+      },
+      "name": "unchecked_local_double_shadow_identifier_with_global_disambiguation",
+      "out": {
+        "$expr": "types.True"
+      },
+      "unchecked": true,
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"x\", types.IntType)"
+        }
+      ]
     }
   ],
   "interpreter/interpreter_test.go/TestInterpreter_TypeConversionOpt": [

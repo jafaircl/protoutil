@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { syncedCases } from "../spec-helpers.js";
 import {
   BoolType,
   BytesType,
@@ -19,6 +20,7 @@ import {
   objectType,
   opaqueType,
   optionalType,
+  registry,
   StringType,
   TimestampType,
   TypeType,
@@ -27,7 +29,11 @@ import {
   typeTypeWithParam,
   UintType,
 } from "./index.js";
-import { resolveSyncedProtoType, resolveSyncedType, syncedTypeCases } from "./spec-helpers.js";
+import {
+  resolveRuntimeAssignableValue,
+  resolveSyncedExpr,
+  resolveSyncedProtoType,
+} from "./spec-helpers.js";
 
 describe("common/types type", () => {
   it("common/types/type_test.go/TestType_ConvertToType", () => {
@@ -80,41 +86,55 @@ describe("common/types types", () => {
   );
 
   it("common/types/types_test.go/TestTypeIsExactType", () => {
-    const cases = syncedTypeCases<{ t1: unknown; t2: unknown; isExact: boolean }>(
+    const cases = syncedCases<{ t1: unknown; t2: unknown; isExact: boolean }>(
       "common/types/types_test.go/TestTypeIsExactType",
     );
     for (const testCase of cases) {
-      expect(resolveSyncedType(testCase.t1).isExactType(resolveSyncedType(testCase.t2))).toBe(
-        testCase.isExact,
-      );
+      expect(
+        (resolveSyncedExpr(testCase.t1) as import("./index.js").Type).isExactType(
+          resolveSyncedExpr(testCase.t2) as import("./index.js").Type,
+        ),
+      ).toBe(testCase.isExact);
     }
   });
 
   it("common/types/types_test.go/TestTypeIsEquivalentType", () => {
-    const cases = syncedTypeCases<{ t1: unknown; t2: unknown; isEquivalent: boolean }>(
+    const cases = syncedCases<{ t1: unknown; t2: unknown; isEquivalent: boolean }>(
       "common/types/types_test.go/TestTypeIsEquivalentType",
     );
     for (const testCase of cases) {
-      expect(resolveSyncedType(testCase.t1).isEquivalentType(resolveSyncedType(testCase.t2))).toBe(
-        testCase.isEquivalent,
-      );
+      expect(
+        (resolveSyncedExpr(testCase.t1) as import("./index.js").Type).isEquivalentType(
+          resolveSyncedExpr(testCase.t2) as import("./index.js").Type,
+        ),
+      ).toBe(testCase.isEquivalent);
     }
   });
 
   it("common/types/types_test.go/TestTypeIsAssignableType", () => {
-    const cases = syncedTypeCases<{ t1: unknown; t2: unknown; isAssignable: boolean }>(
+    const cases = syncedCases<{ t1: unknown; t2: unknown; isAssignable: boolean }>(
       "common/types/types_test.go/TestTypeIsAssignableType",
     );
     for (const testCase of cases) {
-      expect(resolveSyncedType(testCase.t1).isAssignableType(resolveSyncedType(testCase.t2))).toBe(
-        testCase.isAssignable,
-      );
+      expect(
+        (resolveSyncedExpr(testCase.t1) as import("./index.js").Type).isAssignableType(
+          resolveSyncedExpr(testCase.t2) as import("./index.js").Type,
+        ),
+      ).toBe(testCase.isAssignable);
     }
   });
 
-  it.todo(
-    "common/types/types_test.go/TestTypeIsAssignableRuntimeType blocked: list/map/object runtime value seams are not ported yet",
-  );
+  it("common/types/types_test.go/TestTypeIsAssignableRuntimeType", () => {
+    const reg = registry();
+    const cases = syncedCases<{ isRuntimeAssignable: boolean; t: unknown; v: unknown }>(
+      "common/types/types_test.go/TestTypeIsAssignableRuntimeType",
+    );
+    for (const testCase of cases) {
+      const typeValue = resolveSyncedExpr(testCase.t) as import("./index.js").Type;
+      const value = reg.nativeToValue(resolveRuntimeAssignableValue(testCase.v));
+      expect(typeValue.isAssignableRuntimeType(value)).toBe(testCase.isRuntimeAssignable);
+    }
+  });
 
   it("common/types/types_test.go/TestTypeToExprType", () => {
     expect(typeToExprType(BoolType).typeKind.case).toBe("primitive");
@@ -130,13 +150,13 @@ describe("common/types types", () => {
   );
 
   it("common/types/types_test.go/TestExprTypeToType", () => {
-    const cases = syncedTypeCases<{ in: unknown; out: unknown }>(
+    const cases = syncedCases<{ in: unknown; out: unknown }>(
       "common/types/types_test.go/TestExprTypeToType",
     );
     for (const testCase of cases) {
       expect(
         (exprTypeToType(resolveSyncedProtoType(testCase.in)) as { toString(): string }).toString(),
-      ).toBe(resolveSyncedType(testCase.out).toString());
+      ).toBe((resolveSyncedExpr(testCase.out) as import("./index.js").Type).toString());
     }
   });
 

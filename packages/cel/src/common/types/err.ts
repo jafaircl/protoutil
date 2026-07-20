@@ -18,28 +18,18 @@ export class Err extends globalThis.Error implements Error {
     super(message);
     this.name = "Err";
   }
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
   public convertToNative(): never {
     throw this;
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(): Val {
     return this;
   }
-
-  /** Equal implements ref.Val.Equal. */
   public equal(): Val {
     return this;
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return ErrTypeValue!;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): unknown {
     return this;
   }

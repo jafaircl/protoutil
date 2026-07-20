@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { syncedCases } from "../spec-helpers.js";
 import { type Bool, type String as CelString, Double, Int, Uint } from "./index.js";
-import { resolveSyncedExpr, resolveSyncedVal, syncedTypeCases } from "./spec-helpers.js";
+import { resolveSyncedExpr, resolveSyncedVal } from "./spec-helpers.js";
 
 describe("common/types double", () => {
   it.todo(
@@ -33,7 +34,7 @@ describe("common/types double", () => {
   });
 
   it("common/types/double_test.go/TestDoubleCompare", () => {
-    const cases = syncedTypeCases<{ a: unknown; b: unknown; out: unknown }>(
+    const cases = syncedCases<{ a: unknown; b: unknown; out: unknown }>(
       "common/types/double_test.go/TestDoubleCompare",
     );
     for (const testCase of cases) {
@@ -49,7 +50,7 @@ describe("common/types double", () => {
   });
 
   it("common/types/double_test.go/TestDoubleConvertToType", () => {
-    const cases = syncedTypeCases<{ in: unknown; name: string; out: unknown; toType: unknown }>(
+    const cases = syncedCases<{ in: unknown; name: string; out: unknown; toType: unknown }>(
       "common/types/double_test.go/TestDoubleConvertToType",
     );
     for (const testCase of cases) {

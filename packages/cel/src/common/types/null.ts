@@ -1,4 +1,11 @@
-import { NullValue as WktNullValue } from "@bufbuild/protobuf/wkt";
+import {
+  AnySchema,
+  anyPack,
+  ListValueSchema,
+  StructSchema,
+  ValueSchema,
+  NullValue as WktNullValue,
+} from "@bufbuild/protobuf/wkt";
 import { Bool } from "./bool.js";
 import { err } from "./err.js";
 import type { Type as RefType, Val } from "./ref/index.js";
@@ -8,13 +15,36 @@ import { NullType, StringType, TypeType } from "./types.js";
 /**
  * Null implements CEL null.
  */
-export class Null {
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
-  public convertToNative(): WktNullValue {
-    return WktNullValue.NULL_VALUE;
+export class Null implements Val {
+  public convertToNative(typeDesc?: unknown): unknown {
+    if (typeDesc === undefined || typeDesc === WktNullValue) {
+      return WktNullValue.NULL_VALUE;
+    }
+    if (typeDesc === NullValue) {
+      return this;
+    }
+    if (typeDesc === ValueSchema) {
+      return {
+        $typeName: "google.protobuf.Value",
+        kind: { case: "nullValue", value: WktNullValue.NULL_VALUE },
+      };
+    }
+    if (typeDesc === AnySchema) {
+      return anyPack(ValueSchema, {
+        $typeName: "google.protobuf.Value",
+        kind: { case: "nullValue", value: WktNullValue.NULL_VALUE },
+      });
+    }
+    const typeName =
+      typeDesc === Number
+        ? "int"
+        : typeDesc === ListValueSchema
+          ? "*structpb.ListValue"
+          : typeDesc === StructSchema
+            ? "*structpb.Struct"
+            : String(typeDesc);
+    throw new Error(`type conversion error from '${NullType}' to '${typeName}'`);
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {
       case StringType:
@@ -27,8 +57,6 @@ export class Null {
         return err(`type conversion error from '${NullType}' to '${typeValue.typeName()}'`);
     }
   }
-
-  /** Equal implements ref.Val.Equal. */
   public equal(other: Val): Val {
     return new Bool(other.type() === NullType);
   }
@@ -37,13 +65,9 @@ export class Null {
   public isZeroValue(): boolean {
     return true;
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return NullType;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): WktNullValue {
     return WktNullValue.NULL_VALUE;
   }

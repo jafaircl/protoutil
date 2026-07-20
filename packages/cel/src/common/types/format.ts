@@ -7,10 +7,10 @@ interface formattable {
 }
 
 /**
- * Format formats the value as a string. The result is only intended for human consumption and ignores errors.
+ * formatVal formats the value as a string. The result is only intended for human consumption and ignores errors.
  * Do not depend on the output being stable. It may change at any time.
  */
-export function Format(val: Val): string {
+export function formatVal(val: Val): string {
   const sb: string[] = [];
   formatTo(sb, val);
   return sb.join("");

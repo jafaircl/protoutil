@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { db, JSONFieldNames } from "./pb.js";
+import { db, jsonFieldNamesOption } from "./pb.js";
 import {
   descriptorRoundTripFiles,
   file_test_proto2pb_test_all_types,
   Proto2TestAllTypesSchema,
   Proto3TestAllTypesSchema,
-} from "./spec_helpers.js";
+} from "./spec-helpers.js";
 
 describe("common/types/pb/file_test.go", () => {
   it.todo(
@@ -17,7 +17,7 @@ describe("common/types/pb/file_test.go", () => {
   );
 
   it("common/types/pb/file_test.go/TestFileDescriptionJSONFieldNames", () => {
-    const pbdb = db(JSONFieldNames(true));
+    const pbdb = db(jsonFieldNamesOption(true));
     const msg = { $typeName: Proto2TestAllTypesSchema.typeName };
     const fd = pbdb.registerMessage(msg, Proto2TestAllTypesSchema);
     expect(fd.fileDescriptor()).toBe(file_test_proto2pb_test_all_types);

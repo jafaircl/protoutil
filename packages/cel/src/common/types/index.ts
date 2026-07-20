@@ -9,10 +9,13 @@ export * from "./format.js";
 export * from "./int.js";
 export * from "./iterator.js";
 export * from "./json-value.js";
+export * from "./list.js";
+export * from "./map.js";
 export * from "./null.js";
 export * from "./object.js";
 export * from "./optional.js";
 export * from "./overflow.js";
+export * from "./provider.js";
 export type { NativeTypeDescriptor, Type as RefType, Val } from "./ref/index.js";
 export {
   type FieldGetter,

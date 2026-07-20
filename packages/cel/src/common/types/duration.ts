@@ -7,6 +7,7 @@ import { addDurationChecked, negateDurationChecked, subtractDurationChecked } fr
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
 import { Timestamp } from "./timestamp.js";
+import type { Adder, Comparer, Negater, Receiver, Subtractor } from "./traits/index.js";
 import { DurationType, IntType, StringType, TimestampType, TypeType } from "./types.js";
 
 /**
@@ -14,10 +15,8 @@ import { DurationType, IntType, StringType, TimestampType, TypeType } from "./ty
  * and subtract operators. This type is also a receiver which means it can
  * participate in dispatch to receiver functions.
  */
-export class Duration {
+export class Duration implements Val, Adder, Comparer, Negater, Receiver, Subtractor {
   constructor(private readonly inner: bigint) {}
-
-  /** Add implements traits.Adder.Add. */
   public add(other: Val): Val {
     if (other.type() === DurationType && other instanceof Duration) {
       try {
@@ -31,8 +30,6 @@ export class Duration {
     }
     return maybeNoSuchOverloadErr(other);
   }
-
-  /** Compare implements traits.Comparer.Compare. */
   public compare(other: Val): Val {
     if (!(other instanceof Duration)) {
       return maybeNoSuchOverloadErr(other);
@@ -45,8 +42,6 @@ export class Duration {
     }
     return IntZero;
   }
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
   public convertToNative(typeDesc?: unknown): unknown {
     if (typeDesc === DurationSchema) {
       return {
@@ -56,8 +51,6 @@ export class Duration {
     }
     return this.inner;
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {
       case StringType:
@@ -72,8 +65,6 @@ export class Duration {
         return err(`type conversion error from '${DurationType}' to '${typeValue.typeName()}'`);
     }
   }
-
-  /** Equal implements ref.Val.Equal. */
   public equal(other: Val): Val {
     return new Bool(other instanceof Duration && this.inner === other.inner);
   }
@@ -82,8 +73,6 @@ export class Duration {
   public isZeroValue(): boolean {
     return this.inner === 0n;
   }
-
-  /** Negate implements traits.Negater.Negate. */
   public negate(): Val {
     try {
       return durationOf(negateDurationChecked(this.inner));
@@ -91,8 +80,6 @@ export class Duration {
       return wrapErr(error);
     }
   }
-
-  /** Receive implements traits.Receiver.Receive. */
   public receive(functionName: string, _overload: string, args: Val[]): Val {
     if (args.length === 0) {
       switch (functionName) {
@@ -108,8 +95,6 @@ export class Duration {
     }
     return maybeNoSuchOverloadErr(this);
   }
-
-  /** Subtract implements traits.Subtractor.Subtract. */
   public subtract(subtrahend: Val): Val {
     if (!(subtrahend instanceof Duration)) {
       return maybeNoSuchOverloadErr(subtrahend);
@@ -120,13 +105,9 @@ export class Duration {
       return wrapErr(error);
     }
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return DurationType;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): bigint {
     return this.inner;
   }

@@ -3,12 +3,13 @@ import { err, maybeNoSuchOverloadErr } from "./err.js";
 import { Int } from "./int.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
+import type { Adder, Comparer, Sizer } from "./traits/index.js";
 import { BytesType, StringType, TypeType } from "./types.js";
 
 /**
  * Bytes supports add, compare, and size operations.
  */
-export class Bytes {
+export class Bytes implements Val, Adder, Comparer, Sizer {
   constructor(private readonly inner: Uint8Array) {}
 
   /** Add concatenates byte sequences. */
@@ -38,13 +39,9 @@ export class Bytes {
     }
     return new Int(BigInt(this.inner.length < other.inner.length ? -1 : 1));
   }
-
-  /** ConvertToNative implements the ref.Val interface method. */
   public convertToNative(): Uint8Array {
     return new Uint8Array(this.inner);
   }
-
-  /** ConvertToType implements the ref.Val interface method. */
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {
       case StringType:
@@ -61,8 +58,6 @@ export class Bytes {
         return err(`type conversion error from '${BytesType}' to '${typeValue.typeName()}'`);
     }
   }
-
-  /** Equal implements the ref.Val interface method. */
   public equal(other: Val): Val {
     if (!(other instanceof Bytes) || this.inner.length !== other.inner.length) {
       return new Bool(false);
@@ -74,18 +69,12 @@ export class Bytes {
   public isZeroValue(): boolean {
     return this.inner.length === 0;
   }
-
-  /** Size implements the traits.Sizer interface method. */
   public size(): Val {
     return new Int(BigInt(this.inner.length));
   }
-
-  /** Type implements the ref.Val interface method. */
   public type(): RefType {
     return BytesType;
   }
-
-  /** Value implements the ref.Val interface method. */
   public value(): Uint8Array {
     return new Uint8Array(this.inner);
   }

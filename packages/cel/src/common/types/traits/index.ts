@@ -12,10 +12,10 @@ export type {
   Modder,
   Multiplier,
   Negater,
-  Sizer,
   Subtractor,
 } from "./math.js";
 export type { Receiver } from "./receiver.js";
+export type { Sizer } from "./sizer.js";
 export {
   AdderType,
   ComparerType,

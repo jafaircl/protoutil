@@ -40,7 +40,6 @@ export { StringTypeValue as String };
 export const Uint = primitiveType(Type_PrimitiveType.UINT64);
 
 // Well-known types.
-// TODO: Replace with an abstract type registry.
 export const Any = wellKnownType(Type_WellKnownType.ANY);
 export const Duration = wellKnownType(Type_WellKnownType.DURATION);
 export const Timestamp = wellKnownType(Type_WellKnownType.TIMESTAMP);

@@ -1,4 +1,4 @@
-import { Bool } from "./bool.js";
+import { False, True } from "./bool.js";
 import { Err } from "./err.js";
 import type { Val } from "./ref/index.js";
 import { Unknown } from "./unknown.js";
@@ -35,7 +35,7 @@ export function equal(lhs: Val, rhs: Val): Val {
   const lNull = lhs.type().typeName() === nullTypeName;
   const rNull = rhs.type().typeName() === nullTypeName;
   if (lNull || rNull) {
-    return new Bool(lNull === rNull);
+    return lNull === rNull ? True : False;
   }
   return lhs.equal(rhs);
 }

@@ -65,6 +65,13 @@ export function registerTypeFile(file: DescFile): void {
 }
 
 /**
+ * dynamicTypeSchema returns the registered schema for a protobuf message type name.
+ */
+export function dynamicTypeSchema(typeName: string): DescMessage | undefined {
+  return dynamicTypeRegistry.getMessage(typeName);
+}
+
+/**
  * typeDescription produces a TypeDescription value for the fully-qualified proto type name with a given descriptor.
  */
 export function typeDescription(

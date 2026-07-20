@@ -1,3 +1,4 @@
+import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import { Bool, False } from "./bool.js";
 import { compareUint, compareUintDouble, compareUintInt } from "./compare.js";
 import { Double } from "./double.js";
@@ -13,15 +14,14 @@ import {
 } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
+import type { Adder, Comparer, Divider, Modder, Multiplier, Subtractor } from "./traits/index.js";
 import { DoubleType, IntType, StringType, TypeType, UintType } from "./types.js";
 
 /**
  * Uint implements comparison and math operators.
  */
-export class Uint {
+export class Uint implements Val, Adder, Comparer, Divider, Modder, Multiplier, Subtractor {
   constructor(private readonly inner: bigint) {}
-
-  /** Add implements traits.Adder.Add. */
   public add(other: Val): Val {
     if (!(other instanceof Uint)) {
       return maybeNoSuchOverloadErr(other);
@@ -32,8 +32,6 @@ export class Uint {
       return wrapErr(error);
     }
   }
-
-  /** Compare implements traits.Comparer.Compare. */
   public compare(other: Val): Val {
     if (other instanceof Double) {
       if (Number.isNaN(other.value())) {
@@ -49,13 +47,15 @@ export class Uint {
     }
     return maybeNoSuchOverloadErr(other);
   }
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
-  public convertToNative(): bigint {
+  public convertToNative(typeDesc?: unknown): unknown {
+    if (typeDesc === ValueSchema) {
+      return {
+        $typeName: "google.protobuf.Value",
+        kind: { case: "numberValue", value: Number(this.inner) },
+      };
+    }
     return this.inner;
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(typeValue: RefType): Val {
     switch (typeValue) {
       case IntType:
@@ -76,8 +76,6 @@ export class Uint {
         return err(`type conversion error from '${UintType}' to '${typeValue.typeName()}'`);
     }
   }
-
-  /** Divide implements traits.Divider.Divide. */
   public divide(other: Val): Val {
     if (!(other instanceof Uint)) {
       return maybeNoSuchOverloadErr(other);
@@ -88,8 +86,6 @@ export class Uint {
       return wrapErr(error);
     }
   }
-
-  /** Equal implements ref.Val.Equal. */
   public equal(other: Val): Val {
     if (other instanceof Double) {
       if (Number.isNaN(other.value())) {
@@ -110,8 +106,6 @@ export class Uint {
   public isZeroValue(): boolean {
     return this.inner === 0n;
   }
-
-  /** Modulo implements traits.Modder.Modulo. */
   public modulo(other: Val): Val {
     if (!(other instanceof Uint)) {
       return maybeNoSuchOverloadErr(other);
@@ -122,8 +116,6 @@ export class Uint {
       return wrapErr(error);
     }
   }
-
-  /** Multiply implements traits.Multiplier.Multiply. */
   public multiply(other: Val): Val {
     if (!(other instanceof Uint)) {
       return maybeNoSuchOverloadErr(other);
@@ -134,8 +126,6 @@ export class Uint {
       return wrapErr(error);
     }
   }
-
-  /** Subtract implements traits.Subtractor.Subtract. */
   public subtract(other: Val): Val {
     if (!(other instanceof Uint)) {
       return maybeNoSuchOverloadErr(other);
@@ -146,13 +136,9 @@ export class Uint {
       return wrapErr(error);
     }
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return UintType;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): bigint {
     return this.inner;
   }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { syncedCases } from "../spec-helpers.js";
 import {
   type Bool,
   Int,
@@ -8,6 +9,7 @@ import {
   optionalOf,
   TypeType,
 } from "./index.js";
+import { resolveSyncedExpr } from "./spec-helpers.js";
 
 describe("common/types optional", () => {
   it.todo(
@@ -19,8 +21,14 @@ describe("common/types optional", () => {
   });
 
   it("common/types/optional_test.go/TestOptionalOptionalFormat", () => {
-    expect(optionalOf(new Int(1n)).toString()).toContain("optional");
-    expect(OptionalNone.toString()).toBe("optional.none()");
+    const cases = syncedCases<{ val: unknown; want: string }>(
+      "common/types/optional_test.go/TestOptionalOptionalFormat",
+    );
+    for (const testCase of cases) {
+      expect((resolveSyncedExpr(testCase.val) as { toString(): string }).toString()).toBe(
+        testCase.want,
+      );
+    }
   });
 
   it("common/types/optional_test.go/TestOptionalGetValue", () => {
@@ -31,14 +39,25 @@ describe("common/types optional", () => {
   it("common/types/optional_test.go/TestOptionalConvertToType", () => {
     expect(optionalOf(new Int(1n)).convertToType(OptionalType)).toBeInstanceOf(Optional);
     expect(
-      (optionalOf(new Int(1n)).convertToType(TypeType) as { typeName(): string }).typeName(),
+      (
+        optionalOf(new Int(1n)).convertToType(TypeType) as unknown as { typeName(): string }
+      ).typeName(),
     ).toBe("optional_type");
   });
 
   it("common/types/optional_test.go/TestOptionalEqual", () => {
-    expect((optionalOf(new Int(1n)).equal(optionalOf(new Int(1n))) as Bool).value()).toBe(true);
-    expect((OptionalNone.equal(OptionalNone) as Bool).value()).toBe(true);
-    expect((optionalOf(new Int(1n)).equal(OptionalNone) as Bool).value()).toBe(false);
+    const cases = syncedCases<{ a: unknown; b: unknown; out: unknown }>(
+      "common/types/optional_test.go/TestOptionalEqual",
+    );
+    for (const testCase of cases) {
+      expect(
+        (
+          (resolveSyncedExpr(testCase.a) as { equal(other: unknown): Bool }).equal(
+            resolveSyncedExpr(testCase.b),
+          ) as Bool
+        ).value(),
+      ).toBe(resolveSyncedExpr(testCase.out));
+    }
   });
 
   it("common/types/optional_test.go/TestOptionalType", () => {

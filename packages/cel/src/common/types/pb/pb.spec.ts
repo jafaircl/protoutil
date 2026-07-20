@@ -1,16 +1,16 @@
 import { create } from "@bufbuild/protobuf";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
-import { DefaultDb, db, JSONFieldNames, Merge } from "./pb.js";
+import { DefaultDb, db, jsonFieldNamesOption, mergeMessagesInto } from "./pb.js";
 import {
   descriptorRoundTripFiles,
   Proto2TestAllTypesSchema,
   Proto3TestAllTypesSchema,
-} from "./spec_helpers.js";
+} from "./spec-helpers.js";
 
 describe("common/types/pb/pb_test.go", () => {
   it("common/types/pb/pb_test.go/TestDbJSONFieldNames", () => {
-    const pbdb = db(JSONFieldNames(true));
+    const pbdb = db(jsonFieldNamesOption(true));
     expect(pbdb.jsonFieldNames()).toBe(true);
     const fd = pbdb.registerMessage(
       { $typeName: Proto2TestAllTypesSchema.typeName },
@@ -92,14 +92,14 @@ describe("common/types/pb/pb_test.go", () => {
     expect(clonedFile).toBeDefined();
     const clonedTimestampSchema = clonedFile!.messages[0]!;
     const dynTimestampPB = create(clonedTimestampSchema, { seconds: 123n });
-    Merge(TimestampSchema, timestampPB, dynTimestampPB);
+    mergeMessagesInto(TimestampSchema, timestampPB, dynTimestampPB);
     expect(timestampPB.seconds).toBe(123n);
   });
 
   it("common/types/pb/pb_test.go/TestMergeError", () => {
     const timestampPB = create(TimestampSchema);
     const durationPB = create(DurationSchema);
-    expect(() => Merge(TimestampSchema, timestampPB, durationPB)).toThrow(
+    expect(() => mergeMessagesInto(TimestampSchema, timestampPB, durationPB)).toThrow(
       "pb.Merge() arguments must be the same type. got: google.protobuf.Timestamp, google.protobuf.Duration",
     );
   });

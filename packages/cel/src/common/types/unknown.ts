@@ -85,7 +85,7 @@ const unspecifiedAttribute = new AttributeTrail("", []);
 /**
  * Unknown collects expression ids which caused the current value to become unknown.
  */
-export class Unknown {
+export class Unknown implements Val {
   constructor(private readonly attributeTrailsValue = new Map<number, AttributeTrail[]>()) {}
 
   /** IDs returns the set of unknown expression ids contained by this value. */
@@ -121,8 +121,6 @@ export class Unknown {
     }
     return true;
   }
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
   public convertToNative(): unknown {
     return this.value();
   }
@@ -136,8 +134,6 @@ export class Unknown {
   public equal(_: Val): Val {
     return this;
   }
-
-  /** String implements the Stringer interface. */
   public toString(): string {
     return this.ids()
       .map((id) => {
@@ -146,13 +142,9 @@ export class Unknown {
       })
       .join(", ");
   }
-
-  /** Type implements ref.Val.Type. */
   public type(): RefType {
     return UnknownType;
   }
-
-  /** Value implements ref.Val.Value. */
   public value(): unknown {
     return this;
   }

@@ -39,7 +39,9 @@ describe("common/types bytes", () => {
   it("common/types/bytes_test.go/TestBytesConvertToType", () => {
     expect(
       (
-        new Bytes(new TextEncoder().encode("abc")).convertToType(TypeType) as { typeName(): string }
+        new Bytes(new TextEncoder().encode("abc")).convertToType(TypeType) as unknown as {
+          typeName(): string;
+        }
       ).typeName(),
     ).toBe("bytes");
     expect(

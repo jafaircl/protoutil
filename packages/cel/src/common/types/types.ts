@@ -4,6 +4,7 @@ import type { Type as ExprType } from "../../gen/cel/expr/checked_pb.js";
 import { Type_PrimitiveType, Type_WellKnownType } from "../../gen/cel/expr/checked_pb.js";
 import { Bool } from "./bool.js";
 import { err, setErrType } from "./err.js";
+import { Int } from "./int.js";
 import { setIteratorType } from "./iterator.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
@@ -16,6 +17,8 @@ import {
   IndexerType,
   IterableType,
   IteratorType,
+  type Lister,
+  type Mapper,
   MatcherType,
   ModderType,
   MultiplierType,
@@ -68,13 +71,9 @@ export class Type implements RefType, Val {
     private readonly isAssignableRuntimeTypeFn?: (other: Val) => boolean,
     private readonly traitMaskValue = 0,
   ) {}
-
-  /** ConvertToNative implements ref.Val.ConvertToNative. */
   public convertToNative(): never {
     throw new globalThis.Error("type conversion not supported for 'type'");
   }
-
-  /** ConvertToType implements ref.Val.ConvertToType. */
   public convertToType(typeValue: RefType): Val {
     if (typeValue === TypeType) {
       return TypeType;
@@ -90,8 +89,6 @@ export class Type implements RefType, Val {
     const isType = "typeName" in (other as object);
     return new Bool(isType && this.typeName() === (other as unknown as RefType).typeName());
   }
-
-  /** HasTrait implements the ref.Type interface method. */
   public hasTrait(trait: number): boolean {
     return (trait & this.traitMaskValue) === trait;
   }
@@ -139,13 +136,9 @@ export class Type implements RefType, Val {
     }
     return this.typeName();
   }
-
-  /** Type implements the ref.Val interface method. */
   public type(): RefType {
     return TypeType;
   }
-
-  /** Value implements the ref.Val interface method. */
   public value(): unknown {
     return this.typeName();
   }
@@ -224,7 +217,48 @@ export class Type implements RefType, Val {
 
   private defaultIsAssignableRuntimeType(val: Val): boolean {
     const valType = maybeForeignType(val.type());
-    return this.isDyn() || this.typeName() === valType.typeName();
+    if (this.isDyn() || this.typeName() === valType.typeName()) {
+      if (this.kind() === Kind.List) {
+        return this.isAssignableRuntimeList(val);
+      }
+      if (this.kind() === Kind.Map) {
+        return this.isAssignableRuntimeMap(val);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private isAssignableRuntimeList(val: Val): boolean {
+    if (this.parameters().length !== 1 || !isListerValue(val)) {
+      return false;
+    }
+    const elemType = this.parameters()[0]!;
+    const size = val.size() as Int;
+    for (let index = 0n; index < size.value(); index += 1n) {
+      if (!elemType.isAssignableRuntimeType(val.get(new Int(index)))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private isAssignableRuntimeMap(val: Val): boolean {
+    if (this.parameters().length !== 2 || !isMapperValue(val)) {
+      return false;
+    }
+    const [keyType, valueType] = this.parameters();
+    const iterator = val.iterator();
+    while ((iterator.hasNext() as Bool).value()) {
+      const key = iterator.next();
+      if (!keyType!.isAssignableRuntimeType(key)) {
+        return false;
+      }
+      if (!valueType!.isAssignableRuntimeType(val.get(key))) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 
@@ -724,4 +758,19 @@ function maybeWrapper(t: Type, pbType: ExprType): ExprType {
         typeKind: { case: "wrapper", value: pbType.typeKind.value as Type_PrimitiveType },
       }
     : pbType;
+}
+
+function isListerValue(value: Val): value is Lister {
+  return (
+    typeof (value as { size?: unknown }).size === "function" &&
+    typeof (value as { get?: unknown }).get === "function" &&
+    typeof (value as { iterator?: unknown }).iterator === "function"
+  );
+}
+
+function isMapperValue(value: Val): value is Mapper {
+  return (
+    typeof (value as { get?: unknown }).get === "function" &&
+    typeof (value as { iterator?: unknown }).iterator === "function"
+  );
 }
