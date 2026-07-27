@@ -8,6 +8,7 @@ import {
   ListType,
   labelErrNode,
   MapType,
+  OptionalNone,
   type Val,
   wrapErr,
 } from "../common/types/index.js";
@@ -647,10 +648,13 @@ function observeConditionalQualification(options: ObserveConditionalQualificatio
   let observedValue: Val | undefined;
   if (out !== null && out !== undefined) {
     observedValue = adapter.nativeToValue(out);
+  } else if (!present && qualifier.isOptional() && !presenceOnly) {
+    // Optional selections record optional.none() in eval-state even when the traversal short-circuits.
+    observedValue = OptionalNone;
   } else if (presenceOnly) {
     observedValue = new Bool(present);
   }
-  if (present || presenceOnly) {
+  if (present || presenceOnly || (!present && qualifier.isOptional() && !presenceOnly)) {
     observer(vars, qualifier.id(), qualifier, observedValue as Val);
   }
 }
