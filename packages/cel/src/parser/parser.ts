@@ -15,7 +15,7 @@ import {
 } from "./options.js";
 import { ParserRecoveryState } from "./recovery.js";
 import { RESERVED_IDS, type Token, TokenKind, tokenRange } from "./token.js";
-import { unescape as unescapeString } from "./unescape.js";
+import { unescapeBytes, unescape as unescapeString } from "./unescape.js";
 
 /**
  * Parser parses CEL source into an AST and source info.
@@ -731,13 +731,7 @@ class ParseImpl {
     if (this.match(TokenKind.Bytes)) {
       const token = this.previous();
       try {
-        return this.helper.literalExpr(
-          tokenRange(token),
-          // CEL bytes literals are stored as UTF-8-decoded bytes after escape processing.
-          new Uint8Array(
-            [...unescapeString(token.text.slice(1), true)].map((c) => c.codePointAt(0)!),
-          ),
-        );
+        return this.helper.literalExpr(tokenRange(token), unescapeBytes(token.text.slice(1)));
       } catch (error) {
         this.report(token, (error as Error).message);
         return this.helper.literalExpr(tokenRange(token), new Uint8Array());

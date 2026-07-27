@@ -200,7 +200,14 @@ export class BaseMap implements Mapper {
         return False;
       }
       const [thisVal] = this.find(key);
-      if (!thisVal || !otherVal || equal(thisVal, otherVal) !== True) {
+      const valuesEqual =
+        thisVal !== undefined &&
+        otherVal !== undefined &&
+        (() => {
+          const result = equal(thisVal, otherVal);
+          return result instanceof Bool && result.value();
+        })();
+      if (!valuesEqual) {
         return False;
       }
     }

@@ -1,4 +1,5 @@
 import { AnySchema, StringValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
+import { RE2JS } from "@bufbuild/re2";
 import { timestampFromString } from "@protoutil/core/wkt";
 import * as overloads from "../overloads.js";
 import { anyValueType } from "./any-value.js";
@@ -170,7 +171,7 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
       return maybeNoSuchOverloadErr(pattern);
     }
     try {
-      return new Bool(new RegExp(pattern.inner).test(this.inner));
+      return new Bool(compileRegexPattern(pattern.inner).test(this.inner));
     } catch (error) {
       return wrapErr(error);
     }
@@ -195,6 +196,13 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
   public value(): string {
     return this.inner;
   }
+}
+
+/**
+ * compileRegexPattern compiles a CEL regular expression with RE2 syntax and execution semantics.
+ */
+export function compileRegexPattern(pattern: string): RE2JS {
+  return RE2JS.compile(pattern);
 }
 
 /**

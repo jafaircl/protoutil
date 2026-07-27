@@ -226,11 +226,7 @@ function timestampOneArg(functionName: string, seconds: bigint, nanos: number, t
 }
 
 function timestampVisit(functionName: string, seconds: bigint, nanos: number, tz?: string): Val {
-  const zoned = timestampInstant({
-    $typeName: "google.protobuf.Timestamp",
-    seconds,
-    nanos,
-  }).toZonedDateTimeISO(tz ?? "UTC");
+  const zoned = timestampZonedValue(seconds, nanos, tz);
   switch (functionName) {
     case overloads.TimeGetFullYear:
       return new Int(BigInt(zoned.year));
@@ -255,4 +251,77 @@ function timestampVisit(functionName: string, seconds: bigint, nanos: number, tz
     default:
       return err("no such overload");
   }
+}
+
+/**
+ * timestampZonedValue resolves a timestamp into either an IANA time zone or a cel-go-style UTC offset.
+ */
+function timestampZonedValue(
+  seconds: bigint,
+  nanos: number,
+  tz?: string,
+): {
+  year: number;
+  month: number;
+  dayOfYear: number;
+  day: number;
+  dayOfWeek: number;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  if (tz === undefined) {
+    return timestampInstant({
+      $typeName: "google.protobuf.Timestamp",
+      seconds,
+      nanos,
+    }).toZonedDateTimeISO("UTC");
+  }
+  if (!tz.includes(":")) {
+    return timestampInstant({
+      $typeName: "google.protobuf.Timestamp",
+      seconds,
+      nanos,
+    }).toZonedDateTimeISO(tz);
+  }
+
+  const offsetMinutes = parseTimezoneOffsetMinutes(tz);
+  const epochMilliseconds = Number(seconds) * 1000 + Math.trunc(nanos / 1_000_000);
+  const shifted = new Date(epochMilliseconds + offsetMinutes * 60_000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    dayOfYear: dayOfYearUtc(shifted),
+    day: shifted.getUTCDate(),
+    dayOfWeek: shifted.getUTCDay() === 0 ? 7 : shifted.getUTCDay(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+  };
+}
+
+/**
+ * parseTimezoneOffsetMinutes converts a cel-go-style numeric UTC offset into minutes east of UTC.
+ */
+function parseTimezoneOffsetMinutes(value: string): number {
+  const match = /^([+-]?)(\d{1,2}):(\d{2})$/.exec(value);
+  if (!match) {
+    throw new Error(`Invalid time zone specified: ${value}`);
+  }
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3]);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || minutes < 0 || minutes > 59) {
+    throw new Error(`Invalid time zone specified: ${value}`);
+  }
+  return sign * (hours * 60 + minutes);
+}
+
+/**
+ * dayOfYearUtc computes the one-based UTC day-of-year for a shifted timestamp.
+ */
+function dayOfYearUtc(value: Date): number {
+  const yearStart = Date.UTC(value.getUTCFullYear(), 0, 1);
+  const currentDay = Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+  return Math.floor((currentDay - yearStart) / 86_400_000) + 1;
 }

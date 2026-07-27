@@ -25,7 +25,6 @@ import {
   DoubleType,
   DynType,
   ErrorType,
-  exprTypeToType,
   IntType,
   Kind,
   listType,
@@ -67,6 +66,7 @@ class checker {
   public mappings: mapping;
 
   private readonly factory = exprFactory();
+  private readonly types = new Map<number, Type>();
   private freeTypeVarCounter = 0;
 
   constructor(
@@ -757,23 +757,31 @@ class checker {
    * recordType stores runtime type metadata in the checked AST.
    */
   private recordType(expr: Expr, type: Type): void {
-    const currentProto = this.ast.typeMap().get(expr.id());
-    if (currentProto) {
-      const current = exprTypeToType(currentProto);
+    const current = this.types.get(expr.id());
+    if (current) {
       if (!current.isExactType(type) && !current.isEquivalentType(type)) {
         this.errors.incompatibleType(expr.id(), this.location(expr), expr, current, type);
         return;
       }
     }
-    this.ast.setType(expr.id(), typeToExprType(type));
+    this.types.set(expr.id(), type);
   }
 
   /**
    * getType returns the runtime CEL type associated with an expression id.
    */
   private getType(expr: Expr): Type {
-    const checkedType = this.ast.getType(expr.id());
-    return checkedType ? exprTypeToType(checkedType) : DynType;
+    return this.types.get(expr.id()) ?? DynType;
+  }
+
+  /**
+   * finalizeTypes substitutes remaining type parameters and serializes native checker types into
+   * the protobuf-backed checked AST exactly once.
+   */
+  public finalizeTypes(): void {
+    for (const [id, checkedType] of this.types) {
+      this.ast.setType(id, typeToExprType(substitute(this.mappings, checkedType, true)));
+    }
   }
 
   /**
@@ -878,9 +886,7 @@ export function tryCheck(parsed: AST, source: Source, env: Env): CheckResult {
   const c = new checker(parsed, source, env);
   c.check(parsed.expr());
 
-  for (const [id, checkedType] of c.ast.typeMap()) {
-    c.ast.setType(id, typeToExprType(substitute(c.mappings, exprTypeToType(checkedType), true)));
-  }
+  c.finalizeTypes();
   c.ast.clearUnusedIds();
   if (env.jsonFieldNames) {
     c.ast.sourceInfo().addExtension(jsonNameExtension);

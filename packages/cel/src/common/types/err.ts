@@ -183,9 +183,44 @@ function formatMessage(message: string, args: unknown[]): string {
     const arg = args[index++];
     switch (token) {
       case "%T":
-        return arg === null ? "null" : typeof arg;
+        return describeType(arg);
       default:
-        return String(arg);
+        return describeValue(arg);
     }
   });
+}
+
+/**
+ * describeType formats a CEL-like type description for error messages.
+ */
+function describeType(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (value === undefined) {
+    return "undefined";
+  }
+  if (typeof value === "object" || typeof value === "function") {
+    const constructorName = (value as { constructor?: { name?: string } }).constructor?.name;
+    if (constructorName && constructorName !== "Object") {
+      return constructorName;
+    }
+  }
+  return typeof value;
+}
+
+/**
+ * describeValue formats CEL values using their string form rather than plain object coercion.
+ */
+function describeValue(value: unknown): string {
+  if (value instanceof Err) {
+    return value.message;
+  }
+  if (typeof value === "object" && value !== null) {
+    const stringValue = (value as { toString?: () => string }).toString?.();
+    if (stringValue && stringValue !== "[object Object]") {
+      return stringValue;
+    }
+  }
+  return String(value);
 }

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { parse } from "../../parser/parser.js";
 import {
   allMatcher,
   ast,
   constantValueMatcher,
   ExprKind,
-  exprFactory,
   functionMatcher,
   kindMatcher,
   matchDescendants,
@@ -16,151 +16,6 @@ import {
   postOrderVisit,
   preOrderVisit,
 } from "./index.js";
-
-/**
- * This is only necessary because we don't yet have a working parser.
- * TODO: replace this once ther parser works
- */
-const factory = {
-  // biome-ignore lint/suspicious/noExplicitAny: this is temporary
-  build(source: string): any {
-    switch (source) {
-      case "'a' == 'b'":
-        return ast(
-          exprFactory().call(
-            2,
-            "_==_",
-            exprFactory().literal(1, "a"),
-            exprFactory().literal(3, "b"),
-          ),
-        );
-      case "'a'.size()":
-        return ast(exprFactory().memberCall(2, "size", exprFactory().literal(1, "a")));
-      case "[1, 2, 3]":
-        return ast(
-          exprFactory().list(
-            1,
-            [
-              exprFactory().literal(2, BigInt(1)),
-              exprFactory().literal(3, BigInt(2)),
-              exprFactory().literal(4, BigInt(3)),
-            ],
-            [],
-          ),
-        );
-      case "[1, 2, 3][0]":
-        return ast(
-          exprFactory().call(
-            5,
-            "_[_]_",
-            factory.build("[1, 2, 3]").expr(),
-            exprFactory().literal(6, BigInt(0)),
-          ),
-        );
-      case "{1u: 'hello'}":
-        return ast(
-          exprFactory().map(1, [
-            exprFactory().mapEntry(
-              2,
-              exprFactory().literal(3, {
-                $typeName: "cel.expr.Constant",
-                constantKind: { case: "uint64Value", value: BigInt(1) },
-              }),
-              exprFactory().literal(4, "hello"),
-              false,
-            ),
-          ]),
-        );
-      case "{'hello': 'world'}.hello":
-        return ast(
-          exprFactory().select(
-            5,
-            exprFactory().map(1, [
-              exprFactory().mapEntry(
-                2,
-                exprFactory().literal(3, "hello"),
-                exprFactory().literal(4, "world"),
-                false,
-              ),
-            ]),
-            "hello",
-          ),
-        );
-      case "type(1) == int":
-        return ast(
-          exprFactory().call(
-            3,
-            "_==_",
-            exprFactory().call(1, "type", exprFactory().literal(2, BigInt(1))),
-            exprFactory().ident(4, "int"),
-          ),
-        );
-      case "google.expr.proto3.test.TestAllTypes{single_int32: 1}":
-        return ast(
-          exprFactory().struct(1, "google.expr.proto3.test.TestAllTypes", [
-            exprFactory().structField(
-              2,
-              "single_int32",
-              exprFactory().literal(3, BigInt(1)),
-              false,
-            ),
-          ]),
-        );
-      case "[true].exists(i, i)":
-        return ast(
-          exprFactory().comprehension(
-            13,
-            exprFactory().list(1, [exprFactory().literal(2, true)], []),
-            "i",
-            exprFactory().accuIdentName(),
-            exprFactory().literal(6, false),
-            exprFactory().call(
-              9,
-              "@not_strictly_false",
-              exprFactory().call(8, "!_", exprFactory().accuIdent(7)),
-            ),
-            exprFactory().call(
-              11,
-              "_||_",
-              exprFactory().accuIdent(10),
-              exprFactory().ident(5, "i"),
-            ),
-            exprFactory().accuIdent(12),
-          ),
-        );
-      case "size('hello')":
-        return ast(exprFactory().call(1, "size", exprFactory().literal(2, "hello")));
-      case "[[1], [2]]":
-        return ast(
-          exprFactory().list(
-            1,
-            [
-              exprFactory().list(2, [exprFactory().literal(3, BigInt(1))], []),
-              exprFactory().list(4, [exprFactory().literal(5, BigInt(2))], []),
-            ],
-            [],
-          ),
-        );
-      case "{'hello': 1}":
-        return ast(
-          exprFactory().map(1, [
-            exprFactory().mapEntry(
-              2,
-              exprFactory().literal(3, "hello"),
-              exprFactory().literal(4, BigInt(1)),
-              false,
-            ),
-          ]),
-        );
-      case "msg.single_int32":
-        return ast(exprFactory().select(2, exprFactory().ident(1, "msg"), "single_int32"));
-      case "has(msg.single_int32)":
-        return ast(exprFactory().presenceTest(4, exprFactory().ident(2, "msg"), "single_int32"));
-      default:
-        throw new Error(`unknown navigable.spec expr: ${source}`);
-    }
-  },
-};
 
 describe("common/ast navigable", () => {
   it("common/ast/navigable_test.go/TestNavigateAST", () => {
@@ -177,11 +32,12 @@ describe("common/ast navigable", () => {
     ] as const;
 
     for (const [source, descendantCount, callCount, maxDepthValue, maxIdValue] of cases) {
-      const nav = navigateAst(factory.build(source));
+      const parsed = parse(source);
+      const nav = navigateAst(parsed);
       const descendants = matchDescendants(nav, allMatcher());
       expect(descendants).toHaveLength(descendantCount);
       expect(Math.max(...descendants.map((descendant) => descendant.depth()))).toBe(maxDepthValue);
-      expect(maxId(factory.build(source))).toBe(maxIdValue);
+      expect(maxId(parsed)).toBe(maxIdValue);
       expect(matchSubset(descendants, kindMatcher(ExprKind.Call))).toHaveLength(callCount);
     }
   });
@@ -201,7 +57,7 @@ describe("common/ast navigable", () => {
     ] as const;
 
     for (const [source, preOrder, postOrder] of cases) {
-      const root = navigateAst(factory.build(source));
+      const root = navigateAst(parse(source));
       const preOrderIds: number[] = [];
       preOrderVisit(root, (expr) => preOrderIds.push(expr.id()));
       expect(preOrderIds).toEqual(preOrder);
@@ -234,7 +90,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableExpr", () => {
-    const root = navigateAst(factory.build("'a' == 'b'"));
+    const root = navigateAst(parse("'a' == 'b'"));
     const literals = matchDescendants(
       root,
       (expr) => expr.kind() === ExprKind.Literal && expr.asLiteral() === "a",
@@ -244,13 +100,11 @@ describe("common/ast navigable", () => {
     expect(literals[0]?.parent()[1]).toBe(true);
     expect(literals[0]?.parent()[0]?.kind()).toBe(ExprKind.Call);
     expect(literals[0]?.parent()[0]?.asCall()?.functionName()).toBe("_==_");
-    expect(navigateExpr(factory.build("'a' == 'b'"), literals[0]!).depth()).toBe(
-      literals[0]?.depth(),
-    );
+    expect(navigateExpr(parse("'a' == 'b'"), literals[0]!).depth()).toBe(literals[0]?.depth());
   });
 
   it("common/ast/navigable_test.go/TestNavigableCallExprMember", () => {
-    const member = navigateAst(factory.build("'a'.size()"));
+    const member = navigateAst(parse("'a'.size()"));
     const target = member.asCall()?.target();
     const constantValues = matchDescendants(member, constantValueMatcher());
     const navTarget = constantValues[0];
@@ -268,7 +122,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableCallExprGlobal", () => {
-    const global = navigateAst(factory.build("size('hello')"));
+    const global = navigateAst(parse("size('hello')"));
     const arg = global.asCall()?.args()[0];
     const constantValues = matchDescendants(global, constantValueMatcher());
     const navArg = constantValues[0];
@@ -286,7 +140,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableListExpr", () => {
-    const list = navigateAst(factory.build("[[1], [2]]"));
+    const list = navigateAst(parse("[[1], [2]]"));
     expect(list.kind()).toBe(ExprKind.List);
     expect(list.asList()?.size()).toBe(2);
     expect(list.asList()?.optionalIndices()).toEqual([]);
@@ -301,7 +155,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableMapExpr", () => {
-    const map = navigateAst(factory.build("{'hello': 1}"));
+    const map = navigateAst(parse("{'hello': 1}"));
     expect(map.kind()).toBe(ExprKind.Map);
     expect(map.asMap()?.size()).toBe(1);
     expect(map.asMap()?.entries()).toHaveLength(1);
@@ -315,9 +169,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableStructExpr", () => {
-    const struct = navigateAst(
-      factory.build("google.expr.proto3.test.TestAllTypes{single_int32: 1}"),
-    );
+    const struct = navigateAst(parse("google.expr.proto3.test.TestAllTypes{single_int32: 1}"));
     expect(struct.kind()).toBe(ExprKind.Struct);
     expect(struct.asStruct()?.typeName()).toBe("google.expr.proto3.test.TestAllTypes");
     expect(struct.asStruct()?.fields()).toHaveLength(1);
@@ -337,7 +189,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableComprehensionExpr", () => {
-    const expr = navigateAst(factory.build("[true].exists(i, i)"));
+    const expr = navigateAst(parse("[true].exists(i, i)"));
     expect(expr.kind()).toBe(ExprKind.Comprehension);
     const comp = expr.asComprehension();
     expect(matchSubset([comp!.iterRange()! as NavigableExpr], constantValueMatcher())).toHaveLength(
@@ -354,7 +206,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableSelectExpr", () => {
-    const select = navigateAst(factory.build("msg.single_int32")).asSelect();
+    const select = navigateAst(parse("msg.single_int32")).asSelect();
     expect(select?.fieldName()).toBe("single_int32");
     expect(select?.operand().kind()).toBe(ExprKind.Ident);
     expect(select?.operand().asIdent()).toBe("msg");
@@ -362,7 +214,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableSelectExpr_TestOnly", () => {
-    const testOnly = navigateAst(factory.build("has(msg.single_int32)")).asSelect();
+    const testOnly = navigateAst(parse("has(msg.single_int32)")).asSelect();
     expect(testOnly?.isTestOnly()).toBe(true);
     expect(testOnly?.fieldName()).toBe("single_int32");
     expect(testOnly?.operand().kind()).toBe(ExprKind.Ident);

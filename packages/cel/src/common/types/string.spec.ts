@@ -92,6 +92,8 @@ describe("common/types string", () => {
   it("common/types/string_test.go/TestStringMatch", () => {
     expect((new CelString("abc").match(new CelString("^a")) as Bool).value()).toBe(true);
     expect(new CelString("abc").match(new CelString("(")).type().typeName()).toBe("error");
+    expect(new CelString("aa").match(new CelString("(a)\\1")).type().typeName()).toBe("error");
+    expect(new CelString("ab").match(new CelString("a(?=b)")).type().typeName()).toBe("error");
   });
 
   it("common/types/string_test.go/TestStringContains", () => {

@@ -18912,6 +18912,227 @@
       "version": 3
     }
   ],
+  "interpreter/attribute_patterns_test.go/TestAttributePattern_UnknownResolution": [
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"var\"}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{\"field\"}}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"ns.var\"}"
+        }
+      ],
+      "name": "var",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"var\")"
+      }
+    },
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"ns.app.var\"}"
+        },
+        {
+          "$expr": "{name: \"ns.app.var\", quals: []any{int64(0)}}"
+        },
+        {
+          "$expr": "{\n\t\t\t\tname:      \"ns\",\n\t\t\t\tquals:     []any{\"app\", \"var\", \"foo\"},\n\t\t\t\tcontainer: \"ns.app\",\n\t\t\t\tunchecked: true,\n\t\t\t}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"ns.var\"}"
+        },
+        {
+          "$expr": "{\n\t\t\t\tname:      \"ns\",\n\t\t\t\tquals:     []any{\"var\"},\n\t\t\t\tcontainer: \"ns.app\",\n\t\t\t\tunchecked: true,\n\t\t\t}"
+        }
+      ],
+      "name": "var_namespace",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"ns.app.var\")"
+      }
+    },
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"var\"}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{\"field\"}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{\"field\"}, unchecked: true}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{\"field\", uint64(1)}}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"var\", quals: []any{\"other\"}}"
+        }
+      ],
+      "name": "var_field",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"var\").QualString(\"field\")"
+      }
+    },
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"var\"}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{int64(0)}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{float64(0)}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{int64(0), false}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{uint64(0)}}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"var\", quals: []any{int64(1), false}}"
+        }
+      ],
+      "name": "var_index",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"var\").QualInt(0)"
+      }
+    },
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"var\"}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{uint64(1)}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{uint64(1), true}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{int64(1), false}}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"var\", quals: []any{uint64(0)}}"
+        }
+      ],
+      "name": "var_index_uint",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"var\").QualUint(1)"
+      }
+    },
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"var\"}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{true}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{true, \"name\"}}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"var\", quals: []any{false}}"
+        },
+        {
+          "$expr": "{name: \"none\"}"
+        }
+      ],
+      "name": "var_index_bool",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"var\").QualBool(true)"
+      }
+    },
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"ns.var\"}"
+        },
+        {
+          "$expr": "{\n\t\t\t\tname:      \"var\",\n\t\t\t\tquals:     []any{true},\n\t\t\t\tcontainer: \"ns\",\n\t\t\t\tunchecked: true,\n\t\t\t}"
+        },
+        {
+          "$expr": "{\n\t\t\t\tname:      \"var\",\n\t\t\t\tquals:     []any{\"name\"},\n\t\t\t\tcontainer: \"ns\",\n\t\t\t\tunchecked: true,\n\t\t\t}"
+        },
+        {
+          "$expr": "{\n\t\t\t\tname:      \"var\",\n\t\t\t\tquals:     []any{\"name\"},\n\t\t\t\tcontainer: \"ns\",\n\t\t\t\tunchecked: true,\n\t\t\t}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"var\", quals: []any{false}}"
+        },
+        {
+          "$expr": "{name: \"none\"}"
+        }
+      ],
+      "name": "var_wildcard",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"ns.var\").Wildcard()"
+      }
+    },
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"var\"}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{true}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{int64(10), \"field\"}}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"var\", quals: []any{int64(10), \"other\"}}"
+        }
+      ],
+      "name": "var_wildcard_field",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"var\").Wildcard().QualString(\"field\")"
+      }
+    },
+    {
+      "matches": [
+        {
+          "$expr": "{name: \"var\"}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{true}}"
+        },
+        {
+          "$expr": "{name: \"var\", quals: []any{int64(10), \"field\"}}"
+        }
+      ],
+      "misses": [
+        {
+          "$expr": "{name: \"none\"}"
+        }
+      ],
+      "name": "var_wildcard_wildcard",
+      "pattern": {
+        "$expr": "NewAttributePattern(\"var\").Wildcard().Wildcard()"
+      }
+    }
+  ],
   "interpreter/attributes_test.go/TestAttributeStateTracking": [
     {
       "expr": "[{\"field\": true}][0].field",

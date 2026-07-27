@@ -72,6 +72,61 @@ export function unescape(value: string, isBytes: boolean): string {
 }
 
 /**
+ * unescapeBytes decodes a CEL bytes literal body into its original byte sequence.
+ */
+export function unescapeBytes(value: string): Uint8Array {
+  for (const [from, to] of newlineNormalizer) {
+    value = value.split(from).join(to);
+  }
+  let n = value.length;
+  if (n < 2) {
+    throw new Error("unable to unescape string");
+  }
+
+  let isRawLiteral = false;
+  if (value[0] === "r" || value[0] === "R") {
+    value = value.slice(1);
+    n = value.length;
+    isRawLiteral = true;
+  }
+
+  if (value[0] !== value[n - 1] || (value[0] !== `"` && value[0] !== `'`)) {
+    throw new Error("unable to unescape string");
+  }
+
+  if (n >= 6) {
+    // Triple-quoted CEL strings are normalized into a single-quoted form before escape decoding.
+    if (value.startsWith(`'''`)) {
+      if (!value.endsWith(`'''`)) {
+        throw new Error("unable to unescape string");
+      }
+      value = `"${value.slice(3, n - 3)}"`;
+    } else if (value.startsWith(`"""`)) {
+      if (!value.endsWith(`"""`)) {
+        throw new Error("unable to unescape string");
+      }
+      value = `"${value.slice(3, n - 3)}"`;
+    }
+    n = value.length;
+  }
+
+  value = value.slice(1, n - 1);
+  if (isRawLiteral || !value.includes("\\")) {
+    return new TextEncoder().encode(value);
+  }
+
+  const bytes: number[] = [];
+  let cursor = value;
+  while (cursor.length > 0) {
+    const [rune, _encode, tail] = unescapeChar(cursor, true);
+    cursor = tail;
+    // Bytes literals keep the low 8 bits of each decoded escape like cel-go does.
+    bytes.push(rune & 0xff);
+  }
+  return new Uint8Array(bytes);
+}
+
+/**
  * unescapeChar decodes a single escaped or literal rune from the remaining input
  * and returns the following tuple: the decoded rune, whether the rune should be
  * encoded as UTF-8, and the remaining input.

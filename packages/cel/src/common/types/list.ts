@@ -2,6 +2,7 @@ import { create, type Message, type MessageShape } from "@bufbuild/protobuf";
 import { AnySchema, anyPack, ListValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { anyValueType } from "./any-value.js";
 import { Bool, False, True } from "./bool.js";
+import { Double } from "./double.js";
 import { err, maybeNoSuchOverloadErr, valOrErr } from "./err.js";
 import { formatVal } from "./format.js";
 import { Int } from "./int.js";
@@ -10,6 +11,7 @@ import { JSONListType, JSONValueType } from "./json-value.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import type { Folder, Lister, MutableLister, Iterator as TraitIterator } from "./traits/index.js";
 import { ListType, TypeType } from "./types.js";
+import { Uint } from "./uint.js";
 import { equal } from "./util.js";
 
 /**
@@ -146,7 +148,8 @@ export class BaseList implements Lister {
     for (let index = 0; index < this.sizeValue; index += 1) {
       const thisElem = this.get(new Int(BigInt(index)));
       const otherElem = otherList.get(new Int(BigInt(index)));
-      if (equal(thisElem, otherElem) !== True) {
+      const elemEq = equal(thisElem, otherElem);
+      if (!(elemEq instanceof Bool) || !elemEq.value()) {
         return False;
       }
     }
@@ -373,10 +376,21 @@ function indexOrError(index: Val): number | Error {
   if (index instanceof Int) {
     return Number(index.value());
   }
-  if ("value" in index && typeof index.value() === "bigint") {
-    return Number(index.value() as bigint);
+  if (index instanceof Double) {
+    const doubleValue = index.value();
+    if (Number.isInteger(doubleValue) && Number.isSafeInteger(doubleValue)) {
+      return doubleValue;
+    }
+    return new Error(`unsupported index value ${doubleValue} in list`);
   }
-  return new Error("invalid list index");
+  if (index instanceof Uint) {
+    const uintValue = index.value();
+    if (uintValue <= BigInt(Number.MAX_SAFE_INTEGER)) {
+      return Number(uintValue);
+    }
+    return new Error(`unsupported index value ${uintValue} in list`);
+  }
+  return new Error(`unsupported index type '${index.type()}' in list`);
 }
 
 function isLister(value: Val): value is Lister {

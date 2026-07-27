@@ -10,6 +10,7 @@ import {
   type MessageShape,
   equals as protobufEquals,
   type Registry,
+  ScalarType,
   toBinary,
   toJson,
 } from "@bufbuild/protobuf";
@@ -19,10 +20,12 @@ import { anyValueType } from "./any-value.js";
 import { err, errFromString, maybeNoSuchOverloadErr } from "./err.js";
 import { formatVal } from "./format.js";
 import { JSONValueType } from "./json-value.js";
+import { DefaultTypeAdapter } from "./provider.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
 import type { FieldTester, Indexer } from "./traits/index.js";
 import { TypeType } from "./types.js";
+import { Uint } from "./uint.js";
 
 const registryMap = new WeakMap<DescMessage, Registry>();
 const fieldMap = new WeakMap<DescMessage, Map<string, DescField>>();
@@ -120,7 +123,7 @@ export class protoObj implements Val, FieldTester, Indexer {
     }
     const fd = fieldByName(this.typeDesc, field.value());
     if (!fd) {
-      return err("no such field '%s'", field);
+      return err("no such field '%s'", field.value());
     }
     return this.adapter.nativeToValue(
       isFieldSet(this.pbValue as MessageShape<typeof this.typeDesc>, fd),
@@ -144,10 +147,10 @@ export class protoObj implements Val, FieldTester, Indexer {
     }
     const fd = fieldByName(this.typeDesc, index.value());
     if (!fd) {
-      return err("no such field '%s'", index);
+      return err("no such field '%s'", index.value());
     }
     try {
-      return this.adapter.nativeToValue(getDefaultFieldValue(this.pbValue, fd));
+      return protoFieldToValue(this.adapter, this.pbValue, fd);
     } catch (cause) {
       return errFromString((cause as Error).message);
     }
@@ -228,12 +231,65 @@ function getDefaultFieldValue(pbValue: Message, field: DescField): unknown {
     case "enum":
       return value ?? field.getDefaultValue();
     case "message":
+      if (value === undefined && isWrapperField(field)) {
+        return null;
+      }
       return value ?? create(field.message);
     case "list":
       return value ?? [];
     case "map":
       return value ?? {};
   }
+}
+
+/**
+ * protoFieldToValue converts a protobuf field into its CEL value while preserving protobuf scalar semantics.
+ */
+function protoFieldToValue(adapter: TypeAdapter, pbValue: Message, field: DescField): Val {
+  const value = getDefaultFieldValue(pbValue, field);
+  switch (field.fieldKind) {
+    case "enum":
+      return adapter.nativeToValue(BigInt((value as number | bigint) ?? 0));
+    case "scalar":
+      return scalarFieldToValue(value, field.scalar);
+    default:
+      return adapter.nativeToValue(value);
+  }
+}
+
+/**
+ * scalarFieldToValue converts a protobuf scalar field into the CEL numeric family expected by cel-go.
+ */
+function scalarFieldToValue(
+  value: unknown,
+  scalar: Extract<DescField, { fieldKind: "scalar" }>["scalar"],
+): Val {
+  switch (scalar) {
+    case ScalarType.BOOL:
+    case ScalarType.STRING:
+    case ScalarType.BYTES:
+      return DefaultTypeAdapter.nativeToValue(value);
+    case ScalarType.DOUBLE:
+    case ScalarType.FLOAT:
+      return DefaultTypeAdapter.nativeToValue(Number(value ?? 0));
+    case ScalarType.UINT32:
+    case ScalarType.UINT64:
+    case ScalarType.FIXED32:
+    case ScalarType.FIXED64:
+      return new Uint(BigInt((value as number) ?? 0));
+    default:
+      return DefaultTypeAdapter.nativeToValue(BigInt((value as number) ?? 0));
+  }
+}
+
+/**
+ * isWrapperField returns whether the field references a protobuf wrapper message.
+ */
+function isWrapperField(field: DescField): boolean {
+  if (!field.message) {
+    return false;
+  }
+  return wrapperTypeNames.has(field.message.typeName);
 }
 
 function isDescMessage(value: unknown): value is DescMessage {
@@ -253,3 +309,15 @@ function isMessage(value: unknown): value is Message {
     typeof (value as { $typeName: unknown }).$typeName === "string"
   );
 }
+
+const wrapperTypeNames = new Set<string>([
+  "google.protobuf.BoolValue",
+  "google.protobuf.BytesValue",
+  "google.protobuf.DoubleValue",
+  "google.protobuf.FloatValue",
+  "google.protobuf.Int32Value",
+  "google.protobuf.Int64Value",
+  "google.protobuf.StringValue",
+  "google.protobuf.UInt32Value",
+  "google.protobuf.UInt64Value",
+]);

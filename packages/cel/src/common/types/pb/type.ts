@@ -278,6 +278,14 @@ export class FieldDescription implements description {
       this.descValue.kind === "extension"
         ? getExtension(target as Message, this.descValue)
         : getProtoField(target as MessageShape<DescMessage>, this.descValue);
+    if (
+      fieldVal === undefined &&
+      this.descValue.fieldKind === "message" &&
+      isWrapperMessageDescriptor(this.descValue.message)
+    ) {
+      // Wrapper fields use CEL's null-or-value semantics rather than materializing a zero wrapper.
+      return [null, undefined];
+    }
     const value = fieldVal ?? defaultFieldValue(this.descValue);
     if (isMessage(value)) {
       const [unwrapped, didUnwrap, err] = this.maybeUnwrapDynamic(value);
@@ -294,6 +302,9 @@ export class FieldDescription implements description {
           undefined,
         ];
       case "message": {
+        if (!isMessage(value)) {
+          return [value, undefined];
+        }
         const [unwrapped, , err] = this.maybeUnwrapDynamic(value as Message);
         return [unwrapped, err];
       }
@@ -484,7 +495,7 @@ function unpackAnyValue(message: MessageShape<typeof AnySchema>): Message | unde
   const typeName = typeUrl.includes("/") ? typeUrl.slice(typeUrl.lastIndexOf("/") + 1) : typeUrl;
   const schema = dynamicTypeRegistry.getMessage(typeName);
   if (!schema) {
-    return undefined;
+    return new Error(`unknown type: '${typeName}'`);
   }
   try {
     return fromBinary(schema, message.value);
@@ -506,6 +517,16 @@ function defaultFieldValue(field: DescField | DescExtension): unknown {
     case "map":
       return {};
   }
+}
+
+/**
+ * isWrapperMessageDescriptor returns whether the descriptor names a protobuf wrapper message.
+ */
+function isWrapperMessageDescriptor(message: DescMessage | undefined): boolean {
+  if (!message) {
+    return false;
+  }
+  return wrapperTypeNames.has(message.typeName);
 }
 
 function reflectFieldValue(field: DescField | DescExtension): unknown {
@@ -684,6 +705,21 @@ const zeroValueMap = new Map<string, Message>([
   [StringValueSchema.typeName, create(StringValueSchema)],
   [UInt32ValueSchema.typeName, create(UInt32ValueSchema)],
   [UInt64ValueSchema.typeName, create(UInt64ValueSchema)],
+]);
+
+/**
+ * wrapperTypeNames tracks the protobuf wrapper type names that map to CEL null-or-value semantics.
+ */
+const wrapperTypeNames = new Set<string>([
+  BoolValueSchema.typeName,
+  BytesValueSchema.typeName,
+  DoubleValueSchema.typeName,
+  FloatValueSchema.typeName,
+  Int32ValueSchema.typeName,
+  Int64ValueSchema.typeName,
+  StringValueSchema.typeName,
+  UInt32ValueSchema.typeName,
+  UInt64ValueSchema.typeName,
 ]);
 
 function isMessage(value: unknown): value is Message {

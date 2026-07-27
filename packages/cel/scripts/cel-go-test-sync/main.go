@@ -639,13 +639,33 @@ func buildTableCandidate(name, relPath, testName string, file *ast.File, fset *t
 func extractTableSpec(composite *ast.CompositeLit, typeMap map[string][]string) ([]string, []ast.Expr, bool) {
 	fieldNames, ok := resolveSliceStructFields(composite.Type, typeMap)
 	if !ok || len(fieldNames) == 0 {
-		return nil, nil, false
+		return extractMapStructTableSpec(composite, typeMap)
 	}
 	rows := make([]ast.Expr, 0, len(composite.Elts))
 	for _, elt := range composite.Elts {
 		rows = append(rows, elt)
 	}
 	return fieldNames, rows, true
+}
+
+func extractMapStructTableSpec(composite *ast.CompositeLit, typeMap map[string][]string) ([]string, []ast.Expr, bool) {
+	fieldNames, ok := resolveMapStructFields(composite.Type, typeMap)
+	if !ok || len(fieldNames) == 0 {
+		return nil, nil, false
+	}
+	rows := make([]ast.Expr, 0, len(composite.Elts))
+	for _, elt := range composite.Elts {
+		kv, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			return nil, nil, false
+		}
+		row, ok := mapEntryToRowComposite(kv, fieldNames)
+		if !ok {
+			return nil, nil, false
+		}
+		rows = append(rows, row)
+	}
+	return append([]string{"name"}, fieldNames...), rows, true
 }
 
 func resolveSliceStructFields(expr ast.Expr, typeMap map[string][]string) ([]string, bool) {
@@ -658,6 +678,18 @@ func resolveSliceStructFields(expr ast.Expr, typeMap map[string][]string) ([]str
 	default:
 		return nil, false
 	}
+}
+
+func resolveMapStructFields(expr ast.Expr, typeMap map[string][]string) ([]string, bool) {
+	mapType, ok := expr.(*ast.MapType)
+	if !ok {
+		return nil, false
+	}
+	keyIdent, ok := mapType.Key.(*ast.Ident)
+	if !ok || keyIdent.Name != "string" {
+		return nil, false
+	}
+	return resolveStructFieldsFromExpr(mapType.Value, typeMap)
 }
 
 func resolveStructFieldsFromExpr(expr ast.Expr, typeMap map[string][]string) ([]string, bool) {
@@ -693,6 +725,40 @@ func cloneStrings(values []string) []string {
 	cloned := make([]string, len(values))
 	copy(cloned, values)
 	return cloned
+}
+
+func mapEntryToRowComposite(entry *ast.KeyValueExpr, fieldNames []string) (*ast.CompositeLit, bool) {
+	valueComposite, ok := entry.Value.(*ast.CompositeLit)
+	if !ok {
+		return nil, false
+	}
+	rowElts := []ast.Expr{
+		&ast.KeyValueExpr{
+			Key:   ast.NewIdent("name"),
+			Value: entry.Key,
+		},
+	}
+	allKeyed := true
+	for _, elt := range valueComposite.Elts {
+		if _, ok := elt.(*ast.KeyValueExpr); !ok {
+			allKeyed = false
+			break
+		}
+	}
+	if allKeyed {
+		rowElts = append(rowElts, valueComposite.Elts...)
+		return &ast.CompositeLit{Elts: rowElts}, true
+	}
+	if len(valueComposite.Elts) > len(fieldNames) {
+		return nil, false
+	}
+	for idx, elt := range valueComposite.Elts {
+		rowElts = append(rowElts, &ast.KeyValueExpr{
+			Key:   ast.NewIdent(fieldNames[idx]),
+			Value: elt,
+		})
+	}
+	return &ast.CompositeLit{Elts: rowElts}, true
 }
 
 func encodeRow(expr ast.Expr, fieldNames []string, fset *token.FileSet, src []byte) (rowEncodingResult, error) {

@@ -1,10 +1,10 @@
 {
   "testFilesScanned": 97,
-  "candidateTablesFound": 235,
-  "exportedTables": 231,
-  "rowsExported": 3442,
-  "structuredFields": 6972,
-  "fallbackFields": 2991,
+  "candidateTablesFound": 237,
+  "exportedTables": 232,
+  "rowsExported": 3451,
+  "structuredFields": 6981,
+  "fallbackFields": 3018,
   "skippedTables": [],
   "unresolvedTableUsages": [
     {
@@ -331,11 +331,6 @@
       "file": "ext/strings_test.go",
       "test": "TestFunctionsForVersions",
       "table": "functions"
-    },
-    {
-      "file": "interpreter/attribute_patterns_test.go",
-      "test": "TestAttributePattern_UnknownResolution",
-      "table": "patternTests"
     },
     {
       "file": "interpreter/interpreter_test.go",

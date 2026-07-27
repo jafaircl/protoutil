@@ -35,9 +35,7 @@ import {
   durationGetSeconds,
   False,
   IndexerType,
-  IntNegOne,
-  IntOne,
-  IntZero,
+  Int,
   isBool,
   MatcherType,
   ModderType,
@@ -1051,25 +1049,46 @@ function relationBinding(
 ): (lhs: Val, rhs: Val) => Val {
   return (lhs, rhs) => {
     const cmp = (lhs as unknown as Comparer).compare(rhs);
+    const cmpKind = compareResultKind(cmp);
     switch (kind) {
       case "less":
-        if (cmp === IntNegOne) return True;
-        if (cmp === IntOne || cmp === IntZero) return False;
+        if (cmpKind === "less") return True;
+        if (cmpKind === "equal" || cmpKind === "greater") return False;
         return cmp;
       case "less_equals":
-        if (cmp === IntNegOne || cmp === IntZero) return True;
-        if (cmp === IntOne) return False;
+        if (cmpKind === "less" || cmpKind === "equal") return True;
+        if (cmpKind === "greater") return False;
         return cmp;
       case "greater":
-        if (cmp === IntOne) return True;
-        if (cmp === IntNegOne || cmp === IntZero) return False;
+        if (cmpKind === "greater") return True;
+        if (cmpKind === "less" || cmpKind === "equal") return False;
         return cmp;
       case "greater_equals":
-        if (cmp === IntOne || cmp === IntZero) return True;
-        if (cmp === IntNegOne) return False;
+        if (cmpKind === "greater" || cmpKind === "equal") return True;
+        if (cmpKind === "less") return False;
         return cmp;
     }
   };
+}
+
+/**
+ * compareResultKind normalizes CEL comparison outputs so TypeScript object identity does not leak
+ * into relational operator semantics.
+ */
+function compareResultKind(value: Val): "less" | "equal" | "greater" | undefined {
+  if (!(value instanceof Int)) {
+    return undefined;
+  }
+  switch (value.value()) {
+    case -1n:
+      return "less";
+    case 0n:
+      return "equal";
+    case 1n:
+      return "greater";
+    default:
+      return undefined;
+  }
 }
 
 function indexBinding(lhs: Val, rhs: Val): Val {

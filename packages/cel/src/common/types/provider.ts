@@ -1,5 +1,4 @@
 import {
-  create,
   type DescField,
   type DescFile,
   type DescMessage,
@@ -27,6 +26,7 @@ import {
 import { setField } from "@protoutil/core";
 import {
   type Type as CheckedType,
+  type Type as ExprType,
   Type_PrimitiveType,
   Type_WellKnownType,
 } from "../../gen/cel/expr/checked_pb.js";
@@ -38,6 +38,7 @@ import { Err, err, unsupportedRefValConversionErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
 import { dynamicList, jsonListValue } from "./list.js";
 import { jsonStructMap, refValMap, stringInterfaceMap, stringStringMap } from "./map.js";
+import { Float32NativeType, Int32NativeType, Uint32NativeType } from "./native.js";
 import { NullValue } from "./null.js";
 import { object } from "./object.js";
 import { type Db, DefaultDb, db as pbdb } from "./pb/pb.js";
@@ -174,9 +175,7 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     return found && enumVal ? [new Int(BigInt(enumVal.value())), true] : [undefined, false];
   }
 
-  public findType(
-    typeName: string,
-  ): [import("../../gen/cel/expr/checked_pb.js").Type | undefined, boolean] {
+  public findType(typeName: string): [ExprType | undefined, boolean] {
     const [type, found] = this.findStructType(typeName);
     return found && type ? [typeToExprType(type), true] : [undefined, false];
   }
@@ -291,7 +290,10 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   }
 
   public nativeToValue(value: unknown): Val {
-    const direct = nativeToValue(this, value);
+    const direct =
+      isMessage(value) && value.$typeName === AnySchema.typeName
+        ? undefined
+        : nativeToValue(this, value);
     if (direct !== undefined) {
       return direct;
     }
@@ -331,66 +333,37 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     field: FieldDescription,
     val: Val,
   ): Error | undefined {
+    if (field.isList() && !field.isMap()) {
+      return msgSetListField(target, field, val);
+    }
+    if (field.isMap()) {
+      return msgSetMapField(target, field, val);
+    }
+    if (isJSONValueField(field)) {
+      setField(target, field.descriptor() as DescField, jsonValueForField(val));
+      return undefined;
+    }
+    const [wrapped, isWrapper, wrapErr] = wrapWrapperField(field, val);
+    if (wrapErr) {
+      return fieldTypeConversionError(field, wrapErr);
+    }
+    if (isWrapper) {
+      if (wrapped !== undefined) {
+        setField(target, field.descriptor() as DescField, wrapped);
+      }
+      return undefined;
+    }
     try {
-      if (field.isList() && !field.isMap()) {
-        if (!isListerValue(val)) {
-          return new Error(`unsupported field type: ${field.name()}`);
-        }
-        const list = val.convertToNative([]);
-        if (!Array.isArray(list)) {
-          return new Error(`unsupported field type: ${field.name()}`);
-        }
-        setField(
-          target,
-          field.descriptor() as DescField,
-          list.map((entry) => normalizeContainerElement(field, entry)),
-        );
-        return undefined;
-      }
-      if (field.isMap()) {
-        if (val === NullValue) {
-          return new Error(`unsupported field type: ${field.name()}`);
-        }
-        const map = val.convertToNative({});
-        if (!isRecord(map)) {
-          return new Error(`unsupported field type: ${field.name()}`);
-        }
-        setField(
-          target,
-          field.descriptor() as DescField,
-          Object.fromEntries(
-            Object.entries(map).map(([key, entry]) => [
-              key,
-              normalizeMapValue(field.valueType!, entry),
-            ]),
-          ),
-        );
-        return undefined;
-      }
-      if (isJSONValueField(field)) {
-        setField(target, field.descriptor() as DescField, jsonValueForField(val));
-        return undefined;
-      }
-      const [wrapped, isWrapper, wrapErr] = wrapWrapperField(field, val);
-      if (wrapErr) {
-        return wrapErr;
-      }
-      if (isWrapper) {
-        if (wrapped !== undefined) {
-          setField(target, field.descriptor() as DescField, wrapped);
-        }
-        return undefined;
-      }
       const native =
         field.isEnum() && val instanceof Int
           ? Number(val.value())
           : val.convertToNative(nativeFieldType(field));
-      if (native !== undefined) {
+      if (native !== undefined && native !== null) {
         setField(target, field.descriptor() as DescField, native);
       }
       return undefined;
     } catch (cause) {
-      return cause as Error;
+      return fieldTypeConversionError(field, cause as Error);
     }
   }
 }
@@ -428,8 +401,16 @@ export function emptyRegistry(): Registry {
 }
 
 function nativeFieldType(field: FieldDescription): unknown {
-  if (field.isMessage()) {
-    return (field.descriptor() as DescField).message;
+  const descriptor = field.descriptor();
+  if (descriptor.kind === "field") {
+    switch (descriptor.fieldKind) {
+      case "message":
+        return descriptor.message;
+      case "scalar":
+        return scalarNativeFieldType(descriptor.scalar);
+      default:
+        break;
+    }
   }
   const reflectType = field.reflectType();
   if (typeof reflectType === "boolean") {
@@ -448,6 +429,38 @@ function nativeFieldType(field: FieldDescription): unknown {
     return Uint8Array;
   }
   return reflectType;
+}
+
+/**
+ * scalarNativeFieldType returns the CEL native conversion token for a protobuf scalar field.
+ */
+function scalarNativeFieldType(scalar: ScalarType): unknown {
+  switch (scalar) {
+    case ScalarType.BOOL:
+      return Boolean;
+    case ScalarType.STRING:
+      return String;
+    case ScalarType.BYTES:
+      return Uint8Array;
+    case ScalarType.DOUBLE:
+      return Number;
+    case ScalarType.FLOAT:
+      return Float32NativeType;
+    case ScalarType.INT32:
+    case ScalarType.SINT32:
+    case ScalarType.SFIXED32:
+      return Int32NativeType;
+    case ScalarType.UINT32:
+    case ScalarType.FIXED32:
+      return Uint32NativeType;
+    case ScalarType.INT64:
+    case ScalarType.SINT64:
+    case ScalarType.SFIXED64:
+      return BigInt;
+    case ScalarType.UINT64:
+    case ScalarType.FIXED64:
+      return BigInt;
+  }
 }
 
 function isJSONValueField(field: FieldDescription): boolean {
@@ -704,7 +717,7 @@ function isMessage(value: unknown): value is Message {
 function wrapWrapperField(
   field: FieldDescription,
   val: Val,
-): [Message | undefined, boolean, Error | undefined] {
+): [unknown, boolean, Error | undefined] {
   const wrapperTypeName =
     field.descriptor().kind === "field" && field.descriptor().fieldKind === "message"
       ? field.descriptor().message?.typeName
@@ -718,43 +731,186 @@ function wrapWrapperField(
   switch (wrapperTypeName) {
     case BoolValueSchema.typeName:
       return val instanceof Bool
-        ? [create(BoolValueSchema, { value: val.value() }), true, undefined]
+        ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case BytesValueSchema.typeName:
       return val instanceof Bytes
-        ? [create(BytesValueSchema, { value: val.value() }), true, undefined]
+        ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case DoubleValueSchema.typeName:
       return val instanceof Double
-        ? [create(DoubleValueSchema, { value: val.value() }), true, undefined]
+        ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case FloatValueSchema.typeName:
       return val instanceof Double
-        ? [create(FloatValueSchema, { value: val.value() }), true, undefined]
+        ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case Int32ValueSchema.typeName:
       return val instanceof Int
-        ? [create(Int32ValueSchema, { value: Number(val.value()) }), true, undefined]
+        ? [Number(val.value()), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case Int64ValueSchema.typeName:
       return val instanceof Int
-        ? [create(Int64ValueSchema, { value: val.value() }), true, undefined]
+        ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case StringValueSchema.typeName:
       return val instanceof CelString
-        ? [create(StringValueSchema, { value: val.value() }), true, undefined]
+        ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case UInt32ValueSchema.typeName:
       return val instanceof Uint
-        ? [create(UInt32ValueSchema, { value: Number(val.value()) }), true, undefined]
+        ? [Number(val.value()), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case UInt64ValueSchema.typeName:
       return val instanceof Uint
-        ? [create(UInt64ValueSchema, { value: val.value() }), true, undefined]
+        ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     default:
       return [undefined, false, undefined];
   }
+}
+
+/**
+ * msgSetListField converts and assigns a CEL list into a protobuf repeated field.
+ */
+function msgSetListField(
+  target: MessageShape<DescMessage>,
+  field: FieldDescription,
+  val: Val,
+): Error | undefined {
+  if (!isListerValue(val)) {
+    return unsupportedFieldTypeError(field, val);
+  }
+  const values: unknown[] = [];
+  const size = (val.size() as Int).value();
+  for (let index = 0n; index < size; index += 1n) {
+    const entry = val.get(new Int(index));
+    try {
+      const native = entry.convertToNative(listElementNativeType(field));
+      if (native === undefined || native === null) {
+        continue;
+      }
+      values.push(normalizeContainerElement(field, native));
+    } catch (cause) {
+      return fieldTypeConversionError(field, cause as Error);
+    }
+  }
+  setField(target, field.descriptor() as DescField, values);
+  return undefined;
+}
+
+/**
+ * msgSetMapField converts and assigns a CEL map into a protobuf map field.
+ */
+function msgSetMapField(
+  target: MessageShape<DescMessage>,
+  field: FieldDescription,
+  val: Val,
+): Error | undefined {
+  if (!isMapperValue(val) || val === (NullValue as Val)) {
+    return unsupportedFieldTypeError(field, val);
+  }
+  const mapped: Record<string, unknown> = {};
+  const iterator = val.iterator() as { hasNext(): Val; next(): Val };
+  while ((iterator.hasNext() as Bool).value()) {
+    const key = iterator.next();
+    const entry = val.get(key);
+    try {
+      const nativeKey = convertMapKeyToNative(field.keyType!, key);
+      const nativeValue = entry.convertToNative(nativeFieldType(field.valueType!));
+      if (nativeValue === undefined || nativeValue === null) {
+        continue;
+      }
+      mapped[String(nativeKey)] = normalizeMapValue(field.valueType!, nativeValue);
+    } catch (cause) {
+      return fieldTypeConversionError(field, cause as Error);
+    }
+  }
+  setField(target, field.descriptor() as DescField, mapped);
+  return undefined;
+}
+
+/**
+ * listElementNativeType returns the native conversion token for a repeated-field element.
+ */
+function listElementNativeType(field: FieldDescription): unknown {
+  const descriptor = field.descriptor();
+  if (descriptor.kind !== "field" || descriptor.fieldKind !== "list") {
+    return nativeFieldType(field);
+  }
+  switch (descriptor.listKind) {
+    case "enum":
+      return Int32NativeType;
+    case "message":
+      return descriptor.message;
+    case "scalar":
+      return scalarNativeFieldType(descriptor.scalar);
+  }
+}
+
+/**
+ * convertMapKeyToNative converts CEL map keys into the declared protobuf key type.
+ */
+function convertMapKeyToNative(field: FieldDescription, key: Val): unknown {
+  const targetType = nativeFieldType(field);
+  if (key instanceof CelString) {
+    return parseStringMapKey(field, key.value(), targetType);
+  }
+  return key.convertToNative(targetType);
+}
+
+/**
+ * parseStringMapKey converts string-backed record keys into protobuf scalar key values.
+ */
+function parseStringMapKey(field: FieldDescription, key: string, targetType: unknown): unknown {
+  const descriptor = field.descriptor();
+  if (descriptor.kind === "field" && descriptor.fieldKind === "scalar") {
+    switch (descriptor.scalar) {
+      case ScalarType.BOOL:
+        if (key === "true") {
+          return true;
+        }
+        if (key === "false") {
+          return false;
+        }
+        break;
+      case ScalarType.INT32:
+      case ScalarType.SINT32:
+      case ScalarType.SFIXED32:
+      case ScalarType.UINT32:
+      case ScalarType.FIXED32:
+        return Number(key);
+      case ScalarType.INT64:
+      case ScalarType.SINT64:
+      case ScalarType.SFIXED64:
+      case ScalarType.UINT64:
+      case ScalarType.FIXED64:
+        return BigInt(key);
+      case ScalarType.STRING:
+        return key;
+      default:
+        break;
+    }
+  }
+  return new CelString(key).convertToNative(targetType);
+}
+
+/**
+ * unsupportedFieldTypeError reports an invalid CEL aggregate assignment for a protobuf field.
+ */
+function unsupportedFieldTypeError(field: FieldDescription, val: Val): Error {
+  const parentTypeName = field.descriptor().parent?.typeName ?? "<unknown>";
+  return new Error(`unsupported field type for ${parentTypeName}.${field.name()}: ${val.type()}`);
+}
+
+/**
+ * fieldTypeConversionError annotates an element conversion failure with protobuf field context.
+ */
+function fieldTypeConversionError(field: FieldDescription, cause: Error): Error {
+  const parentTypeName = field.descriptor().parent?.typeName ?? "<unknown>";
+  return new Error(
+    `field type conversion error for ${parentTypeName}.${field.name()} value type: ${cause.message}`,
+  );
 }
 
 function isWrapperType(typeName: string): boolean {
@@ -780,7 +936,7 @@ function normalizeContainerElement(field: FieldDescription, value: unknown): unk
   }
   switch (descriptor.listKind) {
     case "enum":
-      return normalizeIntLike(value);
+      return normalizeIntLike(value, false);
     case "message":
       return value;
     case "scalar":

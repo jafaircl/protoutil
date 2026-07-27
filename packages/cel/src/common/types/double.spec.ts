@@ -26,7 +26,7 @@ describe("common/types double", () => {
   });
 
   it("common/types/double_test.go/TestDoubleConvertToNative_Float32", () => {
-    expect(new Double(3.1415).convertToNative(Float32NativeType)).toBe(Math.fround(3.1415));
+    expect(new Double(Math.PI).convertToNative(Float32NativeType)).toBe(Math.fround(Math.PI));
   });
 
   it("common/types/double_test.go/TestDoubleConvertToNative_Float64", () => {
@@ -60,9 +60,9 @@ describe("common/types double", () => {
   );
 
   it("common/types/double_test.go/TestDoubleConvertToNative_Wrapper", () => {
-    expect(new Double(3.1415).convertToNative(FloatValueSchema)).toEqual({
+    expect(new Double(Math.PI).convertToNative(FloatValueSchema)).toEqual({
       $typeName: FloatValueSchema.typeName,
-      value: Math.fround(3.1415),
+      value: Math.fround(Math.PI),
     });
     expect(new Double(Number.MAX_VALUE).convertToNative(DoubleValueSchema)).toEqual({
       $typeName: DoubleValueSchema.typeName,

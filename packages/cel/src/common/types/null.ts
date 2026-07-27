@@ -58,7 +58,13 @@ export class Null implements Val {
     }
   }
   public equal(other: Val): Val {
-    return new Bool(other.type() === NullType);
+    return new Bool(
+      typeof other === "object" &&
+        other !== null &&
+        "type" in other &&
+        typeof other.type === "function" &&
+        other.type() === NullType,
+    );
   }
 
   /** IsZeroValue returns true as null always represents an absent value. */

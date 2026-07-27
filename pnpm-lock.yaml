@@ -283,9 +283,15 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.11.0
         version: 2.11.0
+      '@bufbuild/re2':
+        specifier: ^0.6.0
+        version: 0.6.0
       '@protoutil/core':
         specifier: workspace:*
         version: link:../core
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.1.1
     devDependencies:
       '@types/node':
         specifier: ^25.0.3
@@ -967,6 +973,9 @@ packages:
     resolution: {integrity: sha512-sE6CojU25nfeb1w88Sm+jRnmk4GvQTeEZvLDHHDPvIHbj2NsDJWFAUJdJr+RcuMnjdWmbur+rAS38VuEK/XviQ==}
     peerDependencies:
       '@bufbuild/protobuf': ^2.8.0
+
+  '@bufbuild/re2@0.6.0':
+    resolution: {integrity: sha512-HrSjnBjk71LpKDlUnbxdN9DD24Hr5O92kCxRVHA0sEa35z6tEUjBS7YQVYBMS9npbllLtPW7tGSAWwfUKBs1Hw==}
 
   '@capsizecss/unpack@4.0.0':
     resolution: {integrity: sha512-VERIM64vtTP1C4mxQ5thVT9fK0apjPFobqybMtA1UdUujWka24ERHbRHFGmpbbhp73MhV+KSsHQH9C6uOTdEQA==}
@@ -6728,6 +6737,8 @@ snapshots:
     dependencies:
       '@bufbuild/cel': 0.4.0(@bufbuild/protobuf@2.11.0)
       '@bufbuild/protobuf': 2.11.0
+
+  '@bufbuild/re2@0.6.0': {}
 
   '@capsizecss/unpack@4.0.0':
     dependencies:

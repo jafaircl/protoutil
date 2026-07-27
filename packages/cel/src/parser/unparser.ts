@@ -242,9 +242,7 @@ function bytesToOctets(value: Uint8Array): string {
  * normalizeStoredBytes matches the local parser's bytes-literal storage so unparsing round-trips.
  */
 function normalizeStoredBytes(value: Uint8Array): Uint8Array {
-  // The current parser stores byte literal content as code points after escape processing.
-  // Re-encoding those code points as UTF-8 restores the octet stream cel-go would print.
-  return new TextEncoder().encode(String.fromCodePoint(...value));
+  return new Uint8Array(value);
 }
 
 /**

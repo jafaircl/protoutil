@@ -27,6 +27,7 @@ import {
 } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
+import { timestampOf } from "./timestamp.js";
 import type {
   Adder,
   Comparer,
@@ -36,7 +37,7 @@ import type {
   Negater,
   Subtractor,
 } from "./traits/index.js";
-import { DoubleType, IntType, StringType, TypeType, UintType } from "./types.js";
+import { DoubleType, IntType, StringType, TimestampType, TypeType, UintType } from "./types.js";
 import { Uint } from "./uint.js";
 
 /**
@@ -111,6 +112,8 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
         }
       case DoubleType:
         return new Double(Number(this.inner));
+      case TimestampType:
+        return timestampOf(this.inner);
       case StringType:
         return new CelString(this.inner.toString());
       case TypeType:

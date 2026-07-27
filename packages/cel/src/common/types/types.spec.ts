@@ -4,6 +4,7 @@ import {
   BoolType,
   BytesType,
   String as CelString,
+  type Type as CelType,
   ComparerType,
   DoubleType,
   DurationType,
@@ -93,8 +94,8 @@ describe("common/types types", () => {
     );
     for (const testCase of cases) {
       expect(
-        (resolveSyncedExpr(testCase.t1) as import("./index.js").Type).isExactType(
-          resolveSyncedExpr(testCase.t2) as import("./index.js").Type,
+        (resolveSyncedExpr(testCase.t1) as CelType).isExactType(
+          resolveSyncedExpr(testCase.t2) as CelType,
         ),
       ).toBe(testCase.isExact);
     }
@@ -106,8 +107,8 @@ describe("common/types types", () => {
     );
     for (const testCase of cases) {
       expect(
-        (resolveSyncedExpr(testCase.t1) as import("./index.js").Type).isEquivalentType(
-          resolveSyncedExpr(testCase.t2) as import("./index.js").Type,
+        (resolveSyncedExpr(testCase.t1) as CelType).isEquivalentType(
+          resolveSyncedExpr(testCase.t2) as CelType,
         ),
       ).toBe(testCase.isEquivalent);
     }
@@ -119,8 +120,8 @@ describe("common/types types", () => {
     );
     for (const testCase of cases) {
       expect(
-        (resolveSyncedExpr(testCase.t1) as import("./index.js").Type).isAssignableType(
-          resolveSyncedExpr(testCase.t2) as import("./index.js").Type,
+        (resolveSyncedExpr(testCase.t1) as CelType).isAssignableType(
+          resolveSyncedExpr(testCase.t2) as CelType,
         ),
       ).toBe(testCase.isAssignable);
     }
@@ -132,7 +133,7 @@ describe("common/types types", () => {
       "common/types/types_test.go/TestTypeIsAssignableRuntimeType",
     );
     for (const testCase of cases) {
-      const typeValue = resolveSyncedExpr(testCase.t) as import("./index.js").Type;
+      const typeValue = resolveSyncedExpr(testCase.t) as CelType;
       const value = reg.nativeToValue(resolveRuntimeAssignableValue(testCase.v));
       expect(typeValue.isAssignableRuntimeType(value)).toBe(testCase.isRuntimeAssignable);
     }
@@ -175,7 +176,7 @@ describe("common/types types", () => {
     for (const testCase of cases) {
       expect(
         (exprTypeToType(resolveSyncedProtoType(testCase.in)) as { toString(): string }).toString(),
-      ).toBe((resolveSyncedExpr(testCase.out) as import("./index.js").Type).toString());
+      ).toBe((resolveSyncedExpr(testCase.out) as CelType).toString());
     }
   });
 

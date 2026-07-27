@@ -146,7 +146,7 @@ describe("common/types/pb/type_test.go", () => {
       ["single_timestamp", create(TimestampSchema, { seconds: 12345n, nanos: 0 })],
       ["single_bool_wrapper", false],
       ["single_int32_wrapper", 42],
-      ["single_int64_wrapper", 0n],
+      ["single_int64_wrapper", null],
       ["single_nested_message", create(Proto3TestAllTypesSchema.nestedMessages[0]!, { bb: 123 })],
       ["standalone_enum", 1n],
       ["single_value", "hello world"],

@@ -1,11 +1,5 @@
 import { create, type Message } from "@bufbuild/protobuf";
-import {
-  AnySchema,
-  anyPack,
-  Int32ValueSchema,
-  ValueSchema,
-  NullValue as WktNullValue,
-} from "@bufbuild/protobuf/wkt";
+import { AnySchema, anyPack, ValueSchema, NullValue as WktNullValue } from "@bufbuild/protobuf/wkt";
 import type { Type as ExprType } from "../../gen/cel/expr/checked_pb.js";
 import { SourceInfoSchema } from "../../gen/cel/expr/syntax_pb.js";
 import {
@@ -17,6 +11,7 @@ import {
 import {
   AnyType,
   BoolType,
+  Bytes,
   String as CelString,
   Double,
   DoubleType,
@@ -57,6 +52,7 @@ import {
 import { dynamicList } from "./list.js";
 import { jsonList, jsonStruct } from "./pb/spec-helpers.js";
 import { DefaultTypeAdapter, type Registry } from "./provider.js";
+import { timestampOf } from "./timestamp.js";
 
 export function resolveSyncedExpr(value: unknown): unknown {
   if (value === null || value === undefined) {
@@ -311,7 +307,8 @@ export function resolveProviderMessage(value: unknown): Message {
   if (expr.includes("SingleInt32Wrapper: wrapperspb.Int32(123)")) {
     return {
       ...create(TestAllTypesSchema),
-      singleInt32Wrapper: create(Int32ValueSchema, { value: 123 }) as never,
+      // Wrapper fields are represented by their scalar payload values at runtime.
+      singleInt32Wrapper: 123 as never,
     } as Message;
   }
   if (expr.includes("RepeatedInt64: []int64{3, 2, 1}")) {
@@ -432,6 +429,9 @@ function resolveProviderNativeLiteral(expr: string): unknown {
 
 function resolveExprString(expr: string): unknown {
   expr = expr.trim().replace(/,$/, "").trim();
+  if (/^[+-]?\d+\.\d+$/.test(expr)) {
+    return Number(expr);
+  }
   switch (expr) {
     case "AnyType":
       return AnyType;
@@ -576,8 +576,23 @@ function resolveExprString(expr: string): unknown {
   if (expr.startsWith('String("') && expr.endsWith('")')) {
     return new CelString(expr.slice(8, -2));
   }
+  if (expr.startsWith('Bytes("') && expr.endsWith('")')) {
+    return new Bytes(new TextEncoder().encode(expr.slice(7, -2)));
+  }
+  if (/^Bytes\(make\(\[\]byte,\s*0,\s*\d+\)\)$/.test(expr)) {
+    return new Bytes(new Uint8Array());
+  }
   if (expr.startsWith("int64(") && expr.endsWith(")")) {
     return BigInt(expr.slice(6, -1));
+  }
+  if (expr.startsWith("int32(") && expr.endsWith(")")) {
+    return BigInt(expr.slice(6, -1));
+  }
+  if (expr.startsWith("uint(") && expr.endsWith(")")) {
+    return BigInt(expr.slice(5, -1));
+  }
+  if (expr.startsWith("float32(") && expr.endsWith(")")) {
+    return Number(expr.slice(8, -1));
   }
   if (expr.startsWith("uint64(") && expr.endsWith(")")) {
     return BigInt(expr.slice(7, -1));
@@ -585,8 +600,46 @@ function resolveExprString(expr: string): unknown {
   if (expr.startsWith("float64(") && expr.endsWith(")")) {
     return Number(expr.slice(8, -1));
   }
+  if (expr === "time.Millisecond") {
+    return durationOf(1_000_000n);
+  }
   if (expr.startsWith("time.Duration(") && expr.endsWith(")")) {
     return durationOf(BigInt(expr.slice(14, -1)));
+  }
+  if (expr === "Duration{Duration: time.Hour}") {
+    return durationOf(3_600_000_000_000n);
+  }
+  const scaledDurationMatch =
+    /^Duration\{Duration: time\.Duration\((-?\d+)\) \* time\.(Nanosecond|Microsecond|Millisecond|Second|Minute|Hour)\}$/.exec(
+      expr,
+    );
+  if (scaledDurationMatch) {
+    const nanosByUnit = {
+      Nanosecond: 1n,
+      Microsecond: 1_000n,
+      Millisecond: 1_000_000n,
+      Second: 1_000_000_000n,
+      Minute: 60_000_000_000n,
+      Hour: 3_600_000_000_000n,
+    };
+    return durationOf(
+      BigInt(scaledDurationMatch[1]!) *
+        nanosByUnit[scaledDurationMatch[2] as keyof typeof nanosByUnit],
+    );
+  }
+  if (expr.startsWith("time.Unix(") && expr.endsWith(").Local()")) {
+    const [seconds, nanos] = splitArgs(expr.slice(10, -9));
+    return timestampOf(BigInt(seconds), Number(nanos));
+  }
+  const timestampLiteralMatch =
+    /^Timestamp\{Time: time\.Unix\((-?\d+),\s*(\d+)\)(?:\.UTC\(\))?\}$/.exec(expr);
+  if (timestampLiteralMatch) {
+    return timestampOf(BigInt(timestampLiteralMatch[1]!), Number(timestampLiteralMatch[2]!));
+  }
+  if (expr.startsWith("&tpb.Timestamp{") && expr.endsWith("}")) {
+    const secondsMatch = /Seconds:\s*(-?\d+)/.exec(expr);
+    const nanosMatch = /Nanos:\s*(\d+)/.exec(expr);
+    return timestampOf(BigInt(secondsMatch?.[1] ?? "0"), Number(nanosMatch?.[1] ?? "0"));
   }
   if (expr === "maxUnixTime + 1" || expr === "minUnixTime - 1") {
     return expr;
