@@ -243,7 +243,11 @@ export class Env {
     }
     const enumValue = this.provider.enumValue(candidate);
     if (!isError(enumValue)) {
-      return constantDecl(candidate, IntType, enumValue);
+      return constantDecl(
+        candidate,
+        "kind" in (enumValue.type() as object) ? (enumValue.type() as Type) : IntType,
+        enumValue,
+      );
     }
     return undefined;
   }
@@ -279,6 +283,19 @@ export class Env {
       return "";
     }
     if (current.declarationIsEquivalent(decl)) {
+      const incomingValue = decl.value();
+      const currentValue = current.value();
+      if (incomingValue !== undefined) {
+        if (currentValue === undefined) {
+          // A constant declaration refines an otherwise equivalent variable declaration.
+          this.declarations.addIdent(decl);
+          return "";
+        }
+        const equal = currentValue.equal(incomingValue).value();
+        if (equal !== true) {
+          return `conflicting constant definitions for name '${decl.name()}'`;
+        }
+      }
       this.declarations.addIdent(current);
       return "";
     }

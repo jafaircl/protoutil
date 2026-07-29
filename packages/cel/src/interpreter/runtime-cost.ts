@@ -299,7 +299,7 @@ export class CostTracker {
    * are intentionally reset.
    */
   public clone(): CostTracker {
-    return new CostTracker({
+    return costTracker({
       estimator: this.estimatorValue,
       overloadTrackers: this.overloadTrackersValue,
       limit: this.limitValue,
@@ -470,6 +470,11 @@ export class CostTracker {
         return 1;
     }
   }
+}
+
+/** CostTracker creates runtime cost-tracking state from an option object. */
+export function costTracker(options: CostTrackerOptions = {}): CostTracker {
+  return new CostTracker(options);
 }
 
 /**

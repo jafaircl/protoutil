@@ -269,15 +269,24 @@ class PlanBuilder {
           "attr" in indexArg &&
           typeof (indexArg as { attr?: unknown }).attr === "function"
         ) {
+          const dynamicAttribute = (indexArg as InterpretableAttribute).attr();
           attr.addQualifier(
             this.plannerValue.attrFactory.qualifier({
               id: expr.id(),
-              value: (indexArg as InterpretableAttribute).attr(),
+              value: dynamicAttribute,
               optional: functionName !== operators.Index,
             }),
           );
         } else {
-          attr.addQualifier(this.plannerValue.attrFactory.relativeAttribute(expr.id(), indexArg));
+          const qualifier = this.plannerValue.attrFactory.relativeAttribute(expr.id(), indexArg);
+          if (
+            functionName !== operators.Index &&
+            "withOptional" in qualifier &&
+            typeof (qualifier as { withOptional?: unknown }).withOptional === "function"
+          ) {
+            (qualifier as { withOptional(): unknown }).withOptional();
+          }
+          attr.addQualifier(qualifier);
         }
         return attr;
       }
@@ -309,6 +318,7 @@ class PlanBuilder {
       unary: overload?.unary,
       binary: overload?.binary,
       nonStrict: overload?.nonStrict ?? false,
+      operandTrait: overload?.operandTrait ?? 0,
     });
   }
 
@@ -428,6 +438,13 @@ class PlanBuilder {
     optional: boolean,
   ): InterpretableAttribute {
     if ("attr" in value && typeof (value as { attr?: unknown }).attr === "function") {
+      if (
+        optional &&
+        "withOptional" in value &&
+        typeof (value as { withOptional?: unknown }).withOptional === "function"
+      ) {
+        (value as { withOptional(): unknown }).withOptional();
+      }
       return value as InterpretableAttribute;
     }
     return attrInterpretable({

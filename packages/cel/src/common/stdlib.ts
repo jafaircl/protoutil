@@ -26,6 +26,7 @@ import type {
 import {
   AdderType,
   Bool,
+  String as CelString,
   ComparerType,
   ContainerType,
   DividerType,
@@ -1112,7 +1113,8 @@ function matchBinding(str: Val, pat: Val): Val {
 
 function timestampMethod(functionName: string, ts: Val, tz?: Val): Val {
   const receiver = ts as unknown as Receiver;
-  return receiver.receive(functionName, "", tz ? [tz] : []);
+  // Standard timestamp overloads use UTC when the expression omits an explicit timezone.
+  return receiver.receive(functionName, "", [tz ?? new CelString("UTC")]);
 }
 
 function timeWithTzExample(name: string, result: string): string {

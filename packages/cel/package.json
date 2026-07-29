@@ -18,10 +18,6 @@
       "require": "./dist/index.cjs",
       "import": "./dist/index.mjs"
     },
-    "./common": {
-      "require": "./dist/common/index.cjs",
-      "import": "./dist/common/index.mjs"
-    },
     "./parser": {
       "require": "./dist/parser/index.cjs",
       "import": "./dist/parser/index.mjs"
@@ -33,6 +29,14 @@
     "./interpreter": {
       "require": "./dist/interpreter/index.cjs",
       "import": "./dist/interpreter/index.mjs"
+    },
+    "./ext": {
+      "require": "./dist/ext/index.cjs",
+      "import": "./dist/ext/index.mjs"
+    },
+    "./policy": {
+      "require": "./dist/policy/index.cjs",
+      "import": "./dist/policy/index.mjs"
     },
     "./expr/checked": {
       "require": "./dist/gen/cel/expr/checked_pb.cjs",
@@ -88,6 +92,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "pretest": "node scripts/cel-coverage-ledger.mjs",
     "test": "vitest run --exclude src/benchmark.spec.ts",
     "benchmark": "vitest run src/benchmark.spec.ts",
     "typecheck": "tsc --noEmit",

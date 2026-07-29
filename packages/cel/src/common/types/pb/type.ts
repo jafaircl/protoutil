@@ -274,6 +274,16 @@ export class FieldDescription implements description {
         new Error(`unsupported field selection target: (${target.$typeName})${target.$typeName}`),
       ];
     }
+    // Buf materializes an empty wrapper message for an unset extension. CEL wrapper semantics
+    // distinguish this case from an explicitly present zero wrapper and return null.
+    if (
+      this.descValue.kind === "extension" &&
+      this.descValue.fieldKind === "message" &&
+      isWrapperMessageDescriptor(this.descValue.message) &&
+      !hasExtension(target as Message, this.descValue)
+    ) {
+      return [null, undefined];
+    }
     const fieldVal =
       this.descValue.kind === "extension"
         ? getExtension(target as Message, this.descValue)

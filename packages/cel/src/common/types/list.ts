@@ -91,7 +91,8 @@ export class BaseList implements Lister {
 
   public contains(elem: Val): Val {
     for (let index = 0; index < this.sizeValue; index += 1) {
-      const cmp = equal(elem, this.adapter.nativeToValue(this.getter(index)));
+      // Route through get() so lazily concatenated lists resolve the element from their segments.
+      const cmp = equal(elem, this.get(new Int(BigInt(index))));
       if (cmp instanceof Bool && cmp.value()) {
         return True;
       }
@@ -114,6 +115,9 @@ export class BaseList implements Lister {
       });
     }
     if (typeDesc === JSONListType || typeDesc === ListValueSchema) {
+      if (isMessage(this.listValue) && this.listValue.$typeName === ListValueSchema.typeName) {
+        return this.listValue;
+      }
       const values = [];
       for (let index = 0; index < this.sizeValue; index += 1) {
         values.push(this.adapter.nativeToValue(this.getter(index)).convertToNative(ValueSchema));
@@ -123,7 +127,7 @@ export class BaseList implements Lister {
     if (Array.isArray(typeDesc)) {
       return this.toNativeArray();
     }
-    return this.toNativeArray();
+    throw new Error(`unsupported native conversion from '${ListType}' to '${String(typeDesc)}'`);
   }
 
   public convertToType(typeVal: RefType): Val {
@@ -196,14 +200,8 @@ export class BaseList implements Lister {
   }
 
   public toString(): string {
-    const parts: string[] = ["["];
-    for (let index = 0; index < this.sizeValue; index += 1) {
-      if (index > 0) {
-        parts.push(", ");
-      }
-      parts.push(`${this.getter(index)}`);
-    }
-    parts.push("]");
+    const parts: string[] = [];
+    this.format(parts);
     return parts.join("");
   }
 

@@ -50,6 +50,10 @@ export interface ParserOptions {
    * Registers parser macros by signature.
    */
   macros: Map<string, Macro>;
+  /**
+   * Controls whether the standard parser macros are registered.
+   */
+  enableStandardMacros: boolean;
 }
 
 /**
@@ -137,6 +141,19 @@ export interface ExprHelper {
     result: Expr,
   ): Expr;
   /**
+   * Builds a two-variable comprehension expression.
+   */
+  comprehensionTwoVar(
+    iterRange: Expr,
+    iterVar: string,
+    iterVar2: string,
+    accuVar: string,
+    accuInit: Expr,
+    condition: Expr,
+    step: Expr,
+    result: Expr,
+  ): Expr;
+  /**
    * Builds an identifier expression.
    */
   ident(name: string): Expr;
@@ -160,6 +177,10 @@ export interface ExprHelper {
    * Builds a field presence test expression.
    */
   presenceTest(operand: Expr, field: string): Expr;
+  /**
+   * Builds an ordinary field selection expression.
+   */
+  select(operand: Expr, field: string): Expr;
   /**
    * Builds a parser error value tied to a specific expression id.
    */
@@ -189,7 +210,11 @@ export function parserOptions(config: ParserConfig = {}): ParserOptions {
     enableVariadicOperatorASTs: config.enableVariadicOperatorASTs ?? false,
     enableIdentEscapeSyntax: config.enableIdentEscapeSyntax ?? true,
     enableHiddenAccumulatorName: config.enableHiddenAccumulatorName ?? true,
-    macros: macroMap(config.macros?.values() ?? []),
+    macros:
+      config.enableStandardMacros === false
+        ? customMacroMap(config.macros?.values() ?? [])
+        : macroMap(config.macros?.values() ?? []),
+    enableStandardMacros: config.enableStandardMacros ?? true,
   };
 }
 
@@ -237,6 +262,17 @@ export function macroMap(macros: Iterable<Macro> = []): Map<string, Macro> {
   for (const macro of AllMacros) {
     result.set(macroKey(macro.function, macro.argCount, macro.receiverStyle), macro);
   }
+  for (const macro of macros) {
+    result.set(macroKey(macro.function, macro.argCount, macro.receiverStyle), macro);
+  }
+  return result;
+}
+
+/**
+ * customMacroMap copies only caller-provided macros into a signature-keyed lookup table.
+ */
+function customMacroMap(macros: Iterable<Macro>): Map<string, Macro> {
+  const result = new Map<string, Macro>();
   for (const macro of macros) {
     result.set(macroKey(macro.function, macro.argCount, macro.receiverStyle), macro);
   }

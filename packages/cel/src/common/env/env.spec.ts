@@ -27,16 +27,28 @@ import {
 import {
   Config,
   ContextVariable,
+  config,
   configFromYAML,
+  contextVariable,
   Function as EnvFunction,
   Extension,
+  extension,
   Feature,
+  feature,
+  func,
   Import,
+  importType,
   LibrarySubset,
+  librarySubset,
+  limit,
   Overload,
+  overload as serialOverload,
   TypeDesc,
+  typeDesc,
   Validator,
   Variable,
+  validator,
+  variable,
 } from "./index.js";
 
 function loadFixture(name: string): string {
@@ -69,6 +81,66 @@ function expectFunctionEquivalent(
     expect(overloadDecl.resultType().isExactType(want.resultType())).toBe(true);
   });
 }
+
+describe("functional environment configuration API", () => {
+  it("creates serializable environment values from option objects", () => {
+    const stringType = typeDesc({ typeName: "string" });
+    const sizeOverload = serialOverload({
+      id: "size_string",
+      args: [stringType],
+      returnType: typeDesc({ typeName: "int" }),
+    });
+    const sizeFunction = func({
+      name: "size",
+      overloads: [sizeOverload],
+    });
+    const subset = librarySubset({
+      includeFunctions: [sizeFunction],
+      includeMacros: ["has"],
+    });
+    const configured = config({
+      name: "functional",
+      imports: [importType("google.protobuf.StringValue")],
+      stdlib: subset,
+      extensions: [extension("optional", "1")],
+      contextVariable: contextVariable("google.protobuf.StringValue"),
+      functions: [sizeFunction],
+      validators: [validator("cel.validator.duration")],
+      features: [feature("cel.feature.macro_call_tracking", true)],
+      limits: [limit("comprehension_nesting", 10)],
+    });
+
+    expect(configured.name).toBe("functional");
+    expect(configured.imports[0]?.name).toBe("google.protobuf.StringValue");
+    expect(configured.stdlib).toBe(subset);
+    expect(configured.extensions[0]?.version).toBe("1");
+    expect(configured.contextVariable?.typeName).toBe("google.protobuf.StringValue");
+    expect(configured.functions[0]).toBe(sizeFunction);
+    expect(configured.validators[0]?.name).toBe("cel.validator.duration");
+    expect(configured.features[0]?.enabled).toBe(true);
+    expect(configured.limits[0]?.value).toBe(10);
+  });
+
+  it("creates variables and member overloads from option objects", () => {
+    const stringType = typeDesc({ typeName: "string" });
+    const member = serialOverload({
+      id: "string_size",
+      target: stringType,
+      returnType: typeDesc({ typeName: "int" }),
+      examples: ["'hello'.size() // 5"],
+    });
+    const declaredVariable = variable({
+      name: "message",
+      type: stringType,
+      description: "A message to inspect.",
+    });
+
+    expect(member.target).toBe(stringType);
+    expect(member.examples).toEqual(["'hello'.size() // 5"]);
+    expect(declaredVariable.getType()).toBe(stringType);
+    expect(declaredVariable.description).toBe("A message to inspect.");
+  });
+});
 
 describe("common/env/env_test.go", () => {
   it("common/env/env_test.go/TestConfig", () => {

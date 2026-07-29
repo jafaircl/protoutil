@@ -1,3 +1,4 @@
+import type { DescMessage } from "@bufbuild/protobuf";
 import {
   AnySchema,
   anyPack,
@@ -34,6 +35,15 @@ export class Null implements Val {
         $typeName: "google.protobuf.Value",
         kind: { case: "nullValue", value: WktNullValue.NULL_VALUE },
       });
+    }
+    if (isMessageDescriptor(typeDesc)) {
+      if (
+        typeDesc.typeName !== ListValueSchema.typeName &&
+        typeDesc.typeName !== StructSchema.typeName
+      ) {
+        // Protobuf message, wrapper, duration, and timestamp fields prune CEL null assignments.
+        return undefined;
+      }
     }
     const typeName =
       typeDesc === Number
@@ -83,3 +93,13 @@ export class Null implements Val {
  * NullValue is the null singleton.
  */
 export const NullValue = new Null();
+
+/** isMessageDescriptor reports whether a native conversion target is a protobuf message schema. */
+function isMessageDescriptor(value: unknown): value is DescMessage {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "kind" in value &&
+    (value as { kind: unknown }).kind === "message"
+  );
+}

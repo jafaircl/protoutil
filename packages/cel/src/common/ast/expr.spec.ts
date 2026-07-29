@@ -67,7 +67,11 @@ describe("common/ast expr", () => {
     for (const testExpr of tests) {
       expr.setKindCase(testExpr);
       expect(expr.kind()).toBe(testExpr.kind());
-      expect(expr.toProto()).toEqual(testExpr.toProto());
+      expect(expr.toProto()).toEqual({
+        ...testExpr.toProto(),
+        // cel-go's SetKindCase replaces only the expression kind and preserves the target id.
+        id: 1n,
+      });
     }
   });
 

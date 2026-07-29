@@ -118,7 +118,12 @@ export class Lexer {
     ) {
       return this.scanString(start, line, column, false);
     }
-    if ((char === "b" || char === "B") && isQuote(this.source[this.index + 1])) {
+    if (
+      (char === "b" || char === "B") &&
+      (isQuote(this.source[this.index + 1]) ||
+        ((this.source[this.index + 1] === "r" || this.source[this.index + 1] === "R") &&
+          isQuote(this.source[this.index + 2])))
+    ) {
       return this.scanString(start, line, column, true);
     }
     if (char === "`") {
@@ -588,7 +593,7 @@ function isValidEscape(source: string, index: number): boolean {
   if (!kind) {
     return false;
   }
-  if ("abfnrtv'\"\\?".includes(kind)) {
+  if ("abfnrtv'\"`\\?".includes(kind)) {
     return true;
   }
   if (kind === "x" || kind === "X") {

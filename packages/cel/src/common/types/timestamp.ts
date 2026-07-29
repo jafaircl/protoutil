@@ -19,11 +19,43 @@ import type { Adder, Comparer, Receiver, Subtractor } from "./traits/index.js";
 import { DurationType, IntType, StringType, TimestampType, TypeType } from "./types.js";
 
 /**
+ * TimestampInTimezoneOptions configures a timestamp with the location carried by a native
+ * time value.
+ */
+export interface TimestampInTimezoneOptions {
+  /** seconds is the Unix timestamp in seconds. */
+  seconds: bigint;
+  /** nanos is the fractional nanosecond component. */
+  nanos?: number;
+  /** timezone is an IANA timezone name or cel-go-style numeric UTC offset. */
+  timezone: string;
+}
+
+/**
+ * TimestampZeroArgOptions configures a zero-argument timestamp receiver call.
+ */
+interface TimestampZeroArgOptions {
+  /** functionName is the timestamp function being invoked. */
+  functionName: string;
+  /** seconds is the Unix timestamp in seconds. */
+  seconds: bigint;
+  /** nanos is the fractional nanosecond component. */
+  nanos: number;
+  /** timezone is the timestamp's native location when one is retained. */
+  timezone?: string;
+}
+
+/**
  * Timestamp type implementation which supports add, compare, and subtract
  * operations. Timestamps are also capable of participating in dynamic
  * function dispatch to instance methods.
  */
 export class Timestamp implements Val, Adder, Comparer, Receiver, Subtractor {
+  /**
+   * timezoneValue retains the native timestamp location used by legacy zero-argument functions.
+   */
+  private timezoneValue?: string;
+
   constructor(
     private readonly secondsValue: bigint,
     private readonly nanosValue = 0,
@@ -124,7 +156,12 @@ export class Timestamp implements Val, Adder, Comparer, Receiver, Subtractor {
   public receive(functionName: string, _overload: string, args: Val[]): Val {
     switch (args.length) {
       case 0:
-        return timestampZeroArg(functionName, this.secondsValue, this.nanosValue);
+        return timestampZeroArg({
+          functionName,
+          seconds: this.secondsValue,
+          nanos: this.nanosValue,
+          timezone: this.timezoneValue,
+        });
       case 1:
         return timestampOneArg(functionName, this.secondsValue, this.nanosValue, args[0]!);
       default:
@@ -159,6 +196,15 @@ export class Timestamp implements Val, Adder, Comparer, Receiver, Subtractor {
       }
     }
     return maybeNoSuchOverloadErr(subtrahend);
+  }
+
+  /**
+   * withTimezone returns an equivalent timestamp carrying a native timezone location.
+   */
+  public withTimezone(timezone: string): Timestamp {
+    const timestamp = new Timestamp(this.secondsValue, this.nanosValue);
+    timestamp.timezoneValue = timezone;
+    return timestamp;
   }
   public type(): RefType {
     return TimestampType;
@@ -196,8 +242,15 @@ export function timestampOf(seconds: bigint, nanos = 0): Timestamp {
   return new Timestamp(seconds, nanos);
 }
 
-function timestampZeroArg(functionName: string, seconds: bigint, nanos: number): Val {
-  switch (functionName) {
+/**
+ * timestampInTimezone adapts an instant and its native timezone location into a CEL timestamp.
+ */
+export function timestampInTimezone(options: TimestampInTimezoneOptions): Timestamp {
+  return timestampOf(options.seconds, options.nanos).withTimezone(options.timezone);
+}
+
+function timestampZeroArg(options: TimestampZeroArgOptions): Val {
+  switch (options.functionName) {
     case overloads.TimeGetFullYear:
     case overloads.TimeGetMonth:
     case overloads.TimeGetDayOfYear:
@@ -208,7 +261,7 @@ function timestampZeroArg(functionName: string, seconds: bigint, nanos: number):
     case overloads.TimeGetMinutes:
     case overloads.TimeGetSeconds:
     case overloads.TimeGetMilliseconds:
-      return timestampVisit(functionName, seconds, nanos);
+      return timestampVisit(options.functionName, options.seconds, options.nanos, options.timezone);
     default:
       return err("no such overload");
   }

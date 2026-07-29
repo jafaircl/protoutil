@@ -6,6 +6,7 @@ import {
   fromBinary,
   fromJson,
   isFieldSet,
+  type JsonValue,
   type Message,
   type MessageShape,
   equals as protobufEquals,
@@ -14,12 +15,31 @@ import {
   toBinary,
   toJson,
 } from "@bufbuild/protobuf";
-import { AnySchema, anyPack } from "@bufbuild/protobuf/wkt";
+import {
+  AnySchema,
+  anyPack,
+  BoolValueSchema,
+  BytesValueSchema,
+  DoubleValueSchema,
+  FloatValueSchema,
+  Int32ValueSchema,
+  Int64ValueSchema,
+  StringValueSchema,
+  StructSchema,
+  UInt32ValueSchema,
+  UInt64ValueSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
 import { getField as getProtoField } from "@protoutil/core";
 import { anyValueType } from "./any-value.js";
+import { Double } from "./double.js";
 import { err, errFromString, maybeNoSuchOverloadErr } from "./err.js";
 import { formatVal } from "./format.js";
+import { Int } from "./int.js";
 import { JSONValueType } from "./json-value.js";
+import { protoMap } from "./map.js";
+import { NullValue } from "./null.js";
+import { fieldDescription } from "./pb/type.js";
 import { DefaultTypeAdapter } from "./provider.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
@@ -28,7 +48,23 @@ import { TypeType } from "./types.js";
 import { Uint } from "./uint.js";
 
 const registryMap = new WeakMap<DescMessage, Registry>();
-const fieldMap = new WeakMap<DescMessage, Map<string, DescField>>();
+const fieldMap = new WeakMap<
+  DescMessage,
+  {
+    json: Map<string, DescField>;
+    proto: Map<string, DescField>;
+  }
+>();
+
+/**
+ * ProviderResolvedField is the subset of provider field metadata needed for extension access.
+ */
+interface ProviderResolvedField {
+  /** getFrom reads the native field value from a message. */
+  readonly getFrom: (target: unknown) => unknown;
+  /** isSet tests whether the native field is present on a message. */
+  readonly isSet: (target: unknown) => boolean;
+}
 
 /**
  * protoObj returns an object based on a proto.Message value which handles
@@ -108,6 +144,7 @@ export class protoObj implements Val, FieldTester, Indexer {
           this.pbValue as MessageShape<typeof this.typeDesc>,
           otherPB as MessageShape<typeof this.typeDesc>,
           {
+            extensions: true,
             registry: registryForMessage(this.typeDesc),
             unpackAny: true,
             unknown: true,
@@ -121,9 +158,12 @@ export class protoObj implements Val, FieldTester, Indexer {
     if (!(field instanceof CelString)) {
       return maybeNoSuchOverloadErr(field);
     }
-    const fd = fieldByName(this.typeDesc, field.value());
+    const fd = fieldByName(this.typeDesc, field.value(), jsonFieldNamesEnabled(this.adapter));
     if (!fd) {
-      return err("no such field '%s'", field.value());
+      const providerField = fieldByProvider(this.adapter, this.typeDesc.typeName, field.value());
+      return providerField
+        ? this.adapter.nativeToValue(providerField.isSet(this.pbValue))
+        : err("no such field '%s'", field.value());
     }
     return this.adapter.nativeToValue(
       isFieldSet(this.pbValue as MessageShape<typeof this.typeDesc>, fd),
@@ -136,7 +176,12 @@ export class protoObj implements Val, FieldTester, Indexer {
       this.typeDesc,
       this.pbValue as MessageShape<typeof this.typeDesc>,
       create(this.typeDesc),
-      { registry: registryForMessage(this.typeDesc), unpackAny: true, unknown: true },
+      {
+        extensions: true,
+        registry: registryForMessage(this.typeDesc),
+        unpackAny: true,
+        unknown: true,
+      },
     );
   }
 
@@ -145,9 +190,12 @@ export class protoObj implements Val, FieldTester, Indexer {
     if (!(index instanceof CelString)) {
       return maybeNoSuchOverloadErr(index);
     }
-    const fd = fieldByName(this.typeDesc, index.value());
+    const fd = fieldByName(this.typeDesc, index.value(), jsonFieldNamesEnabled(this.adapter));
     if (!fd) {
-      return err("no such field '%s'", index.value());
+      const providerField = fieldByProvider(this.adapter, this.typeDesc.typeName, index.value());
+      return providerField
+        ? this.adapter.nativeToValue(providerField.getFrom(this.pbValue))
+        : err("no such field '%s'", index.value());
     }
     try {
       return protoFieldToValue(this.adapter, this.pbValue, fd);
@@ -211,17 +259,57 @@ function registryForMessage(message: DescMessage): Registry {
   return registry;
 }
 
-function fieldByName(message: DescMessage, name: string): DescField | undefined {
+/**
+ * fieldByName resolves protobuf fields with cel-go's JSON-name precedence and proto fallback.
+ */
+function fieldByName(
+  message: DescMessage,
+  name: string,
+  jsonFieldNames: boolean,
+): DescField | undefined {
   let fields = fieldMap.get(message);
   if (!fields) {
-    fields = new Map<string, DescField>();
+    fields = {
+      json: new Map<string, DescField>(),
+      proto: new Map<string, DescField>(),
+    };
     for (const field of message.fields) {
-      fields.set(field.name, field);
-      fields.set(field.jsonName, field);
+      fields.proto.set(field.name, field);
+      fields.json.set(field.jsonName, field);
     }
     fieldMap.set(message, fields);
   }
-  return fields.get(name);
+  return (jsonFieldNames ? fields.json.get(name) : undefined) ?? fields.proto.get(name);
+}
+
+/**
+ * fieldByProvider resolves fields which are registered outside the message's declaring file,
+ * including protobuf extensions.
+ */
+function fieldByProvider(
+  adapter: TypeAdapter,
+  messageType: string,
+  fieldName: string,
+): ProviderResolvedField | undefined {
+  if (!("findStructFieldType" in adapter) || typeof adapter.findStructFieldType !== "function") {
+    return undefined;
+  }
+  const [field, found] = adapter.findStructFieldType(messageType, fieldName) as [
+    ProviderResolvedField | undefined,
+    boolean,
+  ];
+  return found ? field : undefined;
+}
+
+/**
+ * jsonFieldNamesEnabled reports whether the active type adapter enables protobuf JSON names.
+ */
+function jsonFieldNamesEnabled(adapter: TypeAdapter): boolean {
+  return (
+    "jsonFieldNames" in adapter &&
+    typeof adapter.jsonFieldNames === "function" &&
+    adapter.jsonFieldNames() === true
+  );
 }
 
 function getDefaultFieldValue(pbValue: Message, field: DescField): unknown {
@@ -250,11 +338,67 @@ function protoFieldToValue(adapter: TypeAdapter, pbValue: Message, field: DescFi
   switch (field.fieldKind) {
     case "enum":
       return adapter.nativeToValue(BigInt((value as number | bigint) ?? 0));
+    case "message":
+      if (field.message === ValueSchema) {
+        return jsonFieldValueToValue(adapter, value);
+      }
+      if (field.message?.typeName === StructSchema.typeName && !isMessage(value)) {
+        return adapter.nativeToValue(fromJson(StructSchema, value as JsonValue));
+      }
+      if (isWrapperField(field)) {
+        return wrapperFieldToValue(adapter, field, value);
+      }
+      return adapter.nativeToValue(value);
+    case "map": {
+      const description = fieldDescription(field, jsonFieldNamesEnabled(adapter));
+      return protoMap(
+        adapter,
+        value as Record<string, unknown>,
+        description.keyType,
+        description.valueType,
+      );
+    }
     case "scalar":
       return scalarFieldToValue(value, field.scalar);
     default:
       return adapter.nativeToValue(value);
   }
+}
+
+/**
+ * wrapperFieldToValue preserves the CEL scalar family carried by a protobuf wrapper descriptor.
+ */
+function wrapperFieldToValue(adapter: TypeAdapter, field: DescField, value: unknown): Val {
+  if (value === null || value === undefined) {
+    return NullValue;
+  }
+  switch (field.message?.typeName) {
+    case BoolValueSchema.typeName:
+    case BytesValueSchema.typeName:
+    case StringValueSchema.typeName:
+      return adapter.nativeToValue(value);
+    case DoubleValueSchema.typeName:
+    case FloatValueSchema.typeName:
+      return new Double(Number(value));
+    case Int32ValueSchema.typeName:
+    case Int64ValueSchema.typeName:
+      return new Int(BigInt(value as number | bigint));
+    case UInt32ValueSchema.typeName:
+    case UInt64ValueSchema.typeName:
+      return new Uint(BigInt(value as number | bigint));
+    default:
+      return adapter.nativeToValue(value);
+  }
+}
+
+/**
+ * jsonFieldValueToValue preserves protobuf Value number semantics when Buf exposes native JSON.
+ */
+function jsonFieldValueToValue(adapter: TypeAdapter, value: unknown): Val {
+  if (isMessage(value)) {
+    return adapter.nativeToValue(value);
+  }
+  return adapter.nativeToValue(fromJson(ValueSchema, value as JsonValue));
 }
 
 /**
@@ -310,6 +454,7 @@ function isMessage(value: unknown): value is Message {
   );
 }
 
+/** wrapperTypeNames identifies protobuf messages with CEL null-or-scalar field semantics. */
 const wrapperTypeNames = new Set<string>([
   "google.protobuf.BoolValue",
   "google.protobuf.BytesValue",

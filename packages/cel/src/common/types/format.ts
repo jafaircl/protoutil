@@ -30,6 +30,16 @@ function formatTo(sb: string[], val: Val) {
     formatMap(val, sb);
     return;
   }
+  const native = val.value();
+  if (
+    typeof native === "string" ||
+    typeof native === "number" ||
+    typeof native === "bigint" ||
+    typeof native === "boolean"
+  ) {
+    sb.push(String(native));
+    return;
+  }
   // This could be an error, unknown, opaque or object.
   // Unfortunately we have no consistent way of inspecting
   // opaque and object. So we just fallback to fmt.Stringer

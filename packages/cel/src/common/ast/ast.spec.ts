@@ -9,13 +9,13 @@ import { defaultContainer } from "../containers.js";
 import {
   AST,
   ast,
+  astExtension,
   copyAst,
   ExprKind,
   ExtensionComponent,
   entryExprToProto,
   exprFactory,
   exprToProto,
-  extension,
   extensionVersion,
   functionReference,
   heights,
@@ -150,7 +150,9 @@ describe("common/ast", () => {
 
     for (const source of cases) {
       const exprAst = astFor(source);
-      exprAst.sourceInfo().addExtension(extension("json_name", extensionVersion(1, 1)));
+      exprAst
+        .sourceInfo()
+        .addExtension(astExtension({ id: "json_name", version: extensionVersion(1, 1) }));
       const copied = copyAst(exprAst);
       expect(copied?.expr().toProto()).toEqual(exprAst.expr().toProto());
       expect(copied?.sourceInfo().extensions()).toEqual(exprAst.sourceInfo().extensions());
@@ -253,7 +255,13 @@ describe("common/ast", () => {
 
   it("common/ast/ast_test.go/TestHasExtension", () => {
     const info = sourceInfo(undefined);
-    info.addExtension(extension("json_name", extensionVersion(1, 1), ExtensionComponent.Runtime));
+    info.addExtension(
+      astExtension({
+        id: "json_name",
+        version: extensionVersion(1, 1),
+        affectedComponents: [ExtensionComponent.Runtime],
+      }),
+    );
     expect(info.hasExtension("json_name", extensionVersion(1, 0))).toBe(true);
     expect(info.hasExtension("json_name", extensionVersion(2, 1))).toBe(false);
     expect(info.hasExtension("unrelated", extensionVersion(0, 0))).toBe(false);

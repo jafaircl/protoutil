@@ -38,6 +38,7 @@ import {
   CostTracker,
   type CostTrackerOptions,
   costObserverConfig,
+  costTracker,
 } from "./runtime-cost.js";
 
 /**
@@ -84,6 +85,15 @@ interface SyncedRuntimeCostCase {
    */
   expectExceedsLimit?: boolean;
 }
+
+describe("functional runtime cost API", () => {
+  it("creates an independent cost tracker from an option object", () => {
+    const tracker = costTracker({ cost: 7, limit: 10 });
+
+    expect(tracker.actualCost()).toBe(7);
+    expect(tracker.clone().actualCost()).toBe(0);
+  });
+});
 
 /**
  * SyncedAdvancedCostCase mirrors one serialized row from TestTrackCostAdvanced.

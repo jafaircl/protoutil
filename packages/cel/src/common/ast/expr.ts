@@ -444,6 +444,18 @@ export class BaseExpr implements Expr {
 
   public renumberIds(generator: IdGenerator): void {
     this.proto.id = BigInt(generator(this.id()));
+    if (this.exprKind === ExprKind.Map) {
+      for (const entry of this.asMap()?.entries() ?? []) {
+        entry.renumberIds(generator);
+      }
+      return;
+    }
+    if (this.exprKind === ExprKind.Struct) {
+      for (const field of this.asStruct()?.fields() ?? []) {
+        field.renumberIds(generator);
+      }
+      return;
+    }
     for (const child of this.children()) {
       child.renumberIds(generator);
     }
@@ -451,15 +463,135 @@ export class BaseExpr implements Expr {
 
   /** SetKindCase replaces the underlying protobuf expression. */
   public setKindCase(other?: Expr): void {
+    const id = this.id();
     const replacement = protoToExpr(other?.toProto());
     this.proto = replacement.toProto();
+    this.proto.id = BigInt(id);
     this.exprKind = (replacement as BaseExpr).exprKind;
     this.variant = (replacement as BaseExpr).variant;
   }
 
   /** ToProto converts the expression to protobuf form. */
   public toProto(): ProtoExpr {
-    return structuredClone(this.proto);
+    const base = {
+      $typeName: "cel.expr.Expr" as const,
+      id: BigInt(this.id()),
+    };
+    switch (this.exprKind) {
+      case ExprKind.Call: {
+        const call = this.asCall()!;
+        return {
+          ...base,
+          exprKind: {
+            case: "callExpr",
+            value: {
+              $typeName: "cel.expr.Expr.Call",
+              function: call.functionName(),
+              args: call.args().map((arg) => arg.toProto()),
+              target: call.isMemberFunction() ? call.target().toProto() : undefined,
+            },
+          },
+        };
+      }
+      case ExprKind.Comprehension: {
+        const comprehension = this.asComprehension()!;
+        return {
+          ...base,
+          exprKind: {
+            case: "comprehensionExpr",
+            value: {
+              $typeName: "cel.expr.Expr.Comprehension",
+              iterRange: comprehension.iterRange().toProto(),
+              iterVar: comprehension.iterVar(),
+              iterVar2: comprehension.iterVar2(),
+              accuVar: comprehension.accuVar(),
+              accuInit: comprehension.accuInit().toProto(),
+              loopCondition: comprehension.loopCondition().toProto(),
+              loopStep: comprehension.loopStep().toProto(),
+              result: comprehension.result().toProto(),
+            },
+          },
+        };
+      }
+      case ExprKind.Ident:
+        return {
+          ...base,
+          exprKind: {
+            case: "identExpr",
+            value: { $typeName: "cel.expr.Expr.Ident", name: this.asIdent() ?? "" },
+          },
+        };
+      case ExprKind.List: {
+        const list = this.asList()!;
+        return {
+          ...base,
+          exprKind: {
+            case: "listExpr",
+            value: {
+              $typeName: "cel.expr.Expr.CreateList",
+              elements: list.elements().map((element) => element.toProto()),
+              optionalIndices: list.optionalIndices(),
+            },
+          },
+        };
+      }
+      case ExprKind.Literal:
+        return {
+          ...base,
+          exprKind: {
+            case: "constExpr",
+            value: constantValueToProto(this.asLiteral()) ?? {
+              $typeName: "cel.expr.Constant",
+              constantKind: { case: undefined },
+            },
+          },
+        };
+      case ExprKind.Map: {
+        const map = this.asMap()!;
+        return {
+          ...base,
+          exprKind: {
+            case: "structExpr",
+            value: {
+              $typeName: "cel.expr.Expr.CreateStruct",
+              messageName: "",
+              entries: map.entries().map((entry) => entry.toProto()),
+            },
+          },
+        };
+      }
+      case ExprKind.Select: {
+        const select = this.asSelect()!;
+        return {
+          ...base,
+          exprKind: {
+            case: "selectExpr",
+            value: {
+              $typeName: "cel.expr.Expr.Select",
+              operand: select.operand().toProto(),
+              field: select.fieldName(),
+              testOnly: select.isTestOnly(),
+            },
+          },
+        };
+      }
+      case ExprKind.Struct: {
+        const struct = this.asStruct()!;
+        return {
+          ...base,
+          exprKind: {
+            case: "structExpr",
+            value: {
+              $typeName: "cel.expr.Expr.CreateStruct",
+              messageName: struct.typeName(),
+              entries: struct.fields().map((field) => field.toProto()),
+            },
+          },
+        };
+      }
+      default:
+        return { ...base, exprKind: { case: undefined } };
+    }
   }
 
   /** Children returns the direct child expressions. */
@@ -855,10 +987,10 @@ export function protoToExpr(expr?: ProtoExpr): Expr {
       if (expr.exprKind.value.constantKind.case === "uint64Value") {
         return literalExpr(Number(expr.id), structuredClone(expr.exprKind.value));
       }
-      return literalExpr(
-        Number(expr.id),
-        protoConstantToValue(expr.exprKind.value) ?? expr.exprKind.value,
-      );
+      {
+        const value = protoConstantToValue(expr.exprKind.value);
+        return literalExpr(Number(expr.id), value === undefined ? expr.exprKind.value : value);
+      }
     case "callExpr":
       return callExpr(
         Number(expr.id),

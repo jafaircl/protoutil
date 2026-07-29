@@ -1,13 +1,16 @@
 import {
+  type DescEnum,
   type DescField,
   type DescFile,
   type DescMessage,
   type Message,
   type MessageShape,
   ScalarType,
+  toJson,
 } from "@bufbuild/protobuf";
 import {
   AnySchema,
+  anyUnpack,
   BoolValueSchema,
   BytesValueSchema,
   DoubleValueSchema,
@@ -30,17 +33,24 @@ import {
   Type_PrimitiveType,
   Type_WellKnownType,
 } from "../../gen/cel/expr/checked_pb.js";
-import { Bool } from "./bool.js";
+import { Bool, False, True } from "./bool.js";
 import { Bytes } from "./bytes.js";
 import { Double } from "./double.js";
 import { Duration, durationOf } from "./duration.js";
 import { Err, err, unsupportedRefValConversionErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
 import { dynamicList, jsonListValue } from "./list.js";
-import { jsonStructMap, refValMap, stringInterfaceMap, stringStringMap } from "./map.js";
+import {
+  dynamicMap,
+  jsonStructMap,
+  refValMap,
+  stringInterfaceMap,
+  stringStringMap,
+} from "./map.js";
 import { Float32NativeType, Int32NativeType, Uint32NativeType } from "./native.js";
 import { NullValue } from "./null.js";
 import { object } from "./object.js";
+import { ProtoEnum } from "./pb/enum.js";
 import { type Db, DefaultDb, db as pbdb } from "./pb/pb.js";
 import type { FieldDescription } from "./pb/type.js";
 import type {
@@ -51,6 +61,7 @@ import type {
 import type { Type as RefType, Val } from "./ref/reference.js";
 import { String as CelString } from "./string.js";
 import { Timestamp, timestampOf } from "./timestamp.js";
+import type { FieldTester, Indexer } from "./traits/index.js";
 import {
   AnyType,
   BoolType,
@@ -60,6 +71,7 @@ import {
   DynType,
   ErrorType,
   IntType,
+  Kind,
   ListType,
   listType,
   MapType,
@@ -113,10 +125,37 @@ export class ProviderFieldType {
 }
 
 /**
+ * NativeFieldDescriptor describes a TypeScript object property exposed as a CEL field.
+ */
+export interface NativeFieldDescriptor {
+  /** celName is the field name visible in CEL expressions. */
+  readonly celName: string;
+  /** property is the corresponding TypeScript object property. */
+  readonly property: string;
+  /** type is the CEL type used by the checker. */
+  readonly type: Type;
+}
+
+/**
+ * NativeObjectDescriptor describes a TypeScript object type exposed through the CEL registry.
+ *
+ * TypeScript does not retain Go-style reflection metadata at runtime, so callers provide the
+ * equivalent information explicitly. Native values carry `$celTypeName` to select their descriptor.
+ */
+export interface NativeObjectDescriptor {
+  /** fields contains the supported exported fields. */
+  readonly fields: readonly NativeFieldDescriptor[];
+  /** typeName is the fully qualified CEL object type name. */
+  readonly typeName: string;
+}
+
+/**
  * Registry provides type information for a set of registered types.
  */
 export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   private readonly revTypeMap = new Map<string, Type>();
+  private readonly nativeTypes = new Map<string, NativeObjectDescriptor>();
+  private strongEnumsValue = false;
 
   constructor(private pbdbValue: Db = pbdb()) {
     this.registerType(
@@ -140,8 +179,12 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
 
   public copy(): Registry {
     const next = new Registry(this.pbdbValue.copy());
+    next.strongEnumsValue = this.strongEnumsValue;
     for (const [name, type] of this.revTypeMap) {
       next.revTypeMap.set(name, type);
+    }
+    for (const [name, descriptor] of this.nativeTypes) {
+      next.nativeTypes.set(name, descriptor);
     }
     return next;
   }
@@ -162,7 +205,9 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   public enumValue(enumName: string): Val {
     const [enumVal, found] = this.pbdbValue.describeEnum(enumName);
     return found && enumVal
-      ? new Int(BigInt(enumVal.value()))
+      ? this.strongEnumsValue
+        ? new ProtoEnum(enumVal.descriptor().parent, BigInt(enumVal.value()))
+        : new Int(BigInt(enumVal.value()))
       : err("unknown enum name '%s'", enumName);
   }
 
@@ -172,7 +217,20 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       return [type, true];
     }
     const [enumVal, found] = this.pbdbValue.describeEnum(identName);
-    return found && enumVal ? [new Int(BigInt(enumVal.value())), true] : [undefined, false];
+    return found && enumVal
+      ? [
+          this.strongEnumsValue
+            ? new ProtoEnum(enumVal.descriptor().parent, BigInt(enumVal.value()))
+            : new Int(BigInt(enumVal.value())),
+          true,
+        ]
+      : [undefined, false];
+  }
+
+  /** enumValueOf creates a typed enum value when strong enum semantics are enabled. */
+  public enumValueOf(typeName: string, value: bigint): Val {
+    const enumType = this.findEnumType(typeName);
+    return this.strongEnumsValue && enumType ? new ProtoEnum(enumType, value) : new Int(value);
   }
 
   public findType(typeName: string): [ExprType | undefined, boolean] {
@@ -181,6 +239,10 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   }
 
   public findStructType(structType: string): [Type | undefined, boolean] {
+    const nativeType = this.nativeTypes.get(stripLeadingDot(structType));
+    if (nativeType) {
+      return [typeTypeWithParam(objectType(nativeType.typeName)), true];
+    }
     const [td, found] = this.pbdbValue.describeType(structType);
     if (!found || !td) {
       return [undefined, false];
@@ -189,6 +251,10 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   }
 
   public findStructFieldNames(structType: string): [string[], boolean] {
+    const nativeType = this.nativeTypes.get(stripLeadingDot(structType));
+    if (nativeType) {
+      return [nativeType.fields.map((field) => field.celName), true];
+    }
     const [td, found] = this.pbdbValue.describeType(structType);
     if (!found || !td) {
       return [[], false];
@@ -218,6 +284,21 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     structType: string,
     fieldName: string,
   ): [ProviderFieldType | undefined, boolean] {
+    const nativeType = this.nativeTypes.get(stripLeadingDot(structType));
+    if (nativeType) {
+      const field = nativeType.fields.find((candidate) => candidate.celName === fieldName);
+      if (!field) {
+        return [undefined, false];
+      }
+      return [
+        new ProviderFieldType(
+          field.type,
+          (target) => !isNativeZeroValue(nativeTarget(target)[field.property]),
+          (target) => nativeTarget(target)[field.property],
+        ),
+        true,
+      ];
+    }
     const [td, found] = this.pbdbValue.describeType(structType);
     if (!found || !td) {
       return [undefined, false];
@@ -226,15 +307,30 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     if (!fieldFound || !field) {
       return [undefined, false];
     }
+    const descriptor = field.descriptor();
+    const strongEnumType =
+      this.strongEnumsValue && descriptor.kind === "field" && descriptor.fieldKind === "enum"
+        ? objectType(descriptor.enum.typeName)
+        : undefined;
     return [
       new ProviderFieldType(
-        fieldDescToCelType(field),
+        strongEnumType ?? fieldDescToCelType(field),
         (target) => field.isSet(target),
-        (target) => field.getFrom(target)[0],
+        (target) => {
+          const value = field.getFrom(target)[0];
+          return strongEnumType && typeof value === "bigint"
+            ? new ProtoEnum(descriptor.enum as DescEnum, value)
+            : value;
+        },
         this.pbdbValue.jsonFieldNames() && fieldName === field.jsonName(),
       ),
       true,
     ];
+  }
+
+  /** withStrongEnums selects whether protobuf enums retain their declared runtime types. */
+  public withStrongEnums(enabled: boolean): void {
+    this.strongEnumsValue = enabled;
   }
 
   public value(typeName: string, fields: Record<string, Val>): Val {
@@ -242,6 +338,18 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   }
 
   public newValue(structType: string, fields: Record<string, Val>): Val {
+    const nativeType = this.nativeTypes.get(stripLeadingDot(structType));
+    if (nativeType) {
+      const value: Record<string, unknown> = { $celTypeName: nativeType.typeName };
+      for (const [name, fieldValue] of Object.entries(fields)) {
+        const field = nativeType.fields.find((candidate) => candidate.celName === name);
+        if (!field) {
+          return err("no such field: %s", name);
+        }
+        value[field.property] = nativeFieldValue(fieldValue, field.type);
+      }
+      return new NativeObjectValue(this, nativeType, value);
+    }
     const [td, found] = this.pbdbValue.describeType(canonicalTypeName(structType));
     if (!found || !td) {
       return err("unknown type '%s'", structType);
@@ -270,6 +378,29 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     this.registerAllTypes(fd.getTypeNames());
   }
 
+  /**
+   * registerNativeTypes registers explicit TypeScript object descriptions with the provider.
+   */
+  public registerNativeTypes(...descriptors: NativeObjectDescriptor[]): void {
+    for (const descriptor of descriptors) {
+      const name = stripLeadingDot(descriptor.typeName);
+      if (this.nativeTypes.has(name)) {
+        throw new Error(`native type registration conflict: ${name}`);
+      }
+      const fieldNames = new Set<string>();
+      for (const field of descriptor.fields) {
+        if (fieldNames.has(field.celName)) {
+          throw new Error(
+            `invalid field name \`${field.celName}\` in type \`${name}\`: field name already exists`,
+          );
+        }
+        fieldNames.add(field.celName);
+      }
+      this.nativeTypes.set(name, { ...descriptor, typeName: name });
+      this.registerType(objectType(name));
+    }
+  }
+
   public registerType(...types: RefType[]): void {
     for (const refType of types) {
       const celType = maybeForeignType(refType);
@@ -289,7 +420,38 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     }
   }
 
+  /** findEnumType resolves a registered protobuf enum descriptor by fully qualified type name. */
+  private findEnumType(typeName: string): DescEnum | undefined {
+    const canonicalName = stripLeadingDot(typeName);
+    for (const file of this.pbdbValue.fileDescriptions()) {
+      const found = findEnumInFile(file.fileDescriptor(), canonicalName);
+      if (found) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+
   public nativeToValue(value: unknown): Val {
+    if (isNativeObject(value)) {
+      const descriptor = this.nativeTypes.get(value.$celTypeName);
+      if (descriptor) {
+        return new NativeObjectValue(this, descriptor, value);
+      }
+    }
+    if (isMessage(value) && value.$typeName === AnySchema.typeName) {
+      const anyValue = value as MessageShape<typeof AnySchema>;
+      const typeName = anyValue.typeUrl.slice(anyValue.typeUrl.lastIndexOf("/") + 1);
+      const [description, found] = this.pbdbValue.describeType(typeName);
+      if (found && description) {
+        const unpacked = anyUnpack(anyValue, description.descriptor());
+        if (unpacked) {
+          // Unpack before generic protobuf unwrapping so wrapper and JSON message descriptors
+          // preserve their signedness, floating-point, and null semantics.
+          return this.nativeToValue(unpacked);
+        }
+      }
+    }
     const direct =
       isMessage(value) && value.$typeName === AnySchema.typeName
         ? undefined
@@ -343,6 +505,13 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       setField(target, field.descriptor() as DescField, jsonValueForField(val));
       return undefined;
     }
+    if (isJSONStructField(field)) {
+      if (val === NullValue) {
+        return unsupportedFieldTypeError(field, val);
+      }
+      setField(target, field.descriptor() as DescField, jsonStructForField(field, val));
+      return undefined;
+    }
     const [wrapped, isWrapper, wrapErr] = wrapWrapperField(field, val);
     if (wrapErr) {
       return fieldTypeConversionError(field, wrapErr);
@@ -356,7 +525,7 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     try {
       const native =
         field.isEnum() && val instanceof Int
-          ? Number(val.value())
+          ? val.convertToNative(Int32NativeType)
           : val.convertToNative(nativeFieldType(field));
       if (native !== undefined && native !== null) {
         setField(target, field.descriptor() as DescField, native);
@@ -365,6 +534,94 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     } catch (cause) {
       return fieldTypeConversionError(field, cause as Error);
     }
+  }
+}
+
+/**
+ * NativeObjectValue adapts a registered TypeScript object as a CEL object value.
+ */
+class NativeObjectValue implements Val, FieldTester, Indexer {
+  private readonly celType: Type;
+
+  /** constructor binds a native value to its registered CEL descriptor. */
+  constructor(
+    private readonly adapter: Adapter,
+    private readonly descriptor: NativeObjectDescriptor,
+    private readonly nativeValue: Record<string, unknown>,
+  ) {
+    this.celType = objectType(descriptor.typeName);
+  }
+
+  /** convertToNative returns the underlying TypeScript object. */
+  public convertToNative(typeDesc: unknown): unknown {
+    if (typeDesc === Object || typeDesc === this.nativeValue || typeDesc === undefined) {
+      return this.nativeValue;
+    }
+    throw new Error(
+      `type conversion error from '${this.descriptor.typeName}' to '${String(typeDesc)}'`,
+    );
+  }
+
+  /** convertToType converts to the native object type or to CEL's type value. */
+  public convertToType(typeValue: RefType): Val {
+    if (typeValue === TypeType) {
+      return this.celType;
+    }
+    if (typeValue.typeName() === this.descriptor.typeName) {
+      return this;
+    }
+    return err(
+      "type conversion error from '%s' to '%s'",
+      this.descriptor.typeName,
+      typeValue.typeName(),
+    );
+  }
+
+  /** equal compares registered native values using CEL's pointer-insensitive value semantics. */
+  public equal(other: Val): Val {
+    if (!(other instanceof NativeObjectValue)) {
+      return False;
+    }
+    return this.adapter.nativeToValue(
+      this.descriptor.typeName === other.descriptor.typeName &&
+        nativeValuesEqual(this.nativeValue, other.nativeValue),
+    );
+  }
+
+  /** get returns a registered field value or a no-such-field error. */
+  public get(index: Val): Val {
+    if (!(index instanceof CelString)) {
+      return err("no such overload");
+    }
+    const field = this.descriptor.fields.find((candidate) => candidate.celName === index.value());
+    if (!field) {
+      return err("no such field: %s", index.value());
+    }
+    return this.adapter.nativeToValue(this.nativeValue[field.property]);
+  }
+
+  /** isSet reports whether a registered field contains a non-zero native value. */
+  public isSet(fieldName: Val): Val {
+    if (!(fieldName instanceof CelString)) {
+      return err("no such overload");
+    }
+    const field = this.descriptor.fields.find(
+      (candidate) => candidate.celName === fieldName.value(),
+    );
+    if (!field) {
+      return err("no such field: %s", fieldName.value());
+    }
+    return this.adapter.nativeToValue(!isNativeZeroValue(this.nativeValue[field.property]));
+  }
+
+  /** type returns the registered native CEL object type. */
+  public type(): RefType {
+    return this.celType;
+  }
+
+  /** value returns the underlying TypeScript object. */
+  public value(): unknown {
+    return this.nativeValue;
   }
 }
 
@@ -405,7 +662,12 @@ function nativeFieldType(field: FieldDescription): unknown {
   if (descriptor.kind === "field") {
     switch (descriptor.fieldKind) {
       case "message":
-        return descriptor.message;
+        // Protobuf-ES represents an embedded google.protobuf.Struct as its native JSON object,
+        // while standalone Struct values retain their protobuf message representation.
+        if (descriptor.message.typeName === StructSchema.typeName) {
+          return {};
+        }
+        return canonicalMessageDescriptor(descriptor.message);
       case "scalar":
         return scalarNativeFieldType(descriptor.scalar);
       default:
@@ -429,6 +691,44 @@ function nativeFieldType(field: FieldDescription): unknown {
     return Uint8Array;
   }
   return reflectType;
+}
+
+/**
+ * canonicalMessageDescriptor returns the canonical WKT descriptor for generated dependency copies.
+ */
+function canonicalMessageDescriptor(message: DescMessage): DescMessage {
+  switch (message.typeName) {
+    case AnySchema.typeName:
+      return AnySchema;
+    case BoolValueSchema.typeName:
+      return BoolValueSchema;
+    case BytesValueSchema.typeName:
+      return BytesValueSchema;
+    case DoubleValueSchema.typeName:
+      return DoubleValueSchema;
+    case DurationSchema.typeName:
+      return DurationSchema;
+    case FloatValueSchema.typeName:
+      return FloatValueSchema;
+    case Int32ValueSchema.typeName:
+      return Int32ValueSchema;
+    case Int64ValueSchema.typeName:
+      return Int64ValueSchema;
+    case ListValueSchema.typeName:
+      return ListValueSchema;
+    case StringValueSchema.typeName:
+      return StringValueSchema;
+    case TimestampSchema.typeName:
+      return TimestampSchema;
+    case UInt32ValueSchema.typeName:
+      return UInt32ValueSchema;
+    case UInt64ValueSchema.typeName:
+      return UInt64ValueSchema;
+    case ValueSchema.typeName:
+      return ValueSchema;
+    default:
+      return message;
+  }
 }
 
 /**
@@ -472,17 +772,27 @@ function isJSONValueField(field: FieldDescription): boolean {
   );
 }
 
+/** isJSONStructField reports whether Protobuf-ES stores the field as a native JSON object. */
+function isJSONStructField(field: FieldDescription): boolean {
+  const descriptor = field.descriptor();
+  return (
+    descriptor.kind === "field" &&
+    descriptor.fieldKind === "message" &&
+    descriptor.message.typeName === StructSchema.typeName
+  );
+}
+
+/** jsonValueForField converts a CEL value to its protobuf Value message representation. */
 function jsonValueForField(val: Val): unknown {
-  if (val === NullValue) {
-    return null;
+  return val.convertToNative(ValueSchema);
+}
+
+/** jsonStructForField converts a CEL map to the Struct representation expected by its parent. */
+function jsonStructForField(field: FieldDescription, val: Val): unknown {
+  if (field.descriptor().parent?.typeName === ValueSchema.typeName) {
+    return val.convertToNative(StructSchema);
   }
-  if (isListerValue(val)) {
-    return val.convertToNative([]);
-  }
-  if (isMapperValue(val)) {
-    return val.convertToNative({});
-  }
-  return val.value();
+  return toJson(ValueSchema, val.convertToNative(ValueSchema) as MessageShape<typeof ValueSchema>);
 }
 
 function isListerValue(
@@ -611,8 +921,11 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
     case value instanceof Timestamp:
     case value instanceof Uint:
       return value as Val;
+    case isRefVal(value):
+      // CEL-Go's default adapter preserves values which already implement ref.Val.
+      return value;
     case typeof value === "boolean":
-      return new Bool(value);
+      return value ? True : False;
     case typeof value === "bigint":
       return new Int(value);
     case typeof value === "number":
@@ -637,7 +950,7 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
       return timestampOf(ts.seconds, ts.nanos);
     }
     case isMessage(value) && value.$typeName === BoolValueSchema.typeName:
-      return new Bool((value as MessageShape<typeof BoolValueSchema>).value);
+      return (value as MessageShape<typeof BoolValueSchema>).value ? True : False;
     case isMessage(value) && value.$typeName === BytesValueSchema.typeName:
       return new Bytes((value as MessageShape<typeof BytesValueSchema>).value);
     case isMessage(value) && value.$typeName === DoubleValueSchema.typeName:
@@ -679,7 +992,9 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
     case isMessage(value) && value.$typeName === AnySchema.typeName:
       return unsupportedRefValConversionErr(value);
     case value instanceof Map:
-      return refValMap(adapter, value as Map<Val, Val>);
+      return [...value.keys()].every(isRefVal) && [...value.values()].every(isRefVal)
+        ? refValMap(adapter, value as Map<Val, Val>)
+        : dynamicMap(adapter, value);
     case typeof value === "object":
       if (value && "type" in (value as object) && typeof (value as Val).type === "function") {
         return value as Val;
@@ -694,12 +1009,143 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
   return undefined;
 }
 
+/**
+ * nativeTarget unwraps a CEL native object when provider field access receives the wrapper.
+ */
+function nativeTarget(target: unknown): Record<string, unknown> {
+  if (target instanceof NativeObjectValue) {
+    return target.value() as Record<string, unknown>;
+  }
+  return target as Record<string, unknown>;
+}
+
+/**
+ * nativeFieldValue converts a CEL field value to the corresponding TypeScript representation.
+ */
+function nativeFieldValue(value: Val, type: Type): unknown {
+  if (type.kind() === Kind.List) {
+    return value.convertToNative([]);
+  }
+  if (type.kind() === Kind.Map) {
+    return value.convertToNative(new Map());
+  }
+  // Native fields explicitly described with CEL opaque types store the ref.Val itself. Unwrapping
+  // optionals here would erase their has-value semantics before the object is read again.
+  if (type.kind() === Kind.Opaque && isRefVal(value)) {
+    return value;
+  }
+  return value.value();
+}
+
+/**
+ * isNativeObject reports whether a value identifies a registered native CEL type.
+ */
+function isNativeObject(value: unknown): value is Record<string, unknown> & {
+  $celTypeName: string;
+} {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "$celTypeName" in value &&
+    typeof (value as { $celTypeName?: unknown }).$celTypeName === "string"
+  );
+}
+
+/**
+ * isNativeZeroValue applies Go-like zero-value presence semantics to TypeScript values.
+ */
+function isNativeZeroValue(value: unknown): boolean {
+  if (value === undefined || value === null || value === false || value === 0 || value === 0n) {
+    return true;
+  }
+  if (value === "") {
+    return true;
+  }
+  if (value instanceof Uint8Array || Array.isArray(value)) {
+    return value.length === 0;
+  }
+  if (value instanceof Map) {
+    return value.size === 0;
+  }
+  if (typeof value === "object") {
+    return Object.keys(value).filter((key) => key !== "$celTypeName").length === 0;
+  }
+  return false;
+}
+
+/**
+ * nativeValuesEqual compares native values structurally while ignoring descriptor marker fields.
+ */
+function nativeValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+  if (left instanceof Uint8Array && right instanceof Uint8Array) {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+  }
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((value, index) => nativeValuesEqual(value, right[index]))
+    );
+  }
+  if (left instanceof Map && right instanceof Map) {
+    if (left.size !== right.size) {
+      return false;
+    }
+    for (const [key, value] of left) {
+      if (!right.has(key) || !nativeValuesEqual(value, right.get(key))) {
+        return false;
+      }
+    }
+    return true;
+  }
+  if (typeof left === "object" && left !== null && typeof right === "object" && right !== null) {
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const keys = Object.keys(leftRecord).filter((key) => key !== "$celTypeName");
+    const rightKeys = Object.keys(rightRecord).filter((key) => key !== "$celTypeName");
+    return (
+      keys.length === rightKeys.length &&
+      keys.every(
+        (key) =>
+          Object.hasOwn(rightRecord, key) && nativeValuesEqual(leftRecord[key], rightRecord[key]),
+      )
+    );
+  }
+  return false;
+}
+
 function stripLeadingDot(name: string): string {
   return name.startsWith(".") ? name.slice(1) : name;
 }
 
 function canonicalTypeName(name: string): string {
   return stripLeadingDot(name).replace(/^google\.api\.expr\.v1alpha1\./, "cel.expr.");
+}
+
+/** findEnumInFile resolves an enum descriptor declared anywhere within a protobuf file. */
+function findEnumInFile(file: DescFile, typeName: string): DescEnum | undefined {
+  const topLevel = file.enums.find((candidate) => candidate.typeName === typeName);
+  return topLevel ?? findEnumInMessages(file.messages, typeName);
+}
+
+/** findEnumInMessages recursively resolves an enum descriptor nested within protobuf messages. */
+function findEnumInMessages(
+  messages: readonly DescMessage[],
+  typeName: string,
+): DescEnum | undefined {
+  for (const message of messages) {
+    const nested = message.nestedEnums.find((candidate) => candidate.typeName === typeName);
+    if (nested) {
+      return nested;
+    }
+    const descendant = findEnumInMessages(message.nestedMessages, typeName);
+    if (descendant) {
+      return descendant;
+    }
+  }
+  return undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -714,6 +1160,7 @@ function isMessage(value: unknown): value is Message {
   return typeof value === "object" && value !== null && "$typeName" in value;
 }
 
+/** wrapWrapperField converts a CEL scalar to Protobuf-ES's wrapper-field representation. */
 function wrapWrapperField(
   field: FieldDescription,
   val: Val,
@@ -742,13 +1189,23 @@ function wrapWrapperField(
         ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case FloatValueSchema.typeName:
-      return val instanceof Double
-        ? [val.value(), true, undefined]
-        : [undefined, true, new Error("type conversion error")];
+      if (!(val instanceof Double)) {
+        return [undefined, true, new Error("type conversion error")];
+      }
+      try {
+        return [val.convertToNative(Float32NativeType), true, undefined];
+      } catch (cause) {
+        return [undefined, true, cause as Error];
+      }
     case Int32ValueSchema.typeName:
-      return val instanceof Int
-        ? [Number(val.value()), true, undefined]
-        : [undefined, true, new Error("type conversion error")];
+      if (!(val instanceof Int)) {
+        return [undefined, true, new Error("type conversion error")];
+      }
+      try {
+        return [val.convertToNative(Int32NativeType), true, undefined];
+      } catch (cause) {
+        return [undefined, true, cause as Error];
+      }
     case Int64ValueSchema.typeName:
       return val instanceof Int
         ? [val.value(), true, undefined]
@@ -758,9 +1215,14 @@ function wrapWrapperField(
         ? [val.value(), true, undefined]
         : [undefined, true, new Error("type conversion error")];
     case UInt32ValueSchema.typeName:
-      return val instanceof Uint
-        ? [Number(val.value()), true, undefined]
-        : [undefined, true, new Error("type conversion error")];
+      if (!(val instanceof Uint)) {
+        return [undefined, true, new Error("type conversion error")];
+      }
+      try {
+        return [val.convertToNative(Uint32NativeType), true, undefined];
+      } catch (cause) {
+        return [undefined, true, cause as Error];
+      }
     case UInt64ValueSchema.typeName:
       return val instanceof Uint
         ? [val.value(), true, undefined]
@@ -768,6 +1230,21 @@ function wrapWrapperField(
     default:
       return [undefined, false, undefined];
   }
+}
+
+/** isRefVal reports whether a value already implements the CEL reference value contract. */
+function isRefVal(value: unknown): value is Val {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<Val>;
+  return (
+    typeof candidate.convertToNative === "function" &&
+    typeof candidate.convertToType === "function" &&
+    typeof candidate.equal === "function" &&
+    typeof candidate.type === "function" &&
+    typeof candidate.value === "function"
+  );
 }
 
 /**

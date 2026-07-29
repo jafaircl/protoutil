@@ -1,6 +1,8 @@
 export {
   AST,
+  type AstExtensionOptions,
   ast,
+  astExtension,
   checkedAst,
   copyAst,
   copySourceInfo,
@@ -8,7 +10,6 @@ export {
   ExtensionComponent,
   type ExtensionVersion,
   exprToProto,
-  extension,
   extensionVersion,
   functionReference,
   heights,

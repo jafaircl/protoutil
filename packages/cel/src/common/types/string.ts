@@ -10,6 +10,7 @@ import { durationOf } from "./duration.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
 import { nativeTypeName, packAnyString } from "./native.js";
+import { durationNanosChecked, maxUnixTime, minUnixTime } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { timestampOf } from "./timestamp.js";
 import type { Adder, Comparer, Matcher, Receiver, Sizer } from "./traits/index.js";
@@ -108,6 +109,20 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
         break;
       }
       case DoubleType: {
+        if (this.inner === "NaN") {
+          return new Double(Number.NaN);
+        }
+        if (
+          this.inner === "Infinity" ||
+          this.inner === "+Infinity" ||
+          this.inner === "Inf" ||
+          this.inner === "+Inf"
+        ) {
+          return new Double(Infinity);
+        }
+        if (this.inner === "-Infinity" || this.inner === "-Inf") {
+          return new Double(-Infinity);
+        }
         const n = globalThis.Number(this.inner);
         if (!globalThis.Number.isNaN(n)) {
           return new Double(n);
@@ -125,7 +140,9 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
       case BytesType:
         return new Bytes(new TextEncoder().encode(this.inner));
       case DurationType: {
-        const match = /^(-)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?$/.exec(this.inner);
+        const match = /^(-)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?(?:(\d+)ns)?$/.exec(
+          this.inner,
+        );
         if (!match) {
           break;
         }
@@ -141,14 +158,24 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
           nanos += BigInt(whole) * 1_000_000_000n;
           nanos += BigInt(frac.padEnd(9, "0").slice(0, 9));
         }
-        return durationOf(match[1] ? -nanos : nanos);
+        if (match[5]) {
+          nanos += BigInt(match[5]);
+        }
+        try {
+          return durationOf(durationNanosChecked(match[1] ? -nanos : nanos));
+        } catch (error) {
+          return wrapErr(error);
+        }
       }
       case TimestampType: {
         try {
           const ts = timestampFromString(this.inner);
+          if (ts.seconds < minUnixTime || ts.seconds > maxUnixTime) {
+            throw new Error("timestamp overflow");
+          }
           return timestampOf(ts.seconds, ts.nanos);
-        } catch {
-          break;
+        } catch (error) {
+          return wrapErr(error);
         }
       }
       case StringType:

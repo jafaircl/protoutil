@@ -235,6 +235,14 @@ export function isLegacyNullable(type: Type): boolean {
  * mostGeneral returns the more general of two already-compatible types.
  */
 export function mostGeneral(left: Type, right: Type): Type {
+  // Null contributes no additional specificity when the other candidate is one of CEL's
+  // legacy-nullable types. Preserve the concrete candidate selected during unification.
+  if (left.kind() === Kind.NullType && internalIsAssignableNull(right)) {
+    return right;
+  }
+  if (right.kind() === Kind.NullType && internalIsAssignableNull(left)) {
+    return left;
+  }
   if (isEqualOrLessSpecific(left, right)) {
     return left;
   }

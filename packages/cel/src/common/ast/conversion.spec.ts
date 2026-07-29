@@ -4,13 +4,13 @@ import { stringSource } from "../index.js";
 import { syncedCases } from "../spec-helpers.js";
 import {
   ast,
+  astExtension,
   checkedAst,
   constantToVal,
   ExtensionComponent,
   entryExprToProto,
   exprFactory,
   exprToProto,
-  extension,
   extensionVersion,
   functionReference,
   identReference,
@@ -98,9 +98,13 @@ function exprFor(source: string) {
 describe("common/ast conversion", () => {
   it("common/ast/conversion_test.go/TestConvertAST", () => {
     const parsed = ast(exprFor("!a"), sourceInfo(stringSource("!a", "<input>")));
-    parsed
-      .sourceInfo()
-      .addExtension(extension("json_name", extensionVersion(1, 1), ExtensionComponent.Runtime));
+    parsed.sourceInfo().addExtension(
+      astExtension({
+        id: "json_name",
+        version: extensionVersion(1, 1),
+        affectedComponents: [ExtensionComponent.Runtime],
+      }),
+    );
     const checked = checkedAst(
       parsed,
       new Map([
@@ -245,7 +249,13 @@ describe("common/ast conversion", () => {
         factory.ident(4, "i"),
       ),
     );
-    info.addExtension(extension("json_name", extensionVersion(1, 1), ExtensionComponent.Runtime));
+    info.addExtension(
+      astExtension({
+        id: "json_name",
+        version: extensionVersion(1, 1),
+        affectedComponents: [ExtensionComponent.Runtime],
+      }),
+    );
 
     const pb = sourceInfoToProto(info);
     expect(pb.location).toBe("<input>");

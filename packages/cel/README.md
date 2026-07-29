@@ -1,238 +1,269 @@
 # @protoutil/cel
 
-Utilities and generated protobuf types for working with CEL expressions in TypeScript.
+The Common Expression Language (CEL) is a non-Turing complete language designed
+for simplicity, speed, safety, and portability. CEL's C-like [syntax][1] looks
+nearly identical to equivalent expressions in C++, Go, Java, and TypeScript.
 
-## Public API
-
-### Parse
-
-Use `parse()` for the ergonomic path. It returns an `AST` and throws if parsing fails.
-
-```ts
-import { parse } from "@protoutil/cel/parser";
-
-const ast = parse("a + b * c");
-const parsedExpr = ast.toParsedExpr();
+```typescript
+// Check whether a resource name starts with a group name.
+resource.name.startsWith("/groups/" + auth.claims.group)
 ```
 
-If you want structured diagnostics instead of exceptions, use `tryParse()`.
+```typescript
+// Determine whether the request is in the permitted time window.
+request.time - resource.age < duration("24h")
+```
+
+```typescript
+// Check whether all resource names in a list match a given filter.
+auth.claims.email_verified && resources.all(r, r.startsWith(auth.claims.email))
+```
+
+A CEL "program" is a single expression.
+
+CEL is ideal for lightweight expression evaluation when a fully sandboxed
+scripting language is too resource intensive.
+
+`@protoutil/cel` is a TypeScript port of [cel-go][7], and is, to our knowledge,
+the only TypeScript implementation of CEL with full conformance parity against
+the upstream `cel-go` test suite. See [conformance.md](./testdata/conformance/conformance.md) for
+the generated dashboard of conformant, skipped, and non-conformant cases.
+
+---
+
+- [@protoutil/cel](#protoutilcel)
+  - [Overview](#overview)
+    - [Environment Setup](#environment-setup)
+    - [Parse and Check](#parse-and-check)
+      - [Macros](#macros)
+    - [Evaluate](#evaluate)
+      - [Partial State](#partial-state)
+    - [Errors](#errors)
+  - [Install](#install)
+  - [Common Questions](#common-questions)
+    - [Why not JavaScript, Lua, or WASM?](#why-not-javascript-lua-or-wasm)
+    - [Do I need to Parse _and_ Check?](#do-i-need-to-parse-and-check)
+    - [Where can I learn more about the language?](#where-can-i-learn-more-about-the-language)
+    - [How can I contribute?](#how-can-i-contribute)
+  - [License](#license)
+
+---
+
+## Overview
+
+Determine the variables and functions you want to provide to CEL. Parse and
+check an expression to make sure it's valid. Then evaluate the output AST
+against some input. Checking is optional, but strongly encouraged.
+
+### Environment Setup
+
+Let's expose `name` and `group` variables to CEL using the `variable`
+declaration:
 
 ```ts
-import { tryParse } from "@protoutil/cel/parser";
+import { StringType, env, variable } from "@protoutil/cel";
 
-const result = tryParse("a + b * c");
+const myEnv = env({
+  variables: [
+    variable("name", StringType),
+    variable("group", StringType),
+  ],
+});
+```
+
+That's it. The environment is ready to be used for parsing and type-checking.
+CEL supports all the usual primitive types in addition to lists, maps, as well
+as first-class support for JSON and Protocol Buffers.
+
+### Parse and Check
+
+The parsing phase indicates whether the expression is syntactically valid and
+expands any macros present within the environment. Parsing and checking are
+more computationally expensive than evaluation, and it is recommended that
+expressions be parsed and checked ahead of time.
+
+The parse and check phases are combined for convenience into the `tryCompile`
+step:
+
+```ts
+const result = myEnv.tryCompile(`name.startsWith("/groups/" + group)`);
 if (result.errors) {
   console.error(result.errors.toDisplayString());
-} else {
-  console.log(result.ast.toParsedExpr());
+  throw result.errors.err();
 }
+const program = myEnv.program(result.ast);
 ```
 
-### Unparse
+The program generated at the end of parse and check is stateless and
+cachable.
 
-Use `unparse()` to render an `AST`, local `Expr`, or protobuf `Expr` back to CEL source.
+Type-checking is an optional, but strongly encouraged step that can reject some
+semantically invalid expressions using static analysis. Additionally, the check
+produces metadata which can improve function invocation performance and object
+field selection at evaluation-time.
 
-```ts
-import { parse, unparse } from "@protoutil/cel/parser";
+#### Macros
 
-const ast = parse("a + b * c");
-const source = unparse(ast);
+Macros are optional but enabled by default. Macros were introduced to
+support optional CEL features that might not be desired in all use cases
+without the syntactic burden and complexity such features might desire if
+they were part of the core CEL syntax. Macros are expanded at parse time and
+their expansions are type-checked at check time.
+
+For example, when macros are enabled it is possible to support bounded
+iteration / fold operators. The macros `all`, `exists`, `exists_one`, `filter`,
+and `map` are particularly useful for evaluating a single predicate against
+list and map values.
+
+```typescript
+// Ensure all tweets are less than 140 chars
+tweets.all(t, t.size() <= 140)
 ```
 
-If you want a non-throwing helper, use `tryUnparse()`.
+The `has` macro is useful for unifying field presence testing logic across
+protobuf types and dynamic (JSON-like) types.
 
-```ts
-import { parse, tryUnparse } from "@protoutil/cel/parser";
-
-const ast = parse("a + b * c");
-const result = tryUnparse(ast);
-if (result.error) {
-  console.error(result.error.message);
-} else {
-  console.log(result.source);
-}
+```typescript
+// Test whether the field is a non-default value if proto-based, or defined
+// in the JSON case.
+has(message.field)
 ```
 
-### Check
+Both cases traditionally require special syntax at the language level, but
+these features are exposed via macros in CEL.
 
-Use `check()` for the ergonomic path. It returns a checked `AST` and throws if type-checking fails.
+### Evaluate
 
-```ts
-import { defaultContainer, registry, textSource } from "@protoutil/cel/common";
-import { env, check } from "@protoutil/cel/checker";
-import { parse } from "@protoutil/cel/parser";
-
-const source = textSource("a + b");
-const parsed = parse("a + b");
-const checked = check(parsed, source, env(defaultContainer, registry()));
-const checkedExpr = checked.toCheckedExpr();
-```
-
-If you want diagnostics instead of exceptions, use `tryCheck()`.
+Now, evaluate for fun and profit. The evaluation is side-effect free. Many
+different inputs can be sent to the same program and if fields are present in
+the input, but not referenced in the expression, they are ignored.
 
 ```ts
-import { defaultContainer, registry, textSource } from "@protoutil/cel/common";
-import { env, tryCheck } from "@protoutil/cel/checker";
-import { parse } from "@protoutil/cel/parser";
-
-const source = textSource("a + b");
-const parsed = parse("a + b");
-const result = tryCheck(parsed, source, env(defaultContainer, registry()));
-if (result.errors) {
-  console.error(result.errors.toDisplayString());
-} else {
-  console.log(result.ast.toCheckedExpr());
-}
-```
-
-### Cost
-
-Use `cost()` to estimate the static checker cost of a checked AST. The returned `CostEstimate`
-has bigint `Min` and `Max` bounds.
-
-```ts
-import { cost, SizeEstimate } from "@protoutil/cel/checker";
-
-const estimate = cost(checked, {
-  estimateSize(node) {
-    if (node.path()?.join(".") === "input") {
-      return new SizeEstimate(0n, 500n);
-    }
-    return undefined;
-  },
-  estimateCallCost() {
-    return undefined;
-  },
+// The `result` contains the output of a successful evaluation.
+// Use `evalWithDetails()` instead of `eval()` if intermediate evaluation
+// state should be captured. This can be useful for visualizing how the
+// result was arrived at.
+const result = program.eval({
+  name: "/groups/acme.co/documents/secret-stuff",
+  group: "acme.co",
 });
-
-console.log(estimate.Min, estimate.Max);
+console.log(result.value()); // 'true'
 ```
 
-### Interpreter
+#### Partial State
 
-The interpreter plans checked or unchecked ASTs into reusable programs and evaluates them against
-an activation. It supports standard and custom overload dispatch, protobuf field access and object
-construction, optional values, unknown propagation, comprehensions, exhaustive evaluation,
-interruption, state observation, AST pruning, and runtime-cost tracking.
-CEL `matches()` expressions use RE2-compatible syntax and linear-time matching in both ordinary
-and constant-optimized execution.
+What if `name` hadn't been supplied? CEL is designed for this case. In
+distributed apps it is not uncommon to have edge caches and central services.
+If possible, evaluation should happen at the edge, but it isn't always possible
+to know the full state required for all values and functions present in the
+CEL expression.
 
-```ts
-import { registry, standardFunctions } from "@protoutil/cel/common";
-import {
-  dispatcher,
-  executionFrame,
-  interpreter,
-  optimizeConfig,
-} from "@protoutil/cel/interpreter";
+To improve the odds of successful evaluation with partial state, CEL uses
+commutative logical operators `&&`, `||`. If an error or unknown value (not the
+same thing) is encountered on the left-hand side, the right hand side is
+evaluated also to determine the outcome. While it is possible to implement
+evaluation with partial state without this feature, this method was chosen
+because it aligns with the semantics of SQL evaluation and because it's more
+robust to evaluation against dynamic data types such as JSON inputs.
 
-const reg = registry();
-const functions = dispatcher();
-for (const declaration of standardFunctions()) {
-  functions.add({ overloads: declaration.bindings() });
-}
+In the following truth-table, the symbols `<x>` and `<y>` represent error or
+unknown values, with the `?` indicating that the branch is not taken due to
+short-circuiting. When the result is `<x, y>` this means that the both args
+are possibly relevant to the result.
 
-const runtime = interpreter({
-  dispatcher: functions,
-  provider: reg,
-  adapter: reg,
-});
-const program = runtime.interpretable({
-  exprAst: checked,
-  plannerConfig: optimizeConfig(),
-});
-const frame = executionFrame({
-  input: { a: 1n, b: 2n },
-});
+| Expression          | Result   |
+|----------------------|----------|
+| `false && ?`        | `false`  |
+| `true && false`     | `false`  |
+| `<x> && false`      | `false`  |
+| `true && true`      | `true`   |
+| `true && <x>`       | `<x>`    |
+| `<x> && true`       | `<x>`    |
+| `<x> && <y>`        | `<x, y>` |
+| `true \|\| ?`       | `true`   |
+| `false \|\| true`   | `true`   |
+| `<x> \|\| true`     | `true`   |
+| `false \|\| false`  | `false`  |
+| `false \|\| <x>`    | `<x>`    |
+| `<x> \|\| false`    | `<x>`    |
+| `<x> \|\| <y>`      | `<x, y>` |
 
-try {
-  const result = program.exec(frame);
-  console.log(result.value());
-} finally {
-  frame.close();
-}
+In the cases where unknowns are expected, `partialEval: true` should be
+enabled on the program. The `details` value returned by `evalWithDetails()`
+will contain the intermediate evaluation values and can be provided to
+`Env.residualAst()` to generate a residual expression. e.g.:
+
+```typescript
+// Residual when `name` omitted:
+name.startsWith("/groups/acme.co")
 ```
 
-Use `activation()` or `partialActivation()` when explicit activation behavior or unknown attribute
-patterns are needed. An `ExecutionFrame` can also receive an abort signal for interruptible
-comprehensions.
+This technique can be useful when there are variables that are expensive to
+compute unless they are absolutely needed. This functionality will be the
+focus of many future improvements, so keep an eye out for more goodness here!
 
-### Runtime Cost
+### Errors
 
-Use `costObserverConfig()` while planning an interpretable to measure actual evaluation cost. A
-fresh `CostTracker` is created for each evaluation, and an optional limit terminates evaluation
-with `CostLimitExceededError` when the observed cost exceeds it.
+Parse and check errors have friendly error messages with pointers to where the
+issues occur in source:
 
-```ts
-import {
-  CostTracker,
-  costObserverConfig,
-  executionFrame,
-} from "@protoutil/cel/interpreter";
-
-let tracker: CostTracker | undefined;
-const program = runtime.interpretable({
-  exprAst: checked,
-  plannerConfig: costObserverConfig({
-    trackerFactory: () => {
-      tracker = new CostTracker({ limit: 1_000 });
-      return tracker;
-    },
-  }),
-});
-
-program.exec(executionFrame({ input: bindings }));
-console.log(tracker?.actualCost());
+```sh
+ERROR: <input>:1:40: undefined field 'undefined'
+    | TestAllTypes{single_int32: 1, undefined: 2}
+    | .......................................^
 ```
 
-`CostTracker` also accepts an `estimator`, per-overload `overloadTrackers`, and
-`presenceTestHasCost` to customize runtime accounting.
+Both the parsed and checked expressions contain source position information
+about each node that appears in the output AST. This information can be used
+to determine error locations at evaluation time as well.
 
-### Interpreter Planning Modes
+## Install
 
-Planner configurations expose the cel-go interpreter execution modes. `optimizeConfig()` folds
-constant list, map, and type-conversion expressions; `exhaustiveEvalConfig()` evaluates every
-logical, conditional, and comprehension branch; and `interruptableEvalConfig()` checks an
-`ExecutionFrame` abort signal while folding comprehensions.
-
-Constant regular expressions can be compiled while planning:
-
-```ts
-import {
-  compileRegexConstantsConfig,
-  matchesRegexOptimization,
-} from "@protoutil/cel/interpreter";
-
-const program = runtime.interpretable({
-  exprAst: checked,
-  plannerConfig: compileRegexConstantsConfig({
-    optimizations: [matchesRegexOptimization],
-  }),
-});
+```sh
+npm install @protoutil/cel
 ```
 
-### AST Proto Conversion
+## Common Questions
 
-The local `AST` type is the main working object.
+### Why not JavaScript, Lua, or WASM?
 
-- `ast.toParsedExpr()` returns `cel.expr.ParsedExpr`
-- `ast.toCheckedExpr()` returns `cel.expr.CheckedExpr`
-- `ast.toProto()` returns `ParsedExpr` for unchecked ASTs and `CheckedExpr` for checked ASTs
+JavaScript and Lua are rich languages that require sandboxing to execute
+safely. Sandboxing is costly and factors into the "what will I let users
+evaluate?" question heavily when the answer is anything more than O(n)
+complexity.
 
-### Prune
+CEL evaluates linearly with respect to the size of the expression and the input
+being evaluated when macros are disabled. The only functions beyond the
+built-ins that may be invoked are provided by the host environment. While
+extension functions may be more complex, this is a choice by the application
+embedding CEL.
 
-Use `pruneAst()` with evaluation state recorded by `evalStateObserverConfig()` to produce a
-copy-on-write residual AST. Known scalar, list, map, duration, timestamp, and optional values are
-folded while unknown and error-dependent expressions remain in the result.
+But, why not WASM? WASM is an excellent choice for certain applications and
+is far superior to embedded JavaScript and Lua, but it does not have support
+for garbage collection and non-primitive object types require semi-expensive
+calls across modules. In most cases CEL will be faster and just as portable
+for its intended use case.
 
-```ts
-import { evalState, pruneAst } from "@protoutil/cel/interpreter";
+### Do I need to Parse _and_ Check?
 
-const state = evalState();
-// Evaluate the parsed AST with evalStateObserverConfig({ factory: () => state }).
-const residual = pruneAst({
-  expr: parsed.expr(),
-  macroCalls: parsed.sourceInfo().macroCalls(),
-  state,
-});
-```
+Checking is an optional, but strongly suggested step in CEL expression
+validation. It is sufficient in some cases to simply parse and rely on the
+runtime bindings and error handling to do the right thing.
+
+### Where can I learn more about the language?
+
+* See the [CEL Spec][1] for the specification and conformance test suite.
+* See [cel-go][7] for the reference implementation this package tracks for
+  conformance.
+
+### How can I contribute?
+
+* Use [GitHub Issues][4] to request features or report bugs.
+
+## License
+
+Released under the [Apache License](LICENSE).
+
+[1]: https://github.com/google/cel-spec
+[4]: https://github.com/jafaircl/protoutil/issues
+[7]: https://github.com/google/cel-go

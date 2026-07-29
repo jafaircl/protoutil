@@ -7,6 +7,7 @@ import {
   literalExpr,
   mapEntryExpr,
   mapExpr,
+  protoToExpr,
   selectExpr,
   structExpr,
   structFieldExpr,
@@ -85,7 +86,7 @@ class BaseExprFactory implements ExprFactory {
   constructor(private readonly accumulator = "@result") {}
 
   public copyExpr(expr: Expr): Expr {
-    return expr.toProto() ? expr : unspecifiedExpr();
+    return protoToExpr(expr.toProto());
   }
 
   public copyEntryExpr(entry: EntryExpr): EntryExpr {

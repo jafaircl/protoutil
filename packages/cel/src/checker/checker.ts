@@ -1,5 +1,6 @@
 import {
   type AST,
+  astExtension,
   checkedAst,
   EntryExprKind,
   type Expr,
@@ -7,7 +8,6 @@ import {
   type Extension,
   ExtensionComponent,
   exprFactory,
-  extension,
   extensionVersion,
   functionReference,
   identReference,
@@ -51,11 +51,11 @@ import {
   substitute,
 } from "./types.js";
 
-const jsonNameExtension: Extension = extension(
-  "json_name",
-  extensionVersion(1, 1),
-  ExtensionComponent.TypeChecker,
-);
+const jsonNameExtension: Extension = astExtension({
+  id: "json_name",
+  version: extensionVersion(1, 1),
+  affectedComponents: [ExtensionComponent.TypeChecker],
+});
 
 /**
  * checker carries the mutable state for one check pass.

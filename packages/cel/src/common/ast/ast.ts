@@ -7,7 +7,7 @@ import type {
   SourceInfo as ProtoSourceInfo,
 } from "../../gen/cel/expr/syntax_pb.js";
 import { type Location, NO_LOCATION, SourceLocation } from "../location.js";
-import type { Source } from "../source.js";
+import { infoSource, type Source } from "../source.js";
 import type { EntryExpr, Expr, IdGenerator } from "./expr.js";
 import { constantToVal, entryExprToProto, protoToExpr, valToConstant } from "./expr.js";
 
@@ -208,6 +208,11 @@ export class SourceInfo {
     return [this.macroCallsMap.get(id), this.macroCallsMap.has(id)];
   }
 
+  /** ClearMacroCall removes the macro call stored for an expression id. */
+  public clearMacroCall(id: number): void {
+    this.macroCallsMap.delete(id);
+  }
+
   /** AddExtension appends an extension descriptor. */
   public addExtension(extension: Extension): void {
     this.extensionsList.push(extension);
@@ -293,15 +298,22 @@ export function extensionVersion(major: number, minor: number): ExtensionVersion
   return { major, minor };
 }
 
+/** AstExtensionOptions configures an AST source-info extension descriptor. */
+export interface AstExtensionOptions {
+  id: string;
+  version: ExtensionVersion;
+  affectedComponents?: ExtensionComponent[];
+}
+
 /**
- * Extension creates an extension descriptor.
+ * AstExtension creates an AST source-info extension descriptor.
  */
-export function extension(
-  id: string,
-  version: ExtensionVersion,
-  ...affectedComponents: ExtensionComponent[]
-): Extension {
-  return { id, version, affectedComponents };
+export function astExtension(options: AstExtensionOptions): Extension {
+  return {
+    id: options.id,
+    version: options.version,
+    affectedComponents: [...(options.affectedComponents ?? [])],
+  };
 }
 
 /**
@@ -364,14 +376,14 @@ export function protoToSourceInfo(sourceInfo?: ProtoSourceInfo): SourceInfo {
       const components = sourceExtension.affectedComponents
         .map((component) => fromProtoExtensionComponent(component))
         .filter((component): component is ExtensionComponent => component !== undefined);
-      return extension(
-        sourceExtension.id,
-        extensionVersion(
+      return astExtension({
+        id: sourceExtension.id,
+        version: extensionVersion(
           Number(sourceExtension.version?.major ?? 0n),
           Number(sourceExtension.version?.minor ?? 0n),
         ),
-        ...components,
-      );
+        affectedComponents: components,
+      });
     }),
   );
   for (const [id, offset] of Object.entries(sourceInfo?.positions ?? {})) {
@@ -428,6 +440,7 @@ export class AST {
     private readonly sourceInfoValue?: SourceInfo,
     typeMap: Map<number, Type> = new Map(),
     refMap: Map<number, ReferenceInfo> = new Map(),
+    private readonly sourceValue?: Source,
   ) {
     this.typeMapValue = typeMap;
     this.refMapValue = refMap;
@@ -441,6 +454,11 @@ export class AST {
   /** SourceInfo returns the associated source metadata. */
   public sourceInfo(): SourceInfo {
     return this.sourceInfoValue ?? new SourceInfo();
+  }
+
+  /** Source returns the original source when available, or a metadata-backed source otherwise. */
+  public source(): Source {
+    return this.sourceValue ?? infoSource(sourceInfoToProto(this.sourceInfo()));
   }
 
   /** GetType looks up the type for an expression id. */
@@ -528,8 +546,8 @@ export class AST {
 /**
  * AST creates an unchecked AST value.
  */
-export function ast(expr?: Expr, sourceInfo?: SourceInfo): AST {
-  return new AST(expr ?? protoToExpr(), sourceInfo);
+export function ast(expr?: Expr, sourceInfo?: SourceInfo, source?: Source): AST {
+  return new AST(expr ?? protoToExpr(), sourceInfo, new Map(), new Map(), source);
 }
 
 /**
@@ -545,6 +563,7 @@ export function checkedAst(
     parsed?.sourceInfo(),
     typeMap ?? new Map(),
     refMap ?? new Map(),
+    parsed?.source(),
   );
 }
 
@@ -560,6 +579,7 @@ export function copyAst(ast?: AST): AST | undefined {
     copySourceInfo(ast.sourceInfo()),
     ast.typeMap(),
     ast.referenceMap(),
+    ast.source(),
   );
 }
 

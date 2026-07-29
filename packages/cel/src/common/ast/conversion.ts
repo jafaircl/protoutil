@@ -1,9 +1,10 @@
 export {
+  type AstExtensionOptions,
+  astExtension,
   type Extension,
   ExtensionComponent,
   type ExtensionVersion,
   exprToProto,
-  extension,
   extensionVersion,
   type OffsetRange,
   protoToReferenceInfo,

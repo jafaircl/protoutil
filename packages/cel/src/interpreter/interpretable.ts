@@ -4,6 +4,7 @@ import * as operators from "../common/operators.js";
 import {
   type Adapter,
   Bool,
+  String as CelString,
   DefaultTypeAdapter,
   Double,
   Err,
@@ -382,6 +383,10 @@ class ListInterpretableValue implements InterpretableConstructor {
     const out: Val[] = [];
     for (let index = 0; index < this.elementsValue.length; index += 1) {
       const value = this.elementsValue[index]!.exec(frame);
+      // If any argument is unknown or error early terminate.
+      if (isUnknownOrError(value)) {
+        return value;
+      }
       if (!this.optionalIndicesValue.has(index)) {
         out.push(value);
         continue;
@@ -682,6 +687,11 @@ export interface CallInterpretableOptions {
    * nonStrict indicates whether unknown and error arguments are permitted.
    */
   nonStrict?: boolean;
+
+  /**
+   * operandTrait is the runtime trait required on the first argument.
+   */
+  operandTrait?: number;
 }
 
 /**
@@ -892,8 +902,16 @@ export class AttrInterpretable implements InterpretableAttribute {
   constructor(
     private attrValue: Attribute,
     private readonly adapterValue: Adapter,
-    private readonly optionalValue = false,
+    private optionalValue = false,
   ) {}
+
+  /**
+   * withOptional marks the attribute result as an optional value.
+   */
+  public withOptional(): AttrInterpretable {
+    this.optionalValue = true;
+    return this;
+  }
 
   /**
    * id returns the expression id associated with the attribute.
@@ -1181,6 +1199,7 @@ class UnaryCallInterpretable implements InterpretableCall {
     private readonly functionValue: string,
     private readonly overloadValue: string,
     private readonly argValue: InterpretableV2,
+    private readonly operandTraitValue = 0,
     private readonly implValue?: UnaryOp,
     private readonly nonStrictValue = false,
   ) {}
@@ -1192,7 +1211,12 @@ class UnaryCallInterpretable implements InterpretableCall {
     if (!this.nonStrictValue && isUnknownOrError(arg)) {
       return arg;
     }
-    if (this.implValue) {
+    if (
+      this.implValue &&
+      (this.operandTraitValue === 0 ||
+        (this.nonStrictValue && isUnknownOrError(arg)) ||
+        (arg.type().hasTrait?.(this.operandTraitValue) ?? false))
+    ) {
       return labelErrNode(this.idValue, this.implValue(arg));
     }
     if ((arg.type().hasTrait?.(ReceiverType) ?? false) && "receive" in (arg as object)) {
@@ -1227,6 +1251,7 @@ class BinaryCallInterpretable implements InterpretableCall {
     private readonly overloadValue: string,
     private readonly lhsValue: InterpretableV2,
     private readonly rhsValue: InterpretableV2,
+    private readonly operandTraitValue = 0,
     private readonly implValue?: BinaryOp,
     private readonly nonStrictValue = false,
   ) {}
@@ -1244,7 +1269,12 @@ class BinaryCallInterpretable implements InterpretableCall {
         return rhs;
       }
     }
-    if (this.implValue) {
+    if (
+      this.implValue &&
+      (this.operandTraitValue === 0 ||
+        (this.nonStrictValue && isUnknownOrError(lhs)) ||
+        (lhs.type().hasTrait?.(this.operandTraitValue) ?? false))
+    ) {
       return labelErrNode(this.idValue, this.implValue(lhs, rhs));
     }
     if ((lhs.type().hasTrait?.(ReceiverType) ?? false) && "receive" in (lhs as object)) {
@@ -1278,6 +1308,7 @@ class VarArgsCallInterpretable implements InterpretableCall {
     private readonly functionValue: string,
     private readonly overloadValue: string,
     private readonly argsValue: InterpretableV2[],
+    private readonly operandTraitValue = 0,
     private readonly implValue?: FunctionOp,
     private readonly nonStrictValue = false,
   ) {}
@@ -1292,10 +1323,15 @@ class VarArgsCallInterpretable implements InterpretableCall {
         return firstBad;
       }
     }
-    if (this.implValue) {
+    const receiver = args[0];
+    if (
+      this.implValue &&
+      (this.operandTraitValue === 0 ||
+        (this.nonStrictValue && receiver !== undefined && isUnknownOrError(receiver)) ||
+        (receiver?.type().hasTrait?.(this.operandTraitValue) ?? false))
+    ) {
       return labelErrNode(this.idValue, this.implValue(...args));
     }
-    const receiver = args[0];
     if (
       receiver &&
       (receiver.type().hasTrait?.(ReceiverType) ?? false) &&
@@ -1365,7 +1401,7 @@ export class LogicalOrInterpretable implements InterpretableCall {
         continue;
       }
       if (!isTrue) {
-        lastError ??= labelErrNode(this.idValue, value);
+        lastError ??= labelErrNode(this.idValue, maybeNoSuchOverloadErr(value));
       }
     }
     if (isTrue) {
@@ -1426,7 +1462,7 @@ export class LogicalAndInterpretable implements InterpretableCall {
         continue;
       }
       if (!isFalse) {
-        lastError ??= labelErrNode(this.idValue, value);
+        lastError ??= labelErrNode(this.idValue, maybeNoSuchOverloadErr(value));
       }
     }
     if (isFalse) {
@@ -1546,6 +1582,22 @@ class MapInterpretableValue implements InterpretableConstructor {
       }
       if (isUnknownOrError(value)) {
         return value;
+      }
+      if (
+        !(key instanceof Bool) &&
+        !(key instanceof Int) &&
+        !(key instanceof Uint) &&
+        !(key instanceof CelString)
+      ) {
+        return new Err(`unsupported key type: ${key.type().typeName()}`);
+      }
+      // JavaScript maps use object identity, while CEL map keys use CEL equality. Compare the
+      // evaluated keys before insertion so equal values and cross-numeric equalities are rejected.
+      for (const existingKey of entries.keys()) {
+        const equal = existingKey.equal(key);
+        if (equal instanceof Bool && equal.value()) {
+          return new Err(`Failed with repeated key: ${key.value()}`);
+        }
       }
       if (this.optionalEntriesValue[index] === true) {
         if (!(value instanceof Optional)) {
@@ -1802,6 +1854,7 @@ export function callInterpretable(options: CallInterpretableOptions): Interpreta
       options.functionName,
       options.overloadId ?? "",
       options.args[0]!,
+      options.operandTrait ?? 0,
       options.unary,
       options.nonStrict ?? false,
     );
@@ -1813,6 +1866,7 @@ export function callInterpretable(options: CallInterpretableOptions): Interpreta
       options.overloadId ?? "",
       options.args[0]!,
       options.args[1]!,
+      options.operandTrait ?? 0,
       options.binary,
       options.nonStrict ?? false,
     );
@@ -1830,6 +1884,7 @@ export function callInterpretable(options: CallInterpretableOptions): Interpreta
     options.functionName,
     options.overloadId ?? "",
     options.args,
+    options.operandTrait ?? 0,
     options.impl,
     options.nonStrict ?? false,
   );

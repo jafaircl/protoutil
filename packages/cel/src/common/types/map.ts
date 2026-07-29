@@ -1,4 +1,4 @@
-import { create, type Message, type MessageShape } from "@bufbuild/protobuf";
+import { create, type Message, type MessageShape, ScalarType } from "@bufbuild/protobuf";
 import { AnySchema, anyPack, StructSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { anyValueType } from "./any-value.js";
 import { Bool, False, True } from "./bool.js";
@@ -12,6 +12,7 @@ import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
 import type { Folder, Mapper, MutableMapper, Iterator as TraitIterator } from "./traits/index.js";
 import { MapType, TypeType } from "./types.js";
+import { Uint } from "./uint.js";
 import { equal } from "./util.js";
 
 /**
@@ -124,6 +125,41 @@ export function mutableMap(
 }
 
 /**
+ * InsertMapKeyValueOptions describes a map insertion operation.
+ */
+export interface InsertMapKeyValueOptions {
+  /** map contains the mutable or immutable map receiving the entry. */
+  map: Mapper;
+
+  /** key contains the CEL map key to insert. */
+  key: Val;
+
+  /** value contains the CEL map value to insert. */
+  value: Val;
+}
+
+/**
+ * insertMapKeyValue inserts a key-value pair, preserving mutable inputs and copying immutable maps.
+ */
+export function insertMapKeyValue(options: InsertMapKeyValueOptions): Val {
+  if (typeof (options.map as { insert?: unknown }).insert === "function") {
+    return (options.map as MutableMapper).insert(options.key, options.value);
+  }
+  if (options.map.find(options.key)[1]) {
+    return err("insert failed: key %s already exists", formatVal(options.key));
+  }
+
+  const entries = new Map<Val, Val>();
+  const iterator = options.map.iterator();
+  while (iterator.hasNext() === True) {
+    const key = iterator.next();
+    entries.set(key, options.map.get(key));
+  }
+  entries.set(options.key, options.value);
+  return refValMap(DefaultMapAdapter, entries);
+}
+
+/**
  * BaseMap is a generic immutable map implementation.
  */
 export class BaseMap implements Mapper {
@@ -136,7 +172,7 @@ export class BaseMap implements Mapper {
 
   public contains(index: Val): Val {
     const [, found] = this.find(index);
-    return new Bool(found);
+    return found ? True : False;
   }
 
   public convertToNative(typeDesc?: unknown): unknown {
@@ -154,6 +190,10 @@ export class BaseMap implements Mapper {
       });
     }
     if (typeDesc === JSONStructType || typeDesc === StructSchema) {
+      // A protobuf Struct already has the requested native representation.
+      if (isProtoStruct(this.mapValue)) {
+        return this.mapValue;
+      }
       const fields: Record<string, MessageShape<typeof ValueSchema>> = {};
       for (const rawKey of this.keys) {
         const key = this.adapter
@@ -164,6 +204,9 @@ export class BaseMap implements Mapper {
         >;
       }
       return create(StructSchema, { fields });
+    }
+    if (Array.isArray(typeDesc)) {
+      throw new Error(`unsupported native conversion from '${MapType}' to an array`);
     }
     return Object.fromEntries(
       this.keys.map((rawKey) => {
@@ -276,6 +319,13 @@ export class BaseMap implements Mapper {
   }
 }
 
+/** DefaultMapAdapter preserves CEL values while copying an immutable mapper. */
+const DefaultMapAdapter: TypeAdapter = {
+  nativeToValue(value: unknown): Val {
+    return value as Val;
+  },
+};
+
 /**
  * ProtoMap adapts protobuf map fields and unwraps message-backed entries when needed.
  */
@@ -283,10 +333,15 @@ class ProtoMap extends BaseMap implements Mapper {
   constructor(
     adapter: TypeAdapter,
     value: Record<string, unknown>,
-    _keyType?: FieldDescription,
+    keyType?: FieldDescription,
     private readonly valType?: FieldDescription,
   ) {
-    super(adapter, value, Object.keys(value), (key) => value[normalizeRecordKey(key)]);
+    super(
+      adapter,
+      value,
+      Object.keys(value).map((key) => protoMapKey(key, keyType)),
+      (key) => value[normalizeRecordKey(key)],
+    );
   }
 
   public override find(key: Val): [Val | undefined, boolean] {
@@ -301,6 +356,32 @@ class ProtoMap extends BaseMap implements Mapper {
       }
     }
     return [this.adapter.nativeToValue(raw), true];
+  }
+}
+
+/** protoMapKey restores the protobuf scalar type erased by JavaScript record keys. */
+function protoMapKey(key: string, keyType?: FieldDescription): unknown {
+  const descriptor = keyType?.descriptor();
+  if (!descriptor || descriptor.kind !== "field" || descriptor.fieldKind !== "scalar") {
+    return key;
+  }
+  switch (descriptor.scalar) {
+    case ScalarType.BOOL:
+      return key === "true";
+    case ScalarType.INT32:
+    case ScalarType.INT64:
+    case ScalarType.SINT32:
+    case ScalarType.SINT64:
+    case ScalarType.SFIXED32:
+    case ScalarType.SFIXED64:
+      return BigInt(key);
+    case ScalarType.UINT32:
+    case ScalarType.UINT64:
+    case ScalarType.FIXED32:
+    case ScalarType.FIXED64:
+      return new Uint(BigInt(key));
+    default:
+      return key;
   }
 }
 

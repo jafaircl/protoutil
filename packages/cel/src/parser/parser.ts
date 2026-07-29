@@ -240,6 +240,12 @@ class ParseImpl {
         }
         break;
       }
+      if (!this.reportedRecursionError && expressionDepth(expr) > this.recursionLimit()) {
+        // Operator precedence builds separate chains while parsing, but the completed AST may wrap
+        // one chain in another. cel-go applies the recursion limit to that combined expression tree.
+        this.errors.internalError("max recursion depth exceeded");
+        this.reportedRecursionError = true;
+      }
       return expr;
     } catch (error) {
       if (error instanceof AbortParseError) {
@@ -384,7 +390,9 @@ class ParseImpl {
     if (this.match(TokenKind.Minus)) {
       const op = this.previous();
       const count = 1 + this.consumeRepeated(TokenKind.Minus);
-      if (count > 1 && this.check(TokenKind.Eof)) {
+      if (this.check(TokenKind.Eof)) {
+        // ANTLR reports the exhausted unary alternative and the missing primary separately.
+        // Preserve both diagnostics for a lone minus as well as a repeated minus sequence.
         const stop = tokenRange(this.previous()).stop;
         this.syntaxNoViableAlternative(this.helper.locationForRange({ start: stop, stop }), "-");
         this.syntaxMismatched(this.peek(), primaryExpectedDescription());
@@ -864,6 +872,27 @@ class ParseImpl {
           step,
           result,
         ),
+      comprehensionTwoVar: (
+        iterRange,
+        iterVar,
+        iterVar2,
+        accuVar,
+        accuInit,
+        condition,
+        step,
+        result,
+      ) =>
+        this.helper.exprFactory.comprehensionTwoVar(
+          helper.nextMacroId(),
+          iterRange,
+          iterVar,
+          iterVar2,
+          accuVar,
+          accuInit,
+          condition,
+          step,
+          result,
+        ),
       ident: (name) => this.helper.exprFactory.ident(helper.nextMacroId(), name),
       accuIdent: () => this.helper.exprFactory.accuIdent(helper.nextMacroId()),
       accuIdentName: () => this.helper.exprFactory.accuIdentName(),
@@ -872,6 +901,8 @@ class ParseImpl {
         this.helper.exprFactory.memberCall(helper.nextMacroId(), fn, target, ...args),
       presenceTest: (operand, field) =>
         this.helper.exprFactory.presenceTest(helper.nextMacroId(), operand, field),
+      select: (operand, field) =>
+        this.helper.exprFactory.select(helper.nextMacroId(), operand, field),
       error: (id, message, anchor = "start") => new MacroExpansionError(id, anchor, message),
     };
   }
@@ -1122,7 +1153,7 @@ class ParseImpl {
    * recursionLimit returns the effective parser depth limit used by upstream parser tests.
    */
   private recursionLimit(): number {
-    return Math.min(this.options.maxRecursionDepth, 32);
+    return this.options.maxRecursionDepth;
   }
 
   /**
@@ -1376,10 +1407,31 @@ class MacroExpansionError extends Error {
 class AbortParseError extends Error {}
 
 /**
+ * expressionDepth returns the maximum number of nested non-leaf expressions in an AST branch.
+ */
+function expressionDepth(expr: Expr): number {
+  const children = expr.children();
+  if (children.length === 0) {
+    return 0;
+  }
+  let childDepth = 0;
+  for (const child of children) {
+    childDepth = Math.max(childDepth, expressionDepth(child));
+  }
+  return childDepth + 1;
+}
+
+/**
  * parseIntLiteral parses a signed or hexadecimal CEL integer literal.
  */
 function parseIntLiteral(text: string): bigint {
-  const value = BigInt(text);
+  const negativeHex = text.startsWith("-0x");
+  const positiveHex = text.startsWith("+0x");
+  const value = negativeHex
+    ? -BigInt(text.slice(1))
+    : positiveHex
+      ? BigInt(text.slice(1))
+      : BigInt(text);
   if (value < -(1n << 63n) || value > (1n << 63n) - 1n) {
     throw new Error("invalid int literal");
   }

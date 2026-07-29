@@ -99,7 +99,7 @@ export class SizeEstimate {
    * add returns the sum of two size estimates with uint64 overflow protection.
    */
   public add(other: SizeEstimate): SizeEstimate {
-    return new SizeEstimate(
+    return sizeEstimate(
       addUint64NoOverflow(this.Min, other.Min),
       addUint64NoOverflow(this.Max, other.Max),
     );
@@ -109,7 +109,7 @@ export class SizeEstimate {
    * multiply returns the product of two size estimates with uint64 overflow protection.
    */
   public multiply(other: SizeEstimate): SizeEstimate {
-    return new SizeEstimate(
+    return sizeEstimate(
       multiplyUint64NoOverflow(this.Min, other.Min),
       multiplyUint64NoOverflow(this.Max, other.Max),
     );
@@ -139,7 +139,7 @@ export class SizeEstimate {
    * union returns the smallest estimate that covers both ranges.
    */
   public union(other: SizeEstimate): SizeEstimate {
-    return new SizeEstimate(
+    return sizeEstimate(
       other.Min < this.Min ? other.Min : this.Min,
       other.Max > this.Max ? other.Max : this.Max,
     );
@@ -151,6 +151,11 @@ export class SizeEstimate {
   public asCost(): CostEstimate {
     return this.multiplyByCostFactor(1);
   }
+}
+
+/** SizeEstimate creates an estimated size range from minimum and maximum bounds. */
+export function sizeEstimate(min: bigint, max: bigint): SizeEstimate {
+  return new SizeEstimate(min, max);
 }
 
 /**
@@ -220,14 +225,14 @@ export class CallEstimate extends CostEstimate {
  * fixedSizeEstimate returns a size estimate with identical min/max bounds.
  */
 export function fixedSizeEstimate(size: bigint | number): SizeEstimate {
-  return new SizeEstimate(toUint64(size), toUint64(size));
+  return sizeEstimate(toUint64(size), toUint64(size));
 }
 
 /**
  * unknownSizeEstimate returns the broadest possible size estimate.
  */
 export function unknownSizeEstimate(): SizeEstimate {
-  return new SizeEstimate(0n, UINT64_MAX);
+  return sizeEstimate(0n, UINT64_MAX);
 }
 
 /**
@@ -510,9 +515,9 @@ class coster {
       return fixedCostEstimate(0);
     }
     let sum = fixedCostEstimate(0);
-    let itemSize = new SizeEstimate(UINT64_MAX, 0n);
+    let itemSize = sizeEstimate(UINT64_MAX, 0n);
     if (list.size() === 0) {
-      itemSize = new SizeEstimate(0n, 0n);
+      itemSize = sizeEstimate(0n, 0n);
     }
     for (const element of list.elements()) {
       sum = sum.add(this.cost(element));
@@ -531,11 +536,11 @@ class coster {
       return fixedCostEstimate(0);
     }
     let sum = fixedCostEstimate(0);
-    let keySize = new SizeEstimate(UINT64_MAX, 0n);
-    let valSize = new SizeEstimate(UINT64_MAX, 0n);
+    let keySize = sizeEstimate(UINT64_MAX, 0n);
+    let valSize = sizeEstimate(UINT64_MAX, 0n);
     if (mapExpr.size() === 0) {
-      keySize = new SizeEstimate(0n, 0n);
-      valSize = new SizeEstimate(0n, 0n);
+      keySize = sizeEstimate(0n, 0n);
+      valSize = sizeEstimate(0n, 0n);
     }
     for (const entryExpr of mapExpr.entries()) {
       const entry = entryExpr.asMapEntry();
@@ -703,14 +708,14 @@ class coster {
         if (args.length === 1) {
           const size = this.sizeOrUnknown(args[0]!);
           const cost = size.multiplyByCostFactor(StringTraversalCostFactor).add(argCostSum());
-          return new CallEstimate(cost.Min, cost.Max, new SizeEstimate(size.Min, size.Max * 4n));
+          return new CallEstimate(cost.Min, cost.Max, sizeEstimate(size.Min, size.Max * 4n));
         }
         break;
       case overloads.BytesToString:
         if (args.length === 1) {
           const size = this.sizeOrUnknown(args[0]!);
           const cost = size.multiplyByCostFactor(StringTraversalCostFactor).add(argCostSum());
-          return new CallEstimate(cost.Min, cost.Max, new SizeEstimate(size.Min / 4n, size.Max));
+          return new CallEstimate(cost.Min, cost.Max, sizeEstimate(size.Min / 4n, size.Max));
         }
         break;
       case overloads.ExtQuoteString:
@@ -720,7 +725,7 @@ class coster {
           return new CallEstimate(
             cost.Min,
             cost.Max,
-            new SizeEstimate(size.Min + 2n, size.Max * 2n + 2n),
+            sizeEstimate(size.Min + 2n, size.Max * 2n + 2n),
           );
         }
         break;

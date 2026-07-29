@@ -1,4 +1,17 @@
 import { create } from "@bufbuild/protobuf";
+import {
+  AnySchema,
+  anyPack,
+  BoolValueSchema,
+  BytesValueSchema,
+  DoubleValueSchema,
+  Int32ValueSchema,
+  Int64ValueSchema,
+  StringValueSchema,
+  UInt32ValueSchema,
+  UInt64ValueSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import { DeclSchema, ReferenceSchema } from "../../gen/cel/expr/checked_pb.js";
 import { SourceInfoSchema } from "../../gen/cel/expr/syntax_pb.js";
@@ -7,7 +20,13 @@ import {
   TestAllTypesSchema as Proto3TestAllTypesSchema,
 } from "../../gen/test/proto3pb/test_all_types_pb.js";
 import { syncedCases } from "../spec-helpers.js";
+import { Bool, False, True } from "./bool.js";
+import { Bytes } from "./bytes.js";
+import { Double } from "./double.js";
+import { Err } from "./err.js";
 import { Int } from "./index.js";
+import { dynamicList } from "./list.js";
+import { jsonValue } from "./pb/spec-helpers.js";
 import { registry } from "./provider.js";
 import {
   canonicalProviderTypeName,
@@ -15,7 +34,11 @@ import {
   resolveProviderMessage,
   resolveProviderTypeName,
 } from "./spec-helpers.js";
-import { objectType, typeTypeWithParam } from "./types.js";
+import { String as CelString } from "./string.js";
+import type { Indexer } from "./traits/index.js";
+import { ReceiverType } from "./traits/index.js";
+import { objectType, opaqueType, typeParamType, typeTypeWithParam } from "./types.js";
+import { Uint } from "./uint.js";
 
 describe("provider", () => {
   it("common/types/provider_test.go/TestRegistryCopy", () => {
@@ -25,6 +48,34 @@ describe("provider", () => {
     expect(copy.findStructType("google.expr.proto3.test.TestAllTypes")[1]).toBe(
       reg.findStructType("google.expr.proto3.test.TestAllTypes")[1],
     );
+  });
+
+  it("common/types/provider_test.go/TestRegistryRegisterType", () => {
+    const reg = registry();
+    reg.registerType(objectType("http.Request", ReceiverType));
+    expect(() => reg.registerType(opaqueType("http.Request"))).toThrow(
+      "type registration conflict",
+    );
+  });
+
+  it("common/types/provider_test.go/TestRegistryRegisterTypeNoConflict", () => {
+    const reg = registry();
+    expect(() =>
+      reg.registerType(
+        opaqueType("http.Request", typeParamType("T")),
+        opaqueType("http.Request", typeParamType("V")),
+      ),
+    ).not.toThrow();
+  });
+
+  it("common/types/provider_test.go/TestRegistryRegisterTypeConflict", () => {
+    const reg = registry();
+    expect(() =>
+      reg.registerType(
+        opaqueType("http.Request", typeParamType("T"), typeParamType("V")),
+        opaqueType("http.Request", typeParamType("V")),
+      ),
+    ).toThrow("type registration conflict");
   });
 
   it("common/types/provider_test.go/TestRegistryEnumValue", () => {
@@ -120,5 +171,107 @@ describe("provider", () => {
       expect(out.type().typeName()).toBe("error");
       expect(String(out.value())).toContain(testCase.err);
     }
+  });
+
+  it("common/types/provider_test.go/TestRegistryGetters", () => {
+    const reg = registry([create(SourceInfoSchema), SourceInfoSchema]);
+    const sourceInfo = reg.newValue("cel.expr.SourceInfo", {
+      location: new CelString("TestTypeRegistryGetFieldValue"),
+      line_offsets: dynamicList(reg, [0n, 2n]),
+      positions: reg.nativeToValue({ 1: 2, 2: 4 }),
+    });
+    expect(sourceInfo).not.toBeInstanceOf(Err);
+
+    const indexed = sourceInfo as unknown as Indexer;
+    expect(indexed.get(new CelString("location"))).toEqual(
+      new CelString("TestTypeRegistryGetFieldValue"),
+    );
+    const positions = indexed.get(new CelString("positions")) as unknown as Indexer;
+    expect(positions.get(new Int(1n))).toEqual(new Int(2n));
+    const offsets = indexed.get(new CelString("line_offsets")) as unknown as Indexer;
+    expect(offsets.get(new Int(1n))).toEqual(new Int(2n));
+  });
+
+  it("common/types/provider_test.go/TestConvertToNative", () => {
+    const reg = registry();
+    expect(True.convertToNative(Boolean)).toBe(true);
+    expect(new Int(-1n).convertToNative(BigInt)).toBe(-1n);
+    expect(new Uint(4n).convertToNative(BigInt)).toBe(4n);
+    expect(new Double(-5.5).convertToNative(Number)).toBe(-5.5);
+    expect(new CelString("hello").convertToNative(String)).toBe("hello");
+    expect(new Bytes(new TextEncoder().encode("world")).convertToNative(Uint8Array)).toEqual(
+      new TextEncoder().encode("world"),
+    );
+    expect(dynamicList(reg, [True, False]).convertToNative([])).toEqual([true, false]);
+  });
+
+  it("common/types/provider_test.go/TestNativeToValue_Any", () => {
+    const reg = registry();
+    const packed = anyPack(ValueSchema, jsonValue({ a: "world", b: "five!" }));
+    expect(packed.$typeName).toBe(AnySchema.typeName);
+    expect(
+      reg.nativeToValue(packed).equal(reg.nativeToValue(jsonValue({ a: "world", b: "five!" }))),
+    ).toBe(True);
+  });
+
+  it("common/types/provider_test.go/TestNativeToValue_Json", () => {
+    const reg = registry();
+    expect(reg.nativeToValue(jsonValue(false))).toEqual(False);
+    expect(reg.nativeToValue(jsonValue(1.1))).toEqual(new Double(1.1));
+    expect(reg.nativeToValue(jsonValue("hello"))).toEqual(new CelString("hello"));
+    expect(
+      reg.nativeToValue(jsonValue(["world", "five!"])).equal(reg.nativeToValue(["world", "five!"])),
+    ).toBe(True);
+    expect(
+      reg
+        .nativeToValue(jsonValue({ a: "world", b: "five!" }))
+        .equal(reg.nativeToValue({ a: "world", b: "five!" })),
+    ).toBe(True);
+  });
+
+  it("common/types/provider_test.go/TestNativeToValue_Wrappers", () => {
+    const reg = registry();
+    expect(reg.nativeToValue({ $typeName: BoolValueSchema.typeName, value: true })).toEqual(True);
+    expect(
+      reg.nativeToValue({
+        $typeName: BytesValueSchema.typeName,
+        value: new TextEncoder().encode("hi"),
+      }),
+    ).toEqual(new Bytes(new TextEncoder().encode("hi")));
+    expect(reg.nativeToValue({ $typeName: DoubleValueSchema.typeName, value: 6.4 })).toEqual(
+      new Double(6.4),
+    );
+    expect(reg.nativeToValue({ $typeName: Int32ValueSchema.typeName, value: -32 })).toEqual(
+      new Int(-32n),
+    );
+    expect(reg.nativeToValue({ $typeName: Int64ValueSchema.typeName, value: -64n })).toEqual(
+      new Int(-64n),
+    );
+    expect(reg.nativeToValue({ $typeName: StringValueSchema.typeName, value: "hello" })).toEqual(
+      new CelString("hello"),
+    );
+    expect(reg.nativeToValue({ $typeName: UInt32ValueSchema.typeName, value: 32 })).toEqual(
+      new Uint(32n),
+    );
+    expect(reg.nativeToValue({ $typeName: UInt64ValueSchema.typeName, value: 64n })).toEqual(
+      new Uint(64n),
+    );
+  });
+
+  it("common/types/provider_test.go/TestNativeToValue_Primitive", () => {
+    const reg = registry();
+    expect(reg.nativeToValue(true)).toEqual(new Bool(true));
+    expect(reg.nativeToValue(-10n)).toEqual(new Int(-10n));
+    expect(reg.nativeToValue(5.5)).toEqual(new Double(5.5));
+    expect(reg.nativeToValue("hello")).toEqual(new CelString("hello"));
+    expect(reg.nativeToValue(new TextEncoder().encode("world"))).toEqual(
+      new Bytes(new TextEncoder().encode("world")),
+    );
+    expect(reg.nativeToValue([1n, 2n, 3n]).equal(dynamicList(reg, [1n, 2n, 3n]))).toBe(True);
+    expect(reg.nativeToValue(null).type().typeName()).toBe("null_type");
+  });
+
+  it("common/types/provider_test.go/TestUnsupportedConversion", () => {
+    expect(registry().nativeToValue(Symbol("non-convertible"))).toBeInstanceOf(Err);
   });
 });

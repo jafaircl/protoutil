@@ -8,6 +8,7 @@ import {
   Err,
   Int,
   type Lister,
+  ListType,
   type Mapper,
   Optional,
   OptionalNone,
@@ -419,6 +420,14 @@ abstract class QualifierBase implements Qualifier {
   ): [unknown, boolean] {
     try {
       const value = this.qualify(vars, obj);
+      if (
+        this.isOptional() &&
+        value instanceof Err &&
+        /out of range|no such key/.test(String(value))
+      ) {
+        // Optional dynamic indexing treats missing list indices and map keys as absence.
+        return [undefined, false];
+      }
       if (presenceOnly) {
         return [undefined, true];
       }
@@ -612,6 +621,21 @@ class AttributeQualifierImpl extends QualifierBase {
   }
 
   /**
+   * addQualifier appends nested qualification to the underlying dynamic attribute.
+   */
+  public addQualifier(qualifier: Qualifier): Attribute {
+    this.attributeValue.addQualifier(qualifier);
+    return this as unknown as Attribute;
+  }
+
+  /**
+   * resolve exposes the underlying dynamic attribute value for partial matching.
+   */
+  public resolve(vars: Activation): unknown {
+    return this.attributeValue.resolve(vars);
+  }
+
+  /**
    * qualify resolves the nested attribute and then applies its value as a qualifier.
    */
   public qualify(vars: Activation, obj: unknown): unknown {
@@ -626,13 +650,17 @@ class AttributeQualifierImpl extends QualifierBase {
     obj: unknown,
     presenceOnly: boolean,
   ): [unknown, boolean] {
-    return qualifyAttributeResultIfPresent(
-      this.factoryValue,
-      vars,
-      obj,
-      this.attributeValue,
-      presenceOnly,
-    );
+    const value = this.attributeValue.resolve(vars);
+    if (value instanceof Unknown) {
+      return [value, true];
+    }
+    return this.factoryValue
+      .qualifier({
+        id: this.id(),
+        value,
+        optional: this.isOptional(),
+      })
+      .qualifyIfPresent(vars, obj, presenceOnly);
   }
 }
 
@@ -947,6 +975,7 @@ class RelativeAttributeImpl implements Attribute {
    * qualifiersValue stores the qualifier path attached to the relative attribute.
    */
   private readonly qualifiersValue: Qualifier[] = [];
+  private optionalValue = false;
 
   /**
    * constructor initializes the relative attribute state.
@@ -973,7 +1002,15 @@ class RelativeAttributeImpl implements Attribute {
    * isOptional returns false because optionality is carried by nested qualifiers.
    */
   public isOptional(): boolean {
-    return false;
+    return this.optionalValue;
+  }
+
+  /**
+   * withOptional marks this dynamic attribute as an optional qualifier.
+   */
+  public withOptional(): Attribute {
+    this.optionalValue = true;
+    return this;
   }
 
   /**
@@ -1059,6 +1096,15 @@ export function applyQualifiers(
     optional = true;
   }
   for (const qualifierValue of qualifiersValue) {
+    // Optional values may appear at any point in a qualified path, including as map values.
+    // Treat absence as a safe traversal result before applying the next qualifier.
+    if (current instanceof Optional) {
+      if (!current.hasValue()) {
+        return { value: OptionalNone, optional: false };
+      }
+      current = current.getValue();
+      optional = true;
+    }
     optional = optional || qualifierValue.isOptional();
     if (optional) {
       const [qualified, present] = qualifierValue.qualifyIfPresent(vars, current, false);
@@ -1130,6 +1176,56 @@ export function isAttribute(value: unknown): value is Attribute {
     "addQualifier" in value &&
     typeof (value as { addQualifier?: unknown }).addQualifier === "function"
   );
+}
+
+/**
+ * optionalAttribute marks an attribute used as a dynamic qualifier as optional.
+ */
+export function optionalAttribute(attribute: Attribute): Attribute {
+  return new OptionalAttribute(attribute);
+}
+
+/**
+ * OptionalAttribute delegates dynamic resolution while reporting optional qualifier semantics.
+ */
+class OptionalAttribute implements Attribute {
+  /** constructor stores the dynamic qualifier attribute. */
+  constructor(private readonly attribute: Attribute) {}
+
+  /** id returns the delegated expression identifier. */
+  public id(): number {
+    return this.attribute.id();
+  }
+
+  /** isOptional reports that missing qualification yields optional.none. */
+  public isOptional(): boolean {
+    return true;
+  }
+
+  /** addQualifier appends a nested qualifier to the delegated attribute. */
+  public addQualifier(qualifier: Qualifier): Attribute {
+    this.attribute.addQualifier(qualifier);
+    return this;
+  }
+
+  /** qualify delegates dynamic qualification. */
+  public qualify(vars: Activation, obj: unknown): unknown {
+    return this.attribute.qualify(vars, obj);
+  }
+
+  /** qualifyIfPresent delegates presence-aware dynamic qualification. */
+  public qualifyIfPresent(
+    vars: Activation,
+    obj: unknown,
+    presenceOnly: boolean,
+  ): [unknown, boolean] {
+    return this.attribute.qualifyIfPresent(vars, obj, presenceOnly);
+  }
+
+  /** resolve delegates dynamic attribute resolution. */
+  public resolve(vars: Activation): unknown {
+    return this.attribute.resolve(vars);
+  }
 }
 
 /**
@@ -1275,6 +1371,23 @@ function qualifyConstantValue(options: QualifyConstantOptions): [unknown, boolea
     }
     throw missingKey(key);
   }
+  if (isListerValue(celValue)) {
+    const index = nativeIndexFromQualifier(key);
+    if (index instanceof Error) {
+      throw index;
+    }
+    const size = celValue.size();
+    if (size instanceof Err) {
+      throw size;
+    }
+    if (index >= 0 && index < Number(size.value())) {
+      return [presenceOnly ? undefined : celValue.get(key), true];
+    }
+    if (presenceTest) {
+      return [undefined, false];
+    }
+    throw missingIndex(key);
+  }
   if (isIndexerValue(celValue)) {
     if (presenceTest && isFieldTesterValue(celValue)) {
       const fieldSet = celValue.isSet(key);
@@ -1294,23 +1407,6 @@ function qualifyConstantValue(options: QualifyConstantOptions): [unknown, boolea
       throw value;
     }
     return [presenceOnly ? undefined : value, true];
-  }
-  if (isListerValue(celValue)) {
-    const index = nativeIndexFromQualifier(key);
-    if (index instanceof Error) {
-      throw index;
-    }
-    const size = celValue.size();
-    if (size instanceof Err) {
-      throw size;
-    }
-    if (index >= 0 && index < Number(size.value())) {
-      return [presenceOnly ? undefined : celValue.get(key), true];
-    }
-    if (presenceTest) {
-      return [undefined, false];
-    }
-    throw missingIndex(key);
   }
   if (presenceTest && !errorOnBadPresenceTest) {
     return [undefined, false];
@@ -1468,7 +1564,10 @@ function isListerValue(value: unknown): value is Lister {
     "get" in value &&
     typeof (value as { get?: unknown }).get === "function" &&
     "size" in value &&
-    typeof (value as { size?: unknown }).size === "function"
+    typeof (value as { size?: unknown }).size === "function" &&
+    "type" in value &&
+    typeof (value as { type?: unknown }).type === "function" &&
+    (value as unknown as Val).type() === ListType
   );
 }
 

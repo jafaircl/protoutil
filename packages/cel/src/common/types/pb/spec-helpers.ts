@@ -43,6 +43,7 @@ import {
   file_test_proto3pb_test_all_types,
   NestedTestAllTypesSchema as Proto3NestedTestAllTypesSchema,
   TestAllTypesSchema as Proto3TestAllTypesSchema,
+  TestAllTypes_NestedEnum,
   TestJsonNamesSchema,
 } from "../../../gen/test/proto3pb/test_all_types_pb.js";
 import { file_test_proto3pb_test_import } from "../../../gen/test/proto3pb/test_import_pb.js";
@@ -69,6 +70,7 @@ const schemaByTypeName = new Map<string, DescMessage>([
   [Int32ValueSchema.typeName, Int32ValueSchema],
   [Int64ValueSchema.typeName, Int64ValueSchema],
   [ListValueSchema.typeName, ListValueSchema],
+  [Proto3NestedTestAllTypesSchema.typeName, Proto3NestedTestAllTypesSchema],
   [Proto3TestAllTypesSchema.typeName, Proto3TestAllTypesSchema],
   [StringValueSchema.typeName, StringValueSchema],
   [StructSchema.typeName, StructSchema],
@@ -93,6 +95,28 @@ export function expectProtoEqual(actual: unknown, expected: unknown): void {
       extensions: true,
     }),
   ).toBe(true);
+}
+
+/**
+ * syncedProtoEqual compares protobuf messages with cel-go's Any and unknown-field semantics.
+ */
+export function syncedProtoEqual(left: unknown, right: unknown): boolean {
+  if (left === null || left === undefined || right === null || right === undefined) {
+    return left === right;
+  }
+  if (!isProtoMessage(left) || !isProtoMessage(right) || left.$typeName !== right.$typeName) {
+    return false;
+  }
+  const schema = registry.getMessage(left.$typeName);
+  if (!schema) {
+    throw new Error(`message descriptor not found for ${left.$typeName}`);
+  }
+  return equals(schema, left as MessageShape<typeof schema>, right as MessageShape<typeof schema>, {
+    registry,
+    unpackAny: true,
+    unknown: true,
+    extensions: true,
+  });
 }
 
 export function descriptorRoundTripFiles() {
@@ -230,13 +254,16 @@ function resolvePbExprString(expr: string): unknown {
 }
 
 function maybeResolveProto3Message(expr: string): unknown {
-  const match = /^&proto3pb\.TestAllTypes(?:\{(.*)\})?$/.exec(expr);
+  const match = /^&proto3pb\.(TestAllTypes|NestedTestAllTypes)(?:\{([\s\S]*)\})?$/.exec(expr);
   if (!match) {
     return undefined;
   }
-  const body = match[1]?.trim();
+  const [, messageName, rawBody] = match;
+  const schema =
+    messageName === "TestAllTypes" ? Proto3TestAllTypesSchema : Proto3NestedTestAllTypesSchema;
+  const body = rawBody?.trim();
   if (!body) {
-    return create(Proto3TestAllTypesSchema);
+    return create(schema);
   }
   const fields = Object.fromEntries(
     splitTopLevel(body).map((entry) => {
@@ -246,13 +273,95 @@ function maybeResolveProto3Message(expr: string): unknown {
       }
       const fieldName = entry.slice(0, colonIndex).trim();
       const fieldValue = entry.slice(colonIndex + 1).trim();
-      return [goFieldNameToTs(fieldName), resolvePbScalarLiteral(fieldValue)];
+      return [goFieldNameToTs(fieldName), resolvePbFieldLiteral(fieldName, fieldValue)];
     }),
   );
-  return create(
-    Proto3TestAllTypesSchema,
-    fields as MessageInitShape<typeof Proto3TestAllTypesSchema>,
+  return create(schema, fields as MessageInitShape<typeof schema>);
+}
+
+/**
+ * resolvePbFieldLiteral decodes the protobuf field literals emitted by synced cel-go fixtures.
+ */
+function resolvePbFieldLiteral(fieldName: string, expr: string): unknown {
+  const message = maybeResolveProto3Message(expr);
+  if (message !== undefined) {
+    return message;
+  }
+  const packed = maybeResolveEqualAny(expr);
+  if (packed !== undefined) {
+    return packed;
+  }
+  const list = /^\[\](?:int32|int64|uint32|uint64)\{([\s\S]*)\}$/.exec(expr);
+  if (list) {
+    const entries = splitTopLevel(list[1] ?? "");
+    const usesBigInt = /(?:Int64|Uint64)$/.test(fieldName);
+    return entries.map((entry) => (usesBigInt ? BigInt(entry) : Number(entry)));
+  }
+  if (expr.startsWith("map[int64]*proto3pb.NestedTestAllTypes{")) {
+    return resolveNestedMessageMap(expr);
+  }
+  if (expr === "proto3pb.TestAllTypes_BAR") {
+    return TestAllTypes_NestedEnum.BAR;
+  }
+  const scalar = resolvePbScalarLiteral(expr);
+  return /(?:Int64|Uint64)$/.test(fieldName) && typeof scalar === "number"
+    ? BigInt(scalar)
+    : scalar;
+}
+
+/**
+ * resolveNestedMessageMap decodes a Go map literal whose values use inferred nested-message types.
+ */
+function resolveNestedMessageMap(expr: string): Record<string, unknown> {
+  const match = /^map\[int64\]\*proto3pb\.NestedTestAllTypes\{([\s\S]*)\}$/.exec(expr);
+  if (!match) {
+    throw new Error(`unsupported nested protobuf map literal: ${expr}`);
+  }
+  return Object.fromEntries(
+    splitTopLevel(match[1] ?? "").map((entry) => {
+      const colonIndex = entry.indexOf(":");
+      if (colonIndex === -1) {
+        throw new Error(`invalid nested protobuf map entry: ${entry}`);
+      }
+      const key = entry.slice(0, colonIndex).trim();
+      const value = entry.slice(colonIndex + 1).trim();
+      const nestedExpr = value.startsWith("{") ? `&proto3pb.NestedTestAllTypes${value}` : value;
+      return [key, resolvePbExprString(nestedExpr)];
+    }),
   );
+}
+
+/**
+ * maybeResolveEqualAny decodes the Any helper calls used by cel-go's protobuf equality suite.
+ */
+function maybeResolveEqualAny(expr: string): unknown {
+  const match = /^(packAny|doublePackAny|badPackAny|misPackAny)\(t,\s*([\s\S]+)\)$/.exec(expr);
+  if (!match) {
+    return undefined;
+  }
+  const [, helper, nestedExpr] = match;
+  const nested = resolvePbExprString(nestedExpr!);
+  if (!isProtoMessage(nested)) {
+    throw new Error(`${helper}() requires a protobuf message: ${expr}`);
+  }
+  const schema = schemaByTypeName.get(nested.$typeName);
+  if (!schema) {
+    throw new Error(`message descriptor not found for ${nested.$typeName}`);
+  }
+  const packed = anyPack(schema, nested as MessageShape<typeof schema>);
+  switch (helper) {
+    case "doublePackAny":
+      return anyPack(AnySchema, packed);
+    case "badPackAny":
+      return { ...packed, typeUrl: "type.googleapis.com/BadType" };
+    case "misPackAny":
+      return {
+        ...packed,
+        typeUrl: `type.googleapis.com/${Proto3TestAllTypesSchema.typeName}`,
+      };
+    default:
+      return packed;
+  }
 }
 
 function maybeResolveReflectedValue(expr: string): unknown {
@@ -386,6 +495,13 @@ function resolvePbScalarLiteral(expr: string): boolean | number | bigint | strin
   const bytes = maybeResolveBytes(expr);
   if (bytes !== undefined) {
     return bytes;
+  }
+  if (expr === "float32(math.NaN())" || expr === "math.NaN()") {
+    return Number.NaN;
+  }
+  const typedNumber = /^(?:float32|float64|int32|int64|uint32|uint64)\((.+)\)$/.exec(expr);
+  if (typedNumber) {
+    return Number(typedNumber[1]);
   }
   if (expr.includes(".")) {
     return Number(expr);

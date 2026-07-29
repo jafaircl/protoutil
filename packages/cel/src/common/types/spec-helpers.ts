@@ -1,22 +1,29 @@
-import { create, type Message } from "@bufbuild/protobuf";
+import { create, fromJson, type Message } from "@bufbuild/protobuf";
 import { AnySchema, anyPack, ValueSchema, NullValue as WktNullValue } from "@bufbuild/protobuf/wkt";
-import type { Type as ExprType } from "../../gen/cel/expr/checked_pb.js";
+import type { Decl, Type as ExprType } from "../../gen/cel/expr/checked_pb.js";
 import { SourceInfoSchema } from "../../gen/cel/expr/syntax_pb.js";
+import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "../../gen/test/proto2pb/test_all_types_pb.js";
 import {
+  GlobalEnum,
   NestedTestAllTypesSchema,
   TestAllTypes_NestedEnum,
   TestAllTypes_NestedMessageSchema,
   TestAllTypesSchema,
 } from "../../gen/test/proto3pb/test_all_types_pb.js";
+import { constantDecl, type VariableDecl, variableDecl } from "../decls.js";
 import {
   AnyType,
+  attributeTrail,
+  Bool,
   BoolType,
   Bytes,
   String as CelString,
   Double,
   DoubleType,
   DurationType,
+  DynType,
   durationOf,
+  Err,
   ErrorType,
   False,
   Int,
@@ -47,6 +54,7 @@ import {
   typeTypeWithParam,
   Uint,
   UintType,
+  unknown,
   type Val,
 } from "./index.js";
 import { dynamicList } from "./list.js";
@@ -81,6 +89,108 @@ export function resolveSyncedProtoType(expr: unknown): ExprType {
     return resolveProtoTypeExprString(value.$expr);
   }
   return expr as ExprType;
+}
+
+/**
+ * resolveSyncedDecl decodes canonical CEL declaration composite literals emitted by the Go fixture sync.
+ */
+export function resolveSyncedDecl(value: unknown): Decl {
+  const expr = (value as { $expr?: string } | undefined)?.$expr?.trim();
+  if (expr === undefined) {
+    return value as Decl;
+  }
+  if (/^&exprpb\.Decl\{\s*\}$/.test(expr)) {
+    return {
+      $typeName: "cel.expr.Decl",
+      name: "",
+      declKind: { case: undefined },
+    };
+  }
+
+  const name = stripQuoted(goFieldExpression(expr, "Name") ?? '""');
+  if (expr.includes("&exprpb.Decl_Ident{")) {
+    const typeExpr = goFieldExpression(expr, "Type");
+    const valueExpr = goFieldExpression(expr, "Value");
+    return {
+      $typeName: "cel.expr.Decl",
+      name,
+      declKind: {
+        case: "ident",
+        value: {
+          $typeName: "cel.expr.Decl.IdentDecl",
+          doc: "",
+          type: typeExpr === undefined ? undefined : resolveGoProtoType(typeExpr),
+          value:
+            valueExpr === undefined
+              ? undefined
+              : {
+                  $typeName: "cel.expr.Constant",
+                  constantKind: { case: undefined },
+                },
+        },
+      },
+    };
+  }
+  if (expr.includes("&exprpb.Decl_Function{")) {
+    const overloadId = stripQuoted(goFieldExpression(expr, "OverloadId") ?? '""');
+    const resultTypeExpr = goFieldExpression(expr, "ResultType");
+    const paramsExpr = goFieldExpression(expr, "Params");
+    const params = paramsExpr === undefined ? [] : resolveGoProtoTypeSlice(paramsExpr);
+    return {
+      $typeName: "cel.expr.Decl",
+      name,
+      declKind: {
+        case: "function",
+        value: {
+          $typeName: "cel.expr.Decl.FunctionDecl",
+          doc: "",
+          overloads: [
+            {
+              $typeName: "cel.expr.Decl.FunctionDecl.Overload",
+              doc: "",
+              isInstanceFunction: false,
+              overloadId,
+              params,
+              resultType:
+                resultTypeExpr === undefined ? undefined : resolveGoProtoType(resultTypeExpr),
+              typeParams: [],
+            },
+          ],
+        },
+      },
+    };
+  }
+  throw new Error(`unsupported synced declaration expr: ${expr}`);
+}
+
+/**
+ * resolveSyncedVariableDecl decodes CEL variable and constant declaration expressions from synced
+ * fixtures, including caller-provided aliases for local Go type variables.
+ */
+export function resolveSyncedVariableDecl(
+  value: { $expr?: string },
+  typeAliases: Readonly<Record<string, Type>> = {},
+): VariableDecl {
+  const expr = value.$expr?.trim();
+  if (expr === undefined) {
+    throw new Error("synced variable declaration expression is missing");
+  }
+  if (expr.startsWith("Variable(") && expr.endsWith(")")) {
+    const [name, type] = splitArgs(expr.slice(9, -1));
+    return variableDecl(
+      stripQuoted(name),
+      typeAliases[type] ?? (resolveSyncedExpr({ $expr: type }) as Type),
+    );
+  }
+  if (expr.startsWith("Constant(") && expr.endsWith(")")) {
+    const [name, type, valueExpr] = splitArgs(expr.slice(9, -1));
+    return constantDecl(
+      stripQuoted(name),
+      resolveSyncedExpr({ $expr: type }) as Type,
+      resolveSyncedVal({ $expr: valueExpr }),
+    );
+  }
+  throw new Error(`unsupported synced variable declaration expr: ${expr}`);
 }
 
 export function resolveSyncedVal(expr: unknown): Val {
@@ -320,11 +430,12 @@ export function resolveProviderMessage(value: unknown): Message {
     });
   }
   if (expr.includes("SingleValue: structpb.NewBoolValue(true)")) {
-    return create(TestAllTypesSchema, { singleValue: true as never });
+    return create(TestAllTypesSchema, { singleValue: fromJson(ValueSchema, true) });
   }
+  // TODO: this looks suspiciously spec-shaped
   if (expr.includes("SingleValue: structpb.NewListValue(")) {
     return create(TestAllTypesSchema, {
-      singleValue: ["hello", 10.2] as never,
+      singleValue: fromJson(ValueSchema, ["hello", 10.2]),
     });
   }
   if (expr.includes("RepeatedNestedMessage: []*proto3pb.TestAllTypes_NestedMessage{{Bb: 123}}")) {
@@ -341,12 +452,29 @@ export function resolveProviderMessage(value: unknown): Message {
       },
     });
   }
+  // TODO: this looks suspiciously spec-shaped
   if (expr.startsWith("&exprpb.SourceInfo{")) {
     return create(SourceInfoSchema, {
       location: "TestRegistryNewValue",
       lineOffsets: [0, 2],
       positions: { "1": 2, "2": 4 },
     });
+  }
+  const simpleTestMessage = /^&(proto2pb|proto3pb)\.TestAllTypes\{([\s\S]*)\}$/.exec(expr);
+  if (simpleTestMessage) {
+    const fields = Object.fromEntries(
+      splitArgs(simpleTestMessage[2]!)
+        .filter((entry) => entry.includes(":"))
+        .map((entry) => {
+          const separator = entry.indexOf(":");
+          const goName = entry.slice(0, separator).trim();
+          const localName = `${goName.charAt(0).toLowerCase()}${goName.slice(1)}`;
+          return [localName, resolveProviderNativeLiteral(entry.slice(separator + 1).trim())];
+        }),
+    );
+    return simpleTestMessage[1] === "proto2pb"
+      ? create(Proto2TestAllTypesSchema, fields)
+      : create(TestAllTypesSchema, fields);
   }
   throw new Error(`unsupported provider synced message expr: ${expr}`);
 }
@@ -357,7 +485,7 @@ function resolveProviderFieldValue(reg: Registry, value: unknown): Val {
     return reg.nativeToValue(resolveRuntimeAssignableValue(value));
   }
   if (expr.startsWith("reg.NativeToValue(") && expr.endsWith(")")) {
-    return reg.nativeToValue(resolveProviderNativeValue(reg, expr.slice(18, -1)));
+    return reg.nativeToValue(resolveProviderNativeValue(expr.slice(18, -1)));
   }
   if (expr === "True" || expr === "False") {
     return reg.nativeToValue(resolveSyncedExpr(value));
@@ -365,8 +493,8 @@ function resolveProviderFieldValue(reg: Registry, value: unknown): Val {
   return resolveSyncedVal(value);
 }
 
-function resolveProviderNativeValue(_reg: Registry, expr: string): unknown {
-  const trimmed = expr.trim();
+function resolveProviderNativeValue(expr: string): unknown {
+  const trimmed = expr.trim().replace(/,$/, "").trim();
   if (trimmed.startsWith("[]")) {
     return resolveProviderNativeList(trimmed);
   }
@@ -377,7 +505,7 @@ function resolveProviderNativeValue(_reg: Registry, expr: string): unknown {
 }
 
 function resolveProviderNativeList(expr: string): unknown[] {
-  const match = /^\[\](?:int64|float64|any)\{([\s\S]*)\}$/.exec(expr);
+  const match = /^\[\](?:string|int64|float64|any)\{([\s\S]*)\}$/.exec(expr);
   if (!match) {
     throw new Error(`unsupported provider native list expr: ${expr}`);
   }
@@ -386,7 +514,7 @@ function resolveProviderNativeList(expr: string): unknown[] {
 }
 
 function resolveProviderNativeMap(expr: string): Record<string, unknown> {
-  const match = /^map\[([^\]]+)\](any|int64|int)\{([\s\S]*)\}$/.exec(expr);
+  const match = /^map\[([^\]]+)\](any|string|int64|int)\{([\s\S]*)\}$/.exec(expr);
   if (!match) {
     throw new Error(`unsupported provider native map expr: ${expr}`);
   }
@@ -405,21 +533,32 @@ function resolveProviderNativeMap(expr: string): Record<string, unknown> {
 }
 
 function resolveProviderNativeLiteral(expr: string): unknown {
-  if (expr.startsWith('"') && expr.endsWith('"')) {
-    return unquoteGoString(expr.slice(1, -1));
+  const trimmed = expr.trim();
+  if (trimmed.startsWith("map[")) {
+    return resolveProviderNativeMap(trimmed);
   }
-  if (/^-?\d+\.\d+$/.test(expr)) {
-    return Number(expr);
+  const nativeList = /^\[\](string|int32|int64|float64|any)\{([\s\S]*)\}$/.exec(trimmed);
+  if (nativeList) {
+    const values = splitArgs(nativeList[2]!.trim()).map((entry) =>
+      resolveProviderNativeLiteral(entry),
+    );
+    return nativeList[1] === "int32" ? values.map((value) => Number(value)) : values;
   }
-  if (/^-?\d+$/.test(expr)) {
-    return BigInt(expr);
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return unquoteGoString(trimmed.slice(1, -1));
   }
-  if (expr.startsWith("&proto3pb.TestAllTypes_NestedMessage{")) {
-    const bbMatch = /Bb:\s*(\d+)/.exec(expr);
+  if (/^-?\d+\.\d+$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+  if (/^-?\d+$/.test(trimmed)) {
+    return BigInt(trimmed);
+  }
+  if (trimmed.startsWith("&proto3pb.TestAllTypes_NestedMessage{")) {
+    const bbMatch = /Bb:\s*(\d+)/.exec(trimmed);
     return create(TestAllTypes_NestedMessageSchema, { bb: Number(bbMatch?.[1] ?? "0") });
   }
-  if (expr.startsWith("&proto3pb.NestedTestAllTypes{")) {
-    const intMatch = /SingleInt32:\s*(\d+)/.exec(expr);
+  if (trimmed.startsWith("&proto3pb.NestedTestAllTypes{")) {
+    const intMatch = /SingleInt32:\s*(\d+)/.exec(trimmed);
     return create(NestedTestAllTypesSchema, {
       payload: create(TestAllTypesSchema, { singleInt32: Number(intMatch?.[1] ?? "0") }),
     });
@@ -429,6 +568,9 @@ function resolveProviderNativeLiteral(expr: string): unknown {
 
 function resolveExprString(expr: string): unknown {
   expr = expr.trim().replace(/,$/, "").trim();
+  if (expr.startsWith("types.")) {
+    return resolveExprString(expr.slice("types.".length));
+  }
   if (/^[+-]?\d+\.\d+$/.test(expr)) {
     return Number(expr);
   }
@@ -474,6 +616,8 @@ function resolveExprString(expr: string): unknown {
       return TypeType;
     case "UintType":
       return UintType;
+    case "proto3pb.GlobalEnum_GAZ":
+      return GlobalEnum.GAZ;
     case "True":
       return true;
     case "False":
@@ -499,6 +643,24 @@ function resolveExprString(expr: string): unknown {
   }
   if (expr.startsWith("Int(") && expr.endsWith(")")) {
     return new Int(BigInt(expr.slice(4, -1)));
+  }
+  if (expr.startsWith("Bool(") && expr.endsWith(")")) {
+    return new Bool(expr.slice(5, -1) === "true");
+  }
+  const unknownMatch = /^NewUnknown\((-?\d+),\s*nil\)$/.exec(expr);
+  if (unknownMatch) {
+    return unknown(Number(unknownMatch[1]!));
+  }
+  const attributedUnknownMatch =
+    /^NewUnknown\((-?\d+),\s*(?:types\.)?NewAttributeTrail\("([^"]+)"\)\)$/.exec(expr);
+  if (attributedUnknownMatch) {
+    return unknown(Number(attributedUnknownMatch[1]!), attributeTrail(attributedUnknownMatch[2]!));
+  }
+  if (expr.startsWith("NewErr(") && expr.endsWith(")")) {
+    return new Err(stripQuoted(expr.slice(7, -1)));
+  }
+  if (expr.startsWith("fmt.Errorf(") && expr.endsWith(")")) {
+    return new Err(stripQuoted(expr.slice(11, -1)));
   }
   if (expr.startsWith("Uint(") && expr.endsWith(")")) {
     const inner = expr.slice(5, -1);
@@ -676,11 +838,44 @@ function resolveExprString(expr: string): unknown {
   if (expr.startsWith("OptionalOf(") && expr.endsWith(")")) {
     return optionalOf(resolveOptionalArg(expr.slice(11, -1)));
   }
+  if (expr.startsWith("adapter.NativeToValue(") && expr.endsWith(")")) {
+    return DefaultTypeAdapter.nativeToValue(resolveProviderNativeValue(expr.slice(22, -1)));
+  }
+  if (expr.startsWith("&proto2pb.") || expr.startsWith("&proto3pb.")) {
+    return resolveProviderMessage({ $expr: expr });
+  }
+  const concatenatedString = resolveConcatenatedGoString(expr);
+  if (concatenatedString !== undefined) {
+    return concatenatedString;
+  }
   throw new Error(`unsupported synced expr: ${expr}`);
+}
+
+/**
+ * resolveConcatenatedGoString decodes a Go expression composed only of quoted strings and plus
+ * operators, as emitted for multiline table-driven string fixtures.
+ */
+function resolveConcatenatedGoString(expr: string): string | undefined {
+  const literals = [...expr.matchAll(/"(?:\\.|[^"\\])*"/g)];
+  if (literals.length === 0) {
+    return undefined;
+  }
+  const operators = expr
+    .replace(/"(?:\\.|[^"\\])*"/g, "")
+    .replaceAll("+", "")
+    .trim();
+  if (operators.length !== 0) {
+    return undefined;
+  }
+  return literals.map((literal) => JSON.parse(literal[0]) as string).join("");
 }
 
 function resolveProtoTypeExprString(expr: string): ExprType {
   switch (expr) {
+    case "chkdecls.Bool":
+      return typeToExprType(BoolType);
+    case "chkdecls.Dyn":
+      return typeToExprType(DynType);
     case "chkdecls.Error":
       return {
         $typeName: "cel.expr.Type",
@@ -716,6 +911,95 @@ function resolveProtoTypeExprString(expr: string): ExprType {
     );
   }
   return resolveSyncedExpr({ $expr: expr }) as ExprType;
+}
+
+/**
+ * Resolves a canonical CEL protobuf type expressed with checker declaration helpers.
+ */
+function resolveGoProtoType(expr: string): ExprType {
+  const trimmed = expr.trim();
+  if (/^&exprpb\.Type\{\s*\}$/.test(trimmed)) {
+    return {
+      $typeName: "cel.expr.Type",
+      typeKind: { case: undefined },
+    };
+  }
+  if (trimmed.startsWith("chkdecls.NewListType(") && trimmed.endsWith(")")) {
+    return {
+      $typeName: "cel.expr.Type",
+      typeKind: {
+        case: "listType",
+        value: {
+          $typeName: "cel.expr.Type.ListType",
+          elemType: resolveGoProtoType(trimmed.slice(21, -1)),
+        },
+      },
+    };
+  }
+  return resolveProtoTypeExprString(trimmed);
+}
+
+/**
+ * Resolves a Go slice literal containing canonical CEL protobuf types.
+ */
+function resolveGoProtoTypeSlice(expr: string): ExprType[] {
+  const match = /^\[\]\*exprpb\.Type\{([\s\S]*)\}$/.exec(expr.trim());
+  if (!match) {
+    throw new Error(`unsupported synced protobuf type slice: ${expr}`);
+  }
+  const body = match[1]!.trim();
+  if (body === "") {
+    return [];
+  }
+  return splitArgs(body).map((entry) =>
+    resolveGoProtoType(entry === "{}" ? "&exprpb.Type{}" : entry),
+  );
+}
+
+/**
+ * Extracts a named field expression from a Go composite literal without evaluating it.
+ */
+function goFieldExpression(source: string, fieldName: string): string | undefined {
+  const marker = `${fieldName}:`;
+  const markerIndex = source.indexOf(marker);
+  if (markerIndex < 0) {
+    return undefined;
+  }
+  const start = markerIndex + marker.length;
+  let braces = 0;
+  let brackets = 0;
+  let parentheses = 0;
+  let inString = false;
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index]!;
+    const previous = index > start ? source[index - 1] : "";
+    if (char === '"' && previous !== "\\") {
+      inString = !inString;
+      continue;
+    }
+    if (inString) {
+      continue;
+    }
+    if (char === "{") {
+      braces += 1;
+    } else if (char === "}") {
+      if (braces === 0 && brackets === 0 && parentheses === 0) {
+        return source.slice(start, index).trim().replace(/,$/, "").trim();
+      }
+      braces -= 1;
+    } else if (char === "[") {
+      brackets += 1;
+    } else if (char === "]") {
+      brackets -= 1;
+    } else if (char === "(") {
+      parentheses += 1;
+    } else if (char === ")") {
+      parentheses -= 1;
+    } else if (char === "," && braces === 0 && brackets === 0 && parentheses === 0) {
+      return source.slice(start, index).trim();
+    }
+  }
+  return source.slice(start).trim();
 }
 
 function resolveOptionalArg(expr: string): Val {

@@ -9,7 +9,7 @@ import { BytesType, listType, registry } from "../common/types/index.js";
 import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import { parse } from "../parser/parser.js";
 import { check } from "./checker.js";
-import { CallEstimate, cost, SizeEstimate } from "./cost.js";
+import { CallEstimate, cost, SizeEstimate, sizeEstimate } from "./cost.js";
 import { env } from "./env.js";
 import { resolveCostCase, type SyncedCostCase } from "./spec-helpers.js";
 
@@ -55,7 +55,16 @@ const testEstimator = {
 
 let currentHints: Record<string, number> = {};
 
-describe("checker/cost", () => {
+describe("functional cost API", () => {
+  it("creates a size estimate from an option object", () => {
+    const estimate = sizeEstimate(1n, 10n);
+
+    expect(estimate.Min).toBe(1n);
+    expect(estimate.Max).toBe(10n);
+  });
+});
+
+describe("checker/cost_test.go/TestCost", () => {
   for (const [index, testCase] of syncedCases<SyncedCostCase>(
     "checker/cost_test.go/TestCost",
   ).entries()) {

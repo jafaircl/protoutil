@@ -12,6 +12,7 @@ import {
   BoolValueSchema,
   DurationSchema,
   EmptySchema,
+  FieldMaskSchema,
   TimestampSchema,
   ValueSchema,
 } from "@bufbuild/protobuf/wkt";
@@ -236,6 +237,7 @@ export const DefaultDb = (() => {
   defaultDb.registerDescriptor(AnySchema.file);
   defaultDb.registerDescriptor(DurationSchema.file);
   defaultDb.registerDescriptor(EmptySchema.file);
+  defaultDb.registerDescriptor(FieldMaskSchema.file);
   defaultDb.registerDescriptor(TimestampSchema.file);
   defaultDb.registerDescriptor(ValueSchema.file);
   defaultDb.registerDescriptor(BoolValueSchema.file);

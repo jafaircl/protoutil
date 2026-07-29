@@ -1,11 +1,11 @@
 import {
+  overload as declarationOverload,
   excludeOverloads,
   type FunctionDecl,
   functionDecl,
   includeOverloads,
   memberOverload,
   type OverloadDecl,
-  overload,
   type VariableDecl,
   variableDecl,
   variableDeclWithDoc,
@@ -139,12 +139,15 @@ export class Config {
   /** AddVariableDecls adds one or more variables to the config, converting them to serializable values first. */
   public addVariableDecls(...vars: Array<VariableDecl | undefined>): this {
     const converted: Variable[] = [];
-    for (const variable of vars) {
-      if (!variable) {
+    for (const declaration of vars) {
+      if (!declaration) {
         continue;
       }
-      const serial = new Variable(variable.name(), serializeTypeDesc(variable.type()));
-      serial.description = variable.description();
+      const serial = variable({
+        name: declaration.name(),
+        type: serializeTypeDesc(declaration.type()),
+        description: declaration.description(),
+      });
       converted.push(serial);
     }
     return this.addVariables(...converted);
@@ -174,12 +177,26 @@ export class Config {
         const resultType = serializeTypeDesc(entry.resultType());
         const examples = entry.examples();
         if (entry.isMemberFunction()) {
-          return new Overload(entry.id(), argTypes.slice(1), resultType, argTypes[0], examples);
+          return overload({
+            id: entry.id(),
+            args: argTypes.slice(1),
+            returnType: resultType,
+            target: argTypes[0],
+            examples,
+          });
         }
-        return new Overload(entry.id(), argTypes, resultType, undefined, examples);
+        return overload({
+          id: entry.id(),
+          args: argTypes,
+          returnType: resultType,
+          examples,
+        });
       });
-      const serial = new Function(fn.name(), overloads);
-      serial.description = fn.description();
+      const serial = func({
+        name: fn.name(),
+        overloads,
+        description: fn.description(),
+      });
       converted.push(serial);
     }
     return this.addFunctions(...converted);
@@ -426,7 +443,7 @@ export class Overload {
       const targetType = this.target.asCELType(tp);
       return memberOverload(this.id, [targetType, ...argTypes], resultType, { doc });
     }
-    return overload(this.id, argTypes, resultType, { doc });
+    return declarationOverload(this.id, argTypes, resultType, { doc });
   }
 }
 
@@ -798,6 +815,153 @@ export class TypeDesc {
   }
 }
 
+/** ConfigOptions configures a YAML-serializable CEL environment. */
+export interface ConfigOptions {
+  name: string;
+  description?: string;
+  container?: string;
+  imports?: Import[];
+  stdlib?: LibrarySubset;
+  extensions?: Extension[];
+  contextVariable?: ContextVariable;
+  variables?: Variable[];
+  functions?: Function[];
+  validators?: Validator[];
+  features?: Feature[];
+  limits?: Limit[];
+}
+
+/** Config creates an instance of a YAML-serializable CEL environment configuration. */
+export function config(options: ConfigOptions): Config {
+  const value = new Config(options.name);
+  value.description = options.description ?? "";
+  value.container = options.container ?? "";
+  value.imports = [...(options.imports ?? [])];
+  value.stdlib = options.stdlib;
+  value.extensions = [...(options.extensions ?? [])];
+  value.contextVariable = options.contextVariable;
+  value.variables = [...(options.variables ?? [])];
+  value.functions = [...(options.functions ?? [])];
+  value.validators = [...(options.validators ?? [])];
+  value.features = [...(options.features ?? [])];
+  value.limits = [...(options.limits ?? [])];
+  return value;
+}
+
+/**
+ * ImportType returns a serializable import value from the qualified type name.
+ *
+ * The `importType` name avoids colliding with the JavaScript `import` keyword.
+ */
+export function importType(name: string): Import {
+  return new Import(name);
+}
+
+/** VariableOptions configures a serializable typed variable declaration. */
+export interface VariableOptions {
+  name: string;
+  type?: TypeDesc;
+  description?: string;
+}
+
+/** Variable returns a serializable variable from a name and type definition. */
+export function variable(options: VariableOptions): Variable {
+  const value = new Variable(options.name, options.type);
+  value.description = options.description ?? "";
+  return value;
+}
+
+/** ContextVariable creates a serializable context variable with a specific type name. */
+export function contextVariable(typeName: string): ContextVariable {
+  return new ContextVariable(typeName);
+}
+
+/** FuncOptions configures a serializable function and its overload set. */
+export interface FuncOptions {
+  name: string;
+  overloads?: Overload[];
+  description?: string;
+}
+
+/** Function creates a serializable function and overload set. */
+export function func(options: FuncOptions): Function {
+  const value = new Function(options.name, [...(options.overloads ?? [])]);
+  value.description = options.description ?? "";
+  return value;
+}
+
+/** OverloadOptions configures a serializable global or member overload. */
+export interface OverloadOptions {
+  id: string;
+  args?: TypeDesc[];
+  returnType?: TypeDesc;
+  target?: TypeDesc;
+  examples?: string[];
+}
+
+/** Overload returns a serializable representation of a global or member overload. */
+export function overload(options: OverloadOptions): Overload {
+  return new Overload(options.id, [...(options.args ?? [])], options.returnType, options.target, [
+    ...(options.examples ?? []),
+  ]);
+}
+
+/** Extension creates a serializable extension from a name and version string. */
+export function extension(name: string, version?: string): Extension {
+  return new Extension(name, version);
+}
+
+/** LibrarySubsetOptions configures the macros and functions supported by a subsettable library. */
+export interface LibrarySubsetOptions {
+  disabled?: boolean;
+  disableMacros?: boolean;
+  includeMacros?: string[];
+  excludeMacros?: string[];
+  includeFunctions?: Function[];
+  excludeFunctions?: Function[];
+}
+
+/** LibrarySubset creates a configurable subset of macros and functions. */
+export function librarySubset(options: LibrarySubsetOptions = {}): LibrarySubset {
+  const value = new LibrarySubset();
+  value.disabled = options.disabled ?? false;
+  value.disableMacros = options.disableMacros ?? false;
+  value.includeMacros = [...(options.includeMacros ?? [])];
+  value.excludeMacros = [...(options.excludeMacros ?? [])];
+  value.includeFunctions = [...(options.includeFunctions ?? [])];
+  value.excludeFunctions = [...(options.excludeFunctions ?? [])];
+  return value;
+}
+
+/** Validator returns a named validator instance. */
+export function validator(name: string, config: Record<string, unknown> = {}): Validator {
+  const value = new Validator(name);
+  value.config = { ...config };
+  return value;
+}
+
+/** Feature creates a feature flag with a boolean enablement flag. */
+export function feature(name: string, enabled: boolean): Feature {
+  return new Feature(name, enabled);
+}
+
+/** Limit creates a named CEL environment limit. */
+export function limit(name: string, value: number): Limit {
+  return new Limit(name, value);
+}
+
+/** TypeDescOptions configures a serializable CEL type description. */
+export interface TypeDescOptions {
+  typeName: string;
+  params?: TypeDesc[];
+  isTypeParam?: boolean;
+}
+
+/** TypeDesc describes a simple or complex type with parameters. */
+export function typeDesc(options: TypeDescOptions): TypeDesc {
+  return new TypeDesc(options.typeName, [...(options.params ?? [])], options.isTypeParam);
+}
+
 const wrapperTypeNames = new Map<Kind, string>([
   [Kind.Bool, "google.protobuf.BoolValue"],
   [Kind.Bytes, "google.protobuf.BytesValue"],
@@ -810,13 +974,13 @@ const wrapperTypeNames = new Map<Kind, string>([
 /** SerializeTypeDesc converts a CEL native Type to a serializable TypeDesc. */
 export function serializeTypeDesc(t: Type): TypeDesc {
   if (t.kind() === Kind.TypeParam) {
-    return new TypeDesc(t.typeName(), [], true);
+    return typeDesc({ typeName: t.typeName(), isTypeParam: true });
   }
   let typeName = t.typeName();
   if (t !== NullType && t.isAssignableType(NullType)) {
     const wrapperType = wrapperTypeNames.get(t.kind());
     if (wrapperType) {
-      return new TypeDesc(wrapperType);
+      return typeDesc({ typeName: wrapperType });
     }
   }
   const params = t.parameters().map((param) => serializeTypeDesc(param));
@@ -833,7 +997,7 @@ export function serializeTypeDesc(t: Type): TypeDesc {
     default:
       break;
   }
-  return new TypeDesc(typeName, params);
+  return typeDesc({ typeName, params });
 }
 
 type RawObject = Record<string, unknown>;
@@ -860,11 +1024,11 @@ function typeDescFromRaw(value: unknown): TypeDesc | undefined {
   if (!isRecord(value)) {
     throw new Error("unsupported yaml for TypeDesc");
   }
-  return new TypeDesc(
-    toStringValue(value.type_name),
-    Array.isArray(value.params) ? value.params.map((entry) => typeDescFromRaw(entry)!) : [],
-    Boolean(value.is_type_param),
-  );
+  return typeDesc({
+    typeName: toStringValue(value.type_name),
+    params: Array.isArray(value.params) ? value.params.map((entry) => typeDescFromRaw(entry)!) : [],
+    isTypeParam: Boolean(value.is_type_param),
+  });
 }
 
 /** HydrateConfig converts parsed YAML/JSON data into a Config instance. */
@@ -872,102 +1036,102 @@ export function hydrateConfig(raw: unknown): Config {
   if (!isRecord(raw)) {
     throw new Error("invalid config: expected object");
   }
-  const config = new Config(toStringValue(raw.name));
-  config.description = toStringValue(raw.description);
-  config.container = toStringValue(raw.container);
-  config.imports = Array.isArray(raw.imports)
-    ? raw.imports.map((entry) => new Import(toStringValue((entry as RawObject).name)))
-    : [];
-  config.stdlib = isRecord(raw.stdlib) ? hydrateLibrarySubset(raw.stdlib) : undefined;
-  config.extensions = Array.isArray(raw.extensions)
-    ? raw.extensions.map((entry) => {
-        const obj = entry as RawObject;
-        return new Extension(toStringValue(obj.name), toStringValue(obj.version));
-      })
-    : [];
-  config.contextVariable = isRecord(raw.context_variable)
-    ? new ContextVariable(toStringValue((raw.context_variable as RawObject).type_name))
-    : undefined;
-  config.variables = Array.isArray(raw.variables)
-    ? raw.variables.map((entry) => hydrateVariable(entry))
-    : [];
-  config.functions = Array.isArray(raw.functions)
-    ? raw.functions.map((entry) => hydrateFunction(entry))
-    : [];
-  config.validators = Array.isArray(raw.validators)
-    ? raw.validators.map((entry) => {
-        const obj = entry as RawObject;
-        const validator = new Validator(toStringValue(obj.name));
-        if (isRecord(obj.config)) {
-          validator.setConfig({ ...obj.config });
-        }
-        return validator;
-      })
-    : [];
-  config.features = Array.isArray(raw.features)
-    ? raw.features.map((entry) => {
-        const obj = entry as RawObject;
-        return new Feature(toStringValue(obj.name), Boolean(obj.enabled));
-      })
-    : [];
-  config.limits = Array.isArray(raw.limits)
-    ? raw.limits.map((entry) => {
-        const obj = entry as RawObject;
-        return new Limit(toStringValue(obj.name), Number(obj.value ?? 0));
-      })
-    : [];
-  return config;
+  const configValue = config({
+    name: toStringValue(raw.name),
+    description: toStringValue(raw.description),
+    container: toStringValue(raw.container),
+    imports: Array.isArray(raw.imports)
+      ? raw.imports.map((entry) => importType(toStringValue((entry as RawObject).name)))
+      : [],
+    stdlib: isRecord(raw.stdlib) ? hydrateLibrarySubset(raw.stdlib) : undefined,
+    extensions: Array.isArray(raw.extensions)
+      ? raw.extensions.map((entry) => {
+          const obj = entry as RawObject;
+          return extension(toStringValue(obj.name), toStringValue(obj.version));
+        })
+      : [],
+    contextVariable: isRecord(raw.context_variable)
+      ? contextVariable(toStringValue((raw.context_variable as RawObject).type_name))
+      : undefined,
+    variables: Array.isArray(raw.variables)
+      ? raw.variables.map((entry) => hydrateVariable(entry))
+      : [],
+    functions: Array.isArray(raw.functions)
+      ? raw.functions.map((entry) => hydrateFunction(entry))
+      : [],
+    validators: Array.isArray(raw.validators)
+      ? raw.validators.map((entry) => {
+          const obj = entry as RawObject;
+          return validator(toStringValue(obj.name), isRecord(obj.config) ? obj.config : undefined);
+        })
+      : [],
+    features: Array.isArray(raw.features)
+      ? raw.features.map((entry) => {
+          const obj = entry as RawObject;
+          return feature(toStringValue(obj.name), Boolean(obj.enabled));
+        })
+      : [],
+    limits: Array.isArray(raw.limits)
+      ? raw.limits.map((entry) => {
+          const obj = entry as RawObject;
+          return limit(toStringValue(obj.name), Number(obj.value ?? 0));
+        })
+      : [],
+  });
+  return configValue;
 }
 
 function hydrateLibrarySubset(raw: RawObject): LibrarySubset {
-  const subset = new LibrarySubset();
-  subset.disabled = Boolean(raw.disabled);
-  subset.disableMacros = Boolean(raw.disable_macros);
-  subset.includeMacros = toStringArray(raw.include_macros);
-  subset.excludeMacros = toStringArray(raw.exclude_macros);
-  subset.includeFunctions = Array.isArray(raw.include_functions)
-    ? raw.include_functions.map((entry) => hydrateFunction(entry))
-    : [];
-  subset.excludeFunctions = Array.isArray(raw.exclude_functions)
-    ? raw.exclude_functions.map((entry) => hydrateFunction(entry))
-    : [];
-  return subset;
+  return librarySubset({
+    disabled: Boolean(raw.disabled),
+    disableMacros: Boolean(raw.disable_macros),
+    includeMacros: toStringArray(raw.include_macros),
+    excludeMacros: toStringArray(raw.exclude_macros),
+    includeFunctions: Array.isArray(raw.include_functions)
+      ? raw.include_functions.map((entry) => hydrateFunction(entry))
+      : [],
+    excludeFunctions: Array.isArray(raw.exclude_functions)
+      ? raw.exclude_functions.map((entry) => hydrateFunction(entry))
+      : [],
+  });
 }
 
 function hydrateVariable(raw: unknown): Variable {
   const obj = raw as RawObject;
-  const variable = new Variable(
-    toStringValue(obj.name),
-    obj.type_name !== undefined || obj.params !== undefined || obj.is_type_param !== undefined
-      ? typeDescFromRaw(obj)
-      : typeDescFromRaw(obj.type),
-  );
-  variable.description = toStringValue(obj.description);
+  const variableValue = variable({
+    name: toStringValue(obj.name),
+    type:
+      obj.type_name !== undefined || obj.params !== undefined || obj.is_type_param !== undefined
+        ? typeDescFromRaw(obj)
+        : typeDescFromRaw(obj.type),
+    description: toStringValue(obj.description),
+  });
   if (obj.type !== undefined && obj.type_name !== undefined) {
-    variable.type = typeDescFromRaw(obj.type);
+    variableValue.type = typeDescFromRaw(obj.type);
   }
-  return variable;
+  return variableValue;
 }
 
 function hydrateFunction(raw: unknown): Function {
   const obj = raw as RawObject;
-  const fn = new Function(
-    toStringValue(obj.name),
-    Array.isArray(obj.overloads) ? obj.overloads.map((entry) => hydrateOverload(entry)) : [],
-  );
-  fn.description = toStringValue(obj.description);
-  return fn;
+  return func({
+    name: toStringValue(obj.name),
+    overloads: Array.isArray(obj.overloads)
+      ? obj.overloads.map((entry) => hydrateOverload(entry))
+      : [],
+    description: toStringValue(obj.description),
+  });
 }
 
 function hydrateOverload(raw: unknown): Overload {
   const obj = raw as RawObject;
-  return new Overload(
-    toStringValue(obj.id),
-    Array.isArray(obj.args) ? obj.args.map((entry) => typeDescFromRaw(entry)!) : [],
-    typeDescFromRaw(obj.return),
-    typeDescFromRaw(obj.target),
-    toStringArray(obj.examples),
-  );
+  return overload({
+    id: toStringValue(obj.id),
+    args: Array.isArray(obj.args) ? obj.args.map((entry) => typeDescFromRaw(entry)!) : [],
+    returnType: typeDescFromRaw(obj.return),
+    target: typeDescFromRaw(obj.target),
+    examples: toStringArray(obj.examples),
+  });
 }
 
 /** SerializeConfig converts a Config instance to a plain object for YAML/JSON output. */
@@ -1112,7 +1276,7 @@ class TypeDescParser {
     this.skipWhitespace();
     if (this.current() === "~") {
       this.pos += 1;
-      return new TypeDesc(this.parseTypeParamIdent(), [], true);
+      return typeDesc({ typeName: this.parseTypeParamIdent(), isTypeParam: true });
     }
     return this.parseConcreteType();
   }
@@ -1120,7 +1284,7 @@ class TypeDescParser {
   private parseConcreteType(): TypeDesc {
     const id = this.parseNamespaceIdentifier();
     if (this.current() !== "<") {
-      return new TypeDesc(id);
+      return typeDesc({ typeName: id });
     }
     this.pos += 1;
     const params: TypeDesc[] = [];
@@ -1138,7 +1302,7 @@ class TypeDescParser {
       }
       throw new Error(`expected ',' or '>' at position ${this.pos}`);
     }
-    return new TypeDesc(id, params);
+    return typeDesc({ typeName: id, params });
   }
 
   private parseNamespaceIdentifier(): string {

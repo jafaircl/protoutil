@@ -65,6 +65,21 @@ export interface EvalStateObserverOptions {
    * factory creates a fresh EvalState for each evaluation.
    */
   factory?: () => EvalState;
+
+  /**
+   * sink receives the fresh EvalState created for each evaluation.
+   */
+  sink?: EvalStateSink;
+}
+
+/**
+ * EvalStateSink receives the state associated with the current evaluation.
+ */
+export interface EvalStateSink {
+  /**
+   * setEvalState records the state created when evaluation begins.
+   */
+  setEvalState(state: EvalState): void;
 }
 
 /**
@@ -177,15 +192,16 @@ class EvalStateFactoryObserver implements StatefulObserver {
   private readonly stateByActivationValue = new WeakMap<object, EvalState>();
 
   /**
-   * constructor stores the EvalState factory.
+   * constructor stores EvalState creation and publication options.
    */
-  constructor(private readonly factoryValue: () => EvalState) {}
+  constructor(private readonly optionsValue: EvalStateObserverOptions) {}
 
   /**
    * initState creates a fresh EvalState for the evaluation.
    */
   public initState(activation: unknown): unknown {
-    const state = this.factoryValue();
+    const state = this.optionsValue.factory?.() ?? evalState();
+    this.optionsValue.sink?.setEvalState(state);
     if (typeof activation === "object" && activation !== null) {
       this.stateByActivationValue.set(activation, state);
     }
@@ -318,7 +334,7 @@ export function defaultPlannerState(): PlannerState {
  * evalStateObserverConfig returns planner configuration for eval-state observation.
  */
 export function evalStateObserverConfig(options: EvalStateObserverOptions = {}): PlannerConfig {
-  const observer = new EvalStateFactoryObserver(options.factory ?? evalState);
+  const observer = new EvalStateFactoryObserver(options);
   return {
     observers: [observer],
     decorators: [observeEvalDecorator(observer.observe.bind(observer))],

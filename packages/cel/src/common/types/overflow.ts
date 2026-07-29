@@ -1,5 +1,6 @@
 import {
   errDivideByZero,
+  errDurationOverflow,
   errIntOverflow,
   errModulusByZero,
   errTimestampOverflowValue,
@@ -20,6 +21,16 @@ export const minUnixTime = -62_135_596_800n;
  * Number of seconds between `9999-12-31T23:59:59.999999999Z` and the Unix epoch.
  */
 export const maxUnixTime = 253_402_300_799n;
+
+/**
+ * durationNanosChecked validates that nanoseconds fit CEL's signed 64-bit duration representation.
+ */
+export function durationNanosChecked(nanos: bigint): bigint {
+  if (nanos < MIN_INT64 || nanos > MAX_INT64) {
+    throw errDurationOverflow;
+  }
+  return nanos;
+}
 
 /**
  * doubleTwoTo64 mirrors the cel-go constant used by floating-point uint conversions.

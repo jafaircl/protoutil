@@ -215,6 +215,11 @@ export interface PartialAttributeFactoryOptions {
    * provider resolves identifiers that are not regular variables.
    */
   provider?: Provider;
+
+  /**
+   * errorOnBadPresenceTest reports invalid presence traversals instead of treating them as absent.
+   */
+  errorOnBadPresenceTest?: boolean;
 }
 
 /**
@@ -233,11 +238,13 @@ class PartialAttributeFactory implements AttributeFactory {
     private readonly containerValue: Container,
     adapterValue: Adapter,
     providerValue: Provider,
+    errorOnBadPresenceTest: boolean,
   ) {
     this.baseFactoryValue = attributeFactory({
       containerValue,
       adapter: adapterValue,
       provider: providerValue,
+      errorOnBadPresenceTest,
     });
   }
 
@@ -602,6 +609,7 @@ export function partialAttributeFactory(
           throw new Error("provider not configured");
         },
       } satisfies Provider),
+    options.errorOnBadPresenceTest ?? false,
   );
 }
 
