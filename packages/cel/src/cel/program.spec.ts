@@ -7,6 +7,7 @@ import {
   DynType,
   env,
   functionDecl,
+  Int,
   IntType,
   isUnknown,
   listType,
@@ -14,6 +15,7 @@ import {
   declOverload as overload,
   StringType,
   TimestampType,
+  True,
   type Unknown,
   type Val,
   variableDecl,
@@ -23,6 +25,28 @@ import {
   attributePattern,
   partialActivation,
 } from "../interpreter/activation.js";
+import { constValue } from "../interpreter/interpretable.js";
+import { EvalProgram, type EvalResult } from "./program.js";
+
+/**
+ * DetailsRejectingProgram detects whether the value-only evaluation path delegates to details.
+ */
+class DetailsRejectingProgram extends EvalProgram {
+  /**
+   * evalWithDetails fails because value-only evaluation must not allocate or request details.
+   */
+  public override evalWithDetails(_input: unknown): EvalResult {
+    throw new Error("details path invoked");
+  }
+}
+
+describe("cel/cel_test.go/BenchmarkEvalOptions", () => {
+  it("evaluates without entering the details-producing path", () => {
+    const program = new DetailsRejectingProgram(constValue({ id: 1, value: True }));
+
+    expect(program.eval({})).toBe(True);
+  });
+});
 
 describe("cel/cel_test.go/TestEvalRecover", () => {
   it("converts host binding exceptions into internal evaluation errors", () => {
@@ -45,6 +69,312 @@ describe("cel/cel_test.go/TestEvalRecover", () => {
     expect(() => celEnv.program(ast, { trackState: true }).eval({})).toThrow(
       "internal error: watch me recover",
     );
+  });
+});
+
+describe("cel/program_async_test.go/TestConcurrentEval", () => {
+  it("resolves dependent asynchronous calls across evaluation passes", async () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncDouble", {
+          overloads: [
+            overload("async_double_int", [IntType], IntType, {
+              asyncBinding: async (_signal, value) =>
+                new Int((value as Int).value() * 2n),
+            }),
+          ],
+        }),
+      ],
+    });
+    const program = celEnv.program(celEnv.compile("asyncDouble(asyncDouble(1))"));
+    const result = await program.concurrentEval({}, { signal: new AbortController().signal });
+    expect(result.value.value()).toBe(4n);
+  });
+});
+
+describe("cel/program_async_test.go/TestEvalRejectsAsync", () => {
+  it("rejects asynchronous declarations from synchronous evaluation", () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncIdentity", {
+          overloads: [
+            overload("async_identity_int", [IntType], IntType, {
+              asyncBinding: async (_signal, value) => value!,
+            }),
+          ],
+        }),
+      ],
+    });
+    const program = celEnv.program(celEnv.compile("asyncIdentity(1)"));
+    expect(() => program.eval({})).toThrow(
+      "expression contains asynchronous function calls; use concurrentEval",
+    );
+  });
+});
+
+describe("cel/program_async_test.go/TestContextEvalRejectsAsync", () => {
+  it("rejects asynchronous declarations from context-aware synchronous evaluation", () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncIdentity", {
+          overloads: [
+            overload("async_identity_int", [IntType], IntType, {
+              asyncBinding: async (_signal, value) => value!,
+            }),
+          ],
+        }),
+      ],
+    });
+    const program = celEnv.program(celEnv.compile("asyncIdentity(1)"));
+    expect(() =>
+      program.contextEval({}, { signal: new AbortController().signal }),
+    ).toThrow("expression contains asynchronous function calls; use concurrentEval");
+  });
+});
+
+describe("cel/program_async_test.go/TestConcurrentEvalAllowsPartialUnknown", () => {
+  it("preserves unrelated partial unknowns after async calls resolve", async () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncTrue", {
+          overloads: [
+            overload("async_true", [], BoolType, {
+              asyncBinding: async () => True,
+            }),
+          ],
+        }),
+      ],
+      variables: [variableDecl("missing", BoolType)],
+    });
+    const program = celEnv.program(celEnv.compile("asyncTrue() && missing"), {
+      partialEval: true,
+    });
+    const result = await program.concurrentEval(
+      partialActivation({
+        bindings: {},
+        unknowns: [attributePattern("missing")],
+      }),
+      { signal: new AbortController().signal },
+    );
+    expect(isUnknown(result.value)).toBe(true);
+  });
+});
+
+describe("cel/program_async_test.go/TestContextEvalAllowsPartialUnknown", () => {
+  it("does not mistake a partial-evaluation variable unknown for an async call", () => {
+    const celEnv = env({ variables: [variableDecl("x", IntType)] });
+    const program = celEnv.program(celEnv.compile("x + 1"), { partialEval: true });
+    const result = program.contextEval(
+      partialActivation({
+        bindings: {},
+        unknowns: [attributePattern("x")],
+      }),
+      { signal: new AbortController().signal },
+    );
+
+    expect(isUnknown(result)).toBe(true);
+  });
+});
+
+describe("cel/program_async_test.go/TestConcurrentEvalAsyncObserver", () => {
+  it("reports async call start and finish once", async () => {
+    const events: string[] = [];
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncIdentity", {
+          overloads: [
+            overload("async_identity_int", [IntType], IntType, {
+              asyncBinding: async (_signal, value) => value!,
+            }),
+          ],
+        }),
+      ],
+    });
+    const program = celEnv.program(celEnv.compile("asyncIdentity(1)"), {
+      asyncObserver: {
+        onCallFinished: (call) => events.push(`finish:${call.callId()}`),
+        onCallStarted: (call) => events.push(`start:${call.callId()}`),
+      },
+    });
+    await program.concurrentEval({}, { signal: new AbortController().signal });
+    expect(events).toEqual(["start:1", "finish:1"]);
+  });
+});
+
+describe("cel/program_async_test.go/TestConcurrentEvalProgramThreadSafety", () => {
+  it("uses isolated trackers for concurrent evaluations of one program", async () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncIdentity", {
+          overloads: [
+            overload("async_identity_int", [IntType], IntType, {
+              asyncBinding: async (_signal, value) => value!,
+            }),
+          ],
+        }),
+      ],
+      variables: [variableDecl("value", IntType)],
+    });
+    const program = celEnv.program(celEnv.compile("asyncIdentity(value)"));
+    const results = await Promise.all(
+      [1, 2, 3, 4].map((value) =>
+        program.concurrentEval(
+          { value },
+          { signal: new AbortController().signal },
+        ),
+      ),
+    );
+    expect(results.map((result) => result.value.value())).toEqual([1n, 2n, 3n, 4n]);
+  });
+});
+
+describe("cel/program_async_test.go/TestConcurrentEvalPreCanceledContext", () => {
+  it("rejects evaluation with an already-aborted signal", async () => {
+    const controller = new AbortController();
+    controller.abort(new Error("cancelled"));
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncTrue", {
+          overloads: [
+            overload("async_true", [], BoolType, { asyncBinding: async () => True }),
+          ],
+        }),
+      ],
+    });
+    await expect(
+      celEnv
+        .program(celEnv.compile("asyncTrue()"))
+        .concurrentEval({}, { signal: controller.signal }),
+    ).rejects.toThrow("cancelled");
+  });
+});
+
+describe("cel/program_async_test.go/TestSyncEvalRejectsAsyncBeforeEvaluating", () => {
+  it("does not invoke a binding before rejecting synchronous evaluation", () => {
+    let calls = 0;
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncTrue", {
+          overloads: [
+            overload("async_true", [], BoolType, {
+              asyncBinding: async () => {
+                calls++;
+                return True;
+              },
+            }),
+          ],
+        }),
+      ],
+    });
+    expect(() => celEnv.program(celEnv.compile("asyncTrue()")).eval({})).toThrow();
+    expect(calls).toBe(0);
+  });
+});
+
+describe("cel/program_async_test.go/TestSyncEvalRejectedInAsyncEnv", () => {
+  it("rejects sync evaluation even when the selected expression has no async call", () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncTrue", {
+          overloads: [
+            overload("async_true", [], BoolType, { asyncBinding: async () => True }),
+          ],
+        }),
+      ],
+    });
+    expect(() => celEnv.program(celEnv.compile("true")).eval({})).toThrow(
+      "use concurrentEval",
+    );
+  });
+});
+
+describe("cel/program_async_test.go/TestConcurrentEvalRecover", () => {
+  it("converts rejected async bindings to CEL errors", async () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncFailure", {
+          overloads: [
+            overload("async_failure", [], BoolType, {
+              asyncBinding: async () => {
+                throw new Error("async failure");
+              },
+            }),
+          ],
+        }),
+      ],
+    });
+    const result = await celEnv
+      .program(celEnv.compile("asyncFailure()"))
+      .concurrentEval({}, { signal: new AbortController().signal });
+    expect(result.value.toString()).toContain("async failure");
+  });
+});
+
+describe("cel/program_async_test.go/TestAsyncWithTraceAndExhaustiveEval", () => {
+  it("returns evaluation state after asynchronous exhaustive evaluation", async () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncTrue", {
+          overloads: [
+            overload("async_true", [], BoolType, { asyncBinding: async () => True }),
+          ],
+        }),
+      ],
+    });
+    const result = await celEnv
+      .program(celEnv.compile("asyncTrue() && true"), {
+        exhaustiveEval: true,
+        trackState: true,
+      })
+      .concurrentEval({}, { signal: new AbortController().signal });
+    expect(result.value.value()).toBe(true);
+    expect(result.details.state()).toBeDefined();
+  });
+});
+
+describe("cel/program_async_test.go/TestConcurrentEvalDrainReady", () => {
+  it("completes independent async calls under bounded concurrency", async () => {
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncIdentity", {
+          overloads: [
+            overload("async_identity_int", [IntType], IntType, {
+              asyncBinding: async (_signal, value) => value!,
+            }),
+          ],
+        }),
+      ],
+    });
+    const result = await celEnv
+      .program(celEnv.compile("asyncIdentity(1) + asyncIdentity(2)"), {
+        asyncMaxConcurrency: 1,
+      })
+      .concurrentEval({}, { signal: new AbortController().signal });
+    expect(result.value.value()).toBe(3n);
+  });
+});
+
+describe("cel/program_async_test.go/TestConcurrentEvalCancelDuringDebounce", () => {
+  it("cancels while asynchronous work remains pending", async () => {
+    const controller = new AbortController();
+    const celEnv = env({
+      functions: [
+        functionDecl("asyncSlow", {
+          overloads: [
+            overload("async_slow", [], BoolType, {
+              asyncBinding: async () =>
+                new Promise((resolve) => globalThis.setTimeout(() => resolve(True), 100)),
+            }),
+          ],
+        }),
+      ],
+    });
+    globalThis.setTimeout(() => controller.abort(new Error("cancelled")), 5);
+    await expect(
+      celEnv
+        .program(celEnv.compile("asyncSlow()"))
+        .concurrentEval({}, { signal: controller.signal }),
+    ).rejects.toThrow("cancelled");
   });
 });
 

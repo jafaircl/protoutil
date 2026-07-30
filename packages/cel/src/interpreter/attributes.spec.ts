@@ -21,6 +21,7 @@ import {
   mapType,
   noSuchOverloadErr,
   OptionalNone,
+  objectType,
   optionalOf,
   qualifyAttribute,
   registry,
@@ -52,6 +53,39 @@ import { executionFrame } from "./frame.js";
 import { constValue } from "./interpretable.js";
 import { evalStateObserverConfig, interpreter } from "./interpreter.js";
 import { resolveAttributePatternExpr } from "./spec-helpers.js";
+
+describe("interpreter/attributes_test.go/TestAttribute_StringRepresentation", () => {
+  it("provides non-empty diagnostic strings for every attribute kind and trail", () => {
+    const reg = registry();
+    const factory = attributeFactory({
+      containerValue: defaultContainer,
+      adapter: reg,
+      provider: reg,
+    });
+    const absolute = factory.absoluteAttribute(1, "a.b");
+    const maybe = factory.maybeAttribute(2, "c");
+    const relative = factory.relativeAttribute(
+      3,
+      constValue({ id: 1, value: new CelString("d") }),
+    );
+    const conditional = factory.conditionalAttribute(
+      4,
+      constValue({ id: 1, value: True }),
+      absolute,
+      maybe,
+    );
+
+    for (const value of [
+      absolute,
+      maybe,
+      relative,
+      conditional,
+      attributeTrail("x"),
+    ]) {
+      expect(String(value)).not.toBe("");
+    }
+  });
+});
 
 /**
  * Proto test registry keeps the protobuf test descriptors aligned with the upstream attribute tests.
@@ -1329,6 +1363,28 @@ describe("interpreter/attributes_test.go", () => {
         expect(found, testCase.name).toBe(true);
         expect(out, testCase.name).toEqual(testCase.out);
       }
+    });
+  });
+
+  /**
+   * BenchmarkResolverFieldQualifier verifies that checked protobuf selections use the upstream
+   * precomputed field-access seam rather than the generic string qualifier.
+   */
+  describe("interpreter/attributes_test.go/BenchmarkResolverFieldQualifier", () => {
+    it("plans a typed protobuf field qualifier", () => {
+      const fac = attributeFactory({
+        containerValue: defaultContainer,
+        adapter: protoTestRegistry,
+        provider: protoTestRegistry,
+      });
+      const qualifier = fac.qualifier({
+        id: 2,
+        objectType: objectType(Proto3TestAllTypesSchema.typeName),
+        value: "single_nested_message",
+        optional: false,
+      });
+
+      expect(qualifier.constructor.name).toBe("FieldQualifier");
     });
   });
 });

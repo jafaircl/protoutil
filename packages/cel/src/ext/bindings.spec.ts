@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type EnvOptions, env } from "../cel/env.js";
+import { validateBindNestingLimit } from "../cel/validator.js";
 import { sizeEstimate } from "../checker/cost.js";
 import { ast, type Expr, exprFactory } from "../common/ast/index.js";
 import { container } from "../common/containers.js";
@@ -7,6 +8,7 @@ import { variableDecl } from "../common/decls.js";
 import * as operators from "../common/operators.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { IntType, listType, StringType } from "../common/types/types.js";
+import { ExecutionFrame } from "../interpreter/frame.js";
 import { bindings } from "./bindings.js";
 import { strings } from "./strings.js";
 
@@ -63,6 +65,27 @@ describe("ext/bindings_test.go/TestBindingsNonMatch", () => {
   it("leaves a non-cel namespace receiver call unexpanded", () => {
     const parsed = bindingEnv().parse("ceel.bind(a, 1, a)");
     expect(parsed.sourceInfo().macroCalls().size).toBe(0);
+  });
+});
+
+describe("ext/bindings_test.go/TestValidateBindNestingLimit", () => {
+  it("rejects cel.bind calls nested beyond the configured limit", () => {
+    const celEnv = env({
+      libraries: [bindings()],
+      validators: [validateBindNestingLimit(2)],
+    });
+    for (const testCase of syncedCases<{ expr: string; iss?: string }>(
+      "ext/bindings_test.go/TestValidateBindNestingLimit",
+    )) {
+      const result = celEnv.tryCompile(testCase.expr);
+      if (testCase.iss === undefined) {
+        expect(result.errors, testCase.expr).toBeUndefined();
+      } else {
+        expect(result.errors?.toDisplayString(), testCase.expr).toContain(
+          "cel.bind exceeds nesting limit",
+        );
+      }
+    }
   });
 });
 
@@ -175,6 +198,31 @@ describe("ext/bindings_test.go/TestConstantBlockEval", () => {
         .eval({})
         .value(),
     ).toBe(true);
+  });
+});
+
+describe("ext/bindings_test.go/BenchmarkBlockEval", () => {
+  it("reuses lazy slot state across sequential evaluations", () => {
+    const factory = exprFactory();
+    const expression = factory.call(
+      1,
+      "cel.@block",
+      factory.list(2, [factory.ident(3, "x")], []),
+      factory.ident(4, "@index0"),
+    );
+    const program = env({
+      libraries: [bindings()],
+      variables: [variableDecl("x", StringType)],
+    }).program(ast(expression));
+    const push = vi.spyOn(ExecutionFrame.prototype, "push");
+    try {
+      expect(program.eval({ x: "first" }).value()).toBe("first");
+      expect(program.eval({ x: "second" }).value()).toBe("second");
+      expect(push.mock.calls).toHaveLength(2);
+      expect(push.mock.calls[0]![0] === push.mock.calls[1]![0]).toBe(true);
+    } finally {
+      push.mockRestore();
+    }
   });
 });
 

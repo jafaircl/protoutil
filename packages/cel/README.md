@@ -27,7 +27,8 @@ scripting language is too resource intensive.
 `@protoutil/cel` is a TypeScript port of [cel-go][7], and is, to our knowledge,
 the only TypeScript implementation of CEL with full conformance parity against
 the upstream `cel-go` test suite. See [conformance.md](./testdata/conformance/conformance.md) for
-the generated dashboard of conformant, skipped, and non-conformant cases.
+the generated CEL dashboard and [policy.md](./testdata/policy/policy.md) for the
+cel-policy conformance results.
 
 ---
 
@@ -39,6 +40,7 @@ the generated dashboard of conformant, skipped, and non-conformant cases.
     - [Evaluate](#evaluate)
       - [Partial State](#partial-state)
     - [Errors](#errors)
+  - [Performance and Benchmarking](#performance-and-benchmarking)
   - [Install](#install)
   - [Common Questions](#common-questions)
     - [Why not JavaScript, Lua, or WASM?](#why-not-javascript-lua-or-wasm)
@@ -216,6 +218,38 @@ ERROR: <input>:1:40: undefined field 'undefined'
 Both the parsed and checked expressions contain source position information
 about each node that appears in the output AST. This information can be used
 to determine error locations at evaluation time as well.
+
+## Performance and Benchmarking
+
+Compile and plan an expression once, then reuse the resulting program for
+steady-state evaluation. Use `eval()` when only the value is needed;
+`evalWithDetails()` additionally records evaluation state and runtime cost
+metadata requested by the program options.
+
+```ts
+const checked = myEnv.compile(`name.startsWith("/groups/" + group)`);
+const program = myEnv.program(checked, { optimize: true });
+
+for (const input of requests) {
+  const allowed = program.eval(input);
+  // Consume the CEL value for this request.
+  console.log(allowed.value());
+}
+```
+
+The cross-runtime suite measures parse, check, compile, plan, and evaluation
+against `cel-go`. It also measures synchronized policy fixtures through policy
+parse, compile/composition, optimized planning, and evaluation. Diagnostic rows
+form an evaluation ladder covering literals, activation lookup, calls, dynamic
+and protobuf attributes, indexing, folds, details allocation, and state
+observation. Residual rows separately measure partial evaluation, residual AST
+construction, and the combined round trip. Run it with:
+
+```sh
+pnpm run --filter @protoutil/cel benchmark
+```
+
+See [BENCHMARK.md](./BENCHMARK.md) for the methodology and latest results.
 
 ## Install
 

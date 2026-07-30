@@ -5,7 +5,6 @@ import {
   astToString,
   type Env,
   env,
-  type Macro,
   mapType,
   type OptimizerContext,
   StringType,
@@ -13,6 +12,7 @@ import {
   textSource,
   variableDecl,
 } from "../index.js";
+import type { Macro } from "../parser/options.js";
 
 /** BindMacro expands `cel.bind(var, init, result)` into a single-evaluation comprehension. */
 const BindMacro: Macro = {

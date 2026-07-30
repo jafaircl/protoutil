@@ -26,6 +26,7 @@ import { Double } from "./double.js";
 import { Err } from "./err.js";
 import { Int } from "./index.js";
 import { dynamicList } from "./list.js";
+import { ProtoEnum } from "./pb/enum.js";
 import { jsonValue } from "./pb/spec-helpers.js";
 import { registry } from "./provider.js";
 import {
@@ -83,6 +84,41 @@ describe("provider", () => {
     const enumName = "google.expr.proto3.test.GlobalEnum.GOO";
     expect(reg.enumValue(enumName)).toEqual(new Int(BigInt(GlobalEnum.GOO)));
     expect(reg.findIdent(enumName)).toEqual([new Int(BigInt(GlobalEnum.GOO)), true]);
+  });
+
+  it("TypeScript extension/TestRegistryStrongEnums", () => {
+    const reg = registry();
+    reg.registerDescriptor(Proto3TestAllTypesSchema.file);
+    reg.withStrongEnums(true);
+
+    const enumTypes = reg.enumTypes().map((enumType) => enumType.typeName);
+    expect(enumTypes).toContain("google.expr.proto3.test.GlobalEnum");
+    expect(enumTypes).toContain("google.expr.proto3.test.TestAllTypes.NestedEnum");
+
+    const named = reg.enumValueOf("google.expr.proto3.test.GlobalEnum", "GAZ");
+    expect(named).toBeInstanceOf(ProtoEnum);
+    expect(named.type().typeName()).toBe("google.expr.proto3.test.GlobalEnum");
+    expect(named.value()).toBe(2n);
+
+    const unnamed = reg.enumValueOf("google.expr.proto3.test.GlobalEnum", -33n);
+    expect(unnamed).toBeInstanceOf(ProtoEnum);
+    expect(unnamed.value()).toBe(-33n);
+
+    expect(
+      reg.enumValueOf("google.expr.proto3.test.GlobalEnum", "MISSING"),
+    ).toBeInstanceOf(Err);
+    expect(
+      reg.enumValueOf("google.expr.proto3.test.GlobalEnum", 2_147_483_648n),
+    ).toBeInstanceOf(Err);
+    expect(
+      reg.enumValueOf("google.expr.proto3.test.GlobalEnum", -2_147_483_649n),
+    ).toBeInstanceOf(Err);
+
+    const copy = reg.copy();
+    expect(copy.strongEnumsEnabled()).toBe(true);
+    expect(copy.enumValueOf("google.expr.proto3.test.GlobalEnum", "GAR")).toBeInstanceOf(
+      ProtoEnum,
+    );
   });
 
   it("common/types/provider_test.go/TestRegistryFindStructType", () => {

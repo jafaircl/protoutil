@@ -140,34 +140,20 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
       case BytesType:
         return new Bytes(new TextEncoder().encode(this.inner));
       case DurationType: {
-        const match = /^(-)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?(?:(\d+)ns)?$/.exec(
-          this.inner,
-        );
-        if (!match) {
+        const nanos = parseDurationNanos(this.inner);
+        if (nanos === undefined) {
           break;
         }
-        let nanos = 0n;
-        if (match[2]) {
-          nanos += BigInt(match[2]) * 3_600_000_000_000n;
-        }
-        if (match[3]) {
-          nanos += BigInt(match[3]) * 60_000_000_000n;
-        }
-        if (match[4]) {
-          const [whole, frac = ""] = match[4].split(".");
-          nanos += BigInt(whole) * 1_000_000_000n;
-          nanos += BigInt(frac.padEnd(9, "0").slice(0, 9));
-        }
-        if (match[5]) {
-          nanos += BigInt(match[5]);
-        }
         try {
-          return durationOf(durationNanosChecked(match[1] ? -nanos : nanos));
+          return durationOf(durationNanosChecked(nanos));
         } catch (error) {
           return wrapErr(error);
         }
       }
       case TimestampType: {
+        if (!isStrictRFC3339(this.inner)) {
+          return err(`invalid RFC 3339 timestamp "${this.inner}"`);
+        }
         try {
           const ts = timestampFromString(this.inner);
           if (ts.seconds < minUnixTime || ts.seconds > maxUnixTime) {
@@ -226,10 +212,61 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
 }
 
 /**
+ * durationUnitNanos maps cel-go duration suffixes to their nanosecond scale.
+ */
+const durationUnitNanos: Readonly<Record<string, bigint>> = {
+  h: 3_600_000_000_000n,
+  m: 60_000_000_000n,
+  s: 1_000_000_000n,
+  ms: 1_000_000n,
+  us: 1_000n,
+  "µs": 1_000n,
+  ns: 1n,
+};
+
+/**
+ * parseDurationNanos parses the Go duration syntax accepted by CEL string conversion.
+ */
+function parseDurationNanos(source: string): bigint | undefined {
+  const negative = source.startsWith("-");
+  const unsigned = negative ? source.slice(1) : source;
+  if (unsigned === "" || unsigned === "0") {
+    return unsigned === "0" ? 0n : undefined;
+  }
+  const token = /(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)/gy;
+  let offset = 0;
+  let total = 0n;
+  while (offset < unsigned.length) {
+    token.lastIndex = offset;
+    const match = token.exec(unsigned);
+    if (!match || match.index !== offset) {
+      return undefined;
+    }
+    const [whole, fraction = ""] = match[1]!.split(".");
+    const scale = durationUnitNanos[match[2]!]!;
+    const denominator = 10n ** BigInt(fraction.length);
+    total += (BigInt(`${whole}${fraction}`) * scale) / denominator;
+    offset = token.lastIndex;
+  }
+  return negative ? -total : total;
+}
+
+/**
  * compileRegexPattern compiles a CEL regular expression with RE2 syntax and execution semantics.
  */
 export function compileRegexPattern(pattern: string): RE2JS {
   return RE2JS.compile(pattern);
+}
+
+/**
+ * isStrictRFC3339 reports whether a string satisfies CEL's strict RFC 3339 timestamp grammar.
+ *
+ * Calendar-specific validation remains delegated to the protobuf timestamp parser.
+ */
+function isStrictRFC3339(value: string): boolean {
+  return /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])[Tt](?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(
+    value,
+  );
 }
 
 /**

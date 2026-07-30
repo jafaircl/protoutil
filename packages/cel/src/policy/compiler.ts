@@ -1,11 +1,13 @@
 import { astOutputType, type Env, type Issues, issues } from "../cel/env.js";
 import type { AST } from "../common/ast/ast.js";
+import { container } from "../common/containers.js";
 import { variableDecl } from "../common/decls.js";
 import { errorsValue } from "../common/errors.js";
 import type { Type } from "../common/types/types.js";
-import { DynType } from "../common/types/types.js";
-import { composeRuleSource } from "./composer.js";
-import type { Match, Policy, Rule, ValueString, Variable } from "./models.js";
+import { DynType, ErrorType } from "../common/types/types.js";
+import { composeRule } from "./composer.js";
+import type { Match, Policy, Rule, ValueString, Variable } from "./parser.js";
+import type { RelativeSource } from "./source.js";
 
 /**
  * CompilerOptions configures policy compilation without functional options.
@@ -31,6 +33,8 @@ export interface MatchOutputCompiler {
 export interface MatchOutputCompileOptions {
   /** env is the environment active at the match. */
   env: Env;
+  /** source is the match output relative to the containing policy source. */
+  source: RelativeSource;
   /** match is the match whose output is being compiled. */
   match: Match;
   /** policy is the containing policy. */
@@ -38,9 +42,9 @@ export interface MatchOutputCompileOptions {
 }
 
 /**
- * CompilePolicyResult contains the composed AST and compilation diagnostics.
+ * CompileResult contains the composed AST and compilation diagnostics.
  */
-export interface CompilePolicyResult {
+export interface CompileResult {
   /** ast is the compiled policy expression when compilation succeeds. */
   ast?: AST;
   /** issues contains policy and CEL diagnostics. */
@@ -48,38 +52,40 @@ export interface CompilePolicyResult {
 }
 
 /**
- * compilePolicy combines policy compilation and composition into a single call.
+ * compile combines policy compilation and composition into a single call.
  */
-export function compilePolicy(
+export function compile(
   env: Env,
   parsedPolicy: Policy,
   options: CompilerOptions = {},
-): CompilePolicyResult {
-  const compiled = compilePolicyRule(env, parsedPolicy, options);
+): CompileResult {
+  const compiled = compileRule(env, parsedPolicy, options);
   if (!compiled.rule || compiled.issues.err()) {
     return { issues: compiled.issues };
   }
-  const root = parsedPolicy.rule();
-  if (!root) {
+  const composedEnv = importEnvironment(
+    env,
+    parsedPolicy.imports().map((entry) => entry.name().value.trim()),
+  );
+  try {
+    return {
+      ast: composeRule({ env: composedEnv, rule: compiled.rule }),
+      issues: compiled.issues,
+    };
+  } catch (error) {
     compiled.issues.reportErrorAtId({
-      id: parsedPolicy.name().id,
-      message: "policy does not specify a rule",
+      id: compiled.rule.sourceId(),
+      message: "%s",
+      args: [error instanceof Error ? error.message : String(error)],
     });
     return { issues: compiled.issues };
   }
-
-  const composed = composeRuleSource(root);
-  const result = env.tryCompile(composed.expression);
-  if (result.errors) {
-    return { issues: compiled.issues.append(result.errors) };
-  }
-  return { ast: result.ast, issues: compiled.issues };
 }
 
 /**
- * CompilePolicyRuleResult contains the intermediate rule graph and diagnostics.
+ * CompileRuleResult contains the intermediate rule graph and diagnostics.
  */
-export interface CompilePolicyRuleResult {
+export interface CompileRuleResult {
   /** rule is the compiled rule graph when policy structure is valid. */
   rule?: CompiledRule;
   /** issues contains compilation diagnostics. */
@@ -87,13 +93,13 @@ export interface CompilePolicyRuleResult {
 }
 
 /**
- * compilePolicyRule compiles each expression in a policy rule graph.
+ * compileRule compiles each expression in a policy rule graph.
  */
-export function compilePolicyRule(
+export function compileRule(
   env: Env,
   parsedPolicy: Policy,
   options: CompilerOptions = {},
-): CompilePolicyRuleResult {
+): CompileRuleResult {
   const diagnostics = issues({
     errors: errorsValue(parsedPolicy.source()),
     sourceInfo: parsedPolicy.sourceInfo(),
@@ -116,17 +122,60 @@ export function compilePolicyRule(
     return { issues: diagnostics };
   }
 
+  let activeEnv = env;
+  const importNames: string[] = [];
+  for (const imported of parsedPolicy.imports()) {
+    const typeName = imported.name().value;
+    try {
+      // Validate each abbreviation independently so every diagnostic retains its policy source id.
+      container({ abbrevs: [typeName] });
+      importNames.push(typeName.trim());
+    } catch (error) {
+      diagnostics.reportErrorAtId({
+        id: imported.name().id,
+        message: "error configuring import: %s",
+        args: [error instanceof Error ? error.message : String(error)],
+      });
+    }
+  }
+  if (importNames.length > 0) {
+    try {
+      activeEnv = importEnvironment(env, importNames);
+    } catch (error) {
+      diagnostics.reportErrorAtId({
+        id: parsedPolicy.imports()[0]!.sourceId(),
+        message: "error configuring imports: %s",
+        args: [error instanceof Error ? error.message : String(error)],
+      });
+    }
+  }
+
   const state: CompileState = { nestedCount: 0, limit };
-  const compiled = compileRule({
-    env,
+  const compiled = compileRuleGraph({
+    env: activeEnv,
     policy: parsedPolicy,
     rule: root,
     issues: diagnostics,
     state,
+    compilerOptions: options,
   });
   return diagnostics.err()
     ? { rule: compiled, issues: diagnostics }
     : { rule: compiled, issues: diagnostics };
+}
+
+/** importEnvironment extends an environment with validated policy type abbreviations. */
+function importEnvironment(env: Env, importNames: string[]): Env {
+  if (importNames.length === 0) {
+    return env;
+  }
+  const inherited = env.toConfig("policy-compiler");
+  return env.extend({
+    container: container({
+      name: inherited.container,
+      abbrevs: [...inherited.imports.map((entry) => entry.name), ...importNames],
+    }),
+  });
 }
 
 /**
@@ -309,16 +358,18 @@ interface CompileRuleOptions {
   issues: Issues;
   /** state tracks the global nesting limit. */
   state: CompileState;
+  /** compilerOptions customizes match output compilation. */
+  compilerOptions: CompilerOptions;
 }
 
 /**
- * compileRule recursively compiles variables, conditions, outputs, and nested rules.
+ * compileRuleGraph recursively compiles variables, conditions, outputs, and nested rules.
  */
-function compileRule(options: CompileRuleOptions): CompiledRule {
+function compileRuleGraph(options: CompileRuleOptions): CompiledRule {
   const variables: CompiledVariable[] = [];
   let activeEnv = options.env;
   for (const value of options.rule.variables()) {
-    const result = activeEnv.tryCompile(value.expression().value);
+    const result = activeEnv.tryCompileSource(relativeSource(options.policy, value.expression()));
     if (result.errors) {
       appendIssues(options.issues, result.errors);
     }
@@ -332,20 +383,44 @@ function compileRule(options: CompileRuleOptions): CompiledRule {
 
   const matches: CompiledMatch[] = [];
   for (const value of options.rule.matches()) {
-    const condition = activeEnv.tryCompile(value.condition().value || "true");
+    const conditionValue =
+      value.condition().value === "" ? { id: value.sourceId(), value: "true" } : value.condition();
+    const condition = activeEnv.tryCompileSource(relativeSource(options.policy, conditionValue));
     if (condition.errors) {
       appendIssues(options.issues, condition.errors);
     }
     let output: OutputValue | undefined;
     let nested: CompiledRule | undefined;
     if (value.hasOutput()) {
-      const compiledOutput = activeEnv.tryCompile(value.output().value);
-      if (compiledOutput.errors) {
-        appendIssues(options.issues, compiledOutput.errors);
+      if (options.compilerOptions.matchOutputCompiler) {
+        try {
+          output = new OutputValue(
+            value.output().id,
+            options.compilerOptions.matchOutputCompiler.compile({
+              env: activeEnv,
+              source: relativeSource(options.policy, value.output()),
+              match: value,
+              policy: options.policy,
+            }),
+          );
+        } catch (error) {
+          options.issues.reportErrorAtId({
+            id: value.output().id,
+            message: "%s",
+            args: [error instanceof Error ? error.message : String(error)],
+          });
+        }
+      } else {
+        const compiledOutput = activeEnv.tryCompileSource(
+          relativeSource(options.policy, value.output()),
+        );
+        if (compiledOutput.errors) {
+          appendIssues(options.issues, compiledOutput.errors);
+        }
+        output = new OutputValue(value.output().id, compiledOutput.ast);
       }
-      output = new OutputValue(value.output().id, compiledOutput.ast);
     } else if (value.hasRule()) {
-      nested = compileRule({ ...options, env: activeEnv, rule: value.rule()! });
+      nested = compileRuleGraph({ ...options, env: activeEnv, rule: value.rule()! });
       incrementNesting(options, value.rule()!, "rule");
     }
     matches.push(
@@ -354,8 +429,58 @@ function compileRule(options: CompileRuleOptions): CompiledRule {
   }
 
   const compiled = new CompiledRule(options.rule.sourceId(), options.rule.id(), variables, matches);
+  validateMatchOutputTypes(compiled, options.issues);
   validateUnreachable(compiled, options.issues);
   return compiled;
+}
+
+/**
+ * relativeSource maps an embedded CEL value back to its absolute policy source location.
+ */
+function relativeSource(policy: Policy, value: ValueString): RelativeSource {
+  let line = 0;
+  let column = 1;
+  const [range, found] = policy.sourceInfo().getOffsetRange(value.id);
+  if (found && range) {
+    const [location, locationFound] = policy.source().offsetLocation(range.start);
+    if (locationFound) {
+      line = location.line();
+      column = location.column();
+    }
+  }
+  return policy.source().relative(value.value, line, column);
+}
+
+/**
+ * validateMatchOutputTypes verifies all branches have mutually assignable result types.
+ */
+function validateMatchOutputTypes(rule: CompiledRule, diagnostics: Issues): void {
+  let outputType: Type | undefined;
+  for (const value of rule.matches()) {
+    const matchOutputType = value.outputType();
+    if (matchOutputType === ErrorType) {
+      continue;
+    }
+    if (outputType === undefined) {
+      outputType = matchOutputType;
+      continue;
+    }
+    // Handle assignability as the output type assignable to the match output or vice versa.
+    // During composition, this is roughly how the type-checker handles the type agreement check.
+    if (
+      outputType.isAssignableType(matchOutputType) ||
+      matchOutputType.isAssignableType(outputType)
+    ) {
+      continue;
+    }
+    diagnostics.reportErrorAtId({
+      id: value.output()?.sourceId() ?? value.nestedRule()?.sourceId() ?? value.sourceId(),
+      message:
+        "incompatible output types: block has output type %s, but previous outputs have type %s",
+      args: [matchOutputType.toString(), outputType.toString()],
+    });
+    return;
+  }
 }
 
 /**
@@ -403,11 +528,5 @@ function validateUnreachable(rule: CompiledRule, diagnostics: Issues): void {
  * appendIssues copies diagnostics into the policy issue accumulator.
  */
 function appendIssues(target: Issues, source: Issues): void {
-  const combined = target.append(source);
-  // Issues are immutable when appended, so replay the source diagnostics at their original ids.
-  if (combined !== target) {
-    for (const error of source.errors()) {
-      target.reportErrorAtId({ id: error.exprId, message: "%s", args: [error.message] });
-    }
-  }
+  target.merge(source);
 }

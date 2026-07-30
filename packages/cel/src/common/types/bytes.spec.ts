@@ -49,6 +49,16 @@ describe("common/types bytes", () => {
     ).toEqual(new Uint8Array([1, 2]));
   });
 
+  it("common/types/bytes_test.go/TestBytesAddNoAlias", () => {
+    const receiver = new Bytes(new TextEncoder().encode("abc"));
+    const first = receiver.add(new Bytes(new TextEncoder().encode("111"))) as Bytes;
+    const second = receiver.add(new Bytes(new TextEncoder().encode("222"))) as Bytes;
+
+    expect(new TextDecoder().decode(first.value())).toBe("abc111");
+    expect(new TextDecoder().decode(second.value())).toBe("abc222");
+    expect(new TextDecoder().decode(receiver.value())).toBe("abc");
+  });
+
   it("common/types/bytes_test.go/TestBytesCompare", () => {
     expect(
       (new Bytes(new Uint8Array([1])).compare(new Bytes(new Uint8Array([1]))) as Int).value(),

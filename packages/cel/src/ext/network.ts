@@ -1,7 +1,19 @@
 import type { Env } from "../cel/env.js";
 import type { LibraryVersioner, SingletonLibrary } from "../cel/library.js";
 import type { ASTValidator, ValidatorConfig } from "../cel/validator.js";
+import {
+  type AstNode,
+  CallEstimate,
+  type CostEstimate,
+  type CostEstimator,
+  fixedCostEstimate,
+  type FunctionEstimator,
+  type SizeEstimate,
+  sizeEstimate,
+  unknownSizeEstimate,
+} from "../checker/cost.js";
 import type { AST } from "../common/ast/index.js";
+import { StringTraversalCostFactor } from "../common/cost.js";
 import { ExprKind, matchDescendants, navigateAst } from "../common/ast/index.js";
 import { functionDecl, memberOverload, overload } from "../common/decls.js";
 import type { Errors } from "../common/errors.js";
@@ -12,6 +24,7 @@ import type { Val } from "../common/types/ref/index.js";
 import { String as CelString } from "../common/types/string.js";
 import type { Type } from "../common/types/types.js";
 import { BoolType, IntType, opaqueType, StringType, TypeType } from "../common/types/types.js";
+import type { FunctionTracker } from "../interpreter/runtime-cost.js";
 
 /** NetworkVersion1 is the initial Kubernetes-compatible network library version. */
 export const NetworkVersion1 = 1;
@@ -204,8 +217,15 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
           ],
         }),
       ],
+      cost: {
+        overloadCostEstimates: networkCostEstimates(),
+      },
     },
-    programOptions: {},
+    programOptions: {
+      costTracking: {
+        overloadTrackers: networkCostTrackers(),
+      },
+    },
   };
 }
 
@@ -250,6 +270,11 @@ export class IPValue implements Val {
   /** type returns the opaque IP type. */
   public type(): Type {
     return IPType;
+  }
+
+  /** size returns the address size in bytes for runtime cost accounting. */
+  public size(): Val {
+    return new Int(BigInt(this.address.family));
   }
 
   /** value returns the canonical IP string. */
@@ -306,10 +331,241 @@ export class CIDRValue implements Val {
     return CIDRType;
   }
 
+  /** size returns the prefix address size in bytes for runtime cost accounting. */
+  public size(): Val {
+    return new Int(BigInt(Math.ceil(this.prefix.length / 8)));
+  }
+
   /** value returns the canonical CIDR string while retaining input host bits. */
   public value(): unknown {
     return prefixString(this.prefix);
   }
+}
+
+/** estimateNetworkParseCost estimates string parsing and an opaque address result. */
+const estimateNetworkParseCost: FunctionEstimator = (estimator, _target, args) => {
+  if (args.length < 1) {
+    return undefined;
+  }
+  return networkCallEstimate(
+    estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(StringTraversalCostFactor),
+    sizeEstimate(4n, 16n),
+  );
+};
+
+/** estimateNetworkParseBoolCost estimates validation of an IP or CIDR string. */
+const estimateNetworkParseBoolCost: FunctionEstimator = (estimator, _target, args) => {
+  if (args.length < 1) {
+    return undefined;
+  }
+  return networkCallEstimate(
+    estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(StringTraversalCostFactor),
+  );
+};
+
+/** estimateIPIsCanonicalCost estimates parsing plus canonical string comparison. */
+const estimateIPIsCanonicalCost: FunctionEstimator = (estimator, _target, args) => {
+  if (args.length < 1) {
+    return undefined;
+  }
+  return networkCallEstimate(
+    estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(
+      2 * StringTraversalCostFactor,
+    ),
+  );
+};
+
+/** estimateNetworkNominalCost assigns one unit to constant-time network operations. */
+const estimateNetworkNominalCost: FunctionEstimator = () =>
+  networkCallEstimate(fixedCostEstimate(1));
+
+/** estimateNetworkNominalOpaqueCost assigns one unit and an address-sized result. */
+const estimateNetworkNominalOpaqueCost: FunctionEstimator = () =>
+  networkCallEstimate(fixedCostEstimate(1), sizeEstimate(4n, 16n));
+
+/** estimateNetworkNominalStringCost assigns one unit and a bounded text result. */
+const estimateNetworkNominalStringCost: FunctionEstimator = () =>
+  networkCallEstimate(fixedCostEstimate(1), sizeEstimate(3n, 45n));
+
+/** estimateNetworkContainsIPIPCost estimates two address traversals. */
+const estimateNetworkContainsIPIPCost: FunctionEstimator = () => {
+  const size = sizeEstimate(4n, 16n);
+  return networkCallEstimate(size.add(size).multiplyByCostFactor(StringTraversalCostFactor));
+};
+
+/** estimateNetworkContainsIPStringCost adds parsing cost for the string argument. */
+const estimateNetworkContainsIPStringCost: FunctionEstimator = (
+  estimator,
+  _target,
+  args,
+) => {
+  if (args.length < 1) {
+    return undefined;
+  }
+  const size = sizeEstimate(4n, 16n);
+  const cost = size
+    .add(size)
+    .multiplyByCostFactor(StringTraversalCostFactor)
+    .add(
+      estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(
+        StringTraversalCostFactor,
+      ),
+    );
+  return networkCallEstimate(cost);
+};
+
+/** estimateNetworkContainsCIDRCIDRCost estimates three address traversals and one extra step. */
+const estimateNetworkContainsCIDRCIDRCost: FunctionEstimator = () => {
+  const size = sizeEstimate(4n, 16n);
+  const cost = size
+    .add(size)
+    .multiplyByCostFactor(StringTraversalCostFactor)
+    .add(size.multiplyByCostFactor(StringTraversalCostFactor))
+    .add(fixedCostEstimate(1));
+  return networkCallEstimate(cost);
+};
+
+/** estimateNetworkContainsCIDRStringCost adds CIDR parsing to prefix containment cost. */
+const estimateNetworkContainsCIDRStringCost: FunctionEstimator = (
+  estimator,
+  _target,
+  args,
+) => {
+  if (args.length < 1) {
+    return undefined;
+  }
+  const size = sizeEstimate(4n, 16n);
+  const cost = size
+    .add(size)
+    .multiplyByCostFactor(StringTraversalCostFactor)
+    .add(size.multiplyByCostFactor(StringTraversalCostFactor))
+    .add(
+      estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(
+        StringTraversalCostFactor,
+      ),
+    )
+    .add(fixedCostEstimate(1));
+  return networkCallEstimate(cost);
+};
+
+/** trackNetworkParseCost measures string traversal during parsing. */
+const trackNetworkParseCost: FunctionTracker = {
+  cost: ({ args }) => Math.ceil(networkValueSize(args[0]!) * StringTraversalCostFactor),
+};
+
+/** trackIPIsCanonicalCost measures parsing plus canonical comparison. */
+const trackIPIsCanonicalCost: FunctionTracker = {
+  cost: ({ args }) =>
+    Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor),
+};
+
+/** trackNetworkNominalCost assigns one runtime unit to constant-time operations. */
+const trackNetworkNominalCost: FunctionTracker = { cost: () => 1 };
+
+/** trackNetworkContainsIPIPCost measures two prefix-address traversals. */
+const trackNetworkContainsIPIPCost: FunctionTracker = {
+  cost: ({ args }) =>
+    Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor),
+};
+
+/** trackNetworkContainsIPStringCost adds parsing of the string operand. */
+const trackNetworkContainsIPStringCost: FunctionTracker = {
+  cost: ({ args }) =>
+    Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor) +
+    Math.ceil(networkValueSize(args[1]!) * StringTraversalCostFactor),
+};
+
+/** trackNetworkContainsCIDRCIDRCost measures three prefix traversals and one extra step. */
+const trackNetworkContainsCIDRCIDRCost: FunctionTracker = {
+  cost: ({ args }) =>
+    Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor) +
+    Math.ceil(networkValueSize(args[0]!) * StringTraversalCostFactor) +
+    1,
+};
+
+/** trackNetworkContainsCIDRStringCost adds string parsing to prefix containment. */
+const trackNetworkContainsCIDRStringCost: FunctionTracker = {
+  cost: ({ args }) =>
+    Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor) +
+    Math.ceil(networkValueSize(args[0]!) * StringTraversalCostFactor) +
+    Math.ceil(networkValueSize(args[1]!) * StringTraversalCostFactor) +
+    1,
+};
+
+/** networkCostEstimates maps every network overload to its checker cost rule. */
+function networkCostEstimates(): Record<string, FunctionEstimator> {
+  return {
+    string_to_cidr: estimateNetworkParseCost,
+    cidr_to_string: estimateNetworkNominalStringCost,
+    cidr_contains_cidr: estimateNetworkContainsCIDRCIDRCost,
+    cidr_contains_cidr_string: estimateNetworkContainsCIDRStringCost,
+    cidr_contains_ip_ip: estimateNetworkContainsIPIPCost,
+    cidr_contains_ip_string: estimateNetworkContainsIPStringCost,
+    ip_family: estimateNetworkNominalCost,
+    string_to_ip: estimateNetworkParseCost,
+    cidr_ip: estimateNetworkNominalOpaqueCost,
+    ip_to_string: estimateNetworkNominalStringCost,
+    ip_is_canonical: estimateIPIsCanonicalCost,
+    is_cidr: estimateNetworkParseBoolCost,
+    ip_is_global_unicast: estimateNetworkNominalCost,
+    is_ip: estimateNetworkParseBoolCost,
+    ip_is_link_local_multicast: estimateNetworkNominalCost,
+    ip_is_link_local_unicast: estimateNetworkNominalCost,
+    ip_is_loopback: estimateNetworkNominalCost,
+    cidr_is_mask: estimateNetworkNominalCost,
+    ip_is_unspecified: estimateNetworkNominalCost,
+    cidr_masked: estimateNetworkNominalOpaqueCost,
+    cidr_prefix_length: estimateNetworkNominalCost,
+  };
+}
+
+/** networkCostTrackers maps every network overload to its runtime cost rule. */
+function networkCostTrackers(): Record<string, FunctionTracker> {
+  return {
+    string_to_cidr: trackNetworkParseCost,
+    cidr_to_string: trackNetworkNominalCost,
+    cidr_contains_cidr: trackNetworkContainsCIDRCIDRCost,
+    cidr_contains_cidr_string: trackNetworkContainsCIDRStringCost,
+    cidr_contains_ip_ip: trackNetworkContainsIPIPCost,
+    cidr_contains_ip_string: trackNetworkContainsIPStringCost,
+    ip_family: trackNetworkNominalCost,
+    string_to_ip: trackNetworkParseCost,
+    cidr_ip: trackNetworkNominalCost,
+    ip_to_string: trackNetworkNominalCost,
+    ip_is_canonical: trackIPIsCanonicalCost,
+    is_cidr: trackNetworkParseCost,
+    ip_is_global_unicast: trackNetworkNominalCost,
+    is_ip: trackNetworkParseCost,
+    ip_is_link_local_multicast: trackNetworkNominalCost,
+    ip_is_link_local_unicast: trackNetworkNominalCost,
+    ip_is_loopback: trackNetworkNominalCost,
+    cidr_is_mask: trackNetworkNominalCost,
+    ip_is_unspecified: trackNetworkNominalCost,
+    cidr_masked: trackNetworkNominalCost,
+    cidr_prefix_length: trackNetworkNominalCost,
+  };
+}
+
+/** networkCallEstimate combines a cost range with optional result size. */
+function networkCallEstimate(cost: CostEstimate, resultSize?: SizeEstimate): CallEstimate {
+  return new CallEstimate(cost.Min, cost.Max, resultSize);
+}
+
+/** estimateNetworkSize returns a computed, hinted, or unknown node size. */
+function estimateNetworkSize(estimator: CostEstimator, node: AstNode): SizeEstimate {
+  return node.computedSize() ?? estimator.estimateSize(node) ?? unknownSizeEstimate();
+}
+
+/** networkValueSize returns a runtime string, address, or prefix size. */
+function networkValueSize(value: Val): number {
+  if (value instanceof IPValue) {
+    return value.address.family;
+  }
+  if (value instanceof CIDRValue) {
+    return Math.ceil(value.prefix.length / 8);
+  }
+  const native = value.value();
+  return typeof native === "string" ? native.length : 1;
 }
 
 /**

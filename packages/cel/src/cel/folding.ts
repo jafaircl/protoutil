@@ -5,6 +5,7 @@ import {
   type Expr,
   ExprKind,
   matchDescendants,
+  type NavigableExpr,
   navigateAst,
   postOrderVisit,
   preOrderVisit,
@@ -20,9 +21,12 @@ import {
   DoubleType,
   DurationType,
   Err,
+  exprTypeToType,
   type Indexer,
   Int,
   IntType,
+  isUnknown,
+  Kind,
   type Lister,
   ListType,
   type Mapper,
@@ -90,19 +94,16 @@ export class ConstantFoldingOptimizer implements ASTOptimizer {
    * Only values which can be represented as literals in CEL syntax are supported.
    */
   public optimize(context: OptimizerContext, ast: AST): AST {
-    const root = navigateAst(ast);
+    let root = navigateAst(ast);
     const matcher = (expression: ReturnType<typeof navigateAst>): boolean =>
       this.constantExprMatcher(context, ast, expression);
-    // Adapted optional calls are valid CEL syntax rather than opaque runtime literals, so resolve
-    // optional aggregate entries before selecting their enclosing call sites as fold candidates.
-    pruneOptionalElements(context, root);
     let foldableExpressions = matchDescendants(root, matcher);
     let foldCount = 0;
 
     // Walk foldable expressions bottom-up until no candidates remain or the configured limit wins.
     while (foldableExpressions.length !== 0 && foldCount < this.maxFoldIterations) {
       for (const fold of foldableExpressions) {
-        if (fold.kind() === ExprKind.Call && maybePruneBranches(context, fold)) {
+        if (fold.kind() === ExprKind.Call && maybePruneBranches(context, ast, fold)) {
           continue;
         }
         if (fold.kind() === ExprKind.Call && isLateBoundFunctionCall(context, fold)) {
@@ -111,13 +112,15 @@ export class ConstantFoldingOptimizer implements ASTOptimizer {
         try {
           this.tryFold(context, ast, fold);
         } catch (error) {
-          // Identifier bindings are optional even when a known-value activation was supplied.
+          // Identifier bindings and subexpressions which cannot be evaluated at optimization time
+          // are optional even when a known-value activation was supplied.
           if (fold.kind() !== ExprKind.Ident) {
             throw new Error(`constant-folding evaluation failed: ${(error as Error).message}`);
           }
         }
       }
       foldCount += 1;
+      root = navigateAst(ast);
       foldableExpressions = matchDescendants(root, matcher);
     }
 
@@ -133,7 +136,36 @@ export class ConstantFoldingOptimizer implements ASTOptimizer {
       }
     }
 
-    pruneOptionalElements(context, root);
+    const optionalsPruned = pruneOptionalElements(context, root);
+    root = navigateAst(ast);
+
+    // Resolving optional aggregate entries can expose a surrounding index, select, or call whose
+    // operands are now constant. Fold those newly exposed expressions before final adaptation.
+    foldableExpressions = optionalsPruned ? matchDescendants(root, matcher) : [];
+    let postPruneFoldCount = 0;
+    while (
+      foldableExpressions.length !== 0 &&
+      postPruneFoldCount < this.maxFoldIterations
+    ) {
+      for (const fold of foldableExpressions) {
+        if (fold.kind() === ExprKind.Call && maybePruneBranches(context, ast, fold)) {
+          continue;
+        }
+        if (fold.kind() === ExprKind.Call && isLateBoundFunctionCall(context, fold)) {
+          continue;
+        }
+        try {
+          this.tryFold(context, ast, fold);
+        } catch (error) {
+          if (fold.kind() !== ExprKind.Ident) {
+            throw new Error(`constant-folding evaluation failed: ${(error as Error).message}`);
+          }
+        }
+      }
+      postPruneFoldCount++;
+      root = navigateAst(ast);
+      foldableExpressions = matchDescendants(root, matcher);
+    }
 
     // Runtime values temporarily stored in literal nodes must become valid CEL syntax expressions.
     postOrderVisit(root, (expression) => {
@@ -182,12 +214,10 @@ export class ConstantFoldingOptimizer implements ASTOptimizer {
       .program(subAst)
       .eval(this.knownValues ?? {});
     if (result instanceof Err) {
-      const functionName = expression.asCall()?.functionName();
-      throw new Error(
-        result.message === "no such overload" && functionName
-          ? `${result.message}: ${functionName}`
-          : result.message,
-      );
+      return;
+    }
+    if (isUnknown(result)) {
+      return;
     }
     context.updateExpr({
       target: expression,
@@ -216,7 +246,12 @@ export class ConstantFoldingOptimizer implements ASTOptimizer {
           constantExpressionMatcher(expression.asSelect()!.operand())
         );
       case ExprKind.Ident:
-        return this.knownValues !== undefined && ast.referenceMap().has(expression.id());
+        return (
+          this.knownValues !== undefined &&
+          ast.referenceMap().has(expression.id()) &&
+          (ast.referenceMap().get(expression.id())?.value !== undefined ||
+            this.isKnownIdentifier(expression))
+        );
       case ExprKind.Comprehension: {
         if (isNestedComprehension(expression)) {
           return false;
@@ -244,6 +279,40 @@ export class ConstantFoldingOptimizer implements ASTOptimizer {
       default:
         return false;
     }
+  }
+
+  /**
+   * isKnownIdentifier reports whether an identifier has a supplied value and is not shadowed by
+   * a surrounding comprehension variable.
+   */
+  private isKnownIdentifier(expression: NavigableExpr): boolean {
+    if (this.knownValues === undefined) {
+      return false;
+    }
+    const identifier = expression.asIdent()!;
+    const absolute = identifier.startsWith(".");
+    const name = absolute ? identifier.slice(1) : identifier;
+    if (!Object.hasOwn(this.knownValues, name)) {
+      return false;
+    }
+    if (absolute) {
+      return true;
+    }
+    let [ancestor] = expression.parent();
+    while (ancestor !== undefined) {
+      if (ancestor.kind() === ExprKind.Comprehension) {
+        const comprehension = ancestor.asComprehension()!;
+        if (
+          comprehension.accuVar() === name ||
+          comprehension.iterVar() === name ||
+          comprehension.iterVar2() === name
+        ) {
+          return false;
+        }
+      }
+      [ancestor] = ancestor.parent();
+    }
+    return true;
   }
 }
 
@@ -282,13 +351,18 @@ function isLateBoundFunctionCall(context: OptimizerContext, expression: Expr): b
 /**
  * maybePruneBranches applies constant short-circuit behavior to non-strict calls.
  */
-function maybePruneBranches(context: OptimizerContext, expression: Expr): boolean {
+function maybePruneBranches(
+  context: OptimizerContext,
+  ast: AST,
+  expression: NavigableExpr,
+): boolean {
   const call = expression.asCall()!;
-  const argumentsValue = call.args();
+  // Preserve the navigable wrappers so type-sensitive pruning can inspect checked types.
+  const argumentsValue = expression.children();
   switch (call.functionName()) {
     case operators.LogicalAnd:
     case operators.LogicalOr:
-      return maybeShortCircuitLogic(context, call.functionName(), argumentsValue, expression);
+      return maybeShortCircuitLogic(context, ast, call.functionName(), argumentsValue, expression);
     case operators.Conditional: {
       const condition = argumentsValue[0]!;
       if (condition.kind() !== ExprKind.Literal) {
@@ -308,12 +382,17 @@ function maybePruneBranches(context: OptimizerContext, expression: Expr): boolea
         });
         return true;
       }
-      if (needle.kind() === ExprKind.Literal && haystack.kind() === ExprKind.List) {
+      if (
+        (needle.kind() === ExprKind.Literal || isSelfEqualIdent(needle)) &&
+        haystack.kind() === ExprKind.List
+      ) {
         for (const element of haystack.asList()!.elements()) {
-          if (
-            element.kind() === ExprKind.Literal &&
-            literalEquals(needle.asLiteral(), element.asLiteral())
-          ) {
+          const matched =
+            needle.kind() === ExprKind.Literal
+              ? element.kind() === ExprKind.Literal &&
+                literalEquals(needle.asLiteral(), element.asLiteral())
+              : element.kind() === ExprKind.Ident && element.asIdent() === needle.asIdent();
+          if (matched) {
             context.updateExpr({
               target: expression,
               updated: context.literal(true),
@@ -355,6 +434,7 @@ function maybePruneBranches(context: OptimizerContext, expression: Expr): boolea
  */
 function maybeShortCircuitLogic(
   context: OptimizerContext,
+  ast: AST,
   functionName: string,
   argumentsValue: Expr[],
   expression: Expr,
@@ -377,10 +457,15 @@ function maybeShortCircuitLogic(
     }
   }
   if (remaining.length === 0) {
-    context.updateExpr({ target: expression, updated: argumentsValue[0]! });
-    return true;
+    remaining.push(argumentsValue[0]!);
+  }
+  if (remaining.length === argumentsValue.length) {
+    return false;
   }
   if (remaining.length === 1) {
+    if (!isBoolType(ast, remaining[0]!)) {
+      return false;
+    }
     context.updateExpr({ target: expression, updated: remaining[0]! });
     return true;
   }
@@ -395,12 +480,24 @@ function maybeShortCircuitLogic(
 }
 
 /**
+ * isBoolType reports whether an expression's checked or literal type is CEL bool.
+ */
+function isBoolType(ast: AST, expression: Expr): boolean {
+  const checkedType = ast.getType(expression.id());
+  if (checkedType !== undefined && exprTypeToType(checkedType) === BoolType) {
+    return true;
+  }
+  return expression.kind() === ExprKind.Literal && typeof expression.asLiteral() === "boolean";
+}
+
+/**
  * pruneOptionalElements resolves optional entries within aggregate literals from the bottom up.
  */
 function pruneOptionalElements(
   context: OptimizerContext,
   root: ReturnType<typeof navigateAst>,
-): void {
+): boolean {
+  let pruned = false;
   for (const literal of matchDescendants(
     root,
     (expression) =>
@@ -410,25 +507,26 @@ function pruneOptionalElements(
   )) {
     switch (literal.kind()) {
       case ExprKind.List:
-        pruneOptionalListElements(context, literal);
+        pruned = pruneOptionalListElements(context, literal) || pruned;
         break;
       case ExprKind.Map:
-        pruneOptionalMapEntries(context, literal);
+        pruned = pruneOptionalMapEntries(context, literal) || pruned;
         break;
       case ExprKind.Struct:
-        pruneOptionalStructFields(context, literal);
+        pruned = pruneOptionalStructFields(context, literal) || pruned;
         break;
     }
   }
+  return pruned;
 }
 
 /**
  * pruneOptionalListElements removes empty optionals and unwraps resolved optional elements.
  */
-function pruneOptionalListElements(context: OptimizerContext, expression: Expr): void {
+function pruneOptionalListElements(context: OptimizerContext, expression: Expr): boolean {
   const list = expression.asList()!;
   if (list.optionalIndices().length === 0) {
-    return;
+    return false;
   }
   const elements: Expr[] = [];
   const optionalIndices: number[] = [];
@@ -456,12 +554,13 @@ function pruneOptionalListElements(context: OptimizerContext, expression: Expr):
     target: expression,
     updated: context.list({ elements, optionalIndices }),
   });
+  return true;
 }
 
 /**
  * pruneOptionalMapEntries resolves optional map entries whose values are known.
  */
-function pruneOptionalMapEntries(context: OptimizerContext, expression: Expr): void {
+function pruneOptionalMapEntries(context: OptimizerContext, expression: Expr): boolean {
   const entries: EntryExpr[] = [];
   let modified = false;
   for (const entryExpression of expression.asMap()!.entries()) {
@@ -497,12 +596,13 @@ function pruneOptionalMapEntries(context: OptimizerContext, expression: Expr): v
   if (modified) {
     context.updateExpr({ target: expression, updated: context.map(entries) });
   }
+  return modified;
 }
 
 /**
  * pruneOptionalStructFields resolves optional message fields whose values are known.
  */
-function pruneOptionalStructFields(context: OptimizerContext, expression: Expr): void {
+function pruneOptionalStructFields(context: OptimizerContext, expression: Expr): boolean {
   const structure = expression.asStruct()!;
   const fields: EntryExpr[] = [];
   let modified = false;
@@ -534,6 +634,7 @@ function pruneOptionalStructFields(context: OptimizerContext, expression: Expr):
       updated: context.struct({ typeName: structure.typeName(), fields }),
     });
   }
+  return modified;
 }
 
 /**
@@ -660,21 +761,61 @@ function constantCallMatcher(expression: ReturnType<typeof navigateAst>): boolea
       return true;
     }
     if (
-      needle.kind() === ExprKind.Literal &&
-      haystack.kind() === ExprKind.List &&
-      haystack
-        .asList()!
-        .elements()
-        .some(
-          (element) =>
-            element.kind() === ExprKind.Literal &&
-            literalEquals(needle.asLiteral(), element.asLiteral()),
-        )
+      (needle.kind() === ExprKind.Literal || isSelfEqualIdent(needle)) &&
+      haystack.kind() === ExprKind.List
     ) {
-      return true;
+      for (const element of haystack.asList()!.elements()) {
+        if (
+          (needle.kind() === ExprKind.Literal &&
+            element.kind() === ExprKind.Literal &&
+            literalEquals(needle.asLiteral(), element.asLiteral())) ||
+          (needle.kind() === ExprKind.Ident &&
+            element.kind() === ExprKind.Ident &&
+            element.asIdent() === needle.asIdent())
+        ) {
+          return true;
+        }
+      }
     }
   }
   return children.every((child) => constantExpressionMatcher(child));
+}
+
+/**
+ * isSelfEqualIdent reports whether an identifier's static type guarantees self-equality.
+ *
+ * Double, dynamic, abstract, and struct values can contain NaN, so name equality only proves list
+ * membership for scalar types without NaN and aggregates whose parameters are also self-equal.
+ */
+function isSelfEqualIdent(expression: Expr): boolean {
+  if (expression.kind() !== ExprKind.Ident) {
+    return false;
+  }
+  const checkedType = (expression as Partial<NavigableExpr>).type?.();
+  return checkedType !== undefined && isSelfEqualType(exprTypeToType(checkedType));
+}
+
+/**
+ * isSelfEqualType reports whether every runtime value of a type equals itself.
+ */
+function isSelfEqualType(type: Type): boolean {
+  switch (type.kind()) {
+    case Kind.Bool:
+    case Kind.Bytes:
+    case Kind.Duration:
+    case Kind.Int:
+    case Kind.NullType:
+    case Kind.String:
+    case Kind.Timestamp:
+    case Kind.Type:
+    case Kind.Uint:
+      return true;
+    case Kind.List:
+    case Kind.Map:
+      return type.parameters().every((parameter) => isSelfEqualType(parameter));
+    default:
+      return false;
+  }
 }
 
 /**
@@ -695,12 +836,12 @@ function constantExpressionMatcher(expression: Expr): boolean {
   if (expression.kind() !== ExprKind.Call) {
     return false;
   }
-  const call = expression.asCall()!;
+  const functionName = expression.asCall()!.functionName();
   if (
-    call.functionName() !== "duration" &&
-    call.functionName() !== "timestamp" &&
-    call.functionName() !== "optional.none" &&
-    call.functionName() !== "optional.of"
+    functionName !== "duration" &&
+    functionName !== "timestamp" &&
+    functionName !== "optional.none" &&
+    functionName !== "optional.of"
   ) {
     return false;
   }
@@ -762,7 +903,11 @@ function optionalExpressionValue(
   if (call.functionName() === "optional.none") {
     return { hasValue: false };
   }
-  if (call.functionName() === "optional.of" && call.args()[0]) {
+  if (
+    call.functionName() === "optional.of" &&
+    call.args()[0] &&
+    constantExpressionMatcher(call.args()[0]!)
+  ) {
     return { hasValue: true, value: call.args()[0] };
   }
   return undefined;

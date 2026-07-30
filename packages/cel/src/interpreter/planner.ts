@@ -2,9 +2,10 @@ import type { AST, Expr } from "../common/ast/index.js";
 import type { Container } from "../common/containers.js";
 import * as operators from "../common/operators.js";
 import type { Provider } from "../common/types/index.js";
-import { type Adapter, Double, Int, Uint } from "../common/types/index.js";
+import { type Adapter, Double, exprTypeToType, Int, Uint } from "../common/types/index.js";
 import { Type_PrimitiveType } from "../gen/cel/expr/checked_pb.js";
 import type { AttributeFactory } from "./attributes.js";
+import { asyncCallInterpretable } from "./async.js";
 import type { InterpretableDecoratorV2 } from "./decorators.js";
 import type { Dispatcher } from "./dispatcher.js";
 import {
@@ -200,6 +201,7 @@ class PlanBuilder {
     let attr = this.asAttribute(expr.id(), operand, false);
     const qualifier = this.plannerValue.attrFactory.qualifier({
       id: expr.id(),
+      objectType: exprTypeToType(this.exprAstValue.getType(select.operand().id())!),
       value: select.fieldName(),
       optional: false,
     });
@@ -309,6 +311,15 @@ class PlanBuilder {
       : [undefined, false]) ?? [undefined, false];
     const [fallback] = this.plannerValue.dispatcher.findOverload(functionName);
     const overload = resolved ?? fallback;
+    if (overload?.async !== undefined) {
+      return asyncCallInterpretable({
+        id,
+        functionName,
+        overloadId,
+        args,
+        implementation: overload.async,
+      });
+    }
     return callInterpretable({
       id,
       functionName,

@@ -1,0 +1,135 @@
+{
+  "path": "limits",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"limits\"\nextensions:\n  - name: \"strings\"\n    version: latest\nvariables:\n  - name: \"now\"\n    type:\n      type_name: \"google.protobuf.Timestamp\"\n",
+      "value": {
+        "extensions": [
+          {
+            "name": "strings",
+            "version": "latest"
+          }
+        ],
+        "name": "limits",
+        "variables": [
+          {
+            "name": "now",
+            "type": {
+              "type_name": "google.protobuf.Timestamp"
+            }
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"limits\"\nrule:\n  variables:\n    - name: \"greeting\"\n      expression: \"'hello'\"\n    - name: \"farewell\"\n      expression: \"'goodbye'\"\n    - name: \"person\"\n      expression: \"'me'\"\n  match:\n    - condition: |\n        now.getHours() \u003e= 20\n      rule:\n        id: \"farewells\"\n        variables:\n          - name: \"message\"\n            expression: \u003e\n              variables.farewell + \", \" + variables.person\n        match:\n          - condition: \u003e\n              now.getHours() \u003c 21\n            output: variables.message + \"!\"\n          - condition: \u003e\n              now.getHours() \u003c 22\n            output: variables.message + \"!!\"\n          - condition: \u003e\n              now.getHours() \u003c 24\n            output: variables.message + \"!!!\"\n    - output: \u003e\n        variables.greeting + \", \" + variables.person\n",
+      "value": {
+        "name": "limits",
+        "rule": {
+          "match": [
+            {
+              "condition": "now.getHours() \u003e= 20\n",
+              "rule": {
+                "id": "farewells",
+                "match": [
+                  {
+                    "condition": "now.getHours() \u003c 21\n",
+                    "output": "variables.message + \"!\""
+                  },
+                  {
+                    "condition": "now.getHours() \u003c 22\n",
+                    "output": "variables.message + \"!!\""
+                  },
+                  {
+                    "condition": "now.getHours() \u003c 24\n",
+                    "output": "variables.message + \"!!!\""
+                  }
+                ],
+                "variables": [
+                  {
+                    "expression": "variables.farewell + \", \" + variables.person\n",
+                    "name": "message"
+                  }
+                ]
+              }
+            },
+            {
+              "output": "variables.greeting + \", \" + variables.person\n"
+            }
+          ],
+          "variables": [
+            {
+              "expression": "'hello'",
+              "name": "greeting"
+            },
+            {
+              "expression": "'goodbye'",
+              "name": "farewell"
+            },
+            {
+              "expression": "'me'",
+              "name": "person"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: Limits related tests\nsection:\n  - name: \"now_after_hours\"\n    tests:\n      - name: \"7pm\"\n        input:\n          now:\n            expr: \"timestamp('2024-07-30T00:30:00Z')\"\n        output:\n          value: \"hello, me\"\n      - name: \"8pm\"\n        input:\n          now:\n            expr: \"timestamp('2024-07-30T20:30:00Z')\"\n        output:\n          value: \"goodbye, me!\"\n      - name: \"9pm\"\n        input:\n          now:\n            expr: \"timestamp('2024-07-30T21:30:00Z')\"\n        output:\n          value: \"goodbye, me!!\"\n      - name: \"11pm\"\n        input:\n          now:\n            expr: \"timestamp('2024-07-30T23:30:00Z')\"\n        output:\n          value: \"goodbye, me!!!\"\n",
+      "value": {
+        "description": "Limits related tests",
+        "section": [
+          {
+            "name": "now_after_hours",
+            "tests": [
+              {
+                "input": {
+                  "now": {
+                    "expr": "timestamp('2024-07-30T00:30:00Z')"
+                  }
+                },
+                "name": "7pm",
+                "output": {
+                  "value": "hello, me"
+                }
+              },
+              {
+                "input": {
+                  "now": {
+                    "expr": "timestamp('2024-07-30T20:30:00Z')"
+                  }
+                },
+                "name": "8pm",
+                "output": {
+                  "value": "goodbye, me!"
+                }
+              },
+              {
+                "input": {
+                  "now": {
+                    "expr": "timestamp('2024-07-30T21:30:00Z')"
+                  }
+                },
+                "name": "9pm",
+                "output": {
+                  "value": "goodbye, me!!"
+                }
+              },
+              {
+                "input": {
+                  "now": {
+                    "expr": "timestamp('2024-07-30T23:30:00Z')"
+                  }
+                },
+                "name": "11pm",
+                "output": {
+                  "value": "goodbye, me!!!"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

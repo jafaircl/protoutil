@@ -47,6 +47,13 @@ export class ParserHelper {
   }
 
   /**
+   * expressionCount returns the number of expression ids emitted by the parser.
+   */
+  public expressionCount(): number {
+    return this.nextValueId - 1;
+  }
+
+  /**
    * id allocates a fresh expression id for a known source range.
    */
   public id(range: OffsetRange): number {
@@ -132,9 +139,25 @@ export class ParserHelper {
    */
   private shiftRange(range: OffsetRange): OffsetRange {
     return {
-      start: range.start + this.baseOffset,
-      stop: range.stop + this.baseOffset,
+      start: this.shiftOffset(range.start),
+      stop: this.shiftOffset(range.stop),
     };
+  }
+
+  /**
+   * shiftOffset converts a local lexer offset through its line and column into source metadata.
+   */
+  private shiftOffset(offset: number): number {
+    const content = this.source.content();
+    let line = 1;
+    let lineStart = 0;
+    for (let index = 0; index < offset && index < content.length; index += 1) {
+      if (content[index] === "\n") {
+        line += 1;
+        lineStart = index + 1;
+      }
+    }
+    return this.sourceInfo.computeOffset(line, offset - lineStart);
   }
 
   /**

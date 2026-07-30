@@ -2,10 +2,32 @@ import { describe, expect, it } from "vitest";
 import { container, defaultContainer } from "../common/containers.js";
 import { attributeTrail, qualifyAttribute, registry, Unknown } from "../common/types/index.js";
 import { emptyActivation, partialActivation } from "./activation.js";
+import type { Activation } from "./activation.js";
 import type { Attribute, AttributeFactory } from "./attributes.js";
+import { executionFrame } from "./frame.js";
 import { attributePattern, partialAttributeFactory } from "./index.js";
 import type { SyncedAttrCase } from "./spec-helpers.js";
 import { resolveAttributePatternCases } from "./spec-helpers.js";
+
+/**
+ * LocalActivation exposes one locally bound variable for partial-attribute tests.
+ */
+class LocalActivation implements Activation {
+  /** parent returns the wrapped partial activation. */
+  public parent(): Activation | undefined {
+    return undefined;
+  }
+
+  /** resolveName returns the local x value. */
+  public resolveName(name: string): [unknown, boolean] {
+    return name === "x" ? [1, true] : [undefined, false];
+  }
+
+  /** isLocalVariable reports that x belongs to this local scope. */
+  public isLocalVariable(name: string): boolean {
+    return name === "x";
+  }
+}
 
 /**
  * attribute_patterns_test.go coverage tracks the upstream attribute pattern tests.
@@ -110,6 +132,87 @@ describe("interpreter/attribute_patterns_test.go", () => {
       expect(unknownContains(value, unknownFor("a", 3, 0, "c"))).toBe(true);
     });
   });
+
+  describe("interpreter/attribute_patterns_test.go/TestAttributePattern_LocallyBound", () => {
+    it("does not replace a locally bound variable with a partial unknown", () => {
+      const reg = registry();
+      const fac = partialAttributeFactory({
+        containerValue: defaultContainer,
+        adapter: reg,
+        provider: reg,
+      });
+      const partial = partialActivation({
+        bindings: {},
+        unknowns: [attributePattern("x"), attributePattern("y")],
+      });
+      const frame = executionFrame({ input: partial }).push(new LocalActivation());
+
+      expect(fac.absoluteAttribute(1, "x").resolve(frame)).toBe(1);
+      expect(fac.absoluteAttribute(2, "y").resolve(frame)).toBeInstanceOf(Unknown);
+      frame.close();
+    });
+  });
+
+  describe("interpreter/attribute_patterns_test.go/TestQualifierValueEquals", () => {
+    it("matches equivalent field, string, boolean, and numeric qualifier values", () => {
+      const reg = registry();
+      const fac = partialAttributeFactory({
+        containerValue: defaultContainer,
+        adapter: reg,
+        provider: reg,
+      });
+
+      expect(attributePattern("a").qualString("hello").qualifierPatterns()[0]?.matches(
+        fac.qualifier({ id: 1, value: "hello", optional: false }),
+      )).toBe(true);
+      expect(attributePattern("a").qualBool(true).qualifierPatterns()[0]?.matches(
+        fac.qualifier({ id: 1, value: true, optional: false }),
+      )).toBe(true);
+      expect(attributePattern("a").qualInt(42).qualifierPatterns()[0]?.matches(
+        fac.qualifier({ id: 1, value: 42n, optional: false }),
+      )).toBe(true);
+    });
+  });
+
+  describe(
+    "interpreter/attribute_patterns_test.go/TestPartialAttributeFactory_MaybeAttributeGloballyNamespaced",
+    () => {
+      it("creates an unchecked globally namespaced attribute", () => {
+        const reg = registry();
+        const fac = partialAttributeFactory({
+          containerValue: defaultContainer,
+          adapter: reg,
+          provider: reg,
+        });
+
+        expect(fac.maybeAttribute(10, ".global_var")).toBeDefined();
+      });
+    },
+  );
+
+  describe(
+    "interpreter/attribute_patterns_test.go/TestPartialAttributeFactory_ResolveUnknownQualifier",
+    () => {
+      it("preserves the qualified trail and qualifier expression id", () => {
+        const reg = registry();
+        const fac = partialAttributeFactory({
+          containerValue: defaultContainer,
+          adapter: reg,
+          provider: reg,
+        });
+        const attribute = fac.absoluteAttribute(1, "a");
+        attribute.addQualifier(fac.qualifier({ id: 2, value: "b", optional: false }));
+        const value = attribute.resolve(
+          partialActivation({
+            bindings: { a: { b: 1 } },
+            unknowns: [attributePattern("a").qualString("b")],
+          }),
+        ) as Unknown;
+
+        expect(value.contains(unknownFor("a", 2, "b"))).toBe(true);
+      });
+    },
+  );
 });
 
 /**

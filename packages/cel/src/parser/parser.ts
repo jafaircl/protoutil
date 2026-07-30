@@ -815,8 +815,14 @@ class ParseImpl {
   private callOrMacro(exprId: number, name: string, target: Expr | undefined, args: Expr[]): Expr {
     const macro = lookupMacro(this.options.macros, name, target !== undefined, args.length);
     if (macro) {
+      if (this.helper.expressionCount() > this.options.maxExpressionNodeCount) {
+        return this.reportMacroExpressionLimit(exprId, name);
+      }
       const helper = this.macroHelper(exprId);
       const expanded = macro.expander(helper, target, args);
+      if (this.helper.expressionCount() > this.options.maxExpressionNodeCount) {
+        return this.reportMacroExpressionLimit(exprId, name);
+      }
       if (expanded === undefined) {
         return target
           ? this.helper.exprFactory.memberCall(exprId, name, target, ...args)
@@ -843,6 +849,20 @@ class ParseImpl {
     return target
       ? this.helper.exprFactory.memberCall(exprId, name, target, ...args)
       : this.helper.exprFactory.call(exprId, name, ...args);
+  }
+
+  /**
+   * reportMacroExpressionLimit records a macro expansion node-limit failure.
+   */
+  private reportMacroExpressionLimit(exprId: number, name: string): Expr {
+    const location = this.helper.locationForId(exprId);
+    this.helper.deleteId(exprId);
+    this.errors.reportErrorAtId(
+      0,
+      location,
+      `expression count exceeds limit of ${this.options.maxExpressionNodeCount} while expanding macro '${name}'`,
+    );
+    return this.helper.exprFactory.unspecified(exprId);
   }
 
   /**

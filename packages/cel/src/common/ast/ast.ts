@@ -284,10 +284,7 @@ export class SourceInfo {
       line += 1;
       start = next;
     }
-    return new SourceLocation(
-      line - this.baseLine,
-      offset - start - (line - this.baseLine === 1 ? this.baseCol : 0),
-    );
+    return new SourceLocation(line, offset - start);
   }
 }
 
@@ -598,6 +595,22 @@ export function maxId(ast: AST): number {
     });
   }
   return currentMax + 1;
+}
+
+/**
+ * nodeCount returns the total number of expression and entry nodes, including macro calls.
+ */
+export function nodeCount(ast: AST | undefined): number {
+  if (ast === undefined) {
+    return 0;
+  }
+  const ids = new Set<number>();
+  collectIds(ast.expr(), ids);
+  for (const [id, call] of ast.sourceInfo().macroCalls()) {
+    ids.add(id);
+    collectIds(call, ids);
+  }
+  return ids.size;
 }
 
 /**

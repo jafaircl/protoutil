@@ -27,6 +27,10 @@ export interface ParserOptions {
    */
   expressionSizeCodePointLimit: number;
   /**
+   * Limits the number of expression nodes emitted by parsing and macro expansion.
+   */
+  maxExpressionNodeCount: number;
+  /**
    * Preserves original macro call shapes in source info.
    */
   populateMacroCalls: boolean;
@@ -205,6 +209,10 @@ export function parserOptions(config: ParserConfig = {}): ParserOptions {
       config.expressionSizeCodePointLimit === -1
         ? Number.MAX_SAFE_INTEGER
         : (config.expressionSizeCodePointLimit ?? 100_000),
+    maxExpressionNodeCount:
+      config.maxExpressionNodeCount === -1
+        ? Number.MAX_SAFE_INTEGER
+        : (config.maxExpressionNodeCount ?? 100_000),
     populateMacroCalls: config.populateMacroCalls ?? false,
     enableOptionalSyntax: config.enableOptionalSyntax ?? false,
     enableVariadicOperatorASTs: config.enableVariadicOperatorASTs ?? false,
@@ -233,6 +241,11 @@ function validateParserConfig(config: ParserConfig): void {
   ) {
     throw new Error(
       `expression size code point limit must be greater than or equal to -1: ${config.expressionSizeCodePointLimit}`,
+    );
+  }
+  if (config.maxExpressionNodeCount !== undefined && config.maxExpressionNodeCount < -1) {
+    throw new Error(
+      `max expression node count must be greater than or equal to -1: ${config.maxExpressionNodeCount}`,
     );
   }
   if (config.errorReportingLimit !== undefined && config.errorReportingLimit <= 0) {

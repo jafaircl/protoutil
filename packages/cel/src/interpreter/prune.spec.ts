@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
-import { type AST, ast, type Expr, ExprKind } from "../common/ast/index.js";
+import { type AST, ast, ExprKind } from "../common/ast/index.js";
 import { defaultContainer } from "../common/containers.js";
 import { functionDecl, overload } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -8,7 +8,6 @@ import { standardFunctions } from "../common/stdlib.js";
 import {
   DynType,
   Int,
-  isUnknownOrError,
   ListType,
   OptionalNone,
   OptionalType,
@@ -439,39 +438,7 @@ function evaluateForState(exprAst: AST, vars: Activation) {
     }
   }
 
-  // cel-go list construction stops observing later elements after an unknown or error.
-  clearUnevaluatedListElements(exprAst.expr(), state);
   return state;
-}
-
-/**
- * clearUnevaluatedListElements aligns aggregate state with cel-go's first-unknown observation order.
- */
-function clearUnevaluatedListElements(expr: Expr, state: ReturnType<typeof evalState>): void {
-  if (expr.kind() === ExprKind.List) {
-    let blocked = false;
-    for (const element of expr.asList()!.elements()) {
-      if (blocked) {
-        clearStateTree(element, state);
-        continue;
-      }
-      const [value, found] = state.value(element.id());
-      blocked = found && value !== undefined && isUnknownOrError(value);
-    }
-  }
-  for (const child of expr.children()) {
-    clearUnevaluatedListElements(child, state);
-  }
-}
-
-/**
- * clearStateTree removes observed values for an expression and all descendants.
- */
-function clearStateTree(expr: Expr, state: ReturnType<typeof evalState>): void {
-  state.setValue({ exprId: expr.id(), value: undefined });
-  for (const child of expr.children()) {
-    clearStateTree(child, state);
-  }
 }
 
 /**

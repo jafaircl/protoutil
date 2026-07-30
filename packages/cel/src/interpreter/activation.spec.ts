@@ -127,4 +127,51 @@ describe("interpreter/activation_test.go", () => {
       expect(asPartialActivation(combined)).toEqual([parent, true]);
     });
   });
+
+  describe("interpreter/activation_test.go/TestActivation_NewActivationNilInput", () => {
+    it("rejects nil activation bindings", () => {
+      expect(() => activation({ bindings: undefined })).toThrow("bindings must be non-nil");
+    });
+  });
+
+  describe("interpreter/activation_test.go/TestPartialActivation_NewPartialActivationNilInput", () => {
+    it("rejects nil partial activation bindings", () => {
+      expect(() => partialActivation({ bindings: undefined, unknowns: [] })).toThrow(
+        "bindings must be non-nil",
+      );
+    });
+  });
+
+  describe("interpreter/activation_test.go/TestAsPartialActivation_NonPartialActivation", () => {
+    it("reports ordinary activations as non-partial", () => {
+      expect(asPartialActivation(activation({ bindings: { a: 1 } }))).toEqual([
+        undefined,
+        false,
+      ]);
+    });
+  });
+
+  describe("interpreter/activation_test.go/TestIsLocalVariableNested", () => {
+    it("searches nested local activation scopes", () => {
+      const localScope = (names: string[]) => ({
+        isLocalVariable: (name: string) => names.includes(name),
+        parent: () => undefined,
+        resolveName: (): [unknown, boolean] => [undefined, false],
+      });
+      const outer = hierarchicalActivation({
+        parent: activation({ bindings: {} }),
+        child: localScope(["accu1", "iter1", "iter1_2"]),
+      });
+      const inner = hierarchicalActivation({
+        parent: outer,
+        child: localScope(["accu2", "iter2"]),
+      }) as ReturnType<typeof hierarchicalActivation> & {
+        isLocalVariable(name: string): boolean;
+      };
+
+      expect(inner.isLocalVariable("accu2")).toBe(true);
+      expect(inner.isLocalVariable("iter1_2")).toBe(true);
+      expect(inner.isLocalVariable("x")).toBe(false);
+    });
+  });
 });

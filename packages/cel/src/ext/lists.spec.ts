@@ -38,6 +38,8 @@ interface ListsCostCase extends ListsCase {
   in?: Record<string, unknown>;
   /** vars contains serialized CEL-Go variable declarations. */
   vars?: Array<{ $expr: string }>;
+  /** version selects the legacy cost model for rows that explicitly request it. */
+  version?: number;
 }
 
 describe("ext/lists_test.go/TestLists", () => {
@@ -88,7 +90,7 @@ describe("ext/lists_test.go/TestListsCosts", () => {
   it("matches synchronized checker and runtime costs", () => {
     for (const testCase of syncedCases<ListsCostCase>("ext/lists_test.go/TestListsCosts")) {
       const celEnv = listsEnv(
-        { version: 3 },
+        { version: testCase.version ?? Number.MAX_SAFE_INTEGER },
         (testCase.vars ?? []).map((variable) => resolveVariable(variable.$expr)),
       );
       const ast = celEnv.compile(testCase.expr);

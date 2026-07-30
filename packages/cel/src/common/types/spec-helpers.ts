@@ -36,6 +36,7 @@ import {
   listType,
   MapType,
   mapType,
+  mergeUnknowns,
   NullType,
   NullValue,
   nullableType,
@@ -55,6 +56,7 @@ import {
   Uint,
   UintType,
   unknown,
+  type Unknown,
   type Val,
 } from "./index.js";
 import { dynamicList } from "./list.js";
@@ -647,6 +649,10 @@ function resolveExprString(expr: string): unknown {
   if (expr.startsWith("Bool(") && expr.endsWith(")")) {
     return new Bool(expr.slice(5, -1) === "true");
   }
+  const mergedUnknown = resolveMergedUnknown(expr);
+  if (mergedUnknown !== undefined) {
+    return mergedUnknown;
+  }
   const unknownMatch = /^NewUnknown\((-?\d+),\s*nil\)$/.exec(expr);
   if (unknownMatch) {
     return unknown(Number(unknownMatch[1]!));
@@ -849,6 +855,60 @@ function resolveExprString(expr: string): unknown {
     return concatenatedString;
   }
   throw new Error(`unsupported synced expr: ${expr}`);
+}
+
+/**
+ * resolveMergedUnknown resolves nested cel-go MergeUnknowns expressions.
+ */
+function resolveMergedUnknown(expr: string): Val | undefined {
+  const match = /^(?:types\.)?MergeUnknowns\(([\s\S]*)\)$/.exec(expr.trim());
+  if (!match) {
+    return undefined;
+  }
+  const args = splitCallArgs(match[1]!);
+  if (args.length !== 2) {
+    return undefined;
+  }
+  return mergeUnknowns(
+    resolveExprString(args[0]!) as Unknown,
+    resolveExprString(args[1]!) as Unknown,
+  );
+}
+
+/**
+ * splitCallArgs splits a Go call argument list while preserving nested calls and strings.
+ */
+function splitCallArgs(source: string): string[] {
+  const args: string[] = [];
+  let depth = 0;
+  let start = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index]!;
+    if (quoted) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        quoted = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      quoted = true;
+    } else if (char === "(") {
+      depth++;
+    } else if (char === ")") {
+      depth--;
+    } else if (char === "," && depth === 0) {
+      args.push(source.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  args.push(source.slice(start).trim());
+  return args;
 }
 
 /**

@@ -364,6 +364,85 @@ describe("common/decls/decls_test.go", () => {
     expect(() => fn.bindings()).toThrow(/incompatible with late bindings/);
   });
 
+  describe("common/decls/decls_test.go/TestAsyncBinding", () => {
+    it("creates a late-bound asynchronous overload", async () => {
+      const declaration = functionDecl("async_fn", {
+        overloads: [
+          overload("async_fn_int", [IntType], IntType, {
+            asyncBinding: async (_signal, argument) => argument!,
+          }),
+        ],
+      });
+      const binding = declaration.bindings()[0]!;
+      expect(declaration.hasLateBinding()).toBe(true);
+      expect(await binding.async!(new AbortController().signal, new Int(42n))).toEqual(
+        new Int(42n),
+      );
+    });
+  });
+
+  describe("common/decls/decls_test.go/TestAsyncBindingTypeGuards", () => {
+    it("guards asynchronous overload argument types", async () => {
+      const declaration = functionDecl("async_fn", {
+        overloads: [
+          overload("async_fn_int", [IntType], IntType, {
+            asyncBinding: async (_signal, argument) => argument!,
+          }),
+        ],
+      });
+      const result = await declaration
+        .bindings()[0]!
+        .async!(new AbortController().signal, new CelString("hello"));
+      expect(isError(result)).toBe(true);
+    });
+  });
+
+  describe("common/decls/decls_test.go/TestSingletonAsyncBinding", () => {
+    it("creates one async binding for every declaration", async () => {
+      const declaration = functionDecl("async_fn", {
+        overloads: [
+          overload("async_fn_int", [IntType], IntType),
+          overload("async_fn_string", [StringType], StringType),
+        ],
+        singletonBinding: {
+          async: async (_signal, argument) => argument!,
+        },
+      });
+      expect(declaration.bindings()).toHaveLength(1);
+      expect(declaration.hasLateBinding()).toBe(true);
+      expect(
+        await declaration
+          .bindings()[0]!
+          .async!(new AbortController().signal, new CelString("hello")),
+      ).toEqual(new CelString("hello"));
+    });
+  });
+
+  describe("common/decls/decls_test.go/TestAsyncBindingRedefinition", () => {
+    it("rejects a second per-overload async binding", () => {
+      expect(() =>
+        overload("async_fn_int", [IntType], IntType, {
+          asyncBinding: async (_signal, argument) => argument!,
+          unaryBinding: (argument) => argument,
+        }),
+      ).toThrow("already has a binding");
+    });
+  });
+
+  describe("common/decls/decls_test.go/TestSingletonAsyncBindingRedefinition", () => {
+    it("rejects mixed singleton implementations", () => {
+      expect(() =>
+        functionDecl("async_fn", {
+          overloads: [overload("async_fn_int", [IntType], IntType)],
+          singletonBinding: {
+            async: async (_signal, argument) => argument!,
+            unary: (argument) => argument,
+          },
+        }),
+      ).toThrow("must define exactly one implementation");
+    });
+  });
+
   it("common/decls/decls_test.go/TestSingletonUnaryBindingRedefinition", () => {
     expect(() =>
       functionDecl("id", {

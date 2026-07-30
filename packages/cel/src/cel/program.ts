@@ -1,5 +1,7 @@
+import { Unknown } from "../common/types/unknown.js";
 import type { Val } from "../common/types/ref/reference.js";
 import type { Activation } from "../interpreter/activation.js";
+import type { AsyncObserver } from "../interpreter/async.js";
 import type { EvalState } from "../interpreter/eval-state.js";
 import { executionFrame } from "../interpreter/frame.js";
 import type { InterpretableV2 } from "../interpreter/interpretable.js";
@@ -133,6 +135,11 @@ export interface Program {
    * contextEvalWithDetails evaluates with cancellation and returns observed evaluation details.
    */
   contextEvalWithDetails(input: unknown, options: ContextEvalOptions): EvalResult;
+
+  /**
+   * concurrentEval resolves asynchronous function calls and returns the final evaluation result.
+   */
+  concurrentEval(input: unknown, options: ContextEvalOptions): Promise<EvalResult>;
 }
 
 /**
@@ -150,6 +157,16 @@ export interface ContextEvalOptions {
  */
 export interface EvalProgramOptions {
   /**
+   * asyncMaxConcurrency limits the number of simultaneously executing asynchronous bindings.
+   */
+  asyncMaxConcurrency?: number;
+
+  /**
+   * asyncObserver receives asynchronous call lifecycle events.
+   */
+  asyncObserver?: AsyncObserver;
+
+  /**
    * costTrackerSink receives the cost tracker initialized for each evaluation.
    */
   costTrackerSink?: ProgramCostTrackerSink;
@@ -160,6 +177,11 @@ export interface EvalProgramOptions {
   globals?: Activation;
 
   /**
+   * hasAsync records whether the environment declares asynchronous function bindings.
+   */
+  hasAsync?: boolean;
+
+  /**
    * interruptCheckFrequency controls how often comprehensions inspect the abort signal.
    */
   interruptCheckFrequency?: number;
@@ -168,6 +190,21 @@ export interface EvalProgramOptions {
    * stateSink receives evaluation state from a configured interpreter observer.
    */
   stateSink?: ProgramEvalStateSink;
+}
+
+/**
+ * ProgramEvaluationOptions configures one internal synchronous evaluation.
+ */
+interface ProgramEvaluationOptions {
+  /**
+   * input contains the activation or binding map evaluated by the program.
+   */
+  input: unknown;
+
+  /**
+   * context optionally carries cancellation state for context-aware evaluation.
+   */
+  context?: ContextEvalOptions;
 }
 
 /**
@@ -186,13 +223,15 @@ export class EvalProgram implements Program {
    * eval evaluates the program and releases per-evaluation frame resources afterward.
    */
   public eval(input: unknown): Val {
-    return this.evalWithDetails(input).value;
+    this.rejectSynchronousAsyncEvaluation();
+    return this.execute({ input });
   }
 
   /**
    * evalWithDetails evaluates the program and returns the per-evaluation state.
    */
   public evalWithDetails(input: unknown): EvalResult {
+    this.rejectSynchronousAsyncEvaluation();
     return this.evaluate({ input });
   }
 
@@ -200,7 +239,14 @@ export class EvalProgram implements Program {
    * contextEval evaluates the program with cancellation state attached to its execution frame.
    */
   public contextEval(input: unknown, options: ContextEvalOptions): Val {
-    return this.contextEvalWithDetails(input, options).value;
+    if (options?.signal === undefined) {
+      throw new Error("context can not be nil");
+    }
+    this.rejectSynchronousAsyncEvaluation();
+    return this.execute({
+      input,
+      context: options,
+    });
   }
 
   /**
@@ -210,6 +256,7 @@ export class EvalProgram implements Program {
     if (options?.signal === undefined) {
       throw new Error("context can not be nil");
     }
+    this.rejectSynchronousAsyncEvaluation();
     return this.evaluate({
       input,
       context: options,
@@ -217,9 +264,78 @@ export class EvalProgram implements Program {
   }
 
   /**
+   * concurrentEval repeatedly evaluates until every required asynchronous call resolves.
+   */
+  public async concurrentEval(input: unknown, options: ContextEvalOptions): Promise<EvalResult> {
+    if (options?.signal === undefined) {
+      throw new Error("context can not be nil");
+    }
+    this.options.stateSink?.reset();
+    this.options.costTrackerSink?.reset();
+    const frame = executionFrame({ input });
+    if (this.options.globals !== undefined) {
+      frame.setActivationHierarchy({
+        parent: this.options.globals,
+        child: frame.activation(),
+      });
+    }
+    frame.setContext({
+      signal: options.signal,
+      interruptCheckFrequency: this.options.interruptCheckFrequency ?? 0,
+    });
+    frame.setAsync({
+      maxConcurrency: this.options.asyncMaxConcurrency ?? 100,
+      observer: this.options.asyncObserver,
+    });
+    try {
+      for (;;) {
+        const value = this.interpretable.exec(frame);
+        if (!(value instanceof Unknown) || !value.hasUnknownFunction()) {
+          return {
+            value,
+            details: new EvalDetails(
+              this.options.stateSink?.evalState(),
+              this.options.costTrackerSink?.actualCost(),
+            ),
+          };
+        }
+        await frame.waitForAsyncCompletion(value.ids());
+      }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      throw new Error(`internal error: ${message}`, { cause });
+    } finally {
+      frame.close();
+    }
+  }
+
+  /**
+   * rejectSynchronousAsyncEvaluation prevents unresolved async calls from entering sync evaluation.
+   */
+  private rejectSynchronousAsyncEvaluation(): void {
+    if (this.options.hasAsync) {
+      throw new Error("expression contains asynchronous function calls; use concurrentEval");
+    }
+  }
+
+  /**
    * evaluate executes the planned expression and captures state initialized by its observers.
    */
-  private evaluate(options: { input: unknown; context?: ContextEvalOptions }): EvalResult {
+  private evaluate(options: ProgramEvaluationOptions): EvalResult {
+    const value = this.execute(options);
+    return {
+      value,
+      details: new EvalDetails(
+        this.options.stateSink?.evalState(),
+        this.options.costTrackerSink?.actualCost(),
+      ),
+    };
+  }
+
+  /**
+   * execute evaluates the planned expression without allocating result-detail wrappers.
+   */
+  private execute(options: ProgramEvaluationOptions): Val {
     this.options.stateSink?.reset();
     this.options.costTrackerSink?.reset();
     const frame = executionFrame({ input: options.input });
@@ -237,14 +353,7 @@ export class EvalProgram implements Program {
       });
     }
     try {
-      const value = this.interpretable.exec(frame);
-      return {
-        value,
-        details: new EvalDetails(
-          this.options.stateSink?.evalState(),
-          this.options.costTrackerSink?.actualCost(),
-        ),
-      };
+      return this.interpretable.exec(frame);
     } catch (cause) {
       // Match cel-go's program recovery boundary: unexpected host failures must not escape as
       // unclassified application exceptions.

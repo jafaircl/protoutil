@@ -108,44 +108,20 @@ const extensionSuites = new Set([
 
 /** skippedConformanceTests lists cases that should be ignored ignores. */
 const skippedConformanceTests = new Map([
-  // Skipped because cel-go also ignores them:
-
-  // Failing conformance tests.
-  ["fields/qualified_identifier_resolution/map_key_float", "skipped by cel-go"],
-  ["fields/qualified_identifier_resolution/map_key_null", "skipped by cel-go"],
-  ["fields/qualified_identifier_resolution/map_value_repeat_key", "skipped by cel-go"],
+  // The synchronized fixture retains deprecated duration component semantics.
   [
-    "fields/qualified_identifier_resolution/map_value_repeat_key_heterogeneous",
-    "skipped by cel-go",
+    "timestamps/duration_converters/get_milliseconds",
+    "upstream fixture expects fractional milliseconds; cel-go returns total milliseconds",
   ],
-  ["timestamps/duration_converters/get_milliseconds", "skipped by cel-go"],
-  ["optionals/optionals/map_optional_select_has", "skipped by cel-go"],
 
-  // Temporarily failing tests, need a spec update
-  ["string_ext/value_errors/indexof_out_of_range", "skipped by cel-go"],
-  ["string_ext/value_errors/lastindexof_out_of_range", "skipped by cel-go"],
-
-  // Future enhancments.
-  ["enums/strong_proto2", "skipped by cel-go"],
-  ["enums/strong_proto3", "skipped by cel-go"],
-
-  // Type deductions
-  ["type_deductions/wrappers/wrapper_promotion_2", "skipped by cel-go"],
+  // These synchronized fixtures have not yet incorporated cel-go's out-of-range search behavior.
   [
-    "type_deductions/legacy_nullable_types/null_assignable_to_message_parameter_candidate",
-    "skipped by cel-go",
+    "string_ext/value_errors/indexof_out_of_range",
+    "upstream fixture expects an error; cel-go returns -1",
   ],
   [
-    "type_deductions/legacy_nullable_types/null_assignable_to_duration_parameter_candidate",
-    "skipped by cel-go",
-  ],
-  [
-    "type_deductions/legacy_nullable_types/null_assignable_to_timestamp_parameter_candidate",
-    "skipped by cel-go",
-  ],
-  [
-    "type_deductions/legacy_nullable_types/null_assignable_to_abstract_parameter_candidate",
-    "skipped by cel-go",
+    "string_ext/value_errors/lastindexof_out_of_range",
+    "upstream fixture expects an error; cel-go returns -1",
   ],
 ]);
 
@@ -156,7 +132,7 @@ const skippedConformanceTests = new Map([
  */
 function shouldSkipTest(name: string): string | undefined {
   for (const skipped of skippedConformanceTests.keys()) {
-    if (name === skipped || name.startsWith(skipped)) {
+    if (name === skipped || name.startsWith(`${skipped}/`)) {
       return skippedConformanceTests.get(skipped)!;
     }
   }
@@ -180,15 +156,16 @@ const protobufRegistry = createRegistry(
 /**
  * conformanceEnvironment creates the cel-go conformance environment available in TypeScript.
  */
-function conformanceEnvironment(disableMacros: boolean, suite: string): Env {
+function conformanceEnvironment(execution: ConformanceExecution): Env {
   const typeRegistry = registry();
   typeRegistry.registerDescriptor(file_cel_expr_conformance_proto2_test_all_types);
   typeRegistry.registerDescriptor(file_cel_expr_conformance_proto2_test_all_types_extensions);
   typeRegistry.registerDescriptor(file_cel_expr_conformance_proto3_test_all_types);
+  typeRegistry.withStrongEnums(execution.section.startsWith("strong_"));
   return env({
     errorOnBadPresenceTest: true,
-    libraries: conformanceLibraries(suite),
-    macros: disableMacros ? { standard: false } : undefined,
+    libraries: conformanceLibraries(execution.suite),
+    macros: execution.test.disableMacros ? { standard: false } : undefined,
     parser: { enableIdentEscapeSyntax: true },
     registry: typeRegistry,
   });
@@ -624,7 +601,7 @@ function executeConformance(execution: ConformanceExecution): ConformanceResult 
   let environment: Env;
   try {
     environment = configuredEnvironment(
-      conformanceEnvironment(test.disableMacros, execution.suite),
+      conformanceEnvironment(execution),
       test,
     );
   } catch {
@@ -806,15 +783,23 @@ function markdownReport(results: ConformanceResult[], skipped: Record<string, st
 }
 
 describe("conformance/conformance_test.go/TestConformance", () => {
-  it("executes synchronized fixtures and writes the conformance dashboard", () => {
-    const { executions, skipped } = conformanceCases();
-    const results = executions.map(executeConformance);
-    const report = markdownReport(results, skipped);
+  it(
+    "executes synchronized fixtures and writes the conformance dashboard",
+    () => {
+      const { executions, skipped } = conformanceCases();
+      const results = executions.map(executeConformance);
+      const failures = results
+        .filter((result) => result.failure !== undefined)
+        .map((result) => `${result.execution.name}: ${result.failure}`);
+      const report = markdownReport(results, skipped);
 
-    writeFileSync(reportPath, report);
+      writeFileSync(reportPath, report);
 
-    expect(executions.length).toBeGreaterThan(0);
-    expect(Object.keys(skipped).length).toBeGreaterThan(0);
-    expect(readFileSync(reportPath, "utf8")).toBe(report);
-  });
+      expect(executions.length).toBeGreaterThan(0);
+      expect(Object.keys(skipped).length).toBeGreaterThan(0);
+      expect(readFileSync(reportPath, "utf8")).toBe(report);
+      expect(failures).toEqual([]);
+    },
+    15_000,
+  );
 });

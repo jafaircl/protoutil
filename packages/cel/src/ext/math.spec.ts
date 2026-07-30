@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
+import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { functionDecl, memberOverload, variableDecl } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import type { Int } from "../common/types/int.js";
 import type { Val } from "../common/types/ref/index.js";
+import {
+  resolveSyncedExpr,
+  resolveSyncedVariableDecl,
+} from "../common/types/spec-helpers.js";
 import { DoubleType, DynType, IntType, listType } from "../common/types/types.js";
 import { math } from "./math.js";
 
@@ -26,6 +31,22 @@ interface MathVersionCase {
   /** supportedFunctions maps function labels to successful CEL expressions. */
   supportedFunctions: Record<string, string>;
   /** version identifies the introducing extension version. */
+  version: number;
+}
+
+/** MathCostCase describes one synchronized checker and runtime cost row. */
+interface MathCostCase extends MathCase {
+  /** actualCost contains CEL-Go's runtime cost. */
+  actualCost: number;
+  /** estimatedCost contains CEL-Go's serialized checker estimate. */
+  estimatedCost: { $expr: string };
+  /** hints contains size estimates keyed by checked path. */
+  hints?: Record<string, number>;
+  /** name identifies the upstream row. */
+  name: string;
+  /** vars contains serialized variable declarations. */
+  vars?: Array<{ $expr: string }>;
+  /** version selects the extension cost model. */
   version: number;
 }
 
@@ -110,6 +131,43 @@ describe("ext/math_test.go/TestMathVersions", () => {
   });
 });
 
+describe("ext/math_test.go/TestMathCosts", () => {
+  it("matches every synchronized list-extremum cost", () => {
+    for (const testCase of syncedCases<MathCostCase>("ext/math_test.go/TestMathCosts")) {
+      const celEnv = env({
+        libraries: [math({ version: testCase.version })],
+        variables: (testCase.vars ?? []).map((value) =>
+          resolveSyncedVariableDecl(
+            { $expr: value.$expr.replace(/^cel\./, "") },
+            {
+              "cel.ListType(cel.DoubleType)": listType(DoubleType),
+              "cel.ListType(cel.IntType)": listType(IntType),
+            },
+          ),
+        ),
+      });
+      const ast = celEnv.compile(testCase.expr);
+      const estimator: CostEstimator = {
+        estimateCallCost: () => undefined,
+        estimateSize: (node) => {
+          const path = node.path()?.join(".");
+          const hint = path === undefined ? undefined : testCase.hints?.[path];
+          return hint === undefined ? undefined : sizeEstimate(0n, BigInt(hint));
+        },
+      };
+      const estimate = celEnv.estimateCost(ast, estimator);
+      expect([estimate.Min, estimate.Max], testCase.name).toEqual(
+        parseMathCost(testCase.estimatedCost.$expr),
+      );
+      const result = celEnv
+        .program(ast, { costTracking: {} })
+        .evalWithDetails(resolveSyncedExpr(testCase.in ?? {}) as Record<string, unknown>);
+      expect(result.value.value(), testCase.name).toBe(true);
+      expect(result.details.actualCost(), testCase.name).toBe(testCase.actualCost);
+    }
+  });
+});
+
 /** mathEnv creates the shared upstream math test environment. */
 function mathEnv() {
   return env({
@@ -133,4 +191,18 @@ function numericPair(options: { left: Val; operation: "greatest" | "least"; righ
     : leftValue <= rightValue
       ? options.left
       : options.right;
+}
+
+/** parseMathCost decodes CEL-Go fixed and ranged cost expressions. */
+function parseMathCost(expression: string): [bigint, bigint] {
+  const fixed = /^checker\.FixedCostEstimate\((\d+)\)$/.exec(expression);
+  if (fixed) {
+    const value = BigInt(fixed[1]!);
+    return [value, value];
+  }
+  const ranged = /^checker\.CostEstimate\{Min: (\d+), Max: (\d+)\}$/.exec(expression);
+  if (ranged) {
+    return [BigInt(ranged[1]!), BigInt(ranged[2]!)];
+  }
+  throw new Error(`unsupported synchronized math cost: ${expression}`);
 }

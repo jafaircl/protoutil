@@ -2,7 +2,14 @@ import { fromBinary, type MessageShape, toBinary } from "@bufbuild/protobuf";
 import { AnySchema, NullValue as ProtoNullValue } from "@bufbuild/protobuf/wkt";
 import { Code } from "@protoutil/core/google/rpc";
 import type { Expr, SourceInfo } from "../common/ast/index.js";
-import { AST, ast, protoToExpr, protoToSourceInfo, toAst } from "../common/ast/index.js";
+import {
+  AST,
+  ast,
+  exceedsDepth,
+  protoToExpr,
+  protoToSourceInfo,
+  toAst,
+} from "../common/ast/index.js";
 import type { Source } from "../common/source.js";
 import { Bool } from "../common/types/bool.js";
 import { Bytes } from "../common/types/bytes.js";
@@ -12,6 +19,7 @@ import { Int } from "../common/types/int.js";
 import { refValList } from "../common/types/list.js";
 import { refValMap } from "../common/types/map.js";
 import { NullValue } from "../common/types/null.js";
+import { ProtoEnum } from "../common/types/pb/enum.js";
 import type { Adapter } from "../common/types/provider.js";
 import type { Val } from "../common/types/ref/reference.js";
 import { String as CelString } from "../common/types/string.js";
@@ -41,6 +49,14 @@ import {
 import { unparse } from "../parser/unparser.js";
 
 /**
+ * EnumValueAdapter reconstructs typed protobuf enum values from their canonical CEL wire form.
+ */
+interface EnumValueAdapter extends Adapter {
+  /** enumValueOf resolves a signed number within a fully qualified protobuf enum type. */
+  enumValueOf(typeName: string, value: bigint): Val;
+}
+
+/**
  * checkedExprToAst converts a checked-expression protobuf message to an AST.
  */
 export function checkedExprToAst(checkedExpr: CheckedExpr): AST {
@@ -58,13 +74,15 @@ export function checkedExprToAst(checkedExpr: CheckedExpr): AST {
  */
 export function checkedExprToAstWithSource(checkedExpr: CheckedExpr, source?: Source): AST {
   const checked = toAst(checkedExpr);
-  return new AST(
+  const loaded = new AST(
     checked.expr(),
     checked.sourceInfo(),
     checked.typeMap(),
     checked.referenceMap(),
     source,
   );
+  assertLoadedAstDepth(loaded);
+  return loaded;
 }
 
 /**
@@ -94,7 +112,19 @@ export function parsedExprToAst(parsedExpr: ParsedExpr): AST {
  * Prefer {@link parsedExprToAst} when loading expressions from storage.
  */
 export function parsedExprToAstWithSource(parsedExpr: ParsedExpr, source?: Source): AST {
-  return ast(protoToExpr(parsedExpr.expr), protoToSourceInfo(parsedExpr.sourceInfo), source);
+  const loaded = ast(protoToExpr(parsedExpr.expr), protoToSourceInfo(parsedExpr.sourceInfo), source);
+  assertLoadedAstDepth(loaded);
+  return loaded;
+}
+
+/**
+ * assertLoadedAstDepth guards protobuf-loaded ASTs which bypass parser recursion limits.
+ */
+function assertLoadedAstDepth(astValue: AST): void {
+  const defaultMaxAstDepth = 250;
+  if (exceedsDepth(astValue, defaultMaxAstDepth)) {
+    throw new Error(`input exceeds maximum expression nesting depth: ${defaultMaxAstDepth}`);
+  }
 }
 
 /**
@@ -183,6 +213,16 @@ export function exprValueAsAlphaProto(value: Val): AlphaExprValue {
  * refValueToValue converts a CEL runtime value to its generated cel.expr.Value shape.
  */
 export function refValueToValue(value: Val): Value {
+  if (value instanceof ProtoEnum) {
+    return valueMessage({
+      case: "enumValue",
+      value: {
+        $typeName: "cel.expr.EnumValue",
+        type: value.enumDescriptor().typeName,
+        value: Number(value.value()),
+      },
+    });
+  }
   const runtimeType = value.type();
   if (runtimeType === NullType) {
     return valueMessage({
@@ -307,10 +347,22 @@ export function valueToRefValue(adapter: Adapter, value: Value): Val {
     case "objectValue":
       return adapter.nativeToValue(value.kind.value);
     case "enumValue":
-      return new Int(BigInt(value.kind.value.value));
+      return isEnumValueAdapter(adapter)
+        ? adapter.enumValueOf(value.kind.value.type, BigInt(value.kind.value.value))
+        : new Int(BigInt(value.kind.value.value));
     default:
       throw new Error("value kind is not set");
   }
+}
+
+/**
+ * isEnumValueAdapter reports whether an adapter can reconstruct strongly typed protobuf enums.
+ */
+function isEnumValueAdapter(adapter: Adapter): adapter is EnumValueAdapter {
+  return (
+    "enumValueOf" in adapter &&
+    typeof (adapter as { enumValueOf?: unknown }).enumValueOf === "function"
+  );
 }
 
 /**

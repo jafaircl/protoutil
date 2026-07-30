@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common"
+	envconfig "github.com/google/cel-go/common/env"
+	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/interpreter"
-	"github.com/google/cel-go/parser"
+	"github.com/google/cel-go/policy"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
+	"go.yaml.in/yaml/v3"
 )
 
 type benchmarkCase struct {
@@ -24,6 +26,22 @@ type benchmarkCase struct {
 	envOptions []cel.EnvOption
 	input      map[string]any
 	expected   any
+}
+
+// residualBenchmarkCase describes a partial-evaluation workload shared with TypeScript.
+type residualBenchmarkCase struct {
+	name             string
+	expression       string
+	envOptions       []cel.EnvOption
+	input            map[string]any
+	unknowns         []residualUnknownAttribute
+	expectedResidual string
+}
+
+// residualUnknownAttribute describes one root variable and its string field qualifiers.
+type residualUnknownAttribute struct {
+	variable   string
+	qualifiers []string
 }
 
 type plannerVariant struct {
@@ -67,6 +85,89 @@ type benchmarkResult struct {
 	Notes          string         `json:"notes"`
 }
 
+// policyDocument contains one synchronized upstream YAML source.
+type policyDocument struct {
+	Source string `json:"source"`
+}
+
+// policyFixture contains the synchronized documents for one upstream policy suite.
+type policyFixture struct {
+	Path  string                    `json:"path"`
+	Files map[string]policyDocument `json:"files"`
+}
+
+// policyTestInput describes a literal or CEL expression activation value.
+type policyTestInput struct {
+	Value any    `yaml:"value"`
+	Expr  string `yaml:"expr"`
+}
+
+// policyTestCase describes one policy evaluation input.
+type policyTestCase struct {
+	Name  string                     `yaml:"name"`
+	Input map[string]policyTestInput `yaml:"input"`
+}
+
+// policyTestSection groups related policy evaluation inputs.
+type policyTestSection struct {
+	Name  string           `yaml:"name"`
+	Tests []policyTestCase `yaml:"tests"`
+}
+
+// policyTestSuite is the synchronized policy tests.yaml shape.
+type policyTestSuite struct {
+	Section  []policyTestSection `yaml:"section"`
+	Sections []policyTestSection `yaml:"sections"`
+}
+
+// policyBenchmarkCase pairs one scenario name with a reusable activation.
+type policyBenchmarkCase struct {
+	scenario   string
+	activation interpreter.Activation
+}
+
+// policyBenchmarkContext stores reusable policy setup for parse, compile, plan, and eval rows.
+type policyBenchmarkContext struct {
+	fixture      policyFixture
+	environment  *cel.Env
+	parsedPolicy *policy.Policy
+	ast          *cel.Ast
+	program      cel.Program
+	cases        []policyBenchmarkCase
+}
+
+// policyCompileOptions configures one benchmark policy compilation.
+type policyCompileOptions struct {
+	environment  *cel.Env
+	parsedPolicy *policy.Policy
+	scenario     string
+}
+
+// evaluationValidationOptions configures one pre-benchmark CEL correctness check.
+type evaluationValidationOptions struct {
+	benchmarkCase benchmarkCase
+	variant       plannerVariant
+	program       cel.Program
+	activation    interpreter.Activation
+}
+
+// frontendBenchmarkOptions configures the frontend rows for one CEL expression.
+type frontendBenchmarkOptions struct {
+	benchmarkCase       benchmarkCase
+	environment         *cel.Env
+	parsed              *cel.Ast
+	sampleCount         int
+	warmupCount         int
+	iterationsPerSample int
+}
+
+// policyFixtureFiles selects representative successful synchronized policy suites.
+var policyFixtureFiles = []string{
+	"unnest.json",
+	"nested-rule7.json",
+	"required-labels.json",
+}
+
 var benchmarkSink any
 
 // main runs the cel-go half of the benchmark matrix and emits JSON for the TypeScript report writer.
@@ -84,10 +185,367 @@ func main() {
 			runCase(benchmarkCase, sampleCount, warmupCount, iterationsPerSample)...,
 		)
 	}
+	for _, benchmarkCase := range diagnosticCases() {
+		fmt.Fprintf(os.Stderr, "Benchmarking cel-go diagnostic: %s\n", benchmarkCase.name)
+		results = append(
+			results,
+			runDiagnosticCase(benchmarkCase, sampleCount, warmupCount, iterationsPerSample)...,
+		)
+	}
+	for _, benchmarkCase := range residualCases() {
+		fmt.Fprintf(os.Stderr, "Benchmarking cel-go residual: %s\n", benchmarkCase.name)
+		results = append(
+			results,
+			runResidualCase(benchmarkCase, sampleCount, warmupCount, iterationsPerSample)...,
+		)
+	}
+	for _, fixtureFile := range policyFixtureFiles {
+		fixture := readPolicyFixture(fixtureFile)
+		fmt.Fprintf(os.Stderr, "Benchmarking cel-go policy: %s\n", fixture.Path)
+		results = append(
+			results,
+			runPolicyCase(fixture, sampleCount, warmupCount, iterationsPerSample)...,
+		)
+	}
 
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	must(encoder.Encode(results))
+}
+
+// diagnosticCases builds an evaluation ladder for isolating incremental runtime feature cost.
+func diagnosticCases() []benchmarkCase {
+	values := make([]int64, 100)
+	for index := range values {
+		values[index] = int64(index)
+	}
+	protoInput := &proto3pb.TestAllTypes{
+		NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
+			SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{Bb: 123},
+		},
+	}
+	return []benchmarkCase{
+		{
+			name:       "diagnostic / literal",
+			expression: "true",
+			input:      map[string]any{},
+			expected:   true,
+		},
+		{
+			name:       "diagnostic / identifier",
+			expression: "x",
+			envOptions: []cel.EnvOption{cel.Variable("x", cel.IntType)},
+			input:      map[string]any{"x": int64(41)},
+			expected:   int64(41),
+		},
+		{
+			name:       "diagnostic / binary call",
+			expression: "x + 1",
+			envOptions: []cel.EnvOption{cel.Variable("x", cel.IntType)},
+			input:      map[string]any{"x": int64(41)},
+			expected:   int64(42),
+		},
+		{
+			name:       "diagnostic / member call",
+			expression: "input.startsWith('bench')",
+			envOptions: []cel.EnvOption{cel.Variable("input", cel.StringType)},
+			input:      map[string]any{"input": "benchmark"},
+			expected:   true,
+		},
+		{
+			name:       "diagnostic / dynamic map selection",
+			expression: "labels.env == 'prod'",
+			envOptions: []cel.EnvOption{cel.Variable("labels", cel.MapType(cel.StringType, cel.StringType))},
+			input:      map[string]any{"labels": map[string]string{"env": "prod"}},
+			expected:   true,
+		},
+		{
+			name:       "diagnostic / list index",
+			expression: "values[50] == 50",
+			envOptions: []cel.EnvOption{cel.Variable("values", cel.ListType(cel.IntType))},
+			input:      map[string]any{"values": values},
+			expected:   true,
+		},
+		{
+			name:       "diagnostic / fold early exit",
+			expression: "values.exists(value, value > 50)",
+			envOptions: []cel.EnvOption{cel.Variable("values", cel.ListType(cel.IntType))},
+			input:      map[string]any{"values": values},
+			expected:   true,
+		},
+		{
+			name:       "diagnostic / fold full scan",
+			expression: "values.exists(value, value > 100)",
+			envOptions: []cel.EnvOption{cel.Variable("values", cel.ListType(cel.IntType))},
+			input:      map[string]any{"values": values},
+			expected:   false,
+		},
+		{
+			name:       "diagnostic / protobuf field",
+			expression: "msg.single_nested_message.bb == 123",
+			envOptions: []cel.EnvOption{
+				cel.Types(&proto3pb.TestAllTypes{}),
+				cel.Variable("msg", cel.ObjectType("google.expr.proto3.test.TestAllTypes")),
+			},
+			input:    map[string]any{"msg": protoInput},
+			expected: true,
+		},
+	}
+}
+
+// residualCases mirrors upstream branch and macro residualization scenarios.
+func residualCases() []residualBenchmarkCase {
+	return []residualBenchmarkCase{
+		{
+			name:       "known branch pruning",
+			expression: "x < 10 && (y == 0 || 'hello' != 'goodbye')",
+			envOptions: []cel.EnvOption{
+				cel.Variable("x", cel.IntType),
+				cel.Variable("y", cel.IntType),
+			},
+			input: map[string]any{},
+			unknowns: []residualUnknownAttribute{
+				{variable: "x"},
+				{variable: "y"},
+			},
+			expectedResidual: "x < 10",
+		},
+		{
+			name:       "macro pruning",
+			expression: "x.exists(i, i < 10) && [11, 12, 13].all(i, i in [y, 12, 13])",
+			envOptions: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.IntType)),
+				cel.Variable("y", cel.IntType),
+			},
+			input: map[string]any{"y": int64(11)},
+			unknowns: []residualUnknownAttribute{
+				{variable: "x"},
+			},
+			expectedResidual: "x.exists(i, i < 10)",
+		},
+		{
+			name: "qualified attribute pruning",
+			expression: `resource.name.startsWith("bucket/my-bucket") &&
+				bool(request.auth.claims.email_verified) == true &&
+				request.auth.claims.email == "wiley@acme.co"`,
+			envOptions: []cel.EnvOption{
+				cel.Variable("resource.name", cel.StringType),
+				cel.Variable("request.auth.claims", cel.MapType(cel.StringType, cel.StringType)),
+			},
+			input: map[string]any{
+				"resource.name":       "bucket/my-bucket/objects/private",
+				"request.auth.claims": map[string]string{"email_verified": "true"},
+			},
+			unknowns: []residualUnknownAttribute{
+				{variable: "request.auth.claims", qualifiers: []string{"email"}},
+			},
+			expectedResidual: `request.auth.claims.email == "wiley@acme.co"`,
+		},
+	}
+}
+
+// readPolicyFixture loads one synchronized policy fixture used by both benchmark implementations.
+func readPolicyFixture(fileName string) policyFixture {
+	contents, err := os.ReadFile("../../testdata/policy/" + fileName)
+	must(err)
+	fixture := policyFixture{}
+	must(json.Unmarshal(contents, &fixture))
+	if fixture.Path == "" || fixture.Files["policy.yaml"].Source == "" ||
+		fixture.Files["tests.yaml"].Source == "" {
+		panic(fmt.Sprintf("malformed synchronized policy fixture: %s", fileName))
+	}
+	return fixture
+}
+
+// runPolicyCase prepares one cel-go policy suite and measures its policy feature paths.
+func runPolicyCase(
+	fixture policyFixture,
+	sampleCount int,
+	warmupCount int,
+	iterationsPerSample int,
+) []benchmarkResult {
+	context := policyContext(fixture)
+	results := []benchmarkResult{
+		benchmark(benchmarkOptions{
+			operation:           "policy-parse",
+			scenario:            fixture.Path,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Parses the synchronized upstream YAML policy source.",
+			run: func() any {
+				return parsePolicyFixture(fixture)
+			},
+		}),
+		benchmark(benchmarkOptions{
+			operation:           "policy-compile",
+			scenario:            fixture.Path,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Reuses one parsed policy and configured environment to isolate policy compilation.",
+			run: func() any {
+				return compilePolicyFixture(policyCompileOptions{
+					environment:  context.environment,
+					parsedPolicy: context.parsedPolicy,
+					scenario:     fixture.Path,
+				})
+			},
+		}),
+		benchmark(benchmarkOptions{
+			operation:           "policy-plan",
+			scenario:            fixture.Path,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Reuses one compiled policy AST and environment to isolate optimized planning.",
+			run: func() any {
+				program, err := context.environment.Program(
+					context.ast,
+					cel.EvalOptions(cel.OptOptimize),
+				)
+				must(err)
+				return program
+			},
+		}),
+	}
+	for _, benchmarkCase := range context.cases {
+		currentCase := benchmarkCase
+		results = append(results, benchmark(benchmarkOptions{
+			operation:           "policy-eval",
+			scenario:            currentCase.scenario,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Reuses one optimized policy program and prepared activation.",
+			run: func() any {
+				value, _, err := context.program.Eval(currentCase.activation)
+				must(err)
+				return value
+			},
+		}))
+	}
+	return results
+}
+
+// policyContext prepares one environment, policy, AST, optimized program, and evaluation case set.
+func policyContext(fixture policyFixture) policyBenchmarkContext {
+	environment := policyEnvironment(fixture)
+	parsedPolicy := parsePolicyFixture(fixture)
+	ast := compilePolicyFixture(policyCompileOptions{
+		environment:  environment,
+		parsedPolicy: parsedPolicy,
+		scenario:     fixture.Path,
+	})
+	program, err := environment.Program(ast, cel.EvalOptions(cel.OptOptimize))
+	must(err)
+	cases := policyBenchmarkCases(environment, fixture)
+	for _, benchmarkCase := range cases {
+		value, _, evalErr := program.Eval(benchmarkCase.activation)
+		must(evalErr)
+		if value == nil {
+			panic(fmt.Sprintf("policy evaluation returned nil for %s", benchmarkCase.scenario))
+		}
+	}
+	return policyBenchmarkContext{
+		fixture:      fixture,
+		environment:  environment,
+		parsedPolicy: parsedPolicy,
+		ast:          ast,
+		program:      program,
+		cases:        cases,
+	}
+}
+
+// policyEnvironment configures cel-go with standard policy libraries and serialized declarations.
+func policyEnvironment(fixture policyFixture) *cel.Env {
+	environment, err := cel.NewCustomEnv(
+		cel.OptionalTypes(),
+		cel.EnableMacroCallTracking(),
+		cel.ExtendedValidations(),
+		ext.Bindings(),
+	)
+	must(err)
+	configDocument, found := fixture.Files["config.yaml"]
+	if !found {
+		return environment
+	}
+	config := &envconfig.Config{}
+	must(yaml.Unmarshal([]byte(configDocument.Source), config))
+	environment, err = environment.Extend(policy.FromConfig(config))
+	must(err)
+	return environment
+}
+
+// parsePolicyFixture parses one synchronized policy and rejects diagnostics.
+func parsePolicyFixture(fixture policyFixture) *policy.Policy {
+	parserValue, err := policy.NewParser()
+	must(err)
+	parsedPolicy, issues := parserValue.Parse(
+		policy.StringSource(fixture.Files["policy.yaml"].Source, fixture.Path+"/policy.yaml"),
+	)
+	mustIssues(issues, fmt.Sprintf("policy parse failed for %s", fixture.Path))
+	if parsedPolicy == nil {
+		panic(fmt.Sprintf("policy parse returned nil for %s", fixture.Path))
+	}
+	return parsedPolicy
+}
+
+// compilePolicyFixture compiles one parsed policy and rejects diagnostics.
+func compilePolicyFixture(options policyCompileOptions) *cel.Ast {
+	ast, issues := policy.Compile(options.environment, options.parsedPolicy)
+	mustIssues(issues, fmt.Sprintf("policy compile failed for %s", options.scenario))
+	if ast == nil {
+		panic(fmt.Sprintf("policy compile returned nil for %s", options.scenario))
+	}
+	return ast
+}
+
+// policyBenchmarkCases expands synchronized test sections into prepared activations.
+func policyBenchmarkCases(
+	environment *cel.Env,
+	fixture policyFixture,
+) []policyBenchmarkCase {
+	suite := policyTestSuite{}
+	must(yaml.Unmarshal([]byte(fixture.Files["tests.yaml"].Source), &suite))
+	sections := suite.Section
+	if len(sections) == 0 {
+		sections = suite.Sections
+	}
+	cases := make([]policyBenchmarkCase, 0)
+	for _, section := range sections {
+		for _, testCase := range section.Tests {
+			input := make(map[string]any, len(testCase.Input))
+			for name, value := range testCase.Input {
+				if value.Expr == "" {
+					input[name] = value.Value
+					continue
+				}
+				input[name] = evaluatePolicyInput(environment, value.Expr)
+			}
+			activation, err := interpreter.NewActivation(input)
+			must(err)
+			cases = append(cases, policyBenchmarkCase{
+				scenario:   fmt.Sprintf("%s / %s / %s", fixture.Path, section.Name, testCase.Name),
+				activation: activation,
+			})
+		}
+	}
+	if len(cases) == 0 {
+		panic(fmt.Sprintf("policy fixture has no evaluation cases: %s", fixture.Path))
+	}
+	return cases
+}
+
+// evaluatePolicyInput evaluates an expression-based policy input in an empty activation.
+func evaluatePolicyInput(environment *cel.Env, expression string) any {
+	ast, issues := environment.Compile(expression)
+	mustIssues(issues, fmt.Sprintf("policy input compile failed for %q", expression))
+	program, err := environment.Program(ast)
+	must(err)
+	value, _, err := program.Eval(cel.NoVars())
+	must(err)
+	return value
 }
 
 // benchmarkCases builds the scenarios shared with the TypeScript benchmark harness.
@@ -147,16 +605,6 @@ func runCase(
 	env, err := cel.NewEnv(envOptions...)
 	must(err)
 
-	parserValue, err := parser.NewParser(
-		parser.Macros(parser.AllMacros...),
-		parser.EnableOptionalSyntax(true),
-		parser.MaxRecursionDepth(32),
-		parser.ErrorRecoveryLimit(4),
-		parser.ErrorRecoveryLookaheadTokenLimit(4),
-		parser.PopulateMacroCalls(true),
-	)
-	must(err)
-
 	parsed, issues := env.Parse(benchmarkCase.expression)
 	mustIssues(issues, fmt.Sprintf("parse setup failed for %s", benchmarkCase.name))
 	checked, issues := env.Check(parsed)
@@ -165,15 +613,14 @@ func runCase(
 		panic(fmt.Sprintf("check setup did not produce a checked AST for %s", benchmarkCase.name))
 	}
 
-	results := frontendBenchmarks(
-		benchmarkCase,
-		env,
-		parserValue,
-		parsed,
-		sampleCount,
-		warmupCount,
-		iterationsPerSample,
-	)
+	results := frontendBenchmarks(frontendBenchmarkOptions{
+		benchmarkCase:       benchmarkCase,
+		environment:         env,
+		parsed:              parsed,
+		sampleCount:         sampleCount,
+		warmupCount:         warmupCount,
+		iterationsPerSample: iterationsPerSample,
+	})
 	for _, variant := range plannerVariants(benchmarkCase) {
 		scenario := fmt.Sprintf("%s / %s", benchmarkCase.name, variant.name)
 		results = append(results, benchmark(benchmarkOptions{
@@ -192,7 +639,14 @@ func runCase(
 
 		program, err := env.Program(checked, variant.options...)
 		must(err)
-		validateEvaluation(benchmarkCase, variant, program)
+		activationValue, err := interpreter.NewActivation(benchmarkCase.input)
+		must(err)
+		validateEvaluation(evaluationValidationOptions{
+			benchmarkCase: benchmarkCase,
+			variant:       variant,
+			program:       program,
+			activation:    activationValue,
+		})
 		results = append(results, benchmark(benchmarkOptions{
 			operation:           "eval",
 			scenario:            scenario,
@@ -201,7 +655,7 @@ func runCase(
 			iterationsPerSample: iterationsPerSample,
 			notes:               "Reuses one planned program and activation to isolate steady-state evaluation.",
 			run: func() any {
-				value, _, err := program.Eval(benchmarkCase.input)
+				value, _, err := program.Eval(activationValue)
 				must(err)
 				return value
 			},
@@ -210,68 +664,227 @@ func runCase(
 	return results
 }
 
-// frontendBenchmarks measures parse, unparse, check, and combined compile throughput.
-func frontendBenchmarks(
+// runDiagnosticCase measures baseline evaluation, public details, and state observation.
+func runDiagnosticCase(
 	benchmarkCase benchmarkCase,
-	env *cel.Env,
-	parserValue *parser.Parser,
-	parsed *cel.Ast,
 	sampleCount int,
 	warmupCount int,
 	iterationsPerSample int,
 ) []benchmarkResult {
+	envOptions := append([]cel.EnvOption{cel.EnableMacroCallTracking()}, benchmarkCase.envOptions...)
+	env, err := cel.NewEnv(envOptions...)
+	must(err)
+	ast, issues := env.Compile(benchmarkCase.expression)
+	mustIssues(issues, fmt.Sprintf("diagnostic compile failed for %s", benchmarkCase.name))
+	program, err := env.Program(ast)
+	must(err)
+	stateProgram, err := env.Program(ast, cel.EvalOptions(cel.OptTrackState))
+	must(err)
+	activationValue, err := interpreter.NewActivation(benchmarkCase.input)
+	must(err)
+	validateEvaluation(evaluationValidationOptions{
+		benchmarkCase: benchmarkCase,
+		variant:       plannerVariant{name: "diagnostic"},
+		program:       program,
+		activation:    activationValue,
+	})
+	stateValue, _, err := stateProgram.Eval(activationValue)
+	must(err)
+	if !reflect.DeepEqual(stateValue.Value(), benchmarkCase.expected) {
+		panic(fmt.Sprintf(
+			"unexpected %s state-tracking result: got %v, wanted %v",
+			benchmarkCase.name,
+			stateValue.Value(),
+			benchmarkCase.expected,
+		))
+	}
 	return []benchmarkResult{
 		benchmark(benchmarkOptions{
-			operation:           "parse",
+			operation:           "eval",
 			scenario:            benchmarkCase.name,
 			sampleCount:         sampleCount,
 			warmupCount:         warmupCount,
 			iterationsPerSample: iterationsPerSample,
-			notes:               "Reuses one parser instance to isolate steady-state parse throughput.",
+			notes:               "Reuses one baseline program and activation to expose incremental runtime feature cost.",
 			run: func() any {
-				astValue, errors := parserValue.Parse(common.NewTextSource(benchmarkCase.expression))
-				if errors != nil && len(errors.GetErrors()) > 0 {
-					panic(errors.ToDisplayString())
+				value, _, evalErr := program.Eval(activationValue)
+				must(evalErr)
+				return value
+			},
+		}),
+		benchmark(benchmarkOptions{
+			operation:           "eval-details",
+			scenario:            benchmarkCase.name,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Reuses one baseline program and activation while returning public evaluation details.",
+			run: func() any {
+				value, details, evalErr := program.Eval(activationValue)
+				must(evalErr)
+				if details != nil {
+					return details
 				}
+				return value
+			},
+		}),
+		benchmark(benchmarkOptions{
+			operation:           "eval-state",
+			scenario:            benchmarkCase.name,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Reuses one state-tracking program and activation to isolate observer overhead.",
+			run: func() any {
+				value, details, evalErr := stateProgram.Eval(activationValue)
+				must(evalErr)
+				if details != nil {
+					return details
+				}
+				return value
+			},
+		}),
+	}
+}
+
+// runResidualCase measures partial evaluation, residual construction, and their combined path.
+func runResidualCase(
+	benchmarkCase residualBenchmarkCase,
+	sampleCount int,
+	warmupCount int,
+	iterationsPerSample int,
+) []benchmarkResult {
+	envOptions := append([]cel.EnvOption{cel.EnableMacroCallTracking()}, benchmarkCase.envOptions...)
+	env, err := cel.NewEnv(envOptions...)
+	must(err)
+	ast, issues := env.Compile(benchmarkCase.expression)
+	mustIssues(issues, fmt.Sprintf("residual compile failed for %s", benchmarkCase.name))
+	program, err := env.Program(ast, cel.EvalOptions(cel.OptTrackState, cel.OptPartialEval))
+	must(err)
+	unknowns := make([]*interpreter.AttributePattern, 0, len(benchmarkCase.unknowns))
+	for _, unknown := range benchmarkCase.unknowns {
+		pattern := cel.AttributePattern(unknown.variable)
+		for _, qualifier := range unknown.qualifiers {
+			pattern = pattern.QualString(qualifier)
+		}
+		unknowns = append(unknowns, pattern)
+	}
+	input, err := cel.PartialVars(benchmarkCase.input, unknowns...)
+	must(err)
+	_, details, err := program.Eval(input)
+	must(err)
+	residual, err := env.ResidualAst(ast, details)
+	must(err)
+	rendered, err := cel.AstToString(residual)
+	must(err)
+	if rendered != benchmarkCase.expectedResidual {
+		panic(fmt.Sprintf(
+			"unexpected %s residual: %s; wanted %s",
+			benchmarkCase.name,
+			rendered,
+			benchmarkCase.expectedResidual,
+		))
+	}
+	return []benchmarkResult{
+		benchmark(benchmarkOptions{
+			operation:           "partial-eval",
+			scenario:            benchmarkCase.name,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Reuses one state-tracking partial program and inferred unknown activation.",
+			run: func() any {
+				value, evalDetails, evalErr := program.Eval(input)
+				must(evalErr)
+				if evalDetails != nil {
+					return evalDetails
+				}
+				return value
+			},
+		}),
+		benchmark(benchmarkOptions{
+			operation:           "residual",
+			scenario:            benchmarkCase.name,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Reuses one evaluated state to isolate prune, render, parse, and re-check cost.",
+			run: func() any {
+				residualValue, residualErr := env.ResidualAst(ast, details)
+				must(residualErr)
+				return residualValue
+			},
+		}),
+		benchmark(benchmarkOptions{
+			operation:           "residual-roundtrip",
+			scenario:            benchmarkCase.name,
+			sampleCount:         sampleCount,
+			warmupCount:         warmupCount,
+			iterationsPerSample: iterationsPerSample,
+			notes:               "Measures partial evaluation followed by residual AST construction.",
+			run: func() any {
+				_, evalDetails, evalErr := program.Eval(input)
+				must(evalErr)
+				residualValue, residualErr := env.ResidualAst(ast, evalDetails)
+				must(residualErr)
+				return residualValue
+			},
+		}),
+	}
+}
+
+// frontendBenchmarks measures parse, unparse, check, and combined compile throughput.
+func frontendBenchmarks(options frontendBenchmarkOptions) []benchmarkResult {
+	return []benchmarkResult{
+		benchmark(benchmarkOptions{
+			operation:           "parse",
+			scenario:            options.benchmarkCase.name,
+			sampleCount:         options.sampleCount,
+			warmupCount:         options.warmupCount,
+			iterationsPerSample: options.iterationsPerSample,
+			notes:               "Reuses one public environment to isolate steady-state parse throughput.",
+			run: func() any {
+				astValue, issues := options.environment.Parse(options.benchmarkCase.expression)
+				mustIssues(issues, fmt.Sprintf("parse failed for %s", options.benchmarkCase.name))
 				return astValue
 			},
 		}),
 		benchmark(benchmarkOptions{
 			operation:           "unparse",
-			scenario:            benchmarkCase.name,
-			sampleCount:         sampleCount,
-			warmupCount:         warmupCount,
-			iterationsPerSample: iterationsPerSample,
+			scenario:            options.benchmarkCase.name,
+			sampleCount:         options.sampleCount,
+			warmupCount:         options.warmupCount,
+			iterationsPerSample: options.iterationsPerSample,
 			notes:               "Reuses one parsed AST to isolate unparser cost.",
 			run: func() any {
-				rendered, err := cel.AstToString(parsed)
+				rendered, err := cel.AstToString(options.parsed)
 				must(err)
 				return rendered
 			},
 		}),
 		benchmark(benchmarkOptions{
 			operation:           "check",
-			scenario:            benchmarkCase.name,
-			sampleCount:         sampleCount,
-			warmupCount:         warmupCount,
-			iterationsPerSample: iterationsPerSample,
-			notes:               "Reuses one parsed AST and checker environment to isolate checker cost.",
+			scenario:            options.benchmarkCase.name,
+			sampleCount:         options.sampleCount,
+			warmupCount:         options.warmupCount,
+			iterationsPerSample: options.iterationsPerSample,
+			notes:               "Reuses one parsed AST and public environment to isolate checker cost.",
 			run: func() any {
-				astValue, issues := env.Check(parsed)
-				mustIssues(issues, fmt.Sprintf("check failed for %s", benchmarkCase.name))
+				astValue, issues := options.environment.Check(options.parsed)
+				mustIssues(issues, fmt.Sprintf("check failed for %s", options.benchmarkCase.name))
 				return astValue
 			},
 		}),
 		benchmark(benchmarkOptions{
 			operation:           "compile",
-			scenario:            benchmarkCase.name,
-			sampleCount:         sampleCount,
-			warmupCount:         warmupCount,
-			iterationsPerSample: iterationsPerSample,
-			notes:               "Runs parse plus check through shared parser and checker environment instances.",
+			scenario:            options.benchmarkCase.name,
+			sampleCount:         options.sampleCount,
+			warmupCount:         options.warmupCount,
+			iterationsPerSample: options.iterationsPerSample,
+			notes:               "Runs parse plus check through one public environment.",
 			run: func() any {
-				astValue, issues := env.Compile(benchmarkCase.expression)
-				mustIssues(issues, fmt.Sprintf("compile failed for %s", benchmarkCase.name))
+				astValue, issues := options.environment.Compile(options.benchmarkCase.expression)
+				mustIssues(issues, fmt.Sprintf("compile failed for %s", options.benchmarkCase.name))
 				return astValue
 			},
 		}),
@@ -305,20 +918,16 @@ func plannerVariants(benchmarkCase benchmarkCase) []plannerVariant {
 }
 
 // validateEvaluation verifies a planned variant before its execution is timed.
-func validateEvaluation(
-	benchmarkCase benchmarkCase,
-	variant plannerVariant,
-	program cel.Program,
-) {
-	value, _, err := program.Eval(benchmarkCase.input)
+func validateEvaluation(options evaluationValidationOptions) {
+	value, _, err := options.program.Eval(options.activation)
 	must(err)
-	if !reflect.DeepEqual(value.Value(), benchmarkCase.expected) {
+	if !reflect.DeepEqual(value.Value(), options.benchmarkCase.expected) {
 		panic(fmt.Sprintf(
 			"unexpected %s / %s result: got %v, wanted %v",
-			benchmarkCase.name,
-			variant.name,
+			options.benchmarkCase.name,
+			options.variant.name,
 			value.Value(),
-			benchmarkCase.expected,
+			options.benchmarkCase.expected,
 		))
 	}
 }
@@ -359,16 +968,27 @@ func benchmarkIterations(operation string, scenario string, baseIterations int) 
 	if operation == "unparse" {
 		return baseIterations * 20
 	}
-	if operation == "parse" || operation == "plan" {
+	if operation == "parse" || operation == "plan" || operation == "policy-parse" {
 		return baseIterations * 4
 	}
-	if operation != "eval" {
+	if operation == "policy-compile" ||
+		operation == "policy-plan" ||
+		operation == "policy-eval" ||
+		operation == "partial-eval" ||
+		operation == "residual" ||
+		operation == "residual-roundtrip" {
+		return baseIterations
+	}
+	if operation != "eval" && operation != "eval-details" && operation != "eval-state" {
 		return baseIterations
 	}
 	if strings.HasSuffix(scenario, "/ runtime cost") {
 		return baseIterations
 	}
 	if strings.HasPrefix(scenario, "macro comprehension") {
+		return baseIterations * 2
+	}
+	if strings.Contains(scenario, "fold ") {
 		return baseIterations * 2
 	}
 	if strings.HasPrefix(scenario, "constant regex") && strings.HasSuffix(scenario, "/ baseline") {

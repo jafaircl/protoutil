@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: it's a test file nobody cares */
 import { create } from "@bufbuild/protobuf";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { env as celEnv } from "../cel/env.js";
 import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
 import { ast, exprFactory } from "../common/ast/index.js";
@@ -13,6 +14,7 @@ import { standardFunctions } from "../common/stdlib.js";
 import {
   attributeTrail,
   Bool,
+  BoolType,
   BytesType,
   String as CelString,
   DynType,
@@ -48,12 +50,16 @@ import {
 } from "../gen/test/proto3pb/test_all_types_pb.js";
 import { parse } from "../parser/parser.js";
 import { type Activation, activation, emptyActivation, partialActivation } from "./activation.js";
-import { attributePattern, partialAttributeFactory } from "./attribute-patterns.js";
+import {
+  type AttributePattern,
+  attributePattern,
+  partialAttributeFactory,
+} from "./attribute-patterns.js";
 import { type Attribute, attributeFactory } from "./attributes.js";
 import type { InterpretableDecorator } from "./decorators.js";
 import { dispatcher } from "./dispatcher.js";
 import { evalState } from "./eval-state.js";
-import { type ExecutionFrame, executionFrame } from "./frame.js";
+import { ExecutionFrame, executionFrame } from "./frame.js";
 import {
   callInterpretable,
   constValue,
@@ -152,6 +158,38 @@ interface SyncedInterpreterCase {
    */
   progErr?: string;
 }
+
+describe("interpreter/interpreter_test.go/TestInterpreter_RegexProgramSizeLimit", () => {
+  it("limits constant and dynamic regex programs without affecting other functions", () => {
+    const constantEnvironment = celEnv({ regexProgramSizeLimit: 5 });
+    expect(() =>
+      constantEnvironment.program(
+        constantEnvironment.compile(`"hello".matches("(a|b)*[0-9]+")`),
+      ),
+    ).toThrow("regex program size 8 exceeds limit of 5");
+
+    const dynamicEnvironment = celEnv({
+      regexProgramSizeLimit: 5,
+      variables: [variableDecl("pattern", StringType)],
+    });
+    const dynamic = dynamicEnvironment
+      .program(dynamicEnvironment.compile(`"hello".matches(pattern)`))
+      .eval({ pattern: "(a|b)*[0-9]+" });
+    expect(String(dynamic)).toContain("regex program size 8 exceeds limit of 5");
+    expect(
+      dynamicEnvironment
+        .program(dynamicEnvironment.compile(`"hello".matches(pattern)`))
+        .eval({ pattern: "el*" })
+        .value(),
+    ).toBe(true);
+    expect(
+      constantEnvironment
+        .program(constantEnvironment.compile(`"hello".contains("e")`))
+        .eval({})
+        .value(),
+    ).toBe(true);
+  });
+});
 
 /**
  * blockedSyncedInterpreterCases lists synced rows whose runtime behavior is not yet fully ported.
@@ -356,6 +394,13 @@ function interpreterAttributeFactory(
   reg: ReturnType<typeof registry>,
 ) {
   const containerValue = interpreterContainer(testCase);
+  if (syncedExpression(testCase.attrs)?.includes("NewPartialAttributeFactory(")) {
+    return partialAttributeFactory({
+      containerValue,
+      adapter: reg,
+      provider: emptyRegistry(),
+    });
+  }
   switch (testCase.name) {
     case "unknown_attribute":
     case "macro_has_map_key_unknown_propagates":
@@ -386,6 +431,16 @@ function interpreterAttributeFactory(
  * interpreterActivation resolves either regular or partial activation input for a synced case.
  */
 function interpreterActivation(testCase: SyncedInterpreterCase): Activation {
+  const inputExpression = syncedExpression(testCase.in);
+  if (inputExpression?.startsWith("newTestPartialActivation(")) {
+    const args = splitInterpreterArgs(
+      inputExpression.slice("newTestPartialActivation(".length, -1),
+    );
+    return partialActivation({
+      bindings: resolveInterpreterMapLiteral(args[1]!),
+      unknowns: args.slice(2).map(resolveAttributePatternExpr),
+    });
+  }
   if (testCase.name === "macro_has_pb3_field" || testCase.name === "macro_has_pb3_field_json") {
     return activation({
       bindings: {
@@ -456,6 +511,45 @@ function interpreterActivation(testCase: SyncedInterpreterCase): Activation {
   return activation({
     bindings: normalizeInterpreterBindings(testCase.in ?? {}),
   });
+}
+
+/**
+ * resolveAttributePatternExpr reconstructs a synchronized partial-activation attribute pattern.
+ */
+function resolveAttributePatternExpr(expression: string): AttributePattern {
+  const variable = /NewAttributePattern\("([^"]+)"\)/.exec(expression)?.[1];
+  if (variable === undefined) {
+    throw new Error(`unsupported interpreter attribute pattern: ${expression}`);
+  }
+  const pattern = attributePattern(variable);
+  const intQualifier = /\.QualInt\((-?\d+)\)/.exec(expression)?.[1];
+  if (intQualifier !== undefined) {
+    return pattern.qualInt(Number(intQualifier));
+  }
+  const uintQualifier = /\.QualUint\((\d+)\)/.exec(expression)?.[1];
+  if (uintQualifier !== undefined) {
+    return pattern.qualUint(BigInt(uintQualifier));
+  }
+  const stringQualifier = /\.QualString\("([^"]*)"\)/.exec(expression)?.[1];
+  if (stringQualifier !== undefined) {
+    return pattern.qualString(stringQualifier);
+  }
+  const boolQualifier = /\.QualBool\((true|false)\)/.exec(expression)?.[1];
+  if (boolQualifier !== undefined) {
+    return pattern.qualBool(boolQualifier === "true");
+  }
+  return expression.includes(".Wildcard()") ? pattern.wildcard() : pattern;
+}
+
+/**
+ * syncedExpression returns the Go expression stored in a synchronized fixture value.
+ */
+function syncedExpression(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null || !("$expr" in value)) {
+    return undefined;
+  }
+  const expression = (value as { $expr?: unknown }).$expr;
+  return typeof expression === "string" ? expression : undefined;
 }
 
 /**
@@ -1439,6 +1533,50 @@ describe("interpreter/interpreter_test.go", () => {
       } finally {
         parent.close();
       }
+    });
+  });
+
+  /**
+   * BenchmarkInterpreter tracks the upstream allocation-sensitive interpreter benchmark.
+   */
+  describe("interpreter/interpreter_test.go/BenchmarkInterpreter", () => {
+    it("reuses comprehension folder state across sequential evaluations", () => {
+      const runtimeEnv = celEnv({
+        variables: [variableDecl("needle", IntType)],
+      });
+      const expression = runtimeEnv.compile("[1, 2, 3].exists(value, value == needle)");
+      const program = runtimeEnv.program(expression);
+      const push = vi.spyOn(ExecutionFrame.prototype, "push");
+      try {
+        expect(program.eval({ needle: 2n }).value()).toBe(true);
+        expect(program.eval({ needle: 4n }).value()).toBe(false);
+        expect(push.mock.calls).toHaveLength(2);
+        expect(push.mock.calls[0]![0] === push.mock.calls[1]![0]).toBe(true);
+      } finally {
+        push.mockRestore();
+      }
+    });
+
+    it("keeps nested evaluations isolated while an outer folder is active", () => {
+      const runtimeEnv = celEnv({
+        variables: [variableDecl("reentrant", BoolType)],
+      });
+      const expression = runtimeEnv.compile("[1].exists(value, reentrant)");
+      const program = runtimeEnv.program(expression);
+      let nested = false;
+      expect(
+        program
+          .eval({
+            reentrant: () => {
+              if (nested) {
+                return true;
+              }
+              nested = true;
+              return program.eval({ reentrant: true }).value();
+            },
+          })
+          .value(),
+      ).toBe(true);
     });
   });
 

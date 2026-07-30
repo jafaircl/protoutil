@@ -30,6 +30,7 @@ import {
   ComparerType,
   ContainerType,
   DividerType,
+  Double,
   durationGetHours,
   durationGetMilliseconds,
   durationGetMinutes,
@@ -1049,6 +1050,10 @@ function relationBinding(
   kind: "less" | "less_equals" | "greater" | "greater_equals",
 ): (lhs: Val, rhs: Val) => Val {
   return (lhs, rhs) => {
+    // IEEE 754 ordering comparisons involving NaN are always false.
+    if (isNaN(lhs) || isNaN(rhs)) {
+      return False;
+    }
     const cmp = (lhs as unknown as Comparer).compare(rhs);
     const cmpKind = compareResultKind(cmp);
     switch (kind) {
@@ -1070,6 +1075,13 @@ function relationBinding(
         return cmp;
     }
   };
+}
+
+/**
+ * isNaN reports whether a CEL value is a double containing IEEE 754 NaN.
+ */
+function isNaN(value: Val): boolean {
+  return value instanceof Double && Number.isNaN(value.value());
 }
 
 /**

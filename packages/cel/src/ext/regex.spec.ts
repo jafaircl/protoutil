@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
+import { variableDecl } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
+import { StringType } from "../common/types/types.js";
 import { regex } from "./regex.js";
 
 /** RegexCase describes a synchronized regular-expression expression. */
@@ -86,6 +88,31 @@ describe("ext/regex_test.go/TestRegexCosts", () => {
     for (const testCase of syncedCases<RegexCase>("ext/regex_test.go/TestRegexCosts")) {
       expect(celEnv.program(celEnv.compile(testCase.expr)).eval({}).value(), testCase.expr).toBe(
         true,
+      );
+    }
+  });
+});
+
+describe("ext/regex_test.go/TestRegexProgramSizeLimit", () => {
+  it("limits dynamic patterns for every regex extension overload", () => {
+    const celEnv = env({
+      libraries: [optionalTypes(), regex()],
+      regexProgramSizeLimit: 5,
+      variables: [variableDecl("pat", StringType)],
+    });
+    for (const expression of [
+      `'a1'.matches(pat)`,
+      `regex.extract('a1', pat)`,
+      `regex.extractAll('a1', pat)`,
+      `regex.replace('a1', pat, 'x')`,
+      `regex.replace('a1', pat, 'x', 1)`,
+    ]) {
+      const program = celEnv.program(celEnv.compile(expression));
+      expect(String(program.eval({ pat: "(a|b)*[0-9]+" })), expression).toContain(
+        "regex program size 8 exceeds limit of 5",
+      );
+      expect(String(program.eval({ pat: "a[0-9]" })), expression).not.toContain(
+        "exceeds limit",
       );
     }
   });

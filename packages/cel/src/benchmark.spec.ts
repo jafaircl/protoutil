@@ -2,49 +2,71 @@
 /// <reference types="vitest/globals" />
 
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
-import { check } from "./checker/checker.js";
-import { type Env, env } from "./checker/env.js";
+import {
+  type Env as CelEnv,
+  type EnvOptions as CelEnvOptions,
+  env as celEnv,
+  type ProgramOptions,
+} from "./cel/env.js";
+import { optionalTypes } from "./cel/library.js";
+import type { Program } from "./cel/program.js";
 import type { AST } from "./common/ast/index.js";
-import { defaultContainer } from "./common/containers.js";
 import { variableDecl } from "./common/decls.js";
+import { configFromYAML } from "./common/env/io.js";
 import { type Source, textSource } from "./common/source.js";
-import { standardFunctions } from "./common/stdlib.js";
+import { isError } from "./common/types/err.js";
 import {
   IntType,
   listType,
+  mapType,
   objectType,
   registry,
   StringType,
   type Type,
 } from "./common/types/index.js";
+import { bindings, lists, sets, strings, twoVarComprehensions } from "./ext/index.js";
 import {
   type TestAllTypes as Proto3TestAllTypes,
   TestAllTypesSchema as Proto3TestAllTypesSchema,
 } from "./gen/test/proto3pb/test_all_types_pb.js";
-import { type Dispatcher, dispatcher } from "./interpreter/dispatcher.js";
-import { type ExecutionFrame, executionFrame } from "./interpreter/frame.js";
-import type { InterpretableV2 } from "./interpreter/interpretable.js";
 import {
-  compileRegexConstantsConfig,
-  type Interpreter,
-  interpreter,
-  optimizeConfig,
-  type PlannerConfig,
-} from "./interpreter/interpreter.js";
+  type Activation,
+  activation,
+  partialActivation,
+} from "./interpreter/activation.js";
+import { attributePattern } from "./interpreter/attribute-patterns.js";
 import { matchesRegexOptimization } from "./interpreter/optimizations.js";
-import { CostTracker, costObserverConfig } from "./interpreter/runtime-cost.js";
-import { type Parser, parser } from "./parser/parser.js";
 import { unparse } from "./parser/unparser.js";
+import { compile as compilePolicy } from "./policy/compiler.js";
+import { fromConfig as policyFromConfig } from "./policy/config.js";
+import { type Policy, parse as parsePolicy } from "./policy/parser.js";
+import { source as policySource } from "./policy/source.js";
 
 /**
  * BenchmarkOperation identifies the isolated CEL operation measured by a result row.
  */
-type BenchmarkOperation = "parse" | "unparse" | "check" | "compile" | "plan" | "eval";
+type BenchmarkOperation =
+  | "parse"
+  | "unparse"
+  | "check"
+  | "compile"
+  | "plan"
+  | "eval"
+  | "eval-details"
+  | "eval-state"
+  | "partial-eval"
+  | "residual"
+  | "residual-roundtrip"
+  | "policy-parse"
+  | "policy-compile"
+  | "policy-plan"
+  | "policy-eval";
 
 /**
  * BenchmarkImplementation identifies the runtime that produced a benchmark result.
@@ -106,9 +128,9 @@ interface PlannerVariant {
   readonly name: string;
 
   /**
-   * config configures the interpreter planner for this variant.
+   * options configures public program planning for this variant.
    */
-  readonly config?: PlannerConfig;
+  readonly options?: ProgramOptions;
 }
 
 /**
@@ -206,16 +228,6 @@ interface BenchmarkContext {
   readonly benchmarkCase: BenchmarkCase;
 
   /**
-   * parser is reused to isolate steady-state parser throughput.
-   */
-  readonly parser: Parser;
-
-  /**
-   * checkerEnv contains the declarations required by the expression.
-   */
-  readonly checkerEnv: Env;
-
-  /**
    * source is reused with the parsed AST to isolate checker cost.
    */
   readonly source: Source;
@@ -231,9 +243,254 @@ interface BenchmarkContext {
   readonly checked: AST;
 
   /**
-   * runtime is the reusable interpreter used to plan each variant.
+   * programEnv is the public CEL environment used to plan each variant.
    */
-  readonly runtime: Interpreter;
+  readonly programEnv: CelEnv;
+}
+
+/**
+ * ResidualBenchmarkCase describes a partial-evaluation workload shared with cel-go.
+ */
+interface ResidualBenchmarkCase {
+  /**
+   * expectedResidual is the canonical expression produced after pruning known values.
+   */
+  readonly expectedResidual: string;
+
+  /**
+   * expression is evaluated with missing declarations represented as unknown variables.
+   */
+  readonly expression: string;
+
+  /**
+   * input contains the known portion of the partial activation.
+   */
+  readonly input: Readonly<Record<string, unknown>>;
+
+  /**
+   * name is the stable scenario label written to the report.
+   */
+  readonly name: string;
+
+  /**
+   * unknowns identifies exact attribute paths which remain unknown during evaluation.
+   */
+  readonly unknowns: readonly ResidualUnknownAttribute[];
+
+  /**
+   * variables contains every declaration visible to the expression.
+   */
+  readonly variables: readonly BenchmarkVariable[];
+}
+
+/**
+ * ResidualUnknownAttribute describes one root variable and its string field qualifiers.
+ */
+interface ResidualUnknownAttribute {
+  /**
+   * qualifiers contains the string field path below the root variable.
+   */
+  readonly qualifiers: readonly string[];
+
+  /**
+   * variable is the root activation variable.
+   */
+  readonly variable: string;
+}
+
+/**
+ * ResidualBenchmarkContext stores reusable partial-evaluation and residualization state.
+ */
+interface ResidualBenchmarkContext {
+  /**
+   * ast is the checked expression being partially evaluated.
+   */
+  readonly ast: AST;
+
+  /**
+   * benchmarkCase describes the expected residual expression.
+   */
+  readonly benchmarkCase: ResidualBenchmarkCase;
+
+  /**
+   * details is the reusable evaluation state supplied to isolated residualization measurements.
+   */
+  readonly details: ReturnType<Program["evalWithDetails"]>["details"];
+
+  /**
+   * environment owns partial activation inference and residual AST construction.
+   */
+  readonly environment: CelEnv;
+
+  /**
+   * input is the reusable partial activation with missing declarations marked unknown.
+   */
+  readonly input: Activation;
+
+  /**
+   * program tracks state while evaluating unknown attributes.
+   */
+  readonly program: Program;
+}
+
+/**
+ * PolicyDocument contains synchronized source text and its decoded YAML representation.
+ */
+interface PolicyDocument {
+  /**
+   * source is the exact upstream YAML document.
+   */
+  readonly source: string;
+
+  /**
+   * value is the canonical JSON-compatible YAML representation.
+   */
+  readonly value: unknown;
+}
+
+/**
+ * PolicyFixture contains the synchronized documents for one upstream policy suite.
+ */
+interface PolicyFixture {
+  /**
+   * path is the stable upstream fixture path.
+   */
+  readonly path: string;
+
+  /**
+   * files maps YAML filenames to synchronized documents.
+   */
+  readonly files: Readonly<Record<string, PolicyDocument>>;
+}
+
+/**
+ * PolicyTestInput describes a literal or CEL expression activation value.
+ */
+interface PolicyTestInput {
+  /**
+   * value is a literal activation value.
+   */
+  readonly value?: unknown;
+
+  /**
+   * expr is evaluated to produce an activation value.
+   */
+  readonly expr?: string;
+}
+
+/**
+ * PolicyTestCase describes one policy evaluation input.
+ */
+interface PolicyTestCase {
+  /**
+   * name is the stable test-case name within its section.
+   */
+  readonly name: string;
+
+  /**
+   * input maps activation names to literal or expression values.
+   */
+  readonly input?: Readonly<Record<string, PolicyTestInput>>;
+}
+
+/**
+ * PolicyTestSection groups related policy evaluation inputs.
+ */
+interface PolicyTestSection {
+  /**
+   * name is the stable section name.
+   */
+  readonly name: string;
+
+  /**
+   * tests contains the evaluation inputs in the section.
+   */
+  readonly tests: readonly PolicyTestCase[];
+}
+
+/**
+ * PolicyTestSuite is the synchronized policy tests.yaml shape.
+ */
+interface PolicyTestSuite {
+  /**
+   * section is the original singular spelling used by cel-policy fixtures.
+   */
+  readonly section?: readonly PolicyTestSection[];
+
+  /**
+   * sections is the newer plural spelling accepted by the conformance harness.
+   */
+  readonly sections?: readonly PolicyTestSection[];
+}
+
+/**
+ * PolicyBenchmarkCase pairs one policy program with one prepared activation.
+ */
+interface PolicyBenchmarkCase {
+  /**
+   * scenario is the fixture, section, and test name written to the report.
+   */
+  readonly scenario: string;
+
+  /**
+   * input contains the native activation bindings for the evaluation.
+   */
+  readonly input: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * PolicyBenchmarkContext stores reusable policy setup for parse, compile, plan, and eval rows.
+ */
+interface PolicyBenchmarkContext {
+  /**
+   * fixture contains the synchronized policy, config, and evaluation documents.
+   */
+  readonly fixture: PolicyFixture;
+
+  /**
+   * environment contains policy declarations and configured extensions.
+   */
+  readonly environment: CelEnv;
+
+  /**
+   * parsedPolicy is reused to isolate policy compilation cost.
+   */
+  readonly parsedPolicy: Policy;
+
+  /**
+   * ast is reused to isolate optimized program planning cost.
+   */
+  readonly ast: AST;
+
+  /**
+   * program is reused for steady-state policy evaluation.
+   */
+  readonly program: Program;
+
+  /**
+   * cases contains the prepared activation for every upstream evaluation case.
+   */
+  readonly cases: readonly PolicyBenchmarkCase[];
+}
+
+/**
+ * CompilePolicyFixtureOptions configures one benchmark policy compilation.
+ */
+interface CompilePolicyFixtureOptions {
+  /**
+   * environment contains the declarations used to compile the policy.
+   */
+  readonly environment: CelEnv;
+
+  /**
+   * parsedPolicy is the canonical policy representation to compile.
+   */
+  readonly parsedPolicy: Policy;
+
+  /**
+   * scenario identifies the policy in failure diagnostics.
+   */
+  readonly scenario: string;
 }
 
 /**
@@ -330,14 +587,146 @@ const benchmarkCases: readonly BenchmarkCase[] = [
 ];
 
 /**
+ * diagnosticBenchmarkCases form an evaluation ladder which isolates increasingly expensive runtime
+ * features without repeating frontend measurements for each expression.
+ */
+const diagnosticBenchmarkCases: readonly BenchmarkCase[] = [
+  {
+    name: "diagnostic / literal",
+    expression: "true",
+    variables: [],
+    input: {},
+    expected: true,
+  },
+  {
+    name: "diagnostic / identifier",
+    expression: "x",
+    variables: [{ name: "x", type: IntType }],
+    input: { x: 41n },
+    expected: 41n,
+  },
+  {
+    name: "diagnostic / binary call",
+    expression: "x + 1",
+    variables: [{ name: "x", type: IntType }],
+    input: { x: 41n },
+    expected: 42n,
+  },
+  {
+    name: "diagnostic / member call",
+    expression: "input.startsWith('bench')",
+    variables: [{ name: "input", type: StringType }],
+    input: { input: "benchmark" },
+    expected: true,
+  },
+  {
+    name: "diagnostic / dynamic map selection",
+    expression: "labels.env == 'prod'",
+    variables: [{ name: "labels", type: mapType(StringType, StringType) }],
+    input: { labels: { env: "prod" } },
+    expected: true,
+  },
+  {
+    name: "diagnostic / list index",
+    expression: "values[50] == 50",
+    variables: [{ name: "values", type: listType(IntType) }],
+    input: { values: Array.from({ length: 100 }, (_, index) => BigInt(index)) },
+    expected: true,
+  },
+  {
+    name: "diagnostic / fold early exit",
+    expression: "values.exists(value, value > 50)",
+    variables: [{ name: "values", type: listType(IntType) }],
+    input: { values: Array.from({ length: 100 }, (_, index) => BigInt(index)) },
+    expected: true,
+  },
+  {
+    name: "diagnostic / fold full scan",
+    expression: "values.exists(value, value > 100)",
+    variables: [{ name: "values", type: listType(IntType) }],
+    input: { values: Array.from({ length: 100 }, (_, index) => BigInt(index)) },
+    expected: false,
+  },
+  {
+    name: "diagnostic / protobuf field",
+    expression: "msg.single_nested_message.bb == 123",
+    variables: [{ name: "msg", type: objectType(Proto3TestAllTypesSchema.typeName) }],
+    input: { msg: protoBenchmarkInput },
+    expected: true,
+  },
+];
+
+/**
+ * residualBenchmarkCases mirror upstream residual tests while covering branch and macro pruning.
+ */
+const residualBenchmarkCases: readonly ResidualBenchmarkCase[] = [
+  {
+    name: "known branch pruning",
+    expression: "x < 10 && (y == 0 || 'hello' != 'goodbye')",
+    variables: [
+      { name: "x", type: IntType },
+      { name: "y", type: IntType },
+    ],
+    input: {},
+    unknowns: [
+      { variable: "x", qualifiers: [] },
+      { variable: "y", qualifiers: [] },
+    ],
+    expectedResidual: "x < 10",
+  },
+  {
+    name: "macro pruning",
+    expression: "x.exists(i, i < 10) && [11, 12, 13].all(i, i in [y, 12, 13])",
+    variables: [
+      { name: "x", type: listType(IntType) },
+      { name: "y", type: IntType },
+    ],
+    input: { y: 11n },
+    unknowns: [{ variable: "x", qualifiers: [] }],
+    expectedResidual: "x.exists(i, i < 10)",
+  },
+  {
+    name: "qualified attribute pruning",
+    expression: `resource.name.startsWith("bucket/my-bucket") &&
+      bool(request.auth.claims.email_verified) == true &&
+      request.auth.claims.email == "wiley@acme.co"`,
+    variables: [
+      { name: "resource.name", type: StringType },
+      { name: "request.auth.claims", type: mapType(StringType, StringType) },
+    ],
+    input: {
+      "resource.name": "bucket/my-bucket/objects/private",
+      "request.auth.claims": { email_verified: "true" },
+    },
+    unknowns: [{ variable: "request.auth.claims", qualifiers: ["email"] }],
+    expectedResidual: `request.auth.claims.email == "wiley@acme.co"`,
+  },
+];
+
+/**
+ * policyBenchmarkFiles selects representative successful fixtures from the synchronized suite.
+ */
+const policyBenchmarkFiles = ["unnest.json", "nested-rule7.json", "required-labels.json"] as const;
+
+/**
+ * policyExtensionOptions maps serialized policy extension names to CEL libraries.
+ */
+const policyExtensionOptions: Readonly<Record<string, CelEnvOptions>> = {
+  lists: { libraries: [lists()] },
+  sets: { libraries: [sets()] },
+  strings: { libraries: [strings()] },
+  "two-var-comprehensions": { libraries: [twoVarComprehensions()] },
+};
+
+/**
  * benchmarkFile is the generated Markdown report path.
  */
 const benchmarkFile = new URL("../BENCHMARK.md", import.meta.url);
 
 /**
- * packageDir is the package working directory used by the cel-go companion process.
+ * benchmarkGoDir is the nested module containing the cel-go companion process.
  */
-const packageDir = fileURLToPath(new URL("..", import.meta.url));
+const benchmarkGoDir = fileURLToPath(new URL("../scripts/benchmark-cel-go", import.meta.url));
 
 /**
  * benchmarkTimeoutMs bounds the complete cross-runtime benchmark run.
@@ -381,6 +770,7 @@ describe("CEL benchmark", () => {
       validateBenchmarkConfiguration();
       const results = benchmarkTypeScript();
       results.push(...runCelGoBenchmarks());
+      validateResultMatrix(results);
       const markdown = benchmarkDocument(results);
       await writeFile(benchmarkFile, markdown, "utf8");
       process.stdout.write(`\n${markdown}\n`);
@@ -405,6 +795,40 @@ function validateBenchmarkConfiguration(): void {
 }
 
 /**
+ * validateResultMatrix ensures every measured operation has a cross-runtime comparison row.
+ */
+function validateResultMatrix(results: readonly BenchmarkResult[]): void {
+  const implementationsByScenario = new Map<string, Set<BenchmarkImplementation>>();
+  for (const result of results) {
+    const key = `${result.operation}::${result.scenario}`;
+    const implementations = implementationsByScenario.get(key) ?? new Set();
+    implementations.add(result.implementation);
+    implementationsByScenario.set(key, implementations);
+  }
+  const unpaired = [...implementationsByScenario.entries()]
+    .filter(([, implementations]) => implementations.size !== 2)
+    .map(([key]) => key);
+  if (unpaired.length !== 0) {
+    throw new Error(`benchmark scenarios are not paired: ${unpaired.join(", ")}`);
+  }
+  for (const operation of [
+    "eval-details",
+    "eval-state",
+    "partial-eval",
+    "residual",
+    "residual-roundtrip",
+    "policy-parse",
+    "policy-compile",
+    "policy-plan",
+    "policy-eval",
+  ]) {
+    if (![...implementationsByScenario].some(([key]) => key.startsWith(`${operation}::`))) {
+      throw new Error(`benchmark matrix is missing ${operation}`);
+    }
+  }
+}
+
+/**
  * benchmarkTypeScript measures the current TypeScript frontend, planner, and interpreter.
  */
 function benchmarkTypeScript(): BenchmarkResult[] {
@@ -415,6 +839,307 @@ function benchmarkTypeScript(): BenchmarkResult[] {
     results.push(...benchmarkFrontend(context));
     results.push(...benchmarkInterpreter(context));
   }
+  for (const benchmarkCase of diagnosticBenchmarkCases) {
+    process.stdout.write(`Benchmarking @protoutil/cel diagnostic: ${benchmarkCase.name}\n`);
+    results.push(...benchmarkDiagnostic(benchmarkContext(benchmarkCase)));
+  }
+  for (const benchmarkCase of residualBenchmarkCases) {
+    process.stdout.write(`Benchmarking @protoutil/cel residual: ${benchmarkCase.name}\n`);
+    results.push(...benchmarkResidual(residualBenchmarkContext(benchmarkCase)));
+  }
+  for (const fixture of policyBenchmarkFixtures()) {
+    process.stdout.write(`Benchmarking @protoutil/cel policy: ${fixture.path}\n`);
+    results.push(...benchmarkPolicy(policyBenchmarkContext(fixture)));
+  }
+  return results;
+}
+
+/**
+ * benchmarkDiagnostic measures direct evaluation, result-detail allocation, and state observation
+ * for one expression in the runtime feature ladder.
+ */
+function benchmarkDiagnostic(context: BenchmarkContext): BenchmarkResult[] {
+  const benchmarkCase = context.benchmarkCase;
+  const input = activation({ bindings: benchmarkCase.input });
+  const program = context.programEnv.program(context.checked);
+  const stateProgram = context.programEnv.program(context.checked, { trackState: true });
+  validateEvaluation({
+    context,
+    program,
+    input,
+    variant: { name: "diagnostic" },
+  });
+  const stateValue = stateProgram.evalWithDetails(input).value.value();
+  if (!nativeEqual(stateValue, benchmarkCase.expected)) {
+    throw new Error(`unexpected ${benchmarkCase.name} state-tracking result: ${String(stateValue)}`);
+  }
+  return [
+    benchmark({
+      operation: "eval",
+      scenario: benchmarkCase.name,
+      notes: "Reuses one baseline program and activation to expose incremental runtime feature cost.",
+      run: () => program.eval(input),
+    }),
+    benchmark({
+      operation: "eval-details",
+      scenario: benchmarkCase.name,
+      notes: "Reuses one baseline program and activation while allocating public evaluation details.",
+      run: () => program.evalWithDetails(input),
+    }),
+    benchmark({
+      operation: "eval-state",
+      scenario: benchmarkCase.name,
+      notes: "Reuses one state-tracking program and activation to isolate observer overhead.",
+      run: () => stateProgram.evalWithDetails(input),
+    }),
+  ];
+}
+
+/**
+ * residualBenchmarkContext prepares one checked expression, partial activation, and reusable state.
+ */
+function residualBenchmarkContext(
+  benchmarkCase: ResidualBenchmarkCase,
+): ResidualBenchmarkContext {
+  const environment = celEnv({
+    variables: benchmarkCase.variables.map((variable) =>
+      variableDecl(variable.name, variable.type),
+    ),
+    parser: { populateMacroCalls: true },
+  });
+  const ast = environment.compile(benchmarkCase.expression);
+  const input = partialActivation({
+    bindings: benchmarkCase.input,
+    unknowns: benchmarkCase.unknowns.map((unknown) => {
+      let pattern = attributePattern(unknown.variable);
+      for (const qualifier of unknown.qualifiers) {
+        pattern = pattern.qualString(qualifier);
+      }
+      return pattern;
+    }),
+  });
+  const program = environment.program(ast, { partialEval: true, trackState: true });
+  const evaluated = program.evalWithDetails(input);
+  const residual = environment.residualAst(ast, evaluated.details);
+  const rendered = unparse(residual);
+  if (rendered !== benchmarkCase.expectedResidual) {
+    throw new Error(
+      `unexpected ${benchmarkCase.name} residual: ${rendered}; wanted ${benchmarkCase.expectedResidual}`,
+    );
+  }
+  return {
+    ast,
+    benchmarkCase,
+    details: evaluated.details,
+    environment,
+    input,
+    program,
+  };
+}
+
+/**
+ * benchmarkResidual measures partial evaluation, residual construction, and their combined path.
+ */
+function benchmarkResidual(context: ResidualBenchmarkContext): BenchmarkResult[] {
+  return [
+    benchmark({
+      operation: "partial-eval",
+      scenario: context.benchmarkCase.name,
+      notes: "Reuses one state-tracking partial program and inferred unknown activation.",
+      run: () => context.program.evalWithDetails(context.input),
+    }),
+    benchmark({
+      operation: "residual",
+      scenario: context.benchmarkCase.name,
+      notes: "Reuses one evaluated state to isolate prune, render, parse, and re-check cost.",
+      run: () => context.environment.residualAst(context.ast, context.details),
+    }),
+    benchmark({
+      operation: "residual-roundtrip",
+      scenario: context.benchmarkCase.name,
+      notes: "Measures partial evaluation followed by residual AST construction.",
+      run: () => {
+        const evaluated = context.program.evalWithDetails(context.input);
+        return context.environment.residualAst(context.ast, evaluated.details);
+      },
+    }),
+  ];
+}
+
+/**
+ * policyBenchmarkFixtures loads the selected synchronized policy fixtures in stable order.
+ */
+function policyBenchmarkFixtures(): PolicyFixture[] {
+  return policyBenchmarkFiles.map((fileName) => {
+    const fixtureUrl = new URL(`../testdata/policy/${fileName}`, import.meta.url);
+    const value: unknown = JSON.parse(readFileSync(fixtureUrl, "utf8"));
+    if (!isPolicyFixture(value)) {
+      throw new Error(`malformed synchronized policy fixture: ${fileName}`);
+    }
+    return value;
+  });
+}
+
+/**
+ * isPolicyFixture reports whether a decoded value has the required synchronized fixture shape.
+ */
+function isPolicyFixture(value: unknown): value is PolicyFixture {
+  if (!isRecord(value) || typeof value.path !== "string" || !isRecord(value.files)) {
+    return false;
+  }
+  const files = value.files;
+  return ["policy.yaml", "tests.yaml"].every((fileName) => {
+    const document = files[fileName];
+    return isRecord(document) && typeof document.source === "string";
+  });
+}
+
+/**
+ * policyBenchmarkContext prepares one policy environment, AST, optimized program, and case set.
+ */
+function policyBenchmarkContext(fixture: PolicyFixture): PolicyBenchmarkContext {
+  const environment = policyBenchmarkEnvironment(fixture);
+  const parsedPolicy = parsePolicyFixture(fixture);
+  const ast = compilePolicyFixture({
+    environment,
+    parsedPolicy,
+    scenario: fixture.path,
+  });
+  const program = environment.program(ast, { optimize: true });
+  const cases = policyBenchmarkCases(environment, fixture);
+  for (const benchmarkCase of cases) {
+    const result = program.eval(benchmarkCase.input);
+    if (isError(result)) {
+      throw new Error(`policy evaluation setup failed for ${benchmarkCase.scenario}: ${result}`);
+    }
+  }
+  return { fixture, environment, parsedPolicy, ast, program, cases };
+}
+
+/**
+ * policyBenchmarkEnvironment configures the standard policy libraries and serialized environment.
+ */
+function policyBenchmarkEnvironment(fixture: PolicyFixture): CelEnv {
+  const baseOptions: CelEnvOptions = {
+    libraries: [optionalTypes(), bindings()],
+  };
+  const configSource = fixture.files["config.yaml"]?.source;
+  if (configSource === undefined) {
+    return celEnv(baseOptions);
+  }
+  const configured = policyFromConfig(configFromYAML(configSource));
+  return celEnv({
+    ...baseOptions,
+    ...configured,
+    configuration: {
+      config: configured.configuration!.config,
+      extensions: policyExtensionOptions,
+    },
+  });
+}
+
+/**
+ * parsePolicyFixture parses one synchronized policy and rejects diagnostics.
+ */
+function parsePolicyFixture(fixture: PolicyFixture): Policy {
+  const source = fixture.files["policy.yaml"]!.source;
+  const parsed = parsePolicy(policySource(source, `${fixture.path}/policy.yaml`));
+  const error = parsed.issues.err();
+  if (error || !parsed.policy) {
+    throw new Error(`policy parse failed for ${fixture.path}: ${error?.message ?? "no policy"}`);
+  }
+  return parsed.policy;
+}
+
+/**
+ * compilePolicyFixture compiles one parsed policy and rejects diagnostics.
+ */
+function compilePolicyFixture(options: CompilePolicyFixtureOptions): AST {
+  const compiled = compilePolicy(options.environment, options.parsedPolicy);
+  const error = compiled.issues.err();
+  if (error || !compiled.ast) {
+    throw new Error(`policy compile failed for ${options.scenario}: ${error?.message ?? "no AST"}`);
+  }
+  return compiled.ast;
+}
+
+/**
+ * policyBenchmarkCases expands synchronized test sections into prepared evaluation activations.
+ */
+function policyBenchmarkCases(environment: CelEnv, fixture: PolicyFixture): PolicyBenchmarkCase[] {
+  const suite = fixture.files["tests.yaml"]!.value as PolicyTestSuite;
+  const cases: PolicyBenchmarkCase[] = [];
+  for (const section of suite.section ?? suite.sections ?? []) {
+    for (const test of section.tests) {
+      cases.push({
+        scenario: `${fixture.path} / ${section.name} / ${test.name}`,
+        input: policyCaseInput(environment, test),
+      });
+    }
+  }
+  if (cases.length === 0) {
+    throw new Error(`policy fixture has no evaluation cases: ${fixture.path}`);
+  }
+  return cases;
+}
+
+/**
+ * policyCaseInput resolves literal and expression-based inputs for one policy test case.
+ */
+function policyCaseInput(
+  environment: CelEnv,
+  test: PolicyTestCase,
+): Readonly<Record<string, unknown>> {
+  const input: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(test.input ?? {})) {
+    input[name] =
+      value.expr === undefined
+        ? value.value
+        : environment.program(environment.compile(value.expr)).eval({});
+  }
+  return input;
+}
+
+/**
+ * benchmarkPolicy measures synchronized policy parsing, compilation, planning, and evaluation.
+ */
+function benchmarkPolicy(context: PolicyBenchmarkContext): BenchmarkResult[] {
+  const scenario = context.fixture.path;
+  const results = [
+    benchmark({
+      operation: "policy-parse",
+      scenario,
+      notes: "Parses the synchronized upstream YAML policy source.",
+      run: () => parsePolicyFixture(context.fixture),
+    }),
+    benchmark({
+      operation: "policy-compile",
+      scenario,
+      notes: "Reuses one parsed policy and configured environment to isolate policy compilation.",
+      run: () =>
+        compilePolicyFixture({
+          environment: context.environment,
+          parsedPolicy: context.parsedPolicy,
+          scenario,
+        }),
+    }),
+    benchmark({
+      operation: "policy-plan",
+      scenario,
+      notes: "Reuses one compiled policy AST and environment to isolate optimized planning.",
+      run: () => context.environment.program(context.ast, { optimize: true }),
+    }),
+  ];
+  for (const benchmarkCase of context.cases) {
+    results.push(
+      benchmark({
+        operation: "policy-eval",
+        scenario: benchmarkCase.scenario,
+        notes: "Reuses one optimized policy program and prepared activation.",
+        run: () => context.program.eval(benchmarkCase.input),
+      }),
+    );
+  }
   return results;
 }
 
@@ -422,55 +1147,36 @@ function benchmarkTypeScript(): BenchmarkResult[] {
  * benchmarkContext prepares reusable parser, checker, registry, and interpreter state.
  */
 function benchmarkContext(benchmarkCase: BenchmarkCase): BenchmarkContext {
-  const parserValue = parser({
-    enableOptionalSyntax: true,
-    maxRecursionDepth: 32,
-    errorRecoveryLimit: 4,
-    errorRecoveryTokenLookaheadLimit: 4,
-    populateMacroCalls: true,
-  });
   const registryValue = registry([
     { $typeName: Proto3TestAllTypesSchema.typeName } as never,
     Proto3TestAllTypesSchema,
   ]);
-  const checkerEnv = env(defaultContainer, registryValue, {
-    crossTypeNumericComparisons: true,
+  const programEnv = celEnv({
+    registry: registryValue,
+    variables: benchmarkCase.variables.map((variable) =>
+      variableDecl(variable.name, variable.type),
+    ),
+    parser: {
+      enableOptionalSyntax: true,
+      maxRecursionDepth: 32,
+      errorRecoveryLimit: 4,
+      errorRecoveryTokenLookaheadLimit: 4,
+      populateMacroCalls: true,
+    },
+    checker: {
+      crossTypeNumericComparisons: true,
+    },
   });
-  checkerEnv.addFunctions(...standardFunctions());
-  checkerEnv.addIdents(
-    ...benchmarkCase.variables.map((variable) => variableDecl(variable.name, variable.type)),
-  );
   const source = textSource(benchmarkCase.expression);
-  const parsed = parserValue.parse(benchmarkCase.expression);
-  const checked = check(parsed, source, checkerEnv);
-  const runtime = interpreter({
-    dispatcher: standardDispatcher(),
-    provider: registryValue,
-    adapter: registryValue,
-  });
+  const parsed = programEnv.parse(benchmarkCase.expression);
+  const checked = programEnv.check(parsed, source);
   return {
     benchmarkCase,
-    parser: parserValue,
-    checkerEnv,
     source,
     parsed,
     checked,
-    runtime,
+    programEnv,
   };
-}
-
-/**
- * standardDispatcher builds a dispatcher loaded with standard-library runtime overloads.
- */
-function standardDispatcher(): Dispatcher {
-  const runtimeDispatcher = dispatcher();
-  for (const declaration of standardFunctions()) {
-    const overloads = declaration.bindings();
-    if (overloads.length !== 0) {
-      runtimeDispatcher.add({ overloads });
-    }
-  }
-  return runtimeDispatcher;
 }
 
 /**
@@ -482,8 +1188,8 @@ function benchmarkFrontend(context: BenchmarkContext): BenchmarkResult[] {
     benchmark({
       operation: "parse",
       scenario: benchmarkCase.name,
-      notes: "Reuses one parser instance to isolate steady-state parse throughput.",
-      run: () => context.parser.parse(benchmarkCase.expression),
+      notes: "Reuses one public environment to isolate steady-state parse throughput.",
+      run: () => context.programEnv.parse(benchmarkCase.expression),
     }),
     benchmark({
       operation: "unparse",
@@ -494,17 +1200,14 @@ function benchmarkFrontend(context: BenchmarkContext): BenchmarkResult[] {
     benchmark({
       operation: "check",
       scenario: benchmarkCase.name,
-      notes: "Reuses one parsed AST and checker environment to isolate checker cost.",
-      run: () => check(context.parsed, context.source, context.checkerEnv),
+      notes: "Reuses one parsed AST and public environment to isolate checker cost.",
+      run: () => context.programEnv.check(context.parsed, context.source),
     }),
     benchmark({
       operation: "compile",
       scenario: benchmarkCase.name,
-      notes: "Runs parse plus check through shared parser and checker environment instances.",
-      run: () => {
-        const parsed = context.parser.parse(benchmarkCase.expression);
-        return check(parsed, textSource(benchmarkCase.expression), context.checkerEnv);
-      },
+      notes: "Runs parse plus check through one public environment.",
+      run: () => context.programEnv.compile(benchmarkCase.expression),
     }),
   ];
 }
@@ -520,30 +1223,22 @@ function benchmarkInterpreter(context: BenchmarkContext): BenchmarkResult[] {
       benchmark({
         operation: "plan",
         scenario,
-        notes: "Reuses one checked AST and interpreter to isolate program planning cost.",
-        run: () =>
-          context.runtime.interpretable({
-            exprAst: context.checked,
-            plannerConfig: variant.config,
-          }),
+        notes: "Reuses one checked AST and environment to isolate public program planning cost.",
+        run: () => context.programEnv.program(context.checked, variant.options),
       }),
     );
 
-    const program = context.runtime.interpretable({
-      exprAst: context.checked,
-      plannerConfig: variant.config,
-    });
-    const frame = executionFrame({ input: context.benchmarkCase.input });
-    validateEvaluation({ context, program, frame, variant });
+    const program = context.programEnv.program(context.checked, variant.options);
+    const input = activation({ bindings: context.benchmarkCase.input });
+    validateEvaluation({ context, program, input, variant });
     results.push(
       benchmark({
         operation: "eval",
         scenario,
-        notes: "Reuses one planned program and execution frame to isolate steady-state evaluation.",
-        run: () => program.exec(frame),
+        notes: "Reuses one public program and activation to isolate steady-state evaluation.",
+        run: () => program.eval(input),
       }),
     );
-    frame.close();
   }
   return results;
 }
@@ -554,20 +1249,18 @@ function benchmarkInterpreter(context: BenchmarkContext): BenchmarkResult[] {
 function plannerVariants(benchmarkCase: BenchmarkCase): readonly PlannerVariant[] {
   const variants: PlannerVariant[] = [{ name: "baseline" }];
   if (benchmarkCase.name !== "constant regex") {
-    variants.push({ name: "optimized", config: optimizeConfig() });
+    variants.push({ name: "optimized", options: { optimize: true } });
   }
   if (benchmarkCase.name === "constant regex") {
     variants.push({
       name: "compiled regex",
-      config: compileRegexConstantsConfig({ optimizations: [matchesRegexOptimization] }),
+      options: { regexOptimizations: [matchesRegexOptimization] },
     });
   }
   if (benchmarkCase.name === "macro comprehension") {
     variants.push({
       name: "runtime cost",
-      config: costObserverConfig({
-        trackerFactory: () => new CostTracker({}),
-      }),
+      options: { costTracking: {} },
     });
   }
   return variants;
@@ -583,14 +1276,14 @@ interface ValidateEvaluationOptions {
   readonly context: BenchmarkContext;
 
   /**
-   * program is the planned interpreter program being validated.
+   * program is the planned public CEL program being validated.
    */
-  readonly program: InterpretableV2;
+  readonly program: Program;
 
   /**
-   * frame supplies the activation used by the evaluation.
+   * input supplies the reusable activation used by the evaluation.
    */
-  readonly frame: ExecutionFrame;
+  readonly input: Activation;
 
   /**
    * variant identifies the planner mode for diagnostic messages.
@@ -602,7 +1295,7 @@ interface ValidateEvaluationOptions {
  * validateEvaluation verifies a planner variant before its execution is timed.
  */
 function validateEvaluation(options: ValidateEvaluationOptions): void {
-  const actual = options.program.exec(options.frame).value();
+  const actual = options.program.eval(options.input).value();
   if (!nativeEqual(actual, options.context.benchmarkCase.expected)) {
     throw new Error(
       `unexpected ${options.context.benchmarkCase.name} / ${options.variant.name} result: ${String(actual)}`,
@@ -658,16 +1351,29 @@ function benchmarkIterations(
   if (operation === "unparse") {
     return baseIterations * 20;
   }
-  if (operation === "parse" || operation === "plan") {
+  if (operation === "parse" || operation === "plan" || operation === "policy-parse") {
     return baseIterations * 4;
   }
-  if (operation !== "eval") {
+  if (
+    operation === "policy-compile" ||
+    operation === "policy-plan" ||
+    operation === "policy-eval" ||
+    operation === "partial-eval" ||
+    operation === "residual" ||
+    operation === "residual-roundtrip"
+  ) {
+    return baseIterations;
+  }
+  if (operation !== "eval" && operation !== "eval-details" && operation !== "eval-state") {
     return baseIterations;
   }
   if (scenario.endsWith("/ runtime cost")) {
     return baseIterations;
   }
   if (scenario.startsWith("macro comprehension")) {
+    return baseIterations * 2;
+  }
+  if (scenario.includes("fold ")) {
     return baseIterations * 2;
   }
   if (scenario.endsWith("/ baseline") && scenario.startsWith("constant regex")) {
@@ -738,8 +1444,8 @@ function standardDeviation(values: readonly number[], average: number): number {
 function runCelGoBenchmarks(): BenchmarkResult[] {
   const goBinary = resolveGoBinary();
   process.stdout.write("Benchmarking cel-go companion\n");
-  const stdout = execFileSync(goBinary, ["run", "./scripts/benchmark-cel-go"], {
-    cwd: packageDir,
+  const stdout = execFileSync(goBinary, ["run", "."], {
+    cwd: benchmarkGoDir,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],
     env: {
@@ -817,7 +1523,16 @@ function isBenchmarkOperation(value: unknown): value is BenchmarkOperation {
     value === "check" ||
     value === "compile" ||
     value === "plan" ||
-    value === "eval"
+    value === "eval" ||
+    value === "eval-details" ||
+    value === "eval-state" ||
+    value === "partial-eval" ||
+    value === "residual" ||
+    value === "residual-roundtrip" ||
+    value === "policy-parse" ||
+    value === "policy-compile" ||
+    value === "policy-plan" ||
+    value === "policy-eval"
   );
 }
 
@@ -876,7 +1591,7 @@ Generated at: \`${new Date().toISOString()}\`
 
 ## Methodology
 
-These are in-process microbenchmarks for the CEL frontend, planner, and interpreter plus the \`cel-go\` reference implementation on the same machine. They are intended to provide a quick regression signal for steady-state throughput, not a universal cross-machine claim. Cross-runtime ratios are directional; changes in this package's own results over time are the primary regression signal.
+These are in-process microbenchmarks for the CEL frontend and public program API plus the \`cel-go\` reference implementation on the same machine. Core planning and evaluation reuse equivalent public programs and activations in both implementations. Diagnostic evaluation rows form a feature ladder from literals through activation lookup, dispatch, dynamic and protobuf attributes, indexing, and folds. Residual rows separately measure state-tracking partial evaluation, residual AST construction, and the combined round trip. Policy measurements use the same synchronized YAML sources and separately cover parsing, compilation and composition, optimized planning, and steady-state evaluation. They are intended to provide a quick regression signal, not a universal cross-machine claim. Cross-runtime ratios are directional; changes in this package's own results over time are the primary regression signal.
 
 - Runtime: \`node ${process.version}\`
 - Go: \`${readGoVersion()}\`
@@ -885,6 +1600,15 @@ These are in-process microbenchmarks for the CEL frontend, planner, and interpre
 - Samples per scenario: \`${sampleCount}\`
 - Warmup samples per scenario: \`${warmupCount}\`
 - Base iterations per sample: \`${iterationsPerSample}\` (scaled by operation cost)
+
+## Diagnostic operations
+
+- \`eval\` measures value-only execution.
+- \`eval-details\` measures the public details-returning path without state observers.
+- \`eval-state\` enables expression-state observation.
+- \`partial-eval\` evaluates with explicit unknown attribute patterns and state tracking.
+- \`residual\` reuses captured state to isolate pruning, rendering, parsing, and checking.
+- \`residual-roundtrip\` combines partial evaluation and residual construction.
 
 ## Results
 

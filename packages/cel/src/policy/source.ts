@@ -4,21 +4,21 @@ import { type Source as CommonSource, stringSource } from "../common/source.js";
 /**
  * byteSource converts a byte sequence and location description to a policy source.
  */
-export function byteSource(contents: Uint8Array, location: string): PolicySource {
-  return policySource(new TextDecoder().decode(contents), location);
+export function byteSource(contents: Uint8Array, location: string): Source {
+  return source(new TextDecoder().decode(contents), location);
 }
 
 /**
- * policySource converts a string and location description to a policy source.
+ * source converts a string and location description to a policy source.
  */
-export function policySource(contents: string, location: string): PolicySource {
-  return new PolicySource(stringSource(contents, location));
+export function source(contents: string, location: string): Source {
+  return new Source(stringSource(contents, location));
 }
 
 /**
- * PolicySource represents the contents of a single source file.
+ * Source represents the contents of a single policy file.
  */
-export class PolicySource implements CommonSource {
+export class Source implements CommonSource {
   /** constructor wraps the common CEL source used by a policy. */
   public constructor(private readonly sourceValue: CommonSource) {}
 
@@ -88,6 +88,11 @@ interface RelativeSourceOptions {
 export class RelativeSource implements CommonSource {
   /** constructor configures an embedded policy source. */
   public constructor(private readonly options: RelativeSourceOptions) {}
+
+  /** containingSource returns the complete policy source containing this expression. */
+  public containingSource(): CommonSource {
+    return this.options.source;
+  }
 
   /** content returns the embedded source snippet. */
   public content(): string {

@@ -25,6 +25,7 @@ import {
   matchSubset,
   maxId,
   navigateAst,
+  nodeCount,
   postOrderVisit,
   protoToEntryExpr,
   protoToExpr,
@@ -335,6 +336,11 @@ describe("common/ast", () => {
     dummy.renumberIds(() => currentMax + 1);
     exprAst.sourceInfo().setMacroCall(currentMax + 2, dummy);
     expect(maxId(exprAst)).toBe(currentMax + 3);
+  });
+
+  it("common/ast/ast_test.go/TestNodeCount", () => {
+    expect(nodeCount(undefined)).toBe(0);
+    expect(nodeCount(astFor("1 + 2"))).toBe(3);
   });
 
   it("supports source-info cleanup behaviors", () => {

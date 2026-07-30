@@ -1,0 +1,59 @@
+{
+  "path": "variable_type_propagation",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: variable_type_propagation\nvariables:\n  - name: x\n    type_name: int\n",
+      "value": {
+        "name": "variable_type_propagation",
+        "variables": [
+          {
+            "name": "x",
+            "type_name": "int"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: variable_type_propagation\nrule:\n  variables:\n    - name: empty_list\n      expression: '[]'\n    - name: string_list\n      expression: '[\"foo\"]'\n  match:\n    - output: \"variables.empty_list + [1]\"\n",
+      "value": {
+        "name": "variable_type_propagation",
+        "rule": {
+          "match": [
+            {
+              "output": "variables.empty_list + [1]"
+            }
+          ],
+          "variables": [
+            {
+              "expression": "[]",
+              "name": "empty_list"
+            },
+            {
+              "expression": "[\"foo\"]",
+              "name": "string_list"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: \"Rule demonstrating variable types propagate independently\"\nsection:\n  - name: \"test\"\n    tests:\n      - name: \"types_agree\"\n        output:\n          expr: \"[1]\"\n",
+      "value": {
+        "description": "Rule demonstrating variable types propagate independently",
+        "section": [
+          {
+            "name": "test",
+            "tests": [
+              {
+                "name": "types_agree",
+                "output": {
+                  "expr": "[1]"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

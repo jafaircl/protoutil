@@ -1,0 +1,112 @@
+{
+  "path": "nested_rules_variable_shadowing",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: nested_rules_variable_shadowing\nvariables:\n  - name: x\n    type_name: int\n",
+      "value": {
+        "name": "nested_rules_variable_shadowing",
+        "variables": [
+          {
+            "name": "x",
+            "type_name": "int"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: nested_rules_variable_shadowing\nrule:\n  variables:\n    - name: i\n      expression: '1'\n    - name: j\n      expression: '2'\n  match:\n    - condition: \"x == 1\"\n      rule:\n        variables:\n          - name: i\n            expression: \"5\"\n        match:\n          - output: \"variables.i + variables.j\"\n    - condition: \"x == 2\"\n      rule:\n        match:\n          - output: \"variables.i + variables.j\"\n    - output: \"variables.i + variables.j\"\n",
+      "value": {
+        "name": "nested_rules_variable_shadowing",
+        "rule": {
+          "match": [
+            {
+              "condition": "x == 1",
+              "rule": {
+                "match": [
+                  {
+                    "output": "variables.i + variables.j"
+                  }
+                ],
+                "variables": [
+                  {
+                    "expression": "5",
+                    "name": "i"
+                  }
+                ]
+              }
+            },
+            {
+              "condition": "x == 2",
+              "rule": {
+                "match": [
+                  {
+                    "output": "variables.i + variables.j"
+                  }
+                ]
+              }
+            },
+            {
+              "output": "variables.i + variables.j"
+            }
+          ],
+          "variables": [
+            {
+              "expression": "1",
+              "name": "i"
+            },
+            {
+              "expression": "2",
+              "name": "j"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: \"Nested rule tests for rule variable shadowing\"\nsection:\n  - name: \"shadowing\"\n    tests:\n      - name: \"shadowed\"\n        input:\n          x:\n            expr: \"1\"\n        output:\n          expr: \"7\"\n      - name: \"neighbor_rule\"\n        input:\n          x:\n            expr: \"2\"\n        output:\n          expr: \"3\"\n      - name: \"parent_rule\"\n        input:\n          x:\n            expr: \"3\"\n        output:\n          expr: \"3\"\n",
+      "value": {
+        "description": "Nested rule tests for rule variable shadowing",
+        "section": [
+          {
+            "name": "shadowing",
+            "tests": [
+              {
+                "input": {
+                  "x": {
+                    "expr": "1"
+                  }
+                },
+                "name": "shadowed",
+                "output": {
+                  "expr": "7"
+                }
+              },
+              {
+                "input": {
+                  "x": {
+                    "expr": "2"
+                  }
+                },
+                "name": "neighbor_rule",
+                "output": {
+                  "expr": "3"
+                }
+              },
+              {
+                "input": {
+                  "x": {
+                    "expr": "3"
+                  }
+                },
+                "name": "parent_rule",
+                "output": {
+                  "expr": "3"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

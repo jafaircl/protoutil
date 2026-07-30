@@ -26,6 +26,7 @@ import {
   DurationType,
   DynType,
   IntType,
+  Kind,
   ListType,
   listType,
   StringType,
@@ -148,24 +149,25 @@ export function lists(options: ListsOptions = {}): ListsLibrary {
   if (version >= 3) {
     Object.assign(overloadCostEstimates, {
       list_slice: estimateListSlice,
-      list_flatten: estimateListFlatten,
-      list_flatten_int: estimateListFlatten,
+      list_flatten: version === 3 ? estimateListFlattenLegacy : estimateListFlatten,
+      list_flatten_int: version === 3 ? estimateListFlattenLegacy : estimateListFlatten,
       lists_range: estimateListsRange,
       list_reverse: estimateListReverse,
-      list_distinct: estimateListDistinct,
+      list_distinct: version === 3 ? estimateListDistinctLegacy : estimateListDistinct,
     });
     Object.assign(overloadTrackers, {
       list_slice: trackListOutputSize,
-      list_flatten: trackListFlatten,
-      list_flatten_int: trackListFlatten,
+      list_flatten: version === 3 ? trackListFlattenLegacy : trackListFlatten,
+      list_flatten_int: version === 3 ? trackListFlattenLegacy : trackListFlatten,
       lists_range: trackListOutputSize,
       list_reverse: trackListOutputSize,
       list_distinct: trackListDistinct,
     });
     for (const type of comparableTypes) {
-      overloadCostEstimates[`list_${type.typeName()}_sort`] = estimateListSort(type);
+      overloadCostEstimates[`list_${type.typeName()}_sort`] =
+        version === 3 ? estimateListSortLegacy(type) : estimateListSort(type);
       overloadCostEstimates[`list_${type.typeName()}_sortByAssociatedKeys`] =
-        estimateListSortBy(type);
+        version === 3 ? estimateListSortByLegacy(type) : estimateListSortBy(type);
       overloadTrackers[`list_${type.typeName()}_sort`] = trackListSort;
       overloadTrackers[`list_${type.typeName()}_sortByAssociatedKeys`] = trackListSortBy;
     }
@@ -504,8 +506,92 @@ function estimateListReverse(
     : undefined;
 }
 
-/** estimateListFlatten computes an allocating traversal scaled by flatten depth. */
+/** estimateListFlatten computes an O(n) flatten operation over the total flattened item count. */
 function estimateListFlatten(
+  estimator: CostEstimator,
+  target: AstNode | undefined,
+  args: AstNode[],
+): CallEstimate | undefined {
+  if (!target || args.length > 1) {
+    return undefined;
+  }
+  const depth = args.length === 1 ? nodeAsUintValue(args[0]!, uint64Max) : 1n;
+  const targetExpr = target.expr();
+  const resultSize =
+    targetExpr?.kind() === ExprKind.List
+      ? estimateLiteralFlattenSize(targetExpr, depth)
+      : estimateFlattenSize(estimator, target, depth);
+  return estimateAllocatingListCall(1, resultSize);
+}
+
+/**
+ * FlattenPathAstNode represents a synthetic list-item path used for checker size hints.
+ */
+class FlattenPathAstNode implements AstNode {
+  /** constructor records the synthetic field path and its inferred element type. */
+  public constructor(
+    private readonly pathValue: string[],
+    private readonly typeValue: Type,
+  ) {}
+
+  /** path returns the synthetic list-item path. */
+  public path(): string[] {
+    return [...this.pathValue];
+  }
+
+  /** type returns the inferred list element type. */
+  public type(): Type {
+    return this.typeValue;
+  }
+
+  /** expr reports that a synthetic path has no source expression. */
+  public expr(): undefined {
+    return undefined;
+  }
+
+  /** computedSize reports that size must be supplied by the estimator. */
+  public computedSize(): undefined {
+    return undefined;
+  }
+}
+
+/** estimateFlattenSize estimates nested flattened output size from list-item path hints. */
+function estimateFlattenSize(
+  estimator: CostEstimator,
+  node: AstNode,
+  depth: bigint,
+): SizeEstimate {
+  const size = estimateSize(estimator, node);
+  if (depth === 0n || node.type().kind() !== Kind.List) {
+    return size;
+  }
+  const elementType = node.type().parameters()[0];
+  const path = node.path();
+  if (elementType === undefined || path === undefined) {
+    return size;
+  }
+  const elementNode = new FlattenPathAstNode([...path, "@items"], elementType);
+  return size.multiply(estimateFlattenSize(estimator, elementNode, depth - 1n));
+}
+
+/** estimateLiteralFlattenSize counts the result items produced by flattening a list literal. */
+function estimateLiteralFlattenSize(expression: Expr, depth: bigint): SizeEstimate {
+  if (depth === 0n) {
+    const size = expression.kind() === ExprKind.List ? BigInt(expression.asList()!.size()) : 1n;
+    return sizeEstimate(size, size);
+  }
+  if (expression.kind() !== ExprKind.List) {
+    return sizeEstimate(1n, 1n);
+  }
+  let total = 0n;
+  for (const element of expression.asList()!.elements()) {
+    total += estimateLiteralFlattenSize(element, depth - 1n).Max;
+  }
+  return sizeEstimate(total, total);
+}
+
+/** estimateListFlattenLegacy computes the version-three cost from input size and flatten depth. */
+function estimateListFlattenLegacy(
   estimator: CostEstimator,
   target: AstNode | undefined,
   args: AstNode[],
@@ -527,7 +613,11 @@ function estimateListDistinct(
     return undefined;
   }
   const size = estimateSize(estimator, target);
-  return estimateAllocatingListCall(2, size.multiply(size));
+  const itemSize = estimateItemSize(estimator, target);
+  const elementCost = estimateElementEqualityCost(target.type().parameters()[0] ?? DynType, itemSize);
+  const cost = size.multiply(size).multiplyByCost(elementCost).multiplyByCostFactor(2);
+  const resultSize = sizeEstimate(size.Min > 0n ? 1n : 0n, size.Max);
+  return estimateListCallWithDirectCost(cost, resultSize);
 }
 
 /** estimateListSort returns the cost estimator for a concrete sort element type. */
@@ -539,25 +629,117 @@ function estimateListSort(type: Type): FunctionEstimator {
 /** estimateListSortBy returns the cost estimator for one concrete key type. */
 function estimateListSortBy(type: Type): FunctionEstimator {
   return (estimator, target, args) =>
-    target && args.length === 1 ? estimateListSortCost(estimator, args[0]!, type) : undefined;
+    target && args.length === 1
+      ? estimateListSortByCost(estimator, target, args[0]!, type)
+      : undefined;
 }
 
 /** estimateListSortCost computes the worst-case O(n²) sort comparison cost. */
 function estimateListSortCost(estimator: CostEstimator, node: AstNode, type: Type): CallEstimate {
   const size = estimateSize(estimator, node);
-  const stringLike = type === StringType || type === BytesType;
-  return estimateAllocatingListCall(
-    2 + (stringLike ? StringTraversalCostFactor : 0),
-    size.multiply(size),
-  );
+  const elementCost = estimateElementEqualityCost(type, estimateItemSize(estimator, node));
+  const cost = size.multiply(size).multiplyByCost(elementCost).multiplyByCostFactor(2);
+  return estimateListCallWithDirectCost(cost, size);
+}
+
+/** estimateListSortByCost estimates key comparisons using target item-size hints. */
+function estimateListSortByCost(
+  estimator: CostEstimator,
+  target: AstNode,
+  keys: AstNode,
+  type: Type,
+): CallEstimate {
+  const size = estimateSize(estimator, keys);
+  const elementCost = estimateElementEqualityCost(type, estimateItemSize(estimator, target));
+  const cost = size.multiply(size).multiplyByCost(elementCost).multiplyByCostFactor(2);
+  return estimateListCallWithDirectCost(cost, size);
 }
 
 /** estimateAllocatingListCall adds dispatch and list allocation to a traversal cost. */
 function estimateAllocatingListCall(costFactor: number, listSizeValue: SizeEstimate) {
-  const cost = listSizeValue
-    .multiplyByCostFactor(costFactor)
-    .add(new CostEstimate(BigInt(ListCreateBaseCost + 1), BigInt(ListCreateBaseCost + 1)));
-  return new CallEstimate(cost.Min, cost.Max, listSizeValue);
+  return estimateListCallWithDirectCost(
+    listSizeValue.multiplyByCostFactor(costFactor),
+    listSizeValue,
+  );
+}
+
+/** estimateListCallWithDirectCost adds call dispatch and list allocation to a direct cost. */
+function estimateListCallWithDirectCost(cost: CostEstimate, resultSize: SizeEstimate): CallEstimate {
+  const total = cost.add(
+    new CostEstimate(BigInt(ListCreateBaseCost + 1), BigInt(ListCreateBaseCost + 1)),
+  );
+  return new CallEstimate(total.Min, total.Max, resultSize);
+}
+
+/** estimateItemSize returns an estimator hint for a list's synthetic item path. */
+function estimateItemSize(estimator: CostEstimator, node: AstNode): SizeEstimate {
+  const path = node.path();
+  if (path === undefined) {
+    return sizeEstimate(0n, uint64Max);
+  }
+  const elementType = node.type().parameters()[0] ?? DynType;
+  return (
+    estimator.estimateSize(new FlattenPathAstNode([...path, "@items"], elementType)) ??
+    sizeEstimate(0n, uint64Max)
+  );
+}
+
+/** estimateElementEqualityCost estimates equality work for one list element. */
+function estimateElementEqualityCost(type: Type, itemSize: SizeEstimate): CostEstimate {
+  switch (type.kind()) {
+    case Kind.String:
+    case Kind.Bytes:
+      return itemSize.multiplyByCostFactor(StringTraversalCostFactor);
+    case Kind.List:
+    case Kind.Map:
+    case Kind.Struct:
+      return new CostEstimate(0n, uint64Max);
+    default:
+      return new CostEstimate(1n, 1n);
+  }
+}
+
+/** estimateListDistinctLegacy computes the version-three O(n²) distinct cost. */
+function estimateListDistinctLegacy(
+  estimator: CostEstimator,
+  target: AstNode | undefined,
+  args: AstNode[],
+): CallEstimate | undefined {
+  if (!target || args.length !== 0) {
+    return undefined;
+  }
+  const size = estimateSize(estimator, target);
+  const elementType = target.type().parameters()[0];
+  const factor =
+    elementType === StringType || elementType === BytesType
+      ? 2 + StringTraversalCostFactor
+      : 2;
+  return estimateAllocatingListCall(factor, size.multiply(size));
+}
+
+/** estimateListSortLegacy returns the version-three estimator for a concrete sort type. */
+function estimateListSortLegacy(type: Type): FunctionEstimator {
+  return (estimator, target, args) =>
+    target && args.length === 0 ? estimateListSortCostLegacy(estimator, target, type) : undefined;
+}
+
+/** estimateListSortByLegacy returns the version-three estimator for a concrete key type. */
+function estimateListSortByLegacy(type: Type): FunctionEstimator {
+  return (estimator, target, args) =>
+    target && args.length === 1
+      ? estimateListSortCostLegacy(estimator, args[0]!, type)
+      : undefined;
+}
+
+/** estimateListSortCostLegacy computes the version-three O(n²) comparison cost. */
+function estimateListSortCostLegacy(
+  estimator: CostEstimator,
+  node: AstNode,
+  type: Type,
+): CallEstimate {
+  const size = estimateSize(estimator, node);
+  const factor = 2 + (type === StringType || type === BytesType ? StringTraversalCostFactor : 0);
+  return estimateAllocatingListCall(factor, size.multiply(size));
 }
 
 /** trackListOutputSize computes cost from the resulting list size. */
@@ -565,8 +747,13 @@ const trackListOutputSize: FunctionTracker = {
   cost: ({ result }) => trackAllocatingListCall(1, actualSize(result)),
 };
 
-/** trackListFlatten computes cost from input size and requested depth. */
+/** trackListFlatten computes cost from the size of the flattened result list. */
 const trackListFlatten: FunctionTracker = {
+  cost: ({ result }) => trackAllocatingListCall(1, actualSize(result)),
+};
+
+/** trackListFlattenLegacy computes the version-three cost from input size and flatten depth. */
+const trackListFlattenLegacy: FunctionTracker = {
   cost: ({ args }) => {
     const depth = args.length === 2 ? Number((args[1] as Int).value()) : 1;
     return trackAllocatingListCall(depth, actualSize(args[0]!));

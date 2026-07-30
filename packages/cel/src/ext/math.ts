@@ -1,4 +1,13 @@
 import type { LibraryAliaser, LibraryVersioner, SingletonLibrary } from "../cel/library.js";
+import {
+  type AstNode,
+  CallEstimate,
+  type CostEstimator,
+  fixedCostEstimate,
+  fixedSizeEstimate,
+  type FunctionEstimator,
+  unknownSizeEstimate,
+} from "../checker/cost.js";
 import { type Expr, ExprKind } from "../common/ast/index.js";
 import { functionDecl, overload } from "../common/decls.js";
 import { Bool } from "../common/types/bool.js";
@@ -18,6 +27,7 @@ import {
 import { Uint } from "../common/types/uint.js";
 import { receiverVarArgMacro } from "../parser/macro.js";
 import type { Macro } from "../parser/options.js";
+import type { FunctionTracker } from "../interpreter/runtime-cost.js";
 
 /** mathNamespace is the receiver required for the math macros. */
 const mathNamespace = "math";
@@ -162,9 +172,66 @@ export function math(options: MathOptions = {}): MathLibrary {
       macros: {
         custom: [extremumMacro("least"), extremumMacro("greatest")],
       },
+      cost:
+        version >= 3
+          ? {
+              overloadCostEstimates: mathListCostEstimates(),
+            }
+          : undefined,
     },
-    programOptions: {},
+    programOptions:
+      version >= 3
+        ? {
+            costTracking: {
+              overloadTrackers: mathListCostTrackers(),
+            },
+          }
+        : {},
   };
+}
+
+/** mathListOverloads contains every list extremum overload with linear cost. */
+const mathListOverloads = [
+  "math_@min_list_double",
+  "math_@min_list_int",
+  "math_@min_list_uint",
+  "math_@max_list_double",
+  "math_@max_list_int",
+  "math_@max_list_uint",
+] as const;
+
+/** estimateMathListCost computes one comparison per list element plus nominal call cost. */
+const estimateMathListCost: FunctionEstimator = (estimator, _target, args) => {
+  if (args.length !== 1) {
+    return undefined;
+  }
+  const size = estimateMathNodeSize(estimator, args[0]!);
+  const cost = size.asCost().add(fixedCostEstimate(1));
+  return new CallEstimate(cost.Min, cost.Max, fixedSizeEstimate(1));
+};
+
+/** trackMathListCost computes one runtime comparison per list element plus nominal call cost. */
+const trackMathListCost: FunctionTracker = {
+  cost: ({ args }) => Number(((args[0] as Lister).size() as Int).value()) + 1,
+};
+
+/** mathListCostEstimates maps list extremum overloads to their shared checker estimator. */
+function mathListCostEstimates(): Record<string, FunctionEstimator> {
+  return Object.fromEntries(
+    mathListOverloads.map((overloadId) => [overloadId, estimateMathListCost]),
+  );
+}
+
+/** mathListCostTrackers maps list extremum overloads to their shared runtime tracker. */
+function mathListCostTrackers(): Record<string, FunctionTracker> {
+  return Object.fromEntries(
+    mathListOverloads.map((overloadId) => [overloadId, trackMathListCost]),
+  );
+}
+
+/** estimateMathNodeSize returns a computed, hinted, or unknown list size. */
+function estimateMathNodeSize(estimator: CostEstimator, node: AstNode) {
+  return node.computedSize() ?? estimator.estimateSize(node) ?? unknownSizeEstimate();
 }
 
 /**

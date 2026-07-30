@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { syncedCases } from "../common/spec-helpers.js";
 import { resolveSyncedExpr, resolveSyncedVal } from "../common/types/spec-helpers.js";
 import { Type_PrimitiveType } from "../gen/cel/expr/checked_pb.js";
+import type { Expr as ProtoExpr } from "../gen/cel/expr/syntax_pb.js";
 import { TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import {
+  ast,
   astToCheckedExpr,
   astToParsedExpr,
   astToString,
@@ -19,6 +21,7 @@ import {
   Kind,
   parsedExprToAst,
   parsedExprToAstWithSource,
+  protoToExpr,
   refValToExprValue,
   refValueToValue,
   registry,
@@ -28,6 +31,41 @@ import {
   valueToRefValue,
   variableDecl,
 } from "../index.js";
+
+/**
+ * deepBoolExpr creates a protobuf expression with the requested number of nested negations.
+ */
+function deepBoolExpr(depth: number): ProtoExpr {
+  let expression: ProtoExpr = {
+    $typeName: "cel.expr.Expr",
+    id: 1n,
+    exprKind: {
+      case: "constExpr",
+      value: {
+        $typeName: "cel.expr.Constant",
+        constantKind: {
+          case: "boolValue",
+          value: true,
+        },
+      },
+    },
+  };
+  for (let index = 0; index < depth; index++) {
+    expression = {
+      $typeName: "cel.expr.Expr",
+      id: BigInt(index + 2),
+      exprKind: {
+        case: "callExpr",
+        value: {
+          $typeName: "cel.expr.Expr.Call",
+          function: "!_",
+          args: [expression],
+        },
+      },
+    };
+  }
+  return expression;
+}
 
 describe("cel/io_test.go/TestRefValueToValue_Error", () => {
   it("rejects CEL error values", () => {
@@ -124,6 +162,35 @@ describe("cel/io_test.go/TestRefValueToValueRoundTrip", () => {
         `round-trip case ${index}: ${JSON.stringify(testCase.value)}`,
       ).toBe(true);
     }
+  });
+});
+
+describe("TypeScript extension/TestStrongEnumValueRoundTrip", () => {
+  it("preserves the protobuf enum type and signed number", () => {
+    const adapter = registry();
+    adapter.registerDescriptor(TestAllTypesSchema.file);
+    adapter.withStrongEnums(true);
+    const value = adapter.enumValueOf(
+      "google.expr.proto3.test.TestAllTypes.NestedEnum",
+      -987n,
+    );
+
+    const serialized = refValueToValue(value);
+    expect(serialized.kind).toEqual({
+      case: "enumValue",
+      value: {
+        $typeName: "cel.expr.EnumValue",
+        type: "google.expr.proto3.test.TestAllTypes.NestedEnum",
+        value: -987,
+      },
+    });
+
+    const roundTrip = valueToRefValue(adapter, serialized);
+    expect(roundTrip.type().typeName()).toBe(
+      "google.expr.proto3.test.TestAllTypes.NestedEnum",
+    );
+    expect(roundTrip.value()).toBe(-987n);
+    expect(value.equal(roundTrip).value()).toBe(true);
   });
 });
 
@@ -225,5 +292,49 @@ describe("cel/io_test.go/TestCheckedExprToAstMissingInfo", () => {
     };
 
     expect(checkedExprToAst(checked).isChecked()).toBe(true);
+  });
+});
+
+describe("cel/io_test.go/TestLoadedAstDepthLimit", () => {
+  it("rejects over-deep protobuf-loaded ASTs while preserving the common AST bypass", () => {
+    const celEnv = env();
+
+    // Sanity check: a shallow parsed expression still checks and plans cleanly.
+    const shallow = celEnv.parse("1 + 2");
+    expect(() => celEnv.check(shallow, textSource("1 + 2"))).not.toThrow();
+    expect(() => celEnv.program(shallow)).not.toThrow();
+
+    const deepExpr = deepBoolExpr(300);
+    expect(() =>
+      parsedExprToAst({
+        $typeName: "cel.expr.ParsedExpr",
+        expr: deepExpr,
+      }),
+    ).toThrow("maximum expression nesting depth");
+    expect(() =>
+      checkedExprToAstWithSource({
+        $typeName: "cel.expr.CheckedExpr",
+        expr: deepExpr,
+        referenceMap: {},
+        typeMap: {},
+        exprVersion: "",
+      }),
+    ).toThrow("maximum expression nesting depth");
+
+    // Embedders in full control of their AST inputs can skip the check by building the AST
+    // through the common AST package directly rather than the CEL conversion helpers.
+    const bypass = ast(protoToExpr(deepExpr));
+    expect(() => celEnv.program(bypass)).not.toThrow();
+  });
+});
+
+describe("cel/io_test.go/TestExpressionNestingDepthLimitConfigRoundTrip", () => {
+  it("serializes the configured maximum AST depth", () => {
+    const config = env({ maxAstDepth: 128 }).toConfig("depth-limit");
+
+    expect(config.limits).toContainEqual({
+      name: "cel.limit.max_ast_depth",
+      value: 128,
+    });
   });
 });

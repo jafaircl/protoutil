@@ -12,6 +12,7 @@ import {
   observeEvalDecorator,
   optimizeDecorator,
   regexOptimizerDecorator,
+  regexProgramSizeLimitDecorator,
 } from "./decorators.js";
 import type { Dispatcher } from "./dispatcher.js";
 import type { EvalState } from "./eval-state.js";
@@ -110,6 +111,14 @@ export interface CompileRegexConstantsOptions {
    * optimizations lists the regular expression functions to compile.
    */
   optimizations: RegexOptimization[];
+}
+
+/**
+ * RegexProgramSizeLimitOptions configures the maximum regex instruction count.
+ */
+export interface RegexProgramSizeLimitOptions {
+  /** limit is the maximum permitted compiled regex instruction count. */
+  limit: number;
 }
 
 /**
@@ -374,6 +383,17 @@ export function optimizeConfig(): PlannerConfig {
 export function compileRegexConstantsConfig(options: CompileRegexConstantsOptions): PlannerConfig {
   return {
     decorators: [regexOptimizerDecorator(options)],
+  };
+}
+
+/**
+ * regexProgramSizeLimitConfig caps regex program size during planning and evaluation.
+ */
+export function regexProgramSizeLimitConfig(
+  options: RegexProgramSizeLimitOptions,
+): PlannerConfig {
+  return {
+    decorators: [regexProgramSizeLimitDecorator(options)],
   };
 }
 

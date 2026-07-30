@@ -227,10 +227,24 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       : [undefined, false];
   }
 
-  /** enumValueOf creates a typed enum value when strong enum semantics are enabled. */
-  public enumValueOf(typeName: string, value: bigint): Val {
+  /** enumValueOf creates an enum value from its signed number or declared symbolic name. */
+  public enumValueOf(typeName: string, value: bigint | string): Val {
     const enumType = this.findEnumType(typeName);
-    return this.strongEnumsValue && enumType ? new ProtoEnum(enumType, value) : new Int(value);
+    if (!enumType) {
+      return err("unknown enum type '%s'", typeName);
+    }
+    if (typeof value === "string") {
+      const named = enumType.values.find((candidate) => candidate.name === value);
+      return named
+        ? this.strongEnumsValue
+          ? new ProtoEnum(enumType, BigInt(named.number))
+          : new Int(BigInt(named.number))
+        : err("invalid enum name '%s' for type '%s'", value, enumType.typeName);
+    }
+    if (value < -2_147_483_648n || value > 2_147_483_647n) {
+      return err("enum value out of range: %s", value);
+    }
+    return this.strongEnumsValue ? new ProtoEnum(enumType, value) : new Int(value);
   }
 
   public findType(typeName: string): [ExprType | undefined, boolean] {
@@ -333,6 +347,20 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     this.strongEnumsValue = enabled;
   }
 
+  /** strongEnumsEnabled reports whether protobuf enums retain their declared runtime types. */
+  public strongEnumsEnabled(): boolean {
+    return this.strongEnumsValue;
+  }
+
+  /** enumTypes returns every registered protobuf enum descriptor. */
+  public enumTypes(): DescEnum[] {
+    const enums = new Map<string, DescEnum>();
+    for (const file of this.pbdbValue.fileDescriptions()) {
+      collectEnumTypes(file.fileDescriptor().enums, file.fileDescriptor().messages, enums);
+    }
+    return [...enums.values()];
+  }
+
   public value(typeName: string, fields: Record<string, Val>): Val {
     return this.newValue(typeName, fields);
   }
@@ -421,7 +449,7 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   }
 
   /** findEnumType resolves a registered protobuf enum descriptor by fully qualified type name. */
-  private findEnumType(typeName: string): DescEnum | undefined {
+  public findEnumType(typeName: string): DescEnum | undefined {
     const canonicalName = stripLeadingDot(typeName);
     for (const file of this.pbdbValue.fileDescriptions()) {
       const found = findEnumInFile(file.fileDescriptor(), canonicalName);
@@ -523,10 +551,32 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       return undefined;
     }
     try {
-      const native =
-        field.isEnum() && val instanceof Int
-          ? val.convertToNative(Int32NativeType)
-          : val.convertToNative(nativeFieldType(field));
+      let native: unknown;
+      if (field.isEnum() && val instanceof ProtoEnum) {
+        const descriptor = field.descriptor();
+        if (
+          descriptor.kind !== "field" ||
+          descriptor.fieldKind !== "enum" ||
+          descriptor.enum.typeName !== val.enumDescriptor().typeName
+        ) {
+          return fieldTypeConversionError(
+            field,
+            new Error(
+              `enum type mismatch: got ${val.enumDescriptor().typeName}, wanted ${
+                descriptor.kind === "field" && descriptor.fieldKind === "enum"
+                  ? descriptor.enum.typeName
+                  : field.name()
+              }`,
+            ),
+          );
+        }
+        native = val.convertToNative(Number);
+      } else {
+        native =
+          field.isEnum() && val instanceof Int
+            ? val.convertToNative(Int32NativeType)
+            : val.convertToNative(nativeFieldType(field));
+      }
       if (native !== undefined && native !== null) {
         setField(target, field.descriptor() as DescField, native);
       }
@@ -1146,6 +1196,25 @@ function findEnumInMessages(
     }
   }
   return undefined;
+}
+
+/**
+ * collectEnumTypes recursively indexes top-level and message-scoped protobuf enum descriptors.
+ */
+function collectEnumTypes(
+  topLevel: readonly DescEnum[],
+  messages: readonly DescMessage[],
+  enums: Map<string, DescEnum>,
+): void {
+  for (const enumType of topLevel) {
+    enums.set(enumType.typeName, enumType);
+  }
+  for (const message of messages) {
+    for (const enumType of message.nestedEnums) {
+      enums.set(enumType.typeName, enumType);
+    }
+    collectEnumTypes([], message.nestedMessages, enums);
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -12,7 +12,7 @@ import {
   type Val,
 } from "../common/types/index.js";
 import type { Activation, PartialActivation } from "./activation.js";
-import { asPartialActivation } from "./activation.js";
+import { asPartialActivation, isLocalVariableHolder } from "./activation.js";
 import {
   type Attribute,
   type AttributeFactory,
@@ -468,6 +468,12 @@ class AttributeMatcher implements NamespacedAttribute {
    * resolve returns an unknown value when a partial activation pattern overlaps the attribute.
    */
   public resolve(vars: Activation): unknown {
+    if (
+      isLocalVariableHolder(vars) &&
+      this.candidateVariableNames().some((name) => vars.isLocalVariable(name))
+    ) {
+      return this.namespacedAttributeValue.resolve(vars);
+    }
     const [partial, found] = asPartialActivation(vars);
     if (found && partial) {
       const unknownValue = this.factoryValue.matchesUnknownPatterns(

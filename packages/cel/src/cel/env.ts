@@ -9,10 +9,12 @@ import {
 } from "../checker/cost.js";
 import { type Env as CheckerEnv, env as checkerEnvironment } from "../checker/env.js";
 import type { CheckerOptions } from "../checker/options.js";
-import { AST, type SourceInfo } from "../common/ast/index.js";
+import { AST, nodeCount, type SourceInfo } from "../common/ast/index.js";
 import { type Container, container, defaultContainer } from "../common/containers.js";
 import {
   type FunctionDecl,
+  functionDecl,
+  overload,
   typeVariable,
   type VariableDecl,
   variableDecl,
@@ -25,6 +27,7 @@ import {
   extension,
   feature,
   importType,
+  limit as configLimit,
   type LibrarySubset,
   librarySubset,
 } from "../common/env/env.js";
@@ -34,13 +37,21 @@ import type { Source } from "../common/source.js";
 import { textSource } from "../common/source.js";
 import { standardFunctions, standardTypes } from "../common/stdlib.js";
 import { type Adapter, type Provider, type Registry, registry } from "../common/types/provider.js";
-import { ErrorType, exprTypeToType, type Type } from "../common/types/types.js";
+import {
+  ErrorType,
+  exprTypeToType,
+  IntType,
+  objectType,
+  StringType,
+  type Type,
+} from "../common/types/types.js";
 import {
   type ActivationBindings,
   activation,
   type PartialActivation,
   partialActivation,
 } from "../interpreter/activation.js";
+import type { AsyncObserver } from "../interpreter/async.js";
 import { attributePattern, partialAttributeFactory } from "../interpreter/attribute-patterns.js";
 import { attributeFactory } from "../interpreter/attributes.js";
 import type { InterpretableDecoratorV2 } from "../interpreter/decorators.js";
@@ -53,6 +64,7 @@ import {
   interpreter,
   interruptableEvalConfig,
   optimizeConfig,
+  regexProgramSizeLimitConfig,
 } from "../interpreter/interpreter.js";
 import { matchesRegexOptimization, type RegexOptimization } from "../interpreter/optimizations.js";
 import { pruneAst } from "../interpreter/prune.js";
@@ -62,8 +74,13 @@ import {
   costTracker,
 } from "../interpreter/runtime-cost.js";
 import { AllMacros } from "../parser/macro.js";
-import { type Macro, type ParserConfig, parserOptions } from "../parser/options.js";
-import { parse as parseExpression, tryParse as tryParseExpression } from "../parser/parser.js";
+import { type Macro, macroKey, type ParserConfig, parserOptions } from "../parser/options.js";
+import {
+  parse as parseExpression,
+  parseSource as parseExpressionSource,
+  tryParse as tryParseExpression,
+  tryParseSource as tryParseExpressionSource,
+} from "../parser/parser.js";
 import { astToString } from "./io.js";
 import { type Library, legacyTimeFunctions, optionalTypes } from "./library.js";
 import { type ASTOptimizer, staticOptimizer } from "./optimizer.js";
@@ -78,7 +95,9 @@ import {
   type ASTValidator,
   extendedValidations,
   type ValidatorConfig,
+  validateBindNestingLimit,
   validateComprehensionNestingLimit,
+  validateRegexProgramSizeLimit,
   validatorConfig,
 } from "./validator.js";
 
@@ -183,6 +202,11 @@ export interface EnvOptions {
   parser?: ParserConfig;
 
   /**
+   * regexProgramSizeLimit caps compiled regex instruction counts during validation and evaluation.
+   */
+  regexProgramSizeLimit?: number;
+
+  /**
    * checker configures type-checking behavior.
    */
   checker?: CheckerOptions;
@@ -208,6 +232,11 @@ export interface EnvOptions {
    * macros configures standard and custom parser macro availability.
    */
   macros?: MacroOptions;
+
+  /**
+   * maxAstDepth records the maximum nesting depth for externally loaded AST configuration.
+   */
+  maxAstDepth?: number;
 
   /**
    * libraries applies reusable compile and program configuration bundles.
@@ -252,6 +281,16 @@ export interface EnvConfigurationOptions {
  * ProgramOptions configures planning of a compiled CEL program.
  */
 export interface ProgramOptions {
+  /**
+   * asyncMaxConcurrency limits simultaneously executing asynchronous function calls.
+   */
+  asyncMaxConcurrency?: number;
+
+  /**
+   * asyncObserver receives asynchronous function lifecycle events.
+   */
+  asyncObserver?: AsyncObserver;
+
   /**
    * costTracking enables actual runtime cost measurement and optional cost limits.
    */
@@ -411,6 +450,18 @@ export class Issues {
     });
   }
 
+  /**
+   * merge copies another issue set into this accumulator while preserving source locations.
+   */
+  public merge(other?: Issues): void {
+    if (other === undefined || other === this) {
+      return;
+    }
+    for (const error of other.errors()) {
+      this.errorsValue.reportErrorAtId(error.exprId, error.location, "%s", error.message);
+    }
+  }
+
   /** reportErrorAtId attaches an error to an expression identifier when source metadata is present. */
   public reportErrorAtId(options: ReportIssueOptions): void {
     this.errorsValue.reportErrorAtId(
@@ -544,6 +595,16 @@ export class Env {
   private readonly parserConfigValue: ParserConfig;
 
   /**
+   * maxAstDepthValue stores the configured external AST nesting limit for serialization.
+   */
+  private readonly maxAstDepthValue?: number;
+
+  /**
+   * regexProgramSizeLimitValue stores the environment-wide regex instruction-count limit.
+   */
+  private readonly regexProgramSizeLimitValue?: number;
+
+  /**
    * standardLibraryValue stores the resolved standard declarations inherited by extended environments.
    */
   private readonly standardLibraryValue: StandardLibraryOptions | false;
@@ -591,7 +652,14 @@ export class Env {
     this.libraryNamesValue = libraryConfiguration.names;
     this.librariesValue = libraryConfiguration.libraries;
     this.libraryProgramOptionsValue = libraryConfiguration.programOptions;
-    this.validatorsValue = uniqueValidators(options.validators ?? []);
+    this.regexProgramSizeLimitValue = options.regexProgramSizeLimit;
+    this.maxAstDepthValue = options.maxAstDepth;
+    this.validatorsValue = uniqueValidators([
+      ...(options.validators ?? []),
+      ...(this.regexProgramSizeLimitValue !== undefined && this.regexProgramSizeLimitValue > 0
+        ? [validateRegexProgramSizeLimit(this.regexProgramSizeLimitValue)]
+        : []),
+    ]);
     this.validatorConfigValue = validatorConfig();
     this.errorOnBadPresenceTestValue = options.errorOnBadPresenceTest ?? false;
     this.containerValue = options.container ?? defaultContainer;
@@ -636,11 +704,18 @@ export class Env {
         options.macros?.standard === false
           ? []
           : AllMacros.filter((macro) => standardLibrarySubset.subsetMacro(macro.function));
-      const macros = [...subsetMacros, ...(options.macros?.custom ?? [])];
+      const macros = new Map<string, Macro>();
+      for (const macro of [
+        ...subsetMacros,
+        ...(options.parser?.macros?.values() ?? []),
+        ...(options.macros?.custom ?? []),
+      ]) {
+        macros.set(macroKey(macro.function, macro.argCount, macro.receiverStyle), macro);
+      }
       this.parserConfigValue = {
         ...(options.parser ?? {}),
         enableStandardMacros: false,
-        macros: new Map(macros.map((macro, index) => [String(index), macro])),
+        macros,
       };
     }
     this.checkerOptionsValue = {
@@ -681,6 +756,7 @@ export class Env {
           };
     this.functionsValue = mergeFunctionDeclarations([
       ...(this.standardLibraryValue === false ? [] : (this.standardLibraryValue.functions ?? [])),
+      ...strongEnumFunctions(this.registryValue),
       ...this.customFunctionsValue,
       ...(this.defaultUTCTimeZoneValue ? [] : legacyTimeFunctions()),
     ]);
@@ -707,6 +783,13 @@ export class Env {
   }
 
   /**
+   * parseSource parses a lower-level CEL source while preserving its description and locations.
+   */
+  public parseSource(source: Source): AST {
+    return parseExpressionSource(source, this.parserConfigValue);
+  }
+
+  /**
    * tryParse parses a CEL source string and returns structured diagnostics instead of throwing.
    */
   public tryParse(source: string): CompileResult {
@@ -721,9 +804,24 @@ export class Env {
   }
 
   /**
+   * tryParseSource parses a lower-level CEL source and returns structured diagnostics.
+   */
+  public tryParseSource(source: Source): CompileResult {
+    const result = tryParseExpressionSource(source, this.parserConfigValue);
+    return {
+      ast: result.ast,
+      errors:
+        result.errors === undefined
+          ? undefined
+          : issues({ errors: result.errors, sourceInfo: result.ast.sourceInfo() }),
+    };
+  }
+
+  /**
    * check type-checks a parsed AST using its corresponding source.
    */
   public check(parsed: AST, source: Source): AST {
+    this.assertExpressionNodeLimit(parsed);
     const checked = checkExpression(parsed, source, this.checkerValue);
     const validationErrors = this.validateAst(checked, source);
     if (validationErrors !== undefined) {
@@ -750,6 +848,17 @@ export class Env {
   }
 
   /**
+   * compileSource parses and checks a lower-level CEL source while preserving source metadata.
+   */
+  public compileSource(source: Source): AST {
+    const result = this.tryCompileSource(source);
+    if (result.errors !== undefined) {
+      throw new Error(result.errors.toDisplayString());
+    }
+    return result.ast;
+  }
+
+  /**
    * tryCompile parses and checks a CEL source string, returning diagnostics instead of throwing.
    */
   public tryCompile(source: string): CompileResult {
@@ -758,6 +867,10 @@ export class Env {
       return parsed;
     }
     const sourceValue = textSource(source);
+    const nodeLimitErrors = this.expressionNodeLimitErrors(parsed.ast, sourceValue);
+    if (nodeLimitErrors !== undefined) {
+      return { ast: parsed.ast, errors: nodeLimitErrors };
+    }
     const result = tryCheckExpression(parsed.ast, sourceValue, this.checkerValue);
     if (result.errors !== undefined) {
       return {
@@ -768,6 +881,41 @@ export class Env {
     const validationErrors = this.validateAst(result.ast, sourceValue);
     return {
       ast: result.ast,
+      errors:
+        validationErrors === undefined
+          ? undefined
+          : issues({ errors: validationErrors, sourceInfo: result.ast.sourceInfo() }),
+    };
+  }
+
+  /**
+   * tryCompileSource parses and checks a lower-level CEL source with structured diagnostics.
+   */
+  public tryCompileSource(source: Source): CompileResult {
+    const parsed = this.tryParseSource(source);
+    if (parsed.errors) {
+      return parsed;
+    }
+    const nodeLimitErrors = this.expressionNodeLimitErrors(parsed.ast, source);
+    if (nodeLimitErrors !== undefined) {
+      return { ast: parsed.ast, errors: nodeLimitErrors };
+    }
+    const result = tryCheckExpression(parsed.ast, source, this.checkerValue);
+    if (result.errors !== undefined) {
+      return {
+        ast: result.ast,
+        errors: issues({ errors: result.errors, sourceInfo: result.ast.sourceInfo() }),
+      };
+    }
+    const validationErrors = this.validateAst(result.ast, source);
+    return {
+      ast: new AST(
+        result.ast.expr(),
+        result.ast.sourceInfo(),
+        result.ast.typeMap(),
+        result.ast.referenceMap(),
+        source,
+      ),
       errors:
         validationErrors === undefined
           ? undefined
@@ -804,6 +952,9 @@ export class Env {
         ...this.parserConfigValue,
         ...options.parser,
       },
+      maxAstDepth: options.maxAstDepth ?? this.maxAstDepthValue,
+      regexProgramSizeLimit:
+        options.regexProgramSizeLimit ?? this.regexProgramSizeLimitValue,
       macros:
         options.macros === undefined
           ? undefined
@@ -891,6 +1042,22 @@ export class Env {
     if (this.parserConfigValue.populateMacroCalls) {
       config.addFeatures(feature("cel.feature.macro_call_tracking", true));
     }
+    if (this.parserConfigValue.maxExpressionNodeCount !== undefined) {
+      config.addLimits(
+        configLimit(
+          "cel.limit.expression_node_count",
+          this.parserConfigValue.maxExpressionNodeCount,
+        ),
+      );
+    }
+    if (this.maxAstDepthValue !== undefined) {
+      config.addLimits(configLimit("cel.limit.max_ast_depth", this.maxAstDepthValue));
+    }
+    if (this.regexProgramSizeLimitValue !== undefined) {
+      config.addLimits(
+        configLimit("cel.limit.regex_program_size", this.regexProgramSizeLimitValue),
+      );
+    }
     for (const validator of [...this.validatorsValue].sort((left, right) =>
       left.name().localeCompare(right.name()),
     )) {
@@ -918,6 +1085,13 @@ export class Env {
    */
   public hasValidator(name: string): boolean {
     return this.validatorsValue.some((validator) => validator.name() === name);
+  }
+
+  /**
+   * validators returns the environment's validators in execution order.
+   */
+  public validators(): ASTValidator[] {
+    return [...this.validatorsValue];
   }
 
   /**
@@ -971,6 +1145,34 @@ export class Env {
       validator.validate(this, this.validatorConfigValue, ast, issues);
     }
     return issues.getErrors().length === 0 ? undefined : issues;
+  }
+
+  /**
+   * assertExpressionNodeLimit rejects externally supplied ASTs before recursive type checking.
+   */
+  private assertExpressionNodeLimit(astValue: AST): void {
+    const limit = parserOptions(this.parserConfigValue).maxExpressionNodeCount;
+    const count = nodeCount(astValue);
+    if (count > limit) {
+      throw new Error(`expression node count exceeds limit: count ${count}, limit ${limit}`);
+    }
+  }
+
+  /**
+   * expressionNodeLimitErrors reports an expression-count failure as structured compile issues.
+   */
+  private expressionNodeLimitErrors(astValue: AST, source: Source): Issues | undefined {
+    const limit = parserOptions(this.parserConfigValue).maxExpressionNodeCount;
+    const count = nodeCount(astValue);
+    if (count <= limit) {
+      return undefined;
+    }
+    const diagnostics = errorsValue(source);
+    diagnostics.reportErrorString(
+      noLocation,
+      `expression node count exceeds limit: count ${count}, limit ${limit}`,
+    );
+    return issues({ errors: diagnostics, sourceInfo: astValue.sourceInfo() });
   }
 
   /**
@@ -1112,6 +1314,24 @@ export class Env {
         observers: [...(plannerConfig?.observers ?? []), ...(regexConfig.observers ?? [])],
       };
     }
+    if (
+      this.regexProgramSizeLimitValue !== undefined &&
+      this.regexProgramSizeLimitValue > 0
+    ) {
+      const regexLimitConfig = regexProgramSizeLimitConfig({
+        limit: this.regexProgramSizeLimitValue,
+      });
+      plannerConfig = {
+        decorators: [
+          ...(plannerConfig?.decorators ?? []),
+          ...(regexLimitConfig.decorators ?? []),
+        ],
+        observers: [
+          ...(plannerConfig?.observers ?? []),
+          ...(regexLimitConfig.observers ?? []),
+        ],
+      };
+    }
     if (resolvedOptions.exhaustiveEval) {
       const exhaustiveConfig = exhaustiveEvalConfig();
       plannerConfig = {
@@ -1145,12 +1365,17 @@ export class Env {
         plannerConfig,
       }),
       {
+        asyncMaxConcurrency: resolvedOptions.asyncMaxConcurrency,
+        asyncObserver: resolvedOptions.asyncObserver,
         costTrackerSink,
         globals:
           resolvedOptions.globals === undefined
             ? undefined
             : activation({ bindings: resolvedOptions.globals }),
         interruptCheckFrequency: resolvedOptions.interruptCheckFrequency,
+        hasAsync: this.functionsValue.some((declaration) =>
+          declaration.bindings().some((binding) => binding.async !== undefined),
+        ),
         stateSink,
       },
     );
@@ -1273,21 +1498,29 @@ function applyEnvironmentConfiguration(options: EnvOptions): EnvOptions {
       configured.parser = { ...configured.parser, errorRecoveryLimit: limit.value };
     } else if (limit.name === "cel.limit.parse_recursion_depth") {
       configured.parser = { ...configured.parser, maxRecursionDepth: limit.value };
+    } else if (limit.name === "cel.limit.expression_node_count") {
+      configured.parser = { ...configured.parser, maxExpressionNodeCount: limit.value };
+    } else if (limit.name === "cel.limit.max_ast_depth") {
+      configured.maxAstDepth = limit.value;
+    } else if (limit.name === "cel.limit.regex_program_size") {
+      configured.regexProgramSizeLimit = limit.value;
     }
   }
   const validators: ASTValidator[] = [];
   for (const validator of config.validators) {
-    if (validator.name === "cel.validator.comprehension_nesting_limit") {
-      const limit = validator.config.limit;
-      if (typeof limit !== "number" || !Number.isFinite(limit)) {
-        throw new Error(`invalid validator: ${validator.name}, limit must be a number`);
-      }
-      if (!Number.isInteger(limit)) {
-        throw new Error(
-          `invalid validator: ${validator.name}, limit value is not a whole number: ${limit}`,
-        );
-      }
-      validators.push(validateComprehensionNestingLimit(limit));
+    if (
+      validator.name === "cel.validator.comprehension_nesting_limit" ||
+      validator.name === "cel.validator.bind_nesting_limit" ||
+      validator.name === "cel.validator.regex_program_size_limit"
+    ) {
+      const limit = validatorIntegerConfig(validator.name, validator.config.limit);
+      validators.push(
+        validator.name === "cel.validator.bind_nesting_limit"
+          ? validateBindNestingLimit(limit)
+          : validator.name === "cel.validator.regex_program_size_limit"
+            ? validateRegexProgramSizeLimit(limit)
+            : validateComprehensionNestingLimit(limit),
+      );
       continue;
     }
     const builtin = extendedValidations().find((candidate) => candidate.name() === validator.name);
@@ -1315,7 +1548,11 @@ function applyEnvironmentConfiguration(options: EnvOptions): EnvOptions {
     if (handled === undefined) {
       throw new Error(`unrecognized extension: ${extension.name}`);
     }
+    const extensionLibraries = [...(configured.libraries ?? []), ...(handled.libraries ?? [])];
     configured = mergeEnvOptions({ base: configured, override: handled });
+    // Declarative extension mappings commonly contribute linked libraries. Preserve them here;
+    // mergeEnvOptions otherwise clears library inputs for its separate library-flattening pass.
+    configured.libraries = extensionLibraries;
   }
   const merged = mergeEnvOptions({
     base: configured,
@@ -1325,7 +1562,23 @@ function applyEnvironmentConfiguration(options: EnvOptions): EnvOptions {
     },
   });
   merged.libraries = [...(configured.libraries ?? []), ...(options.libraries ?? [])];
+  // Applying serialized configuration to an existing environment replaces validators with the
+  // same singleton name, so configured validators must be merged after inherited validators.
+  merged.validators = [...(options.validators ?? []), ...(configured.validators ?? [])];
   return merged;
+}
+
+/**
+ * validatorIntegerConfig validates a whole-number validator configuration value.
+ */
+function validatorIntegerConfig(name: string, value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`invalid validator: ${name}, unsupported limit type: ${String(value)}`);
+  }
+  if (!Number.isInteger(value)) {
+    throw new Error(`invalid validator: ${name}, limit value is not a whole number: ${value}`);
+  }
+  return value;
 }
 
 /**
@@ -1333,6 +1586,57 @@ function applyEnvironmentConfiguration(options: EnvOptions): EnvOptions {
  */
 export function env(options: EnvOptions = {}): Env {
   return new Env(options);
+}
+
+/**
+ * strongEnumFunctions exposes registered protobuf enum types as checked conversion functions.
+ */
+function strongEnumFunctions(typeRegistry: Registry): FunctionDecl[] {
+  if (!typeRegistry.strongEnumsEnabled()) {
+    return [];
+  }
+  const constructors: FunctionDecl[] = [];
+  const intConversions = [];
+  for (const enumType of typeRegistry.enumTypes()) {
+    const resultType = objectType(enumType.typeName);
+    constructors.push(
+      functionDecl(enumType.typeName, {
+        doc: [`convert an int or declared symbolic name to ${enumType.typeName}`],
+        overloads: [
+          overload(`${enumType.typeName}_from_int`, [IntType], resultType, {
+            unaryBinding: (value) =>
+              typeRegistry.enumValueOf(enumType.typeName, value.value() as bigint),
+          }),
+          overload(`${enumType.typeName}_from_string`, [StringType], resultType, {
+            unaryBinding: (value) =>
+              typeRegistry.enumValueOf(enumType.typeName, value.value() as string),
+          }),
+        ],
+      }),
+    );
+    intConversions.push(
+      overload(`${enumType.typeName}_to_int`, [resultType], IntType, {
+        unaryBinding: (value) => value.convertToType(IntType),
+      }),
+    );
+  }
+  if (intConversions.length !== 0) {
+    constructors.push(
+      functionDecl("int", {
+        doc: ["convert a strongly typed protobuf enum to its signed numeric value"],
+        overloads: intConversions,
+      }),
+    );
+  }
+  return constructors;
+}
+
+/**
+ * compile creates an environment, compiles source, and returns an executable program.
+ */
+export function compile(source: string, options: EnvOptions = {}): Program {
+  const environment = env(options);
+  return environment.program(environment.compile(source));
 }
 
 /**
@@ -1489,13 +1793,15 @@ function mergeEnvOptions(options: MergeEnvOptions): EnvOptions {
  * uniqueValidators preserves validator order while applying each singleton name at most once.
  */
 function uniqueValidators(validators: ASTValidator[]): ASTValidator[] {
-  const names = new Set<string>();
   const unique: ASTValidator[] = [];
+  const indices = new Map<string, number>();
   for (const validator of validators) {
-    if (names.has(validator.name())) {
+    const existing = indices.get(validator.name());
+    if (existing !== undefined) {
+      unique[existing] = validator;
       continue;
     }
-    names.add(validator.name());
+    indices.set(validator.name(), unique.length);
     unique.push(validator);
   }
   return unique;

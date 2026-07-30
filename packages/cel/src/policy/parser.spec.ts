@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { syncedCases } from "../common/spec-helpers.js";
-import type { PolicyTagOptions, TagVisitor } from "./parser.js";
-import { parsePolicy } from "./parser.js";
-import { policySource } from "./source.js";
+import {
+  type PolicyTagOptions,
+  parse,
+  parser,
+  import as policyImport,
+  source,
+  type TagVisitor,
+} from "./index.js";
 
 /** ParseErrorCase is one synchronized TestParseError row. */
 interface ParseErrorCase {
@@ -13,9 +18,16 @@ interface ParseErrorCase {
 }
 
 describe("policy/parser_test.go/TestParse", () => {
+  it("exports concise parser names from the policy module", () => {
+    expect(
+      parser().parse(source("rule: { match: [{ output: 'true' }] }", "<input>")).policy,
+    ).toBeDefined();
+    expect(policyImport(1).sourceId()).toBe(1);
+  });
+
   it("parses the canonical policy fields", () => {
-    const result = parsePolicy(
-      policySource(
+    const result = parse(
+      source(
         `name: greeting
 imports:
   - name: example.Message
@@ -39,7 +51,7 @@ rule:
 describe("policy/parser_test.go/TestParseError", () => {
   for (const testCase of syncedCases<ParseErrorCase>("policy/parser_test.go/TestParseError")) {
     it(testCase.txt.trim().split("\n")[0] || "empty policy", () => {
-      const result = parsePolicy(policySource(testCase.txt, "<input>"));
+      const result = parse(source(testCase.txt, "<input>"));
       const messages = result.issues
         .errors()
         .map((error) => error.message)
@@ -54,8 +66,8 @@ describe("policy/parser_test.go/TestParseError", () => {
 
 describe("policy/parser_test.go/TestGetExplanationOutputPolicy", () => {
   it("replaces nested and outer outputs with explanation expressions", () => {
-    const result = parsePolicy(
-      policySource(
+    const result = parse(
+      source(
         `rule:
   match:
     - condition: "false"
@@ -92,8 +104,8 @@ describe("policy/parser_test.go/TestCustomTagVisitor", () => {
       matchTag(): void {},
       variableTag(): void {},
     };
-    const result = parsePolicy(
-      policySource(
+    const result = parse(
+      source(
         `name: test
 version: 2
 rule:
@@ -110,8 +122,8 @@ rule:
 
 describe("policy/parser_test.go/TestSimpleVariables", () => {
   it("parses one-entry variable mappings", () => {
-    const result = parsePolicy(
-      policySource(
+    const result = parse(
+      source(
         `name: test
 rule:
   variables:

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { configFromYAML } from "../common/env/io.js";
 import { syncedCases } from "../common/spec-helpers.js";
-import { policyConfig } from "./config.js";
+import { fromConfig } from "./config.js";
 
 /** ConfigErrorCase is one synchronized TestConfigErrors row. */
 interface ConfigErrorCase {
@@ -15,7 +15,7 @@ interface ConfigErrorCase {
 describe("policy/config_test.go/TestConfig", () => {
   it("applies a valid policy environment configuration", () => {
     const configured = env().extend(
-      policyConfig(
+      fromConfig(
         configFromYAML(`
 name: policy
 variables:
@@ -32,9 +32,7 @@ variables:
 describe("policy/config_test.go/TestConfigErrors", () => {
   for (const testCase of syncedCases<ConfigErrorCase>("policy/config_test.go/TestConfigErrors")) {
     it(testCase.err, () => {
-      expect(() => env().extend(policyConfig(configFromYAML(testCase.config)))).toThrow(
-        testCase.err,
-      );
+      expect(() => env().extend(fromConfig(configFromYAML(testCase.config)))).toThrow(testCase.err);
     });
   }
 });

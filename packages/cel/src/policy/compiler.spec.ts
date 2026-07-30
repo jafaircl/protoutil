@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
+import { variableDecl } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
-import { compilePolicy, compilePolicyRule } from "./compiler.js";
-import { parsePolicy } from "./parser.js";
-import { policySource } from "./source.js";
+import { StringType } from "../common/types/types.js";
+import { bindings } from "../ext/index.js";
+import { compile, compileRule } from "./compiler.js";
+import { composeRule } from "./composer.js";
+import { parse } from "./parser.js";
+import { source } from "./source.js";
 
 /** WhitespaceCase is one synchronized whitespace handling row. */
 interface WhitespaceCase {
@@ -14,14 +18,78 @@ interface WhitespaceCase {
   want: string;
 }
 
+/** whitespacePolicySource is the upstream YAML block-scalar policy. */
+const whitespacePolicySource = `name: yaml_parsing
+
+description: |
+  A block literal description with mutliple lines.
+   - line 2
+   - line 3
+
+rule:
+  match:
+    - condition: "match_id == 'folded_unambiguous'"
+      output: >
+        "a string expression that " +
+        "is folded"
+    - condition: "match_id == 'folded_line_break'"
+      output: >
+        '''a string expression that
+        is folded'''
+    - condition: "match_id == 'folded_line_break_indent'"
+      output: >
+          '''a string expression that
+          is folded'''
+    - condition: "match_id == 'literal_unambiguous'"
+      output: |
+          "a string expression that " +
+          "is a literal block"
+    - condition: "match_id == 'literal_line_break'"
+      output: |
+        '''a string expression that
+        is a literal block'''
+    - condition: "match_id == 'literal_line_break_indent'"
+      output: |
+          '''a string expression that
+          is a literal block'''
+    - output: "'no match encountered'"
+`;
+
+/** whitespaceErrorPolicySource is the upstream block-scalar diagnostic policy. */
+const whitespaceErrorPolicySource = `name: yaml_parsing_cel_error
+
+description: |
+    A block literal description with mutliple lines.
+
+rule:
+  match:
+    - condition: "match_id == 'folded_error_presentation'"
+      output: >
+        "foo" +
+        ("bar" + 1)
+    - condition: "match_id == 'folded_error_presentation_indent'"
+      output: >
+          "foo" +
+          ("bar" + 1)
+    - condition: "match_id == 'literal_error_presentation'"
+      output: |
+        "foo" +
+        ("bar" + 1)
+    - condition: "match_id == 'literal_error_presentation_indent'"
+      output: |
+          "foo" +
+          ("bar" + 1)
+    - output: "'no match encountered'"
+`;
+
 /** policyEnvironment returns an environment with policy optional support. */
 function policyEnvironment() {
-  return env({ libraries: [optionalTypes()] });
+  return env({ libraries: [optionalTypes(), bindings()] });
 }
 
-/** parsed returns a successfully parsed policy fixture. */
-function parsed(source: string) {
-  const result = parsePolicy(policySource(source, "<input>"));
+/** parsed returns a successfully parsed policy fixture at an optional source location. */
+function parsed(input: string, location = "<input>") {
+  const result = parse(source(input, location));
   expect(result.issues.err()).toBeUndefined();
   return result.policy!;
 }
@@ -29,7 +97,7 @@ function parsed(source: string) {
 describe("policy/compiler_test.go/TestCompile", () => {
   it("compiles and evaluates a first-match policy", () => {
     const environment = policyEnvironment();
-    const result = compilePolicy(
+    const result = compile(
       environment,
       parsed(`rule:
   match:
@@ -40,26 +108,53 @@ describe("policy/compiler_test.go/TestCompile", () => {
     );
     expect(result.issues.err()).toBeUndefined();
     expect(result.ast).toBeDefined();
+    expect(environment.program(result.ast!).eval({}).value()).toBe("large");
+  });
+
+  it("uses the compiled match output in the composed policy", () => {
+    const environment = policyEnvironment();
+    const result = compile(
+      environment,
+      parsed(`rule:
+  match:
+    - output: "1"
+`),
+      {
+        matchOutputCompiler: {
+          compile: ({ env: matchEnvironment }) => matchEnvironment.compile("'custom'"),
+        },
+      },
+    );
+
+    expect(result.issues.err()).toBeUndefined();
+    expect(environment.program(result.ast!).eval({}).value()).toBe("custom");
   });
 });
 
 describe("policy/compiler_test.go/TestRuleComposerError", () => {
-  it("reports composition errors from the target environment", () => {
-    const result = compilePolicy(
-      env(),
+  it("rejects a non-positive expression unnest height", () => {
+    const environment = policyEnvironment();
+    const result = compileRule(
+      environment,
       parsed(`rule:
   match:
-    - condition: "false"
-      output: "1"
+    - output: "1"
 `),
     );
-    expect(result.issues.err()).toBeDefined();
+    expect(result.issues.err()).toBeUndefined();
+    expect(() =>
+      composeRule({
+        env: environment,
+        rule: result.rule!,
+        options: { expressionUnnestHeight: -1 },
+      }),
+    ).toThrow("invalid unnest height");
   });
 });
 
 describe("policy/compiler_test.go/TestRuleComposerUnnest", () => {
   it("composes long variable chains without changing their value", () => {
-    const result = compilePolicy(
+    const result = compile(
       policyEnvironment(),
       parsed(`rule:
   variables:
@@ -77,7 +172,7 @@ describe("policy/compiler_test.go/TestRuleComposerUnnest", () => {
 
 describe("policy/compiler_test.go/TestCompileError", () => {
   it("reports incompatible output branch types", () => {
-    const result = compilePolicy(
+    const result = compile(
       policyEnvironment(),
       parsed(`rule:
   match:
@@ -92,7 +187,7 @@ describe("policy/compiler_test.go/TestCompileError", () => {
 
 describe("policy/compiler_test.go/TestCompiledRuleHasOptionalOutput", () => {
   it("distinguishes conditional and exhaustive rules", () => {
-    const conditional = compilePolicyRule(
+    const conditional = compileRule(
       policyEnvironment(),
       parsed(`rule:
   match:
@@ -100,7 +195,7 @@ describe("policy/compiler_test.go/TestCompiledRuleHasOptionalOutput", () => {
       output: "1"
 `),
     );
-    const exhaustive = compilePolicyRule(
+    const exhaustive = compileRule(
       policyEnvironment(),
       parsed(`rule:
   match:
@@ -114,7 +209,7 @@ describe("policy/compiler_test.go/TestCompiledRuleHasOptionalOutput", () => {
 
 describe("policy/compiler_test.go/TestMaxNestedExpressions_Error", () => {
   it("enforces the global variable and nested-rule limit", () => {
-    const result = compilePolicyRule(
+    const result = compileRule(
       policyEnvironment(),
       parsed(`rule:
   variables:
@@ -132,24 +227,55 @@ describe("policy/compiler_test.go/TestMaxNestedExpressions_Error", () => {
 });
 
 describe("policy/compiler_test.go/TestWhitespaceHanlding", () => {
+  it("associates each block scalar with its containing match", () => {
+    const matches = parsed(whitespacePolicySource).rule()!.matches();
+    expect(
+      matches.map((value) => [
+        value.condition().value,
+        value.output().value.includes("literal block") ? "literal" : "folded",
+      ]),
+    ).toEqual([
+      ["match_id == 'folded_unambiguous'", "folded"],
+      ["match_id == 'folded_line_break'", "folded"],
+      ["match_id == 'folded_line_break_indent'", "folded"],
+      ["match_id == 'literal_unambiguous'", "literal"],
+      ["match_id == 'literal_line_break'", "literal"],
+      ["match_id == 'literal_line_break_indent'", "literal"],
+      ["true", "folded"],
+    ]);
+  });
+
   for (const testCase of syncedCases<WhitespaceCase>(
     "policy/compiler_test.go/TestWhitespaceHanlding",
   )) {
     it(testCase.matchID, () => {
-      expect(testCase.want.length).toBeGreaterThan(0);
+      const environment = policyEnvironment().extend({
+        variables: [variableDecl("match_id", StringType)],
+      });
+      const result = compile(environment, parsed(whitespacePolicySource));
+
+      expect(result.issues.err()).toBeUndefined();
+      expect(environment.program(result.ast!).eval({ match_id: testCase.matchID }).value()).toBe(
+        testCase.want,
+      );
     });
   }
 });
 
 describe("policy/compiler_test.go/TestWhitespaceHandlingErrorPresentation", () => {
-  it("associates expression diagnostics with the policy source", () => {
-    const result = compilePolicy(
-      policyEnvironment(),
-      parsed(`rule:
-  match:
-    - output: "missing_name"
-`),
+  it("associates every block-scalar diagnostic with its policy location", () => {
+    const environment = policyEnvironment().extend({
+      variables: [variableDecl("match_id", StringType)],
+    });
+    const result = compile(
+      environment,
+      parsed(whitespaceErrorPolicySource, "testdata/yaml_parsing_cel_error/policy.yaml"),
     );
-    expect(result.issues.err()?.message).toContain("missing_name");
+    const message = result.issues.err()?.message ?? "";
+
+    expect(message).toContain("found no matching overload for '_+_' applied to '(string, int)'");
+    expect(message).toContain("yaml_parsing_cel_error");
+    expect(message).toContain('("bar" + 1)');
+    expect(result.issues.errors()).toHaveLength(4);
   });
 });

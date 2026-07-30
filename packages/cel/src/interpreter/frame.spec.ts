@@ -177,6 +177,10 @@ describe("interpreter/frame_test.go", () => {
       const child = base.push(activation({ bindings: { y: 2 } }));
       expect(child.parentFrame()).toBe(base);
       expect(child.pop()).toBe(base);
+      const reused = base.push(activation({ bindings: { z: 3 } }));
+      expect(reused === child).toBe(true);
+      expect(reused.resolveName("z")).toEqual([3, true]);
+      reused.pop();
       base.close();
     });
   });
@@ -202,6 +206,7 @@ describe("interpreter/frame_test.go", () => {
   describe("interpreter/frame_test.go/TestFrameLifecycleAndPooling", () => {
     it("interpreter/frame_test.go/TestFrameLifecycleAndPooling", () => {
       const frame = executionFrame({ input: { a: 1, b: 2 } });
+      const inputActivation = frame.activation();
       expect(frame.resolveName("a")).toEqual([1, true]);
 
       const parentAct = activation({ bindings: { c: 3 } });
@@ -212,6 +217,8 @@ describe("interpreter/frame_test.go", () => {
       frame.close();
 
       const fresh = executionFrame({ input: { x: 10 } });
+      expect(fresh === frame).toBe(true);
+      expect(fresh.activation() === inputActivation).toBe(true);
       expect(fresh.resolveName("x")).toEqual([10, true]);
       expect(fresh.resolveName("a")).toEqual([undefined, false]);
       fresh.close();
@@ -277,6 +284,16 @@ describe("interpreter/frame_test.go", () => {
       const frame = executionFrame({ input: emptyActivation() });
       expect(frame.pop()).toBe(frame);
       frame.close();
+    });
+  });
+
+  describe("interpreter/frame_test.go/TestFrameDoubleClose", () => {
+    it("allows a frame to be closed more than once", () => {
+      const frame = executionFrame({ input: emptyActivation() });
+      expect(() => {
+        frame.close();
+        frame.close();
+      }).not.toThrow();
     });
   });
 

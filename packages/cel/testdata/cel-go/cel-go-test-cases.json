@@ -273,7 +273,10 @@
       ],
       "expr": "input",
       "in": {
-        "input": [1, 2]
+        "input": [
+          1,
+          2
+        ]
       },
       "name": "identity",
       "want": {
@@ -308,8 +311,40 @@
     {
       "expr": "input.size() != 0",
       "in": {
-        "input": [1, 2, 3]
+        "input": [
+          1,
+          2,
+          3
+        ]
       }
+    }
+  ],
+  "cel/cel_test.go/TestExpressionNodeLimit": [
+    {
+      "expectErr": false,
+      "expr": "x.optMap(a, a + 1)",
+      "limit": 500,
+      "name": "single optMap within limit"
+    },
+    {
+      "errSubstring": "expression count exceeds limit of 100 while expanding macro 'optMap'",
+      "expectErr": true,
+      "expr": "x.optMap(a, a + 1).optMap(b, b + 1).optMap(c, c + 1).optMap(d, d + 1).optMap(e, e + 1).optMap(f, f + 1)",
+      "limit": 100,
+      "name": "chained optMap exceeding configured limit"
+    },
+    {
+      "errSubstring": "expression count exceeds limit of 200 while expanding macro 'optMap'",
+      "expectErr": true,
+      "expr": "x.optMap(a, [a, a]).optMap(b, {b: b}).optMap(c, c + 1).optMap(d, d + 2).optMap(e, e + 3).optMap(f, f + 4).optMap(g, g + 5).optMap(h, h + 6).optMap(i, i + 7).optMap(j, j + 8).optMap(k, k + 9).optMap(l, l + 10).optMap(m, m + 11).optMap(n, n + 12)",
+      "limit": 200,
+      "name": "chained optMap of various complexity exceeding default limit"
+    },
+    {
+      "expectErr": false,
+      "expr": "x.optMap(a, a + 1).optMap(b, b + 1).optMap(c, c + 1).optMap(d, d + 1).optMap(e, e + 1).optMap(f, f + 1)",
+      "limit": -1,
+      "name": "chained optMap with unbounded limit (-1)"
     }
   ],
   "cel/cel_test.go/TestExpressionSizeLimitEarlyEnforcement": [
@@ -730,6 +765,24 @@
       }
     },
     {
+      "expr": "{0: 10}[?0].optMap(v, v + 1)",
+      "out": {
+        "$expr": "types.OptionalOf(types.Int(11))"
+      }
+    },
+    {
+      "expr": "{0: 10}[?0].optMap(a, a + 1).optMap(b, b * 2)",
+      "out": {
+        "$expr": "types.OptionalOf(types.Int(22))"
+      }
+    },
+    {
+      "expr": "{0: 10}[?1].optMap(a, a + 1).optMap(b, b * 2)",
+      "out": {
+        "$expr": "types.OptionalNone"
+      }
+    },
+    {
       "expr": "optional.ofNonZeroValue(z).or(optional.of(10)).value() == 42",
       "in": {
         "z": 42
@@ -922,7 +975,9 @@
           "$expr": "types.OptionalNone"
         }
       },
-      "out": [42]
+      "out": [
+        42
+      ]
     },
     {
       "expr": "[?optional.ofNonZeroValue(m.?c.orValue({}))]",
@@ -1205,7 +1260,7 @@
     {
       "in": {},
       "out": {
-        "$expr": "types.NewUnknown(1, types.NewAttributeTrail(\"x\"))"
+        "$expr": "types.MergeUnknowns(types.NewUnknown(1, types.NewAttributeTrail(\"x\")), types.NewUnknown(4, types.NewAttributeTrail(\"y\")))"
       },
       "unk": [
         {
@@ -1292,7 +1347,7 @@
         "$expr": "types.NewErr(\"no such attribute: x\")"
       },
       "partialOut": {
-        "$expr": "types.NewUnknown(1, types.NewAttributeTrail(\"x\"))"
+        "$expr": "types.MergeUnknowns(types.NewUnknown(1, types.NewAttributeTrail(\"x\")), types.NewUnknown(4, types.NewAttributeTrail(\"y\")))"
       },
       "unk": []
     }
@@ -1372,6 +1427,31 @@
     {
       "err": "error parsing regexp: unexpected ): `)[0-9]*`",
       "expr": "\"123 abc 456\".matches(')[0-9]*')"
+    }
+  ],
+  "cel/cel_test.go/TestRegexProgramSizeLimit": [
+    {
+      "compileErr": "regex program size 8 exceeds limit of 5",
+      "expr": "\"123 abc 456\".matches('(a|b)*[0-9]+')",
+      "name": "constant_regex_exceeds_limit_ast_validation"
+    },
+    {
+      "evalErr": "regex program size 8 exceeds limit of 5",
+      "expr": "\"123 abc 456\".matches(pattern)",
+      "name": "dynamic_regex_exceeds_limit_runtime",
+      "vars": {
+        "pattern": "(a|b)*[0-9]+"
+      }
+    },
+    {
+      "expr": "\"123 abc 456\".matches(pattern)",
+      "name": "dynamic_regex_within_limit",
+      "vars": {
+        "pattern": "[0-9]+"
+      },
+      "want": {
+        "$expr": "types.True"
+      }
     }
   ],
   "cel/cel_test.go/TestResidualAstMacros": [
@@ -2127,6 +2207,33 @@
       "want": {
         "$expr": "errors.New(\"invalid validator: cel.validator.comprehension_nesting_limit, limit value is not a whole number: 2.5\")"
       }
+    },
+    {
+      "conf": {
+        "$expr": "env.NewConfig(\"invalid validator config\").\n\t\t\t\tAddValidators(env.NewValidator(\"cel.validator.bind_nesting_limit\"))"
+      },
+      "name": "invalid cel_bind validator config",
+      "want": {
+        "$expr": "errors.New(\"invalid validator\")"
+      }
+    },
+    {
+      "conf": {
+        "$expr": "env.NewConfig(\"invalid validator config\").\n\t\t\t\tAddValidators(env.NewValidator(\"cel.validator.bind_nesting_limit\").SetConfig(map[string]any{\"limit\": \"2\"}))"
+      },
+      "name": "invalid cel_bind validator config type - unsupported type",
+      "want": {
+        "$expr": "errors.New(\"invalid validator\")"
+      }
+    },
+    {
+      "conf": {
+        "$expr": "env.NewConfig(\"invalid validator config\").\n\t\t\t\tAddValidators(env.NewValidator(\"cel.validator.bind_nesting_limit\").SetConfig(map[string]any{\"limit\": 2.5}))"
+      },
+      "name": "invalid cel_bind validator config type - fractional",
+      "want": {
+        "$expr": "errors.New(\"invalid validator: cel.validator.bind_nesting_limit, limit value is not a whole number: 2.5\")"
+      }
     }
   ],
   "cel/env_test.go/TestEnvToConfig": [
@@ -2285,10 +2392,13 @@
         },
         {
           "$expr": "ASTValidators(ValidateComprehensionNestingLimit(1))"
+        },
+        {
+          "$expr": "ASTValidators(ValidateBindNestingLimit(2))"
         }
       ],
       "want": {
-        "$expr": "env.NewConfig(\"validators\").AddValidators(\n\t\t\t\tenv.NewValidator(\"cel.validator.comprehension_nesting_limit\").SetConfig(map[string]any{\"limit\": 1}),\n\t\t\t\tenv.NewValidator(\"cel.validator.duration\"),\n\t\t\t\tenv.NewValidator(\"cel.validator.homogeneous_literals\"),\n\t\t\t\tenv.NewValidator(\"cel.validator.matches\"),\n\t\t\t\tenv.NewValidator(\"cel.validator.timestamp\"),\n\t\t\t)"
+        "$expr": "env.NewConfig(\"validators\").AddValidators(\n\t\t\t\tenv.NewValidator(\"cel.validator.bind_nesting_limit\").SetConfig(map[string]any{\"limit\": 2}),\n\t\t\t\tenv.NewValidator(\"cel.validator.comprehension_nesting_limit\").SetConfig(map[string]any{\"limit\": 1}),\n\t\t\t\tenv.NewValidator(\"cel.validator.duration\"),\n\t\t\t\tenv.NewValidator(\"cel.validator.homogeneous_literals\"),\n\t\t\t\tenv.NewValidator(\"cel.validator.matches\"),\n\t\t\t\tenv.NewValidator(\"cel.validator.timestamp\"),\n\t\t\t)"
       }
     }
   ],
@@ -2501,55 +2611,249 @@
       "folded": "true"
     },
     {
-      "error": "constant-folding evaluation failed: no such overload: noImpl",
-      "expr": "noImpl(3)"
+      "expr": "noImpl(3)",
+      "folded": "noImpl(3)"
+    },
+    {
+      "expr": "asyncFunc(3)",
+      "folded": "asyncFunc(3)"
+    }
+  ],
+  "cel/folding_test.go/TestConstantFoldingInListIdent": [
+    {
+      "expr": "b in [b]",
+      "folded": "true"
+    },
+    {
+      "expr": "by in [by]",
+      "folded": "true"
+    },
+    {
+      "expr": "du in [du]",
+      "folded": "true"
+    },
+    {
+      "expr": "i in [1, 2, i]",
+      "folded": "true"
+    },
+    {
+      "expr": "n in [n]",
+      "folded": "true"
+    },
+    {
+      "expr": "s in [s]",
+      "folded": "true"
+    },
+    {
+      "expr": "ts in [ts]",
+      "folded": "true"
+    },
+    {
+      "expr": "ty in [ty]",
+      "folded": "true"
+    },
+    {
+      "expr": "u in [u]",
+      "folded": "true"
+    },
+    {
+      "expr": "li in [li]",
+      "folded": "true"
+    },
+    {
+      "expr": "lli in [lli]",
+      "folded": "true"
+    },
+    {
+      "expr": "msi in [msi]",
+      "folded": "true"
+    },
+    {
+      "expr": "ld in [ld]",
+      "folded": "ld in [ld]",
+      "vars": {
+        "ld": [
+          {
+            "$expr": "nan"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "lx in [lx]",
+      "folded": "lx in [lx]",
+      "vars": {
+        "lx": [
+          {
+            "$expr": "nan"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "msd in [msd]",
+      "folded": "msd in [msd]",
+      "vars": {
+        "msd": {
+          "a": {
+            "$expr": "nan"
+          }
+        }
+      }
+    },
+    {
+      "expr": "d in [d]",
+      "folded": "d in [d]",
+      "vars": {
+        "d": {
+          "$expr": "nan"
+        }
+      }
+    },
+    {
+      "expr": "x in [1, 2, x]",
+      "folded": "x in [1, 2, x]",
+      "vars": {
+        "x": {
+          "$expr": "types.Double(nan)"
+        }
+      }
+    },
+    {
+      "expr": "oi in [oi]",
+      "folded": "oi in [oi]"
+    },
+    {
+      "expr": "o in [o]",
+      "folded": "o in [o]"
+    },
+    {
+      "expr": "1 in [1, 2]",
+      "folded": "true"
+    },
+    {
+      "expr": "1.0 in [d, 1.0]",
+      "folded": "true"
     }
   ],
   "cel/folding_test.go/TestConstantFoldingNormalizeIDs": [
     {
       "expr": "[1, 2, 3]",
-      "ids": [1, 2, 3, 4],
-      "normalizedIDs": [1, 2, 3, 4]
+      "ids": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "normalizedIDs": [
+        1,
+        2,
+        3,
+        4
+      ]
     },
     {
       "expr": "google.expr.proto3.test.TestAllTypes{single_int32: 0}",
-      "ids": [1, 2, 3],
-      "normalizedIDs": [1, 2, 3]
+      "ids": [
+        1,
+        2,
+        3
+      ],
+      "normalizedIDs": [
+        1,
+        2,
+        3
+      ]
     },
     {
       "expr": "has({x: 'value'}.single_int32)",
-      "ids": [2, 3, 4, 5, 7],
+      "ids": [
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
       "macros": {
         "7": "\n\t\t\tcall_expr: {\n\t\t\t\tfunction: \"has\"\n\t\t\t\targs: {\n\t\t\t\t  id: 6\n\t\t\t\t  select_expr: {\n\t\t\t\t\toperand: {\n\t\t\t\t\t  id: 2\n\t\t\t\t\t  struct_expr: {\n\t\t\t\t\t\tentries: {\n\t\t\t\t\t\t  id: 3\n\t\t\t\t\t\t  map_key: {\n\t\t\t\t\t\t\tid: 4\n\t\t\t\t\t\t\tident_expr: {\n\t\t\t\t\t\t\t  name: \"x\"\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t  value: {\n\t\t\t\t\t\t\tid: 5\n\t\t\t\t\t\t\tconst_expr: {\n\t\t\t\t\t\t\t  string_value: \"value\"\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfield: \"single_int32\"\n\t\t\t\t  }\n\t\t\t\t}\n\t\t\t  }"
       },
-      "normalizedIDs": [1, 2, 3, 4, 5],
+      "normalizedIDs": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
       "normalizedMacros": {
         "1": "\n\t\t\tcall_expr:  {\n\t\t\t\tfunction:  \"has\"\n\t\t\t\targs:  {\n\t\t\t\t  id:  6\n\t\t\t\t  select_expr:  {\n\t\t\t\t\toperand:  {\n\t\t\t\t\t  id:  2\n\t\t\t\t\t  struct_expr:  {\n\t\t\t\t\t\tentries:  {\n\t\t\t\t\t\t  id:  3\n\t\t\t\t\t\t  map_key:  {\n\t\t\t\t\t\t\tid:  4\n\t\t\t\t\t\t\tident_expr:  {\n\t\t\t\t\t\t\t  name:  \"x\"\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t  value:  {\n\t\t\t\t\t\t\tid:  5\n\t\t\t\t\t\t\tconst_expr:  {\n\t\t\t\t\t\t\t  string_value:  \"value\"\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfield:  \"single_int32\"\n\t\t\t\t  }\n\t\t\t\t}\n\t\t\t  }"
       }
     },
     {
       "expr": "has(google.expr.proto3.test.TestAllTypes{}.single_int32)",
-      "ids": [2, 4],
+      "ids": [
+        2,
+        4
+      ],
       "macros": {
         "4": "call_expr:  {\n\t\t\t\t\tfunction:  \"has\"\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  3\n\t\t\t\t\t  select_expr:  {\n\t\t\t\t\t\toperand:  {\n\t\t\t\t\t\t  id:  2\n\t\t\t\t\t\t  struct_expr:  {\n\t\t\t\t\t\t\tmessage_name:  \"google.expr.proto3.test.TestAllTypes\"\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t\tfield:  \"single_int32\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t  }"
       },
-      "normalizedIDs": [1]
+      "normalizedIDs": [
+        1
+      ]
     },
     {
       "expr": "[true].exists(i, i)",
-      "ids": [1, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      "ids": [
+        1,
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
       "macros": {
         "13": "call_expr:  {\n\t\t\t\t\ttarget:  {\n\t\t\t\t\t  id:  1\n\t\t\t\t\t  list_expr:  {\n\t\t\t\t\t\telements:  {\n\t\t\t\t\t\t  id:  2\n\t\t\t\t\t\t  const_expr:  {\n\t\t\t\t\t\t\tbool_value:  true\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfunction:  \"exists\"\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  4\n\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\tname:  \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  5\n\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\tname:  \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t  }"
       },
-      "normalizedIDs": [1]
+      "normalizedIDs": [
+        1
+      ]
     },
     {
       "expr": "[x].exists(i, i)",
-      "ids": [1, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      "ids": [
+        1,
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
       "macros": {
         "13": "call_expr:  {\n\t\t\t\t\ttarget:  {\n\t\t\t\t\t  id:  1\n\t\t\t\t\t  list_expr:  {\n\t\t\t\t\t\telements:  {\n\t\t\t\t\t\t  id:  2\n\t\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\t\tname:  \"x\"\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfunction:  \"exists\"\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  4\n\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\tname:  \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  5\n\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\tname:  \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t  }"
       },
-      "normalizedIDs": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      "normalizedIDs": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
       "normalizedMacros": {
         "1": "call_expr: {\n\t\t\t\t\ttarget: {\n\t\t\t\t\t  id: 2\n\t\t\t\t\t  list_expr: {\n\t\t\t\t\t\telements: {\n\t\t\t\t\t\t  id: 3\n\t\t\t\t\t\t  ident_expr: {\n\t\t\t\t\t\t\tname: \"x\"\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfunction: \"exists\"\n\t\t\t\t\targs: {\n\t\t\t\t\t  id: 12\n\t\t\t\t\t  ident_expr: {\n\t\t\t\t\t\tname: \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\targs: {\n\t\t\t\t\t  id: 10\n\t\t\t\t\t  ident_expr: {\n\t\t\t\t\t\tname: \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t  }"
       }
@@ -2637,6 +2941,14 @@
       "folded": "[1, 2, 3].map(i, [1, 2, 3].map(j, i * j).filter(k, k % 2 == x))"
     },
     {
+      "expr": "[(x - 1 \u003e 3) ? 1 : 2].all(x, x \u003c .x)",
+      "folded": "[(x - 1 \u003e 3) ? 1 : 2].all(x, x \u003c .x)"
+    },
+    {
+      "expr": "[(x - 1 \u003e 3) ? (x - 1) : 5].exists(x, x - 1 \u003e 3)",
+      "folded": "[(x - 1 \u003e 3) ? (x - 1) : 5].exists(x, x - 1 \u003e 3)"
+    },
+    {
       "expr": "[{}, {\"a\": 1}, {\"b\": 2}].filter(m, has(m.a))",
       "folded": "[{\"a\": 1}]"
     },
@@ -2669,6 +2981,10 @@
       "folded": "[?x]"
     },
     {
+      "expr": "[?optional.of(1), ?x]",
+      "folded": "[1, ?x]"
+    },
+    {
       "expr": "[1, x, ?optional.ofNonZeroValue(0), ?x.?y]",
       "folded": "[1, x, ?x.?y]"
     },
@@ -2697,12 +3013,32 @@
       "folded": "\"helloworld\""
     },
     {
+      "expr": "x == true",
+      "folded": "x == true"
+    },
+    {
+      "expr": "true == x",
+      "folded": "true == x"
+    },
+    {
+      "expr": "x != false",
+      "folded": "x != false"
+    },
+    {
+      "expr": "false != x",
+      "folded": "false != x"
+    },
+    {
+      "expr": "x ? 1 + 2 : 3 + 4",
+      "folded": "x ? 3 : 7"
+    },
+    {
       "expr": "true \u0026\u0026 x",
-      "folded": "x"
+      "folded": "true \u0026\u0026 x"
     },
     {
       "expr": "x \u0026\u0026 true",
-      "folded": "x"
+      "folded": "x \u0026\u0026 true"
     },
     {
       "expr": "false \u0026\u0026 x",
@@ -2722,19 +3058,59 @@
     },
     {
       "expr": "false || x",
-      "folded": "x"
+      "folded": "false || x"
     },
     {
       "expr": "x || false",
-      "folded": "x"
+      "folded": "x || false"
+    },
+    {
+      "expr": "true \u0026\u0026 b",
+      "folded": "b"
+    },
+    {
+      "expr": "b \u0026\u0026 true",
+      "folded": "b"
+    },
+    {
+      "expr": "false || b",
+      "folded": "b"
+    },
+    {
+      "expr": "b || false",
+      "folded": "b"
+    },
+    {
+      "expr": "false || x",
+      "folded": "false || x"
+    },
+    {
+      "expr": "x || false",
+      "folded": "x || false"
+    },
+    {
+      "expr": "true \u0026\u0026 x",
+      "folded": "true \u0026\u0026 x"
+    },
+    {
+      "expr": "x \u0026\u0026 true",
+      "folded": "x \u0026\u0026 true"
     },
     {
       "expr": "true \u0026\u0026 x \u0026\u0026 true \u0026\u0026 x",
-      "folded": "x \u0026\u0026 x"
+      "folded": "true \u0026\u0026 x \u0026\u0026 true \u0026\u0026 x"
     },
     {
       "expr": "false || x || false || x",
-      "folded": "x || x"
+      "folded": "false || x || false || x"
+    },
+    {
+      "expr": "true \u0026\u0026 b \u0026\u0026 true \u0026\u0026 b",
+      "folded": "b \u0026\u0026 b"
+    },
+    {
+      "expr": "false || b || false || b",
+      "folded": "b || b"
     },
     {
       "expr": "true \u0026\u0026 true",
@@ -2819,14 +3195,22 @@
       "expr": "l.exists(e, e == \"foo\") ? \"has Foo\" : \"no Foo\"",
       "folded": "\"has Foo\"",
       "knownValues": {
-        "l": ["foo", "bar", "baz"]
+        "l": [
+          "foo",
+          "bar",
+          "baz"
+        ]
       }
     },
     {
       "expr": "\"foo\" in l",
       "folded": "true",
       "knownValues": {
-        "l": ["foo", "bar", "baz"]
+        "l": [
+          "foo",
+          "bar",
+          "baz"
+        ]
       }
     },
     {
@@ -2837,6 +3221,138 @@
           "$expr": "\u0026proto3pb.TestAllTypes{RepeatedInt32: []int32{1, 2, 3}}"
         }
       }
+    },
+    {
+      "expr": "false || x || false || y",
+      "folded": "false || x || false || y"
+    },
+    {
+      "expr": "false || b || false || b",
+      "folded": "b || b"
+    },
+    {
+      "expr": "true ? (false ? x + 1 : x + 2) : x",
+      "folded": "x + 2"
+    },
+    {
+      "expr": "false ? x : (true ? x + 1 : x + 2)",
+      "folded": "x + 1"
+    },
+    {
+      "expr": "1 in []",
+      "folded": "false"
+    },
+    {
+      "expr": "x in [1, 2, x]",
+      "folded": "x in [1, 2, x]"
+    },
+    {
+      "expr": "[1, 2].filter(x, x in [1, 2])",
+      "folded": "[1, 2]"
+    },
+    {
+      "expr": "5 in [1, x, y, 5]",
+      "folded": "true"
+    },
+    {
+      "expr": "!(5 in [1, x, y, 5])",
+      "folded": "false"
+    },
+    {
+      "expr": "[1, ?optional.of(3)]",
+      "folded": "[1, 3]"
+    },
+    {
+      "expr": "[1, optional.of(3)]",
+      "folded": "[1, optional.of(3)]"
+    },
+    {
+      "expr": "[?optional.of(1 + 2 + 3)]",
+      "folded": "[6]"
+    },
+    {
+      "expr": "[?optional.of(3)]",
+      "folded": "[3]"
+    },
+    {
+      "expr": "[?optional.of(x)]",
+      "folded": "[?optional.of(x)]"
+    },
+    {
+      "expr": "[?optional.ofNonZeroValue(3)]",
+      "folded": "[3]"
+    },
+    {
+      "expr": "[optional.of(1 + 2 + 3)]",
+      "folded": "[optional.of(6)]"
+    },
+    {
+      "expr": "[optional.of(x)]",
+      "folded": "[optional.of(x)]"
+    },
+    {
+      "expr": "[optional.ofNonZeroValue(1 + 2 + 3)]",
+      "folded": "[optional.of(6)]"
+    },
+    {
+      "expr": "[optional.ofNonZeroValue(3)]",
+      "folded": "[optional.of(3)]"
+    },
+    {
+      "expr": "{?1: optional.none()}",
+      "folded": "{}"
+    },
+    {
+      "expr": "google.expr.proto3.test.TestAllTypes{single_int64: 1 + 2 + 3 + x}",
+      "folded": "google.expr.proto3.test.TestAllTypes{single_int64: 6 + x}"
+    },
+    {
+      "expr": "google.expr.proto3.test.TestAllTypes{single_nested_message: google.expr.proto3.test.TestAllTypes.NestedMessage{bb: 42}}.single_nested_message.bb",
+      "folded": "42"
+    },
+    {
+      "expr": "{\"a\": 1}[\"a\"]",
+      "folded": "1"
+    },
+    {
+      "expr": "{\"a\": {\"b\": 2}}[\"a\"][\"b\"]",
+      "folded": "2"
+    },
+    {
+      "expr": "{\"hello\": \"world\"}.?hello",
+      "folded": "optional.of(\"world\")"
+    },
+    {
+      "expr": "[1] + [2] + [3]",
+      "folded": "[1, 2, 3]"
+    },
+    {
+      "expr": "[?optional.none(), 2]",
+      "folded": "[2]"
+    },
+    {
+      "expr": "[1] + [?optional.of(2)] + [3]",
+      "folded": "[1, 2, 3]"
+    },
+    {
+      "expr": "[1] + [x]",
+      "folded": "[1] + [x]"
+    },
+    {
+      "expr": "duration(\"1h\") - duration(\"60m\")",
+      "folded": "duration(\"0s\")"
+    },
+    {
+      "expr": "timestamp(\"1970-01-01T00:15:00Z\") - timestamp(\"1970-01-01T00:00:10Z\")",
+      "folded": "duration(\"890s\")"
+    },
+    {
+      "expr": "timestamp(\"2000-01-01T00:02:03.2123Z\") + duration(\"25h2m32s42ms53us29ns\")",
+      "folded": "timestamp(\"2000-01-02T01:04:35.254353029Z\")"
+    },
+    {
+      "expr": "[1 + 1, 1 + 2].exists(i, i \u003c 10)",
+      "folded": "true"
     }
   ],
   "cel/folding_test.go/TestConstantFoldingOptimizerMacroElimination": [
@@ -2873,6 +3389,44 @@
       "expr": "[1, 2, 3].map(i, [1, 2, 3].map(j, i * j))",
       "folded": "[[1, 2, 3], [2, 4, 6], [3, 6, 9]]",
       "limit": 1
+    }
+  ],
+  "cel/folding_test.go/TestConstantFoldingOptimizer_EvaluateExpr": [
+    {
+      "act": {
+        "$expr": "partAct"
+      },
+      "expr": "x + 1",
+      "name": "missing attribute",
+      "vars": [
+        {
+          "$expr": "Variable(\"x\", IntType)"
+        }
+      ],
+      "wantFold": "x + 1"
+    },
+    {
+      "act": {
+        "$expr": "unknownValAct"
+      },
+      "expr": "x + 1",
+      "name": "unknown value",
+      "vars": [
+        {
+          "$expr": "Variable(\"x\", IntType)"
+        }
+      ],
+      "wantFold": "x + 1"
+    },
+    {
+      "expr": "1 / 0",
+      "name": "evaluation error division by zero",
+      "wantFold": "1 / 0"
+    },
+    {
+      "expr": "[1, 2][5]",
+      "name": "evaluation error index out of bounds",
+      "wantFold": "[1, 2][5]"
     }
   ],
   "cel/inlining_test.go/TestInliningOptimizer": [
@@ -3543,11 +4097,552 @@
       }
     },
     {
-      "value": [true, "abc"]
+      "value": [
+        true,
+        "abc"
+      ]
     },
     {
       "value": {
         "$expr": "\u0026proto3pb.TestAllTypes{SingleString: \"abc\"}"
+      }
+    }
+  ],
+  "cel/optimizer_test.go/TestConstantFoldingOptimizerTwoVar": [
+    {
+      "expr": "[1 + 1, 1 + 2].all(i, v, i \u003c 10 \u0026\u0026 v \u003c 10)",
+      "folded": "true"
+    },
+    {
+      "expr": "[1 + 1, 1 + 2].all(i, v, i \u003c 10 \u0026\u0026 v \u003c x)",
+      "folded": "[2, 3].all(i, v, i \u003c 10 \u0026\u0026 v \u003c x)"
+    },
+    {
+      "expr": "[1, 2, 3].transformList(i, v, i + v)",
+      "folded": "[1, 3, 5]"
+    },
+    {
+      "expr": "{'a': 1, 'b': 2}.all(k, v, v \u003e 0)",
+      "folded": "true"
+    },
+    {
+      "expr": "v \u003e 0 \u0026\u0026 [1 + 1, 1 + 2].all(i, v, i \u003c 10 \u0026\u0026 v \u003c 10)",
+      "folded": "v \u003e 0"
+    },
+    {
+      "expr": "[1 + 1, 1 + 2].all(i, v, i \u003c 10 \u0026\u0026 v \u003c 10) \u0026\u0026 v \u003e 0",
+      "folded": "v \u003e 0"
+    },
+    {
+      "expr": "[1, 2, 3].transformList(i, v, i + v + k)",
+      "folded": "[1, 2, 3].transformList(i, v, i + v + k)"
+    },
+    {
+      "expr": "l.transformList(i, v, i + v)",
+      "folded": "l.transformList(i, v, i + v)"
+    },
+    {
+      "expr": "v \u003e 0 \u0026\u0026 [1 + 1, 1 + 2].all(i, v, i \u003c 10 \u0026\u0026 v \u003c 10)",
+      "folded": "true",
+      "knownValues": {
+        "v": 5
+      }
+    },
+    {
+      "expr": "[1 + 1, 1 + 2].all(i, v, i \u003c 10 \u0026\u0026 v \u003c .v)",
+      "folded": "true",
+      "knownValues": {
+        "v": 10
+      }
+    }
+  ],
+  "cel/program_async_test.go/TestConcurrentEval": [
+    {
+      "expr": "x + 1",
+      "name": "sync_eval",
+      "opts": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.IntType)"
+        }
+      ],
+      "vars": {
+        "x": 10
+      },
+      "want": 11
+    },
+    {
+      "expr": "async_func(42) + 1",
+      "name": "single_async",
+      "opts": [
+        {
+          "$expr": "cel.Function(\"async_func\",\n\t\t\t\t\tcel.Overload(\"async_func_int\", []*cel.Type{cel.IntType}, cel.IntType,\n\t\t\t\t\t\tcel.AsyncBinding(func(ctx context.Context, args ...ref.Val) ref.Val {\n\t\t\t\t\t\t\ttime.Sleep(1 * time.Millisecond)\n\t\t\t\t\t\t\treturn args[0]\n\t\t\t\t\t\t}),\n\t\t\t\t\t),\n\t\t\t\t)"
+        }
+      ],
+      "want": 43
+    },
+    {
+      "expr": "async_func(42) + 1",
+      "name": "completion_buffer_size",
+      "opts": [
+        {
+          "$expr": "cel.Function(\"async_func\",\n\t\t\t\t\tcel.Overload(\"async_func_int\", []*cel.Type{cel.IntType}, cel.IntType,\n\t\t\t\t\t\tcel.AsyncBinding(func(ctx context.Context, args ...ref.Val) ref.Val {\n\t\t\t\t\t\t\ttime.Sleep(1 * time.Millisecond)\n\t\t\t\t\t\t\treturn args[0]\n\t\t\t\t\t\t}),\n\t\t\t\t\t),\n\t\t\t\t)"
+        },
+        {
+          "$expr": "cel.AsyncCompletionBufferSize(16)"
+        }
+      ],
+      "want": 43
+    },
+    {
+      "expr": "async_inc(10) + async_inc(20)",
+      "maxConc": 1,
+      "name": "outside_parallel_conc_1",
+      "want": 32
+    },
+    {
+      "expr": "async_inc(10) + async_inc(20)",
+      "maxConc": -1,
+      "name": "outside_parallel_conc_unlimited",
+      "trackCost": true,
+      "want": 32
+    },
+    {
+      "expr": "async_inc(async_inc(10))",
+      "maxConc": 1,
+      "name": "outside_chained_conc_1",
+      "trackCost": true,
+      "want": 12
+    },
+    {
+      "expr": "async_inc(async_inc(10))",
+      "maxConc": 0,
+      "name": "outside_chained_conc_default",
+      "want": 12
+    },
+    {
+      "expr": "[1, 2, 3].map(i, dbl(i))",
+      "name": "comprehension_single",
+      "want": [
+        2,
+        4,
+        6
+      ],
+      "wantLaunches": 3
+    },
+    {
+      "expr": "[1, 2, 3].map(i, async_inc(i))",
+      "maxConc": 2,
+      "name": "comprehension_single_conc_2",
+      "trackCost": true,
+      "want": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "expr": "[1, 2, 3].map(i, async_inc(i))",
+      "maxConc": -1,
+      "name": "comprehension_single_conc_unlimited",
+      "want": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "expr": "[1, 2, 3].map(i, async_inc(async_inc(i)))",
+      "maxConc": 1,
+      "name": "comprehension_chained_conc_1",
+      "trackCost": true,
+      "want": [
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "expr": "[1, 2, 3].map(i, async_inc(async_inc(i)))",
+      "maxConc": 0,
+      "name": "comprehension_chained_conc_default",
+      "want": [
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "expr": "[1, 2].map(i, [10, 20].map(j, async_inc(async_inc(i + j))))",
+      "maxConc": 2,
+      "name": "nested_comprehension_chained_conc_2",
+      "trackCost": true,
+      "want": [
+        {
+          "$expr": "{13, 23}"
+        },
+        {
+          "$expr": "{14, 24}"
+        }
+      ]
+    },
+    {
+      "expr": "[1, 2].map(i, [10, 20].map(j, async_inc(async_inc(i + j))))",
+      "maxConc": -1,
+      "name": "nested_comprehension_chained_conc_unlimited",
+      "want": [
+        {
+          "$expr": "{13, 23}"
+        },
+        {
+          "$expr": "{14, 24}"
+        }
+      ]
+    },
+    {
+      "expr": "rpc(\"a\") + rpc(\"b\") + rpc(\"c\")",
+      "name": "fake_rpc",
+      "opts": [
+        {
+          "$expr": "cel.Function(\"rpc\",\n\t\t\t\t\tcel.Overload(\"rpc_string\", []*cel.Type{cel.StringType}, cel.StringType,\n\t\t\t\t\t\tcel.AsyncBinding(test.FakeRPC(time.Second)),\n\t\t\t\t\t),\n\t\t\t\t)"
+        }
+      ],
+      "want": "a success!b success!c success!"
+    },
+    {
+      "expr": "delayed_rpc(\"a\", 1) + delayed_rpc(\"b\", 2) + delayed_rpc(\"c\", 10)",
+      "name": "drain_all",
+      "opts": [
+        {
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainAll())"
+        }
+      ],
+      "trackCost": true,
+      "want": "abc",
+      "wantCost": 10
+    },
+    {
+      "expr": "delayed_rpc(\"a\", 1) + delayed_rpc(\"b\", 2) + delayed_rpc(\"c\", 10)",
+      "name": "drain_ready_batched",
+      "opts": [
+        {
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainReady(15 * time.Millisecond))"
+        }
+      ],
+      "trackCost": true,
+      "want": "abc",
+      "wantCost": 10
+    },
+    {
+      "expr": "delayed_rpc(\"a\", 1) + delayed_rpc(\"b\", 2) + delayed_rpc(\"c\", 10)",
+      "name": "drain_ready_partial_debounce",
+      "opts": [
+        {
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainReady(2 * time.Millisecond))"
+        }
+      ],
+      "trackCost": true,
+      "want": "abc",
+      "wantCost": 15
+    },
+    {
+      "expr": "delayed_rpc(\"a\", 1) + delayed_rpc(\"b\", 2) + delayed_rpc(\"c\", 10)",
+      "name": "drain_none",
+      "opts": [
+        {
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainNone())"
+        }
+      ],
+      "trackCost": true,
+      "want": "abc",
+      "wantCost": 20
+    },
+    {
+      "expr": "async_inc(10) \u003e 0",
+      "name": "exhaustive_eval",
+      "opts": [
+        {
+          "$expr": "cel.EvalOptions(cel.OptExhaustiveEval)"
+        }
+      ],
+      "trackState": true,
+      "want": true
+    },
+    {
+      "expr": "async_fail()",
+      "name": "async_error",
+      "opts": [
+        {
+          "$expr": "cel.EvalOptions(cel.OptTrackState)"
+        }
+      ],
+      "trackState": true,
+      "wantErr": "async failure"
+    },
+    {
+      "expr": "false \u0026\u0026 (async_inc(10) == 11)",
+      "name": "short_circuit_and_false",
+      "want": false,
+      "wantLaunches": 0
+    },
+    {
+      "expr": "true || (async_inc(10) == 11)",
+      "name": "short_circuit_or_true",
+      "want": true,
+      "wantLaunches": 0
+    },
+    {
+      "expr": "false ? async_inc(10) : 42",
+      "name": "short_circuit_ternary_false",
+      "want": 42,
+      "wantLaunches": 0
+    },
+    {
+      "expr": "true ? async_inc(10) : 42",
+      "name": "short_circuit_ternary_true",
+      "want": 11,
+      "wantLaunches": 1
+    },
+    {
+      "expr": "true \u0026\u0026 (async_inc(10) == 11)",
+      "name": "eval_and_true",
+      "want": true,
+      "wantLaunches": 1
+    },
+    {
+      "expr": "false || (async_inc(10) == 11)",
+      "name": "eval_or_false",
+      "want": true,
+      "wantLaunches": 1
+    },
+    {
+      "expr": "(async_inc(10) == 11) || (async_inc(20) == 21)",
+      "name": "eval_left_async_or_async",
+      "want": true
+    },
+    {
+      "expr": "(async_inc(10) == 0) \u0026\u0026 (async_inc(20) == 21)",
+      "name": "eval_left_async_and_async",
+      "want": false
+    },
+    {
+      "expr": "(async_inc(10) == 11) || (11 - x == 10)",
+      "name": "eval_or_var_expr_short_circuit_pass1",
+      "opts": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.IntType)"
+        }
+      ],
+      "vars": {
+        "x": 1
+      },
+      "want": true,
+      "wantLaunches": 0
+    },
+    {
+      "expr": "(async_inc(10) == 11) || (11 - x == 10)",
+      "name": "eval_or_var_expr_await_async",
+      "opts": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.IntType)"
+        }
+      ],
+      "vars": {
+        "x": 0
+      },
+      "want": true,
+      "wantLaunches": 1
+    },
+    {
+      "expr": "(async_inc(10) == 11) || true",
+      "name": "compile_time_fold_or_true",
+      "want": true,
+      "wantLaunches": 0
+    },
+    {
+      "expr": "(async_inc(10) == 11) \u0026\u0026 false",
+      "name": "compile_time_fold_and_false",
+      "want": false,
+      "wantLaunches": 0
+    },
+    {
+      "expr": "[1, 2, 3].map(i, i == 2 ? async_fail() : async_inc(i))",
+      "name": "comprehension_async_error",
+      "wantErr": "async failure"
+    },
+    {
+      "expr": "async_inc(10) + 1",
+      "name": "completion_buffer_size_zero",
+      "opts": [
+        {
+          "$expr": "cel.AsyncCompletionBufferSize(0)"
+        }
+      ],
+      "want": 12,
+      "wantLaunches": 1
+    },
+    {
+      "expr": "async_inc(10) + 1",
+      "name": "completion_buffer_size_negative",
+      "opts": [
+        {
+          "$expr": "cel.AsyncCompletionBufferSize(-1)"
+        }
+      ],
+      "want": 12,
+      "wantLaunches": 1
+    },
+    {
+      "expr": "lists.range(1000).exists(i, async_inc(i) == 1000)",
+      "leakCheck": true,
+      "maxConc": 5,
+      "name": "more requests than completion buffer w/ debounce",
+      "opts": [
+        {
+          "$expr": "ext.Lists()"
+        },
+        {
+          "$expr": "cel.AsyncCompletionBufferSize(10)"
+        },
+        {
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainReady(10 * time.Microsecond))"
+        }
+      ],
+      "want": true
+    },
+    {
+      "expr": "lists.range(1000).exists(i, async_inc(i) == 1000)",
+      "leakCheck": true,
+      "maxConc": 5,
+      "name": "more requests than completion buffer w/ drain all",
+      "opts": [
+        {
+          "$expr": "ext.Lists()"
+        },
+        {
+          "$expr": "cel.AsyncCompletionBufferSize(5)"
+        },
+        {
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainAll())"
+        }
+      ],
+      "want": true
+    },
+    {
+      "expr": "lists.range(300).exists(i, async_inc(i) == 300)",
+      "leakCheck": true,
+      "name": "more requests than completion buffer w/ drain none",
+      "opts": [
+        {
+          "$expr": "ext.Lists()"
+        },
+        {
+          "$expr": "cel.AsyncCompletionBufferSize(1)"
+        },
+        {
+          "$expr": "cel.AsyncMaxConcurrency(2)"
+        },
+        {
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainNone())"
+        }
+      ],
+      "want": true
+    },
+    {
+      "expr": "lists.range(300).map(i, async_inc(i) * 2).exists(j, j == 600)",
+      "leakCheck": true,
+      "name": "chained comprehensions with drain none",
+      "opts": [
+        {
+          "$expr": "ext.Lists()"
+        },
+        {
+          "$expr": "cel.AsyncCompletionBufferSize(4)"
+        },
+        {
+          "$expr": "cel.AsyncMaxConcurrency(2)"
+        },
+        {
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainNone())"
+        }
+      ],
+      "want": true
+    }
+  ],
+  "cel/program_async_test.go/TestConcurrentEvalDrainReady": [
+    {
+      "debounce": {
+        "$expr": "250 * time.Millisecond"
+      },
+      "expr": "delayed_rpc(\"a\", 10) + delayed_rpc(\"b\", 25) + delayed_rpc(\"c\", 200)",
+      "minElapsed": {
+        "$expr": "200 * time.Millisecond"
+      },
+      "name": "timer_reset",
+      "want": {
+        "$expr": "types.String(\"abc\")"
+      },
+      "wantPasses": 2
+    },
+    {
+      "debounce": {
+        "$expr": "60 * time.Millisecond"
+      },
+      "expr": "delayed_rpc(\"a\", 10) + delayed_rpc(\"b\", 25) + delayed_rpc(\"c\", 200)",
+      "minElapsed": {
+        "$expr": "200 * time.Millisecond"
+      },
+      "name": "timer_reset",
+      "want": {
+        "$expr": "types.String(\"abc\")"
+      },
+      "wantPasses": 3
+    },
+    {
+      "debounce": {
+        "$expr": "1 * time.Millisecond"
+      },
+      "expr": "delayed_rpc(\"a\", 5) + delayed_rpc(\"b\", 30) + delayed_rpc(\"c\", 200)",
+      "minElapsed": {
+        "$expr": "200 * time.Millisecond"
+      },
+      "name": "timer_already_fired",
+      "want": {
+        "$expr": "types.String(\"abc\")"
+      },
+      "wantPasses": 4
+    }
+  ],
+  "cel/program_async_test.go/TestConcurrentEvalRecover": [
+    {
+      "expr": "panic()",
+      "name": "panic",
+      "wantErr": "internal error: watch me recover"
+    },
+    {
+      "expr": "panic()",
+      "name": "panic_tracked_state",
+      "prgOpts": [
+        {
+          "$expr": "cel.EvalOptions(cel.OptTrackState)"
+        }
+      ],
+      "wantErr": "internal error: watch me recover"
+    },
+    {
+      "expr": "cancel_panic()",
+      "name": "eval_cancelled_error",
+      "wantErr": {
+        "$expr": "\u0026interpreter.EvalCancelledError{}"
+      }
+    },
+    {
+      "expr": "sleep_func()",
+      "getCtx": {
+        "$expr": "func() (context.Context, context.CancelFunc) {\n\t\t\t\treturn context.WithTimeout(context.Background(), 10*time.Millisecond)\n\t\t\t}"
+      },
+      "name": "context_timeout",
+      "wantErr": {
+        "$expr": "context.DeadlineExceeded"
       }
     }
   ],
@@ -3711,6 +4806,18 @@
     {
       "expr": "'hello'.matches('??el*')",
       "iss": "\n\t\t\tERROR: \u003cinput\u003e:1:17: invalid matches argument\n             | 'hello'.matches('??el*')\n             | ................^"
+    },
+    {
+      "expr": "'hello'.matches(x)"
+    }
+  ],
+  "cel/validator_test.go/TestValidateRegexProgramSizeLimit": [
+    {
+      "expr": "'hello'.matches('el*')"
+    },
+    {
+      "expr": "'hello'.matches('(a|b)*[0-9]+')",
+      "iss": "\n\t\t\tERROR: \u003cinput\u003e:1:17: regex program size 8 exceeds limit of 5\n             | 'hello'.matches('(a|b)*[0-9]+')\n             | ................^"
     },
     {
       "expr": "'hello'.matches(x)"
@@ -6367,36 +7474,188 @@
       }
     }
   ],
-  "common/ast/navigable_test.go/TestExprVisitor": [
+  "common/ast/navigable_test.go/TestExceedsDepth": [
     {
       "expr": "'a' == 'b'",
-      "postOrderIDs": [1, 3, 2],
-      "preOrderIDs": [2, 1, 3]
+      "maxDepth": 2,
+      "name": "shallow below limit",
+      "want": false
     },
     {
-      "expr": "'a'.size()",
-      "postOrderIDs": [1, 2],
-      "preOrderIDs": [2, 1]
+      "expr": "'a' == 'b'",
+      "maxDepth": 1,
+      "name": "shallow at limit",
+      "want": true
     },
     {
-      "expr": "type(1) == int",
-      "postOrderIDs": [2, 1, 4, 3],
-      "preOrderIDs": [3, 1, 2, 4]
+      "expr": "[1, 2, 3][0]",
+      "maxDepth": 3,
+      "name": "medium below limit",
+      "want": false
     },
     {
-      "expr": "{'hello': 'world'}.hello",
-      "postOrderIDs": [3, 4, 1, 5],
-      "preOrderIDs": [5, 1, 3, 4]
+      "expr": "[1, 2, 3][0]",
+      "maxDepth": 2,
+      "name": "medium at limit",
+      "want": true
     },
     {
-      "expr": "google.expr.proto3.test.TestAllTypes{single_int32: 1}",
-      "postOrderIDs": [3, 1],
-      "preOrderIDs": [1, 3]
+      "expr": "[1, 2, 3][0]",
+      "maxDepth": 1,
+      "name": "medium under limit",
+      "want": true
     },
     {
       "expr": "[true].exists(i, i)",
-      "postOrderIDs": [2, 1, 6, 7, 8, 9, 10, 5, 11, 12, 13],
-      "preOrderIDs": [13, 1, 2, 6, 9, 8, 7, 11, 10, 5, 12]
+      "maxDepth": 250,
+      "name": "deep under default",
+      "want": false
+    },
+    {
+      "expr": "[true].exists(i, i)",
+      "maxDepth": 3,
+      "name": "deep at limit",
+      "want": true
+    },
+    {
+      "expr": "[true].exists(i, i)",
+      "maxDepth": 4,
+      "name": "deep one above limit",
+      "want": false
+    },
+    {
+      "expr": "[true].exists(i, i)",
+      "maxDepth": 0,
+      "name": "disabled with zero",
+      "want": false
+    },
+    {
+      "expr": "[true].exists(i, i)",
+      "maxDepth": -1,
+      "name": "disabled with negative",
+      "want": false
+    }
+  ],
+  "common/ast/navigable_test.go/TestExceedsDepthBoundedTraversal": [
+    {
+      "maxDepth": 250,
+      "name": "below the deepest node",
+      "want": true
+    },
+    {
+      "maxDepth": {
+        "$expr": "depth"
+      },
+      "name": "equal to the deepest node",
+      "want": true
+    },
+    {
+      "maxDepth": {
+        "$expr": "depth + 1"
+      },
+      "name": "one past the deepest node",
+      "want": false
+    },
+    {
+      "maxDepth": 0,
+      "name": "check disabled",
+      "want": false
+    }
+  ],
+  "common/ast/navigable_test.go/TestExprVisitor": [
+    {
+      "expr": "'a' == 'b'",
+      "postOrderIDs": [
+        1,
+        3,
+        2
+      ],
+      "preOrderIDs": [
+        2,
+        1,
+        3
+      ]
+    },
+    {
+      "expr": "'a'.size()",
+      "postOrderIDs": [
+        1,
+        2
+      ],
+      "preOrderIDs": [
+        2,
+        1
+      ]
+    },
+    {
+      "expr": "type(1) == int",
+      "postOrderIDs": [
+        2,
+        1,
+        4,
+        3
+      ],
+      "preOrderIDs": [
+        3,
+        1,
+        2,
+        4
+      ]
+    },
+    {
+      "expr": "{'hello': 'world'}.hello",
+      "postOrderIDs": [
+        3,
+        4,
+        1,
+        5
+      ],
+      "preOrderIDs": [
+        5,
+        1,
+        3,
+        4
+      ]
+    },
+    {
+      "expr": "google.expr.proto3.test.TestAllTypes{single_int32: 1}",
+      "postOrderIDs": [
+        3,
+        1
+      ],
+      "preOrderIDs": [
+        1,
+        3
+      ]
+    },
+    {
+      "expr": "[true].exists(i, i)",
+      "postOrderIDs": [
+        2,
+        1,
+        6,
+        7,
+        8,
+        9,
+        10,
+        5,
+        11,
+        12,
+        13
+      ],
+      "preOrderIDs": [
+        13,
+        1,
+        2,
+        6,
+        9,
+        8,
+        7,
+        11,
+        10,
+        5,
+        12
+      ]
     }
   ],
   "common/ast/navigable_test.go/TestNavigableASTNilSafety": [
@@ -6474,32 +7733,46 @@
   ],
   "common/containers/container_test.go/TestContainers_Aliasing_Errors": [
     {
-      "abbrevs": ["my.alias.R", "yer.other.R"],
+      "abbrevs": [
+        "my.alias.R",
+        "yer.other.R"
+      ],
       "err": {
         "$expr": "\"abbreviation collides with existing reference: \" +\n\t\t\t\t\"name=yer.other.R, abbreviation=R, existing=my.alias.R\""
       }
     },
     {
-      "abbrevs": ["my.alias.a", "yer.other.b"],
+      "abbrevs": [
+        "my.alias.a",
+        "yer.other.b"
+      ],
       "container": "a.b.c.M.N",
       "err": {
         "$expr": "\"abbreviation collides with container name: name=my.alias.a, \" +\n\t\t\t\t\"abbreviation=a, container=a.b.c.M.N\""
       }
     },
     {
-      "abbrevs": [".bad"],
+      "abbrevs": [
+        ".bad"
+      ],
       "err": "invalid qualified name: .bad, wanted name of the form 'qualified.name'"
     },
     {
-      "abbrevs": ["bad.alias."],
+      "abbrevs": [
+        "bad.alias."
+      ],
       "err": "invalid qualified name: bad.alias., wanted name of the form 'qualified.name'"
     },
     {
-      "abbrevs": ["   bad_alias1"],
+      "abbrevs": [
+        "   bad_alias1"
+      ],
       "err": "invalid qualified name: bad_alias1, wanted name of the form 'qualified.name'"
     },
     {
-      "abbrevs": ["   bad.alias!  "],
+      "abbrevs": [
+        "   bad.alias!  "
+      ],
       "err": "invalid qualified name: bad.alias!, wanted name of the form 'qualified.name'"
     },
     {
@@ -6595,44 +7868,64 @@
       ]
     },
     {
-      "examples": ["type(int) // type"],
+      "examples": [
+        "type(int) // type"
+      ],
       "fn": {
         "$expr": "testFunction(t, overloads.TypeConvertType,\n\t\t\t\tOverload(overloads.TypeConvertType,\n\t\t\t\t\t[]*types.Type{types.NewTypeTypeWithParam(types.NewTypeParamType(\"T\"))},\n\t\t\t\t\ttypes.TypeType,\n\t\t\t\t\tOverloadExamples(`type(int) // type`)))"
       },
       "name": "type",
-      "signatures": ["type(type) -\u003e type"]
+      "signatures": [
+        "type(type) -\u003e type"
+      ]
     },
     {
-      "examples": ["-(1) // -1"],
+      "examples": [
+        "-(1) // -1"
+      ],
       "fn": {
         "$expr": "testFunction(t, operators.Negate,\n\t\t\t\tFunctionDocs(`negate a numeric value`),\n\t\t\t\tOverload(overloads.NegateInt64, []*types.Type{types.IntType}, types.IntType,\n\t\t\t\t\tOverloadExamples(`-(1) // -1`)))"
       },
       "name": "unary operator",
-      "signatures": ["-int -\u003e int"]
+      "signatures": [
+        "-int -\u003e int"
+      ]
     },
     {
-      "examples": ["1 + 2 // 3"],
+      "examples": [
+        "1 + 2 // 3"
+      ],
       "fn": {
         "$expr": "testFunction(t, operators.Add,\n\t\t\t\tFunctionDocs(`add two numeric values`),\n\t\t\t\tOverload(overloads.AddInt64, []*types.Type{types.IntType, types.IntType}, types.IntType,\n\t\t\t\t\tOverloadExamples(`1 + 2 // 3`)))"
       },
       "name": "binary operator",
-      "signatures": ["int + int -\u003e int"]
+      "signatures": [
+        "int + int -\u003e int"
+      ]
     },
     {
-      "examples": ["[1, 2, 3, 4][2] // 3"],
+      "examples": [
+        "[1, 2, 3, 4][2] // 3"
+      ],
       "fn": {
         "$expr": "testFunction(t, operators.Index,\n\t\t\t\tFunctionDocs(`access a list by numeric index, zero-based`),\n\t\t\t\tOverload(overloads.IndexList, []*types.Type{types.NewListType(types.NewTypeParamType(\"T\")), types.IntType}, types.NewTypeParamType(\"T\"),\n\t\t\t\t\tOverloadExamples(`[1, 2, 3, 4][2] // 3`)))"
       },
       "name": "index operator",
-      "signatures": ["list(\u003cT\u003e)[int] -\u003e \u003cT\u003e"]
+      "signatures": [
+        "list(\u003cT\u003e)[int] -\u003e \u003cT\u003e"
+      ]
     },
     {
-      "examples": ["true ? 1 : 2 // 1"],
+      "examples": [
+        "true ? 1 : 2 // 1"
+      ],
       "fn": {
         "$expr": "testFunction(t, operators.Conditional,\n\t\t\t\tFunctionDocs(`ternary operator`),\n\t\t\t\tOverload(overloads.Conditional,\n\t\t\t\t\t[]*types.Type{types.BoolType, types.NewTypeParamType(\"T\"), types.NewTypeParamType(\"T\")},\n\t\t\t\t\ttypes.NewTypeParamType(\"T\"),\n\t\t\t\t\tOverloadExamples(`true ? 1 : 2 // 1`)))"
       },
       "name": "conditional",
-      "signatures": ["bool ? \u003cT\u003e : \u003cT\u003e -\u003e \u003cT\u003e"]
+      "signatures": [
+        "bool ? \u003cT\u003e : \u003cT\u003e -\u003e \u003cT\u003e"
+      ]
     }
   ],
   "common/decls/decls_test.go/TestTypeVariable": [
@@ -6739,17 +8032,25 @@
     {
       "in": "hello",
       "name": "single",
-      "out": ["hello"]
+      "out": [
+        "hello"
+      ]
     },
     {
       "in": "bar\nbaz\n\nfoo",
       "name": "multi",
-      "out": ["bar\nbaz", "foo"]
+      "out": [
+        "bar\nbaz",
+        "foo"
+      ]
     },
     {
       "in": "hello\n\n\nworld",
       "name": "multi",
-      "out": ["hello", "world"]
+      "out": [
+        "hello",
+        "world"
+      ]
     }
   ],
   "common/env/env_test.go/TestConfig": [
@@ -8836,17 +10137,25 @@
     {
       "foldLimit": 2,
       "folds": 2,
-      "l": ["hello", "world"]
+      "l": [
+        "hello",
+        "world"
+      ]
     },
     {
       "foldLimit": 1,
       "folds": 1,
-      "l": ["hello", "world"]
+      "l": [
+        "hello",
+        "world"
+      ]
     },
     {
       "foldLimit": 2,
       "folds": 1,
-      "l": ["hello"]
+      "l": [
+        "hello"
+      ]
     },
     {
       "foldLimit": 20,
@@ -8935,15 +10244,21 @@
     },
     {
       "isZeroValue": false,
-      "val": [""]
+      "val": [
+        ""
+      ]
     },
     {
       "isZeroValue": false,
-      "val": [false]
+      "val": [
+        false
+      ]
     },
     {
       "isZeroValue": false,
-      "val": [0]
+      "val": [
+        0
+      ]
     },
     {
       "isZeroValue": false,
@@ -9336,7 +10651,11 @@
           "id": "1"
         },
         "sourceInfo": {
-          "lineOffsets": [1.0, 2.0, 3.0]
+          "lineOffsets": [
+            1.0,
+            2.0,
+            3.0
+          ]
         }
       }
     },
@@ -9360,7 +10679,11 @@
           "id": "1"
         },
         "sourceInfo": {
-          "lineOffsets": [1.0, 2.0, 3.0]
+          "lineOffsets": [
+            1.0,
+            2.0,
+            3.0
+          ]
         }
       }
     }
@@ -10052,11 +11375,19 @@
   ],
   "common/types/provider_test.go/TestRegistryFindStructFieldNames": [
     {
-      "fields": ["name", "overload_id", "value"],
+      "fields": [
+        "name",
+        "overload_id",
+        "value"
+      ],
       "typeName": "google.api.expr.v1alpha1.Reference"
     },
     {
-      "fields": ["name", "ident", "function"],
+      "fields": [
+        "name",
+        "ident",
+        "function"
+      ],
       "typeName": "google.api.expr.v1alpha1.Decl"
     },
     {
@@ -10064,7 +11395,11 @@
       "typeName": "invalid.TypeName"
     },
     {
-      "fields": ["name", "overloadId", "value"],
+      "fields": [
+        "name",
+        "overloadId",
+        "value"
+      ],
       "jsonFieldNames": true,
       "typeName": "google.api.expr.v1alpha1.Reference"
     }
@@ -10356,6 +11691,48 @@
         }
       },
       "typeName": "google.expr.proto3.test.TestAllTypes"
+    }
+  ],
+  "common/types/regex_test.go/TestCompileRegexWithLimit": [
+    {
+      "limit": 10,
+      "pattern": "el*"
+    },
+    {
+      "limit": 0,
+      "pattern": "el*"
+    },
+    {
+      "limit": -1,
+      "pattern": "el*"
+    },
+    {
+      "hasError": true,
+      "limit": 5,
+      "pattern": "(a|b)*[0-9]+"
+    },
+    {
+      "hasError": true,
+      "limit": 10,
+      "pattern": "("
+    }
+  ],
+  "common/types/regex_test.go/TestRegexProgramSize": [
+    {
+      "minSize": 1,
+      "pattern": "a"
+    },
+    {
+      "minSize": 3,
+      "pattern": "el*"
+    },
+    {
+      "minSize": 5,
+      "pattern": "(a|b)*[0-9]+"
+    },
+    {
+      "hasError": true,
+      "pattern": "("
     }
   ],
   "common/types/timestamp_test.go/TestTimestampOperators": [
@@ -10800,7 +12177,9 @@
       "t": {
         "$expr": "NewListType(StringType)"
       },
-      "v": ["hello"]
+      "v": [
+        "hello"
+      ]
     },
     {
       "isRuntimeAssignable": true,
@@ -12181,36 +13560,58 @@
   ],
   "common/types/unknown_test.go/TestUnknownIDs": [
     {
-      "attrs": ["\u003cunspecified\u003e"],
-      "ids": [1],
+      "attrs": [
+        "\u003cunspecified\u003e"
+      ],
+      "ids": [
+        1
+      ],
       "unk": {
         "$expr": "NewUnknown(1, nil)"
       }
     },
     {
-      "attrs": ["a[true]"],
-      "ids": [2],
+      "attrs": [
+        "a[true]"
+      ],
+      "ids": [
+        2
+      ],
       "unk": {
         "$expr": "NewUnknown(2, QualifyAttribute[bool](NewAttributeTrail(\"a\"), true))"
       }
     },
     {
-      "attrs": ["a.b"],
-      "ids": [3],
+      "attrs": [
+        "a.b"
+      ],
+      "ids": [
+        3
+      ],
       "unk": {
         "$expr": "NewUnknown(3, QualifyAttribute[string](NewAttributeTrail(\"a\"), \"b\"))"
       }
     },
     {
-      "attrs": ["a.c"],
-      "ids": [4],
+      "attrs": [
+        "a.c"
+      ],
+      "ids": [
+        4
+      ],
       "unk": {
         "$expr": "NewUnknown(4, QualifyAttribute[string](NewAttributeTrail(\"a\"), \"c\"))"
       }
     },
     {
-      "attrs": ["a[true]", "a.b"],
-      "ids": [3, 4],
+      "attrs": [
+        "a[true]",
+        "a.b"
+      ],
+      "ids": [
+        3,
+        4
+      ],
       "unk": {
         "$expr": "MergeUnknowns(\n\t\t\t\tNewUnknown(4, QualifyAttribute[string](NewAttributeTrail(\"a\"), \"b\")),\n\t\t\t\tNewUnknown(3, QualifyAttribute[bool](NewAttributeTrail(\"a\"), true)),\n\t\t\t)"
       }
@@ -12242,7 +13643,10 @@
       }
     },
     {
-      "out": ["a[true] (3)", "a.b (4)"],
+      "out": [
+        "a[true] (3)",
+        "a.b (4)"
+      ],
       "unk": {
         "$expr": "MergeUnknowns(\n\t\t\t\tNewUnknown(3, QualifyAttribute[bool](NewAttributeTrail(\"a\"), true)),\n\t\t\t\tNewUnknown(4, QualifyAttribute[string](NewAttributeTrail(\"a\"), \"b\")),\n\t\t\t)"
       }
@@ -12295,7 +13699,10 @@
         "x": 3
       },
       "in": {
-        "x": [3, 7]
+        "x": [
+          3,
+          7
+        ]
       },
       "name": "nested bind with int list",
       "vars": [
@@ -12315,7 +13722,10 @@
         "x.@items": 10
       },
       "in": {
-        "x": ["three", "seven"]
+        "x": [
+          "three",
+          "seven"
+        ]
       },
       "name": "nested bind with string list",
       "vars": [
@@ -12527,6 +13937,28 @@
         "$expr": "fac.NewCall(\n\t\t\t\t1, \"cel.@block\",\n\t\t\t\tfac.NewList(2, []ast.Expr{\n\t\t\t\t\tfac.NewIdent(3, \"@index100\"),\n\t\t\t\t\tfac.NewIdent(4, \"@index0\"),\n\t\t\t\t}, []int32{}),\n\t\t\t\tfac.NewIdent(10, \"@index0\"),\n\t\t\t)"
       },
       "name": "out of range index"
+    }
+  ],
+  "ext/bindings_test.go/TestValidateBindNestingLimit": [
+    {
+      "expr": "cel.bind(a, 1, a + 1)"
+    },
+    {
+      "expr": "cel.bind(a, 1, cel.bind(b, 2, a + b))"
+    },
+    {
+      "expr": "cel.bind(a, 1, a) + cel.bind(b, 2, b)"
+    },
+    {
+      "expr": "[1, 2, 3].exists(i, cel.bind(a, i, cel.bind(b, a, a + b) \u003e 0))"
+    },
+    {
+      "expr": "cel.bind(a, 1, cel.bind(b, 2, cel.bind(c, 3, a + b + c)))",
+      "iss": "\n\t\t\tERROR: \u003cinput\u003e:1:39: cel.bind exceeds nesting limit\n             | cel.bind(a, 1, cel.bind(b, 2, cel.bind(c, 3, a + b + c)))\n             | ......................................^"
+    },
+    {
+      "expr": "cel.bind(a, 1, cel.bind(b, 2, 1 + cel.bind(c, 3, a + b + c)))",
+      "iss": "\n\t\t\tERROR: \u003cinput\u003e:1:43: cel.bind exceeds nesting limit\n             | cel.bind(a, 1, cel.bind(b, 2, 1 + cel.bind(c, 3, a + b + c)))\n             | ..........................................^"
     }
   ],
   "ext/comprehensions_test.go/TestTwoVarComprehensions": [
@@ -12889,7 +14321,11 @@
     {
       "expr": "x.exists(val, y.exists(key, _, key == val))",
       "in": {
-        "x": [1, 2, 3]
+        "x": [
+          1,
+          2,
+          3
+        ]
       },
       "name": "nested exists unknown inner range",
       "residual": "[1, 2, 3].exists(val, y.exists(key, _, key == val))",
@@ -12960,7 +14396,11 @@
     {
       "expr": "x.exists(val, y.exists(key, _, key == val)) || x[0] == 0 || x[1] == 1 || x[2] == 2",
       "in": {
-        "x": [42, 0, 43],
+        "x": [
+          42,
+          0,
+          43
+        ],
         "y": {
           "1": "hi",
           "2": "hello",
@@ -12986,7 +14426,11 @@
     {
       "expr": "x.exists(val, y.exists(key, _, key == val)) || (x[?0].hasValue() \u0026\u0026 x[?1].hasValue())",
       "in": {
-        "x": [42, 0, 43],
+        "x": [
+          42,
+          0,
+          43
+        ],
         "y": {
           "1": "hi",
           "2": "hello",
@@ -13012,7 +14456,11 @@
     {
       "expr": "x.exists(key, val, y[?key] == optional.of(val))",
       "in": {
-        "x": ["howdy", "hello", "hi"],
+        "x": [
+          "howdy",
+          "hello",
+          "hi"
+        ],
         "y": {
           "0": "hi",
           "1": "hello",
@@ -13038,7 +14486,9 @@
     {
       "expr": "y.exists(key, y[?key] == x[?key])",
       "in": {
-        "x": ["howdy"],
+        "x": [
+          "howdy"
+        ],
         "y": {
           "0": "hello"
         }
@@ -13084,7 +14534,11 @@
     {
       "expr": "cel.bind(z, y[0], x.all(i, val, val == z || optional.of(val) == y[?i]))",
       "in": {
-        "x": ["hi", "hello", "howdy"],
+        "x": [
+          "hi",
+          "hello",
+          "howdy"
+        ],
         "y": {
           "0": "hi",
           "1": "hello",
@@ -13268,6 +14722,157 @@
     },
     {
       "expr": "json.encode({'items': [1, 'two', false]}) == '{\"items\":[1,\"two\",false]}'"
+    }
+  ],
+  "ext/encoders_test.go/TestEncodersCosts": [
+    {
+      "actualCost": 3,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "base64.encode(x) == 'aGVsbG8='",
+      "hints": {
+        "x": 100
+      },
+      "in": {
+        "x": {
+          "$expr": "[]byte(\"hello\")"
+        }
+      },
+      "name": "encode_bytes_v0",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.BytesType)"
+        }
+      ],
+      "version": 0
+    },
+    {
+      "actualCost": 4,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 3, Max: 13}"
+      },
+      "expr": "base64.encode(x) == 'aGVsbG8='",
+      "hints": {
+        "x": 100
+      },
+      "in": {
+        "x": {
+          "$expr": "[]byte(\"hello\")"
+        }
+      },
+      "name": "encode_bytes_v1",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.BytesType)"
+        }
+      ],
+      "version": 1
+    },
+    {
+      "actualCost": 3,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "base64.decode(x) == b'hello'",
+      "hints": {
+        "x": 100
+      },
+      "in": {
+        "x": "aGVsbG8="
+      },
+      "name": "decode_string_v0",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.StringType)"
+        }
+      ],
+      "version": 0
+    },
+    {
+      "actualCost": 4,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 3, Max: 13}"
+      },
+      "expr": "base64.decode(x) == b'hello'",
+      "hints": {
+        "x": 100
+      },
+      "in": {
+        "x": "aGVsbG8="
+      },
+      "name": "decode_string_v1",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.StringType)"
+        }
+      ],
+      "version": 1
+    },
+    {
+      "actualCost": 3,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "base64.encode(b'hello') == 'aGVsbG8='",
+      "name": "encode_bytes_v1_literal",
+      "version": 1
+    },
+    {
+      "actualCost": 3,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "base64.decode('aGVsbG8=') == b'hello'",
+      "name": "decode_string_v1_literal",
+      "version": 1
+    },
+    {
+      "actualCost": 1,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(1)"
+      },
+      "expr": "base64.encode(b'') == ''",
+      "name": "encode_empty_bytes_v1_literal",
+      "version": 1
+    },
+    {
+      "actualCost": 1,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(1)"
+      },
+      "expr": "base64.decode('') == b''",
+      "name": "decode_empty_string_v1_literal",
+      "version": 1
+    },
+    {
+      "actualCost": 3,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "base64.encode(b'\ufffd\ufffd\ufffd') != '////'",
+      "name": "encode_non_utf8_bytes_v1_literal",
+      "version": 1
+    },
+    {
+      "actualCost": 1,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 2, Max: math.MaxUint64}"
+      },
+      "expr": "json.encode(x) == '\"hello\"'",
+      "hints": {
+        "x": 100
+      },
+      "in": {
+        "x": "hello"
+      },
+      "name": "json_encode_dyn",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.DynType)"
+        }
+      ],
+      "version": 1
     }
   ],
   "ext/formatting_test.go/TestLiteralOutput": [
@@ -13998,7 +15603,11 @@
     },
     {
       "dynArgs": {
-        "dynList": [6, 4.2, "a string"]
+        "dynList": [
+          6,
+          4.2,
+          "a string"
+        ]
       },
       "expectedEstimatedCost": {
         "$expr": "checker.CostEstimate{Min: 13, Max: 13}"
@@ -15019,7 +16628,11 @@
     },
     {
       "dynArgs": {
-        "dynList": [6, 4.2, "a string"]
+        "dynList": [
+          6,
+          4.2,
+          "a string"
+        ]
       },
       "expectedEstimatedCost": {
         "$expr": "checker.CostEstimate{Min: 13, Max: 13}"
@@ -15447,7 +17060,16 @@
         "$expr": "checker.FixedCostEstimate(44)"
       },
       "expr": "[[1, 2], 3].flatten(1) == [1, 2, 3]",
-      "name": "list_flatten_depth_one"
+      "name": "list_flatten_depth_one",
+      "version": 3
+    },
+    {
+      "actualCost": 45,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(45)"
+      },
+      "expr": "[[1, 2], 3].flatten(1) == [1, 2, 3]",
+      "name": "list_flatten_depth_one_v4"
     },
     {
       "actualCost": 46,
@@ -15455,7 +17077,16 @@
         "$expr": "checker.FixedCostEstimate(46)"
       },
       "expr": "[[1, 2], 3].flatten(2) == [1, 2, 3]",
-      "name": "list_flatten_depth_two"
+      "name": "list_flatten_depth_two",
+      "version": 3
+    },
+    {
+      "actualCost": 45,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(45)"
+      },
+      "expr": "[[1, 2], 3].flatten(2) == [1, 2, 3]",
+      "name": "list_flatten_depth_two_v4"
     },
     {
       "actualCost": 48,
@@ -15463,7 +17094,16 @@
         "$expr": "checker.FixedCostEstimate(48)"
       },
       "expr": "[[1, 2], 3].flatten(3) == [1, 2, 3]",
-      "name": "list_flatten_depth_three"
+      "name": "list_flatten_depth_three",
+      "version": 3
+    },
+    {
+      "actualCost": 45,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(45)"
+      },
+      "expr": "[[1, 2], 3].flatten(3) == [1, 2, 3]",
+      "name": "list_flatten_depth_three_v4"
     },
     {
       "actualCost": 45,
@@ -15471,7 +17111,16 @@
         "$expr": "checker.FixedCostEstimate(45)"
       },
       "expr": "[[1], 2, 3].flatten() == [1, 2, 3]",
-      "name": "list_flatten"
+      "name": "list_flatten",
+      "version": 3
+    },
+    {
+      "actualCost": 45,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(45)"
+      },
+      "expr": "[[1], 2, 3].flatten() == [1, 2, 3]",
+      "name": "list_flatten_v4"
     },
     {
       "actualCost": 26,
@@ -15483,9 +17132,67 @@
         "x": 3
       },
       "in": {
-        "x": [[1], 2, 3]
+        "x": [
+          [
+            1
+          ],
+          2,
+          3
+        ]
       },
       "name": "list_flatten_var",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.DynType))"
+        }
+      ],
+      "version": 3
+    },
+    {
+      "actualCost": 26,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 23, Max: 18446744073709551615}"
+      },
+      "expr": "x.flatten() == [1, 2, 3]",
+      "hints": {
+        "x": 3
+      },
+      "in": {
+        "x": [
+          [
+            1
+          ],
+          2,
+          3
+        ]
+      },
+      "name": "list_flatten_var_v4_no_item_hint",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.DynType))"
+        }
+      ]
+    },
+    {
+      "actualCost": 26,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 23, Max: 38}"
+      },
+      "expr": "x.flatten() == [1, 2, 3]",
+      "hints": {
+        "x": 3,
+        "x.@items": 5
+      },
+      "in": {
+        "x": [
+          [
+            1
+          ],
+          2,
+          3
+        ]
+      },
+      "name": "list_flatten_var_v4_with_item_hint",
       "vars": [
         {
           "$expr": "cel.Variable(\"x\", cel.ListType(cel.DynType))"
@@ -15505,6 +17212,26 @@
         "x": 5
       },
       "name": "list_flatten_depth_var",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.IntType)"
+        }
+      ],
+      "version": 3
+    },
+    {
+      "actualCost": 46,
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(46)"
+      },
+      "expr": "[[1, 2], 3].flatten(x) == [1, 2, 3]",
+      "hints": {
+        "x": 10
+      },
+      "in": {
+        "x": 5
+      },
+      "name": "list_flatten_depth_var_v4",
       "vars": [
         {
           "$expr": "cel.Variable(\"x\", cel.IntType)"
@@ -15534,10 +17261,14 @@
       },
       "expr": "x.distinct() == ['hello']",
       "hints": {
-        "x": 3
+        "x": 3,
+        "x.@items": 5
       },
       "in": {
-        "x": ["hello", "hello"]
+        "x": [
+          "hello",
+          "hello"
+        ]
       },
       "name": "list_distinct_var",
       "vars": [
@@ -15578,7 +17309,15 @@
       "in": {
         "x": 1,
         "y": 3,
-        "z": [1, 2, 3, 4, 5, 6, 7]
+        "z": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
       },
       "name": "list_slice_var_list",
       "vars": [
@@ -15605,7 +17344,15 @@
       "in": {
         "x": 1,
         "y": 3,
-        "z": [1, 2, 3, 4, 5, 6, 7]
+        "z": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
       },
       "name": "list_slice_var_list_var_range",
       "vars": [
@@ -15646,7 +17393,11 @@
         "x": 5
       },
       "in": {
-        "x": [3, 2, 1]
+        "x": [
+          3,
+          2,
+          1
+        ]
       },
       "name": "list_var_reverse",
       "vars": [
@@ -15673,7 +17424,11 @@
         "x": 5
       },
       "in": {
-        "x": [3, 2, 1]
+        "x": [
+          3,
+          2,
+          1
+        ]
       },
       "name": "list_sort_var",
       "vars": [
@@ -15685,14 +17440,22 @@
     {
       "actualCost": 98,
       "estimatedCost": {
-        "$expr": "checker.CostEstimate{Min: 23, Max: 233}"
+        "$expr": "checker.CostEstimate{Min: 23, Max: 223}"
       },
       "expr": "x.sort() == [\"a\", \"a\", \"b\", \"b\", \"c\", \"c\"]",
       "hints": {
-        "x": 10
+        "x": 10,
+        "x.@items": 1
       },
       "in": {
-        "x": ["b", "a", "b", "a", "c", "c"]
+        "x": [
+          "b",
+          "a",
+          "b",
+          "a",
+          "c",
+          "c"
+        ]
       },
       "name": "list_sort_var_string",
       "vars": [
@@ -15757,6 +17520,323 @@
     {
       "actualCost": 196,
       "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 136, Max: 196}"
+      },
+      "expr": "x.sortBy(m, m['x']) == [{'x': 'a'}, {'x': 'b'}, {'x': 'c'}]",
+      "hints": {
+        "x": 3,
+        "x.@items": 1
+      },
+      "in": {
+        "x": [
+          {
+            "x": "b"
+          },
+          {
+            "x": "c"
+          },
+          {
+            "x": "a"
+          }
+        ]
+      },
+      "name": "list_sortBy_var_string",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.MapType(cel.StringType, cel.StringType)))"
+        }
+      ]
+    },
+    {
+      "actualCost": 216,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 16, Max: 216}"
+      },
+      "expr": "(x.sort() + y).size() == 20",
+      "hints": {
+        "x": 10,
+        "y": 10
+      },
+      "in": {
+        "x": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "y": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ]
+      },
+      "name": "list_sort_concat_cost",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.IntType))"
+        },
+        {
+          "$expr": "cel.Variable(\"y\", cel.ListType(cel.IntType))"
+        }
+      ]
+    },
+    {
+      "actualCost": 226,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 16, Max: 216}"
+      },
+      "expr": "(x.distinct() + y).size() == 20",
+      "hints": {
+        "x": 10,
+        "x.@items": 1,
+        "y": 10
+      },
+      "in": {
+        "x": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "y": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ]
+      },
+      "name": "list_distinct_concat_cost_with_item_hint",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.StringType))"
+        },
+        {
+          "$expr": "cel.Variable(\"y\", cel.ListType(cel.StringType))"
+        }
+      ]
+    },
+    {
+      "actualCost": 226,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 16, Max: 18446744073709551615}"
+      },
+      "expr": "(x.distinct() + y).size() == 20",
+      "hints": {
+        "x": 10,
+        "y": 10
+      },
+      "in": {
+        "x": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "y": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ]
+      },
+      "name": "list_distinct_concat_cost",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.StringType))"
+        },
+        {
+          "$expr": "cel.Variable(\"y\", cel.ListType(cel.StringType))"
+        }
+      ]
+    },
+    {
+      "actualCost": 31,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 23, Max: 42}"
+      },
+      "expr": "x.distinct() == ['hello']",
+      "hints": {
+        "x": 3
+      },
+      "in": {
+        "x": [
+          "hello",
+          "hello"
+        ]
+      },
+      "name": "list_distinct_var_v3",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.StringType))"
+        }
+      ],
+      "version": 3
+    },
+    {
+      "actualCost": 31,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 23, Max: 18446744073709551615}"
+      },
+      "expr": "x.distinct() == ['hello']",
+      "hints": {
+        "x": 3
+      },
+      "in": {
+        "x": [
+          "hello",
+          "hello"
+        ]
+      },
+      "name": "list_distinct_var_v4_no_item_hint",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.StringType))"
+        }
+      ]
+    },
+    {
+      "actualCost": 31,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 23, Max: 41}"
+      },
+      "expr": "x.distinct() == ['hello']",
+      "hints": {
+        "x": 3,
+        "x.@items": 5
+      },
+      "in": {
+        "x": [
+          "hello",
+          "hello"
+        ]
+      },
+      "name": "list_distinct_var_v4_with_item_hint",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.StringType))"
+        }
+      ]
+    },
+    {
+      "actualCost": 98,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 23, Max: 233}"
+      },
+      "expr": "x.sort() == [\"a\", \"a\", \"b\", \"b\", \"c\", \"c\"]",
+      "hints": {
+        "x": 10
+      },
+      "in": {
+        "x": [
+          "b",
+          "a",
+          "b",
+          "a",
+          "c",
+          "c"
+        ]
+      },
+      "name": "list_sort_var_string_v3",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.StringType))"
+        }
+      ],
+      "version": 3
+    },
+    {
+      "actualCost": 98,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 23, Max: 18446744073709551615}"
+      },
+      "expr": "x.sort() == [\"a\", \"a\", \"b\", \"b\", \"c\", \"c\"]",
+      "hints": {
+        "x": 10
+      },
+      "in": {
+        "x": [
+          "b",
+          "a",
+          "b",
+          "a",
+          "c",
+          "c"
+        ]
+      },
+      "name": "list_sort_var_string_v4_no_item_hint",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.StringType))"
+        }
+      ]
+    },
+    {
+      "actualCost": 98,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 23, Max: 223}"
+      },
+      "expr": "x.sort() == [\"a\", \"a\", \"b\", \"b\", \"c\", \"c\"]",
+      "hints": {
+        "x": 10,
+        "x.@items": 1
+      },
+      "in": {
+        "x": [
+          "b",
+          "a",
+          "b",
+          "a",
+          "c",
+          "c"
+        ]
+      },
+      "name": "list_sort_var_string_v4_with_item_hint",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.StringType))"
+        }
+      ]
+    },
+    {
+      "actualCost": 196,
+      "estimatedCost": {
         "$expr": "checker.CostEstimate{Min: 136, Max: 197}"
       },
       "expr": "x.sortBy(m, m['x']) == [{'x': 'a'}, {'x': 'b'}, {'x': 'c'}]",
@@ -15776,7 +17856,67 @@
           }
         ]
       },
-      "name": "list_sortBy_var_string",
+      "name": "list_sortBy_var_string_v3",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.MapType(cel.StringType, cel.StringType)))"
+        }
+      ],
+      "version": 3
+    },
+    {
+      "actualCost": 196,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 136, Max: 18446744073709551615}"
+      },
+      "expr": "x.sortBy(m, m['x']) == [{'x': 'a'}, {'x': 'b'}, {'x': 'c'}]",
+      "hints": {
+        "x": 3
+      },
+      "in": {
+        "x": [
+          {
+            "x": "b"
+          },
+          {
+            "x": "c"
+          },
+          {
+            "x": "a"
+          }
+        ]
+      },
+      "name": "list_sortBy_var_string_v4_no_item_hint",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.MapType(cel.StringType, cel.StringType)))"
+        }
+      ]
+    },
+    {
+      "actualCost": 196,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 136, Max: 196}"
+      },
+      "expr": "x.sortBy(m, m['x']) == [{'x': 'a'}, {'x': 'b'}, {'x': 'c'}]",
+      "hints": {
+        "x": 3,
+        "x.@items": 1
+      },
+      "in": {
+        "x": [
+          {
+            "x": "b"
+          },
+          {
+            "x": "c"
+          },
+          {
+            "x": "a"
+          }
+        ]
+      },
+      "name": "list_sortBy_var_string_v4_with_item_hint",
       "vars": [
         {
           "$expr": "cel.Variable(\"x\", cel.ListType(cel.MapType(cel.StringType, cel.StringType)))"
@@ -15907,7 +18047,11 @@
       "expr": "math.least(numbers) == dyn(a)",
       "in": {
         "a": -21,
-        "numbers": [-21.0, -10.5, 1.0]
+        "numbers": [
+          -21.0,
+          -10.5,
+          1.0
+        ]
       }
     },
     {
@@ -15990,7 +18134,11 @@
       "expr": "math.greatest(numbers) == dyn(a)",
       "in": {
         "a": 1,
-        "numbers": [-21.0, -10.5, 1.0]
+        "numbers": [
+          -21.0,
+          -10.5,
+          1.0
+        ]
       }
     },
     {
@@ -16189,6 +18337,108 @@
       "expr": "math.isNaN(math.sqrt(-15.34))"
     }
   ],
+  "ext/math_test.go/TestMathCosts": [
+    {
+      "actualCost": 3,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 3, Max: 3}"
+      },
+      "expr": "math.greatest(x) == 5",
+      "hints": {
+        "x": 10
+      },
+      "in": {
+        "x": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "name": "math_greatest_list_v2",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.IntType))"
+        }
+      ],
+      "version": 2
+    },
+    {
+      "actualCost": 8,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 3, Max: 13}"
+      },
+      "expr": "math.greatest(x) == 5",
+      "hints": {
+        "x": 10
+      },
+      "in": {
+        "x": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "name": "math_greatest_list_v3",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.IntType))"
+        }
+      ],
+      "version": 3
+    },
+    {
+      "actualCost": 3,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 3, Max: 3}"
+      },
+      "expr": "math.least(x) == -3.0",
+      "hints": {
+        "x": 100
+      },
+      "in": {
+        "x": [
+          -1.0,
+          -2.0,
+          -3.0
+        ]
+      },
+      "name": "math_least_list_v2",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.DoubleType))"
+        }
+      ],
+      "version": 2
+    },
+    {
+      "actualCost": 6,
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 3, Max: 103}"
+      },
+      "expr": "math.least(x) == -3.0",
+      "hints": {
+        "x": 100
+      },
+      "in": {
+        "x": [
+          -1.0,
+          -2.0,
+          -3.0
+        ]
+      },
+      "name": "math_least_list_v3",
+      "vars": [
+        {
+          "$expr": "cel.Variable(\"x\", cel.ListType(cel.DoubleType))"
+        }
+      ],
+      "version": 3
+    }
+  ],
   "ext/math_test.go/TestMathNonMatch": [
     {
       "expr": "100.least(42) == 42"
@@ -16225,21 +18475,30 @@
       "err": "no such overload: math.@min",
       "expr": "math.least(a)",
       "in": {
-        "a": ["hello"]
+        "a": [
+          "hello"
+        ]
       }
     },
     {
       "err": "no such overload: math.@min",
       "expr": "math.least(a)",
       "in": {
-        "a": [[], []]
+        "a": [
+          [],
+          []
+        ]
       }
     },
     {
       "err": "no such overload: math.@min",
       "expr": "math.least(a)",
       "in": {
-        "a": [1, true, 2]
+        "a": [
+          1,
+          true,
+          2
+        ]
       }
     },
     {
@@ -16273,14 +18532,20 @@
       "err": "no such overload: math.@max",
       "expr": "math.greatest(a)",
       "in": {
-        "a": [true]
+        "a": [
+          true
+        ]
       }
     },
     {
       "err": "no such overload: math.@max",
       "expr": "math.greatest(a)",
       "in": {
-        "a": [1, true, 2]
+        "a": [
+          1,
+          true,
+          2
+        ]
       }
     },
     {
@@ -16494,11 +18759,17 @@
   ],
   "ext/native_test.go/TestNativeFindStructFieldNames": [
     {
-      "fields": ["NestedListVal", "NestedMapVal", "custom_name"],
+      "fields": [
+        "NestedListVal",
+        "NestedMapVal",
+        "custom_name"
+      ],
       "typeName": "ext.TestNestedType"
     },
     {
-      "fields": ["bb"],
+      "fields": [
+        "bb"
+      ],
       "typeName": "google.expr.proto3.test.TestAllTypes.NestedMessage"
     },
     {
@@ -16521,9 +18792,64 @@
       "expr": "test.embedded.custom_name == \"name\"",
       "in": {
         "test": {
-          "$expr": "\u0026TestEmbeddedTypes{TestNestedType{NestedCustomName: \"name\"}}"
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tTestNestedType: TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t\tSkipped:        \"should-be-hidden\",\n\t\t\t\t}"
         }
+      },
+      "out": true
+    },
+    {
+      "expr": "dyn(test.embedded)[\"-\"] == \"error\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tTestNestedType: TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t\tSkipped:        \"should-be-hidden\",\n\t\t\t\t}"
+        }
+      },
+      "out": {
+        "$expr": "errors.New(\"no such field: -\")"
       }
+    },
+    {
+      "expr": "test.embedded == ext.TestNestedType{custom_name: \"name\"}",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tTestNestedType: TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t\tSkipped:        \"should-be-hidden\",\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "test.Name == \"name\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tCustom: Custom{Name: \"name\"},\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    }
+  ],
+  "ext/native_test.go/TestNativeStructEmbeddedPointer": [
+    {
+      "expr": "!has(test.custom_name) \u0026\u0026 test.custom_name == \"\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedPointerTypes{\n\t\t\t\t\tTestNestedType: nil,\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "has(test.custom_name) \u0026\u0026 test.custom_name == \"name\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedPointerTypes{\n\t\t\t\t\tTestNestedType: \u0026TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "ext.TestEmbeddedPointerTypes{custom_name: \"name\"}.custom_name == \"name\"",
+      "in": null,
+      "out": true
     }
   ],
   "ext/native_test.go/TestNativeTypeConvertToType": [
@@ -16710,11 +19036,19 @@
       }
     },
     {
-      "in": [1, 2, 3],
+      "in": [
+        1,
+        2,
+        3
+      ],
       "inType": {
         "$expr": "cel.ListType(cel.IntType)"
       },
-      "out": [1, 2, 3]
+      "out": [
+        1,
+        2,
+        3
+      ]
     },
     {
       "in": {
@@ -16723,14 +19057,26 @@
       "inType": {
         "$expr": "cel.BytesType"
       },
-      "out": [1, 2, 3]
+      "out": [
+        1,
+        2,
+        3
+      ]
     },
     {
-      "in": [1, 2, 3],
+      "in": [
+        1,
+        2,
+        3
+      ],
       "inType": {
         "$expr": "cel.BytesType"
       },
-      "out": [1, 2, 3]
+      "out": [
+        1,
+        2,
+        3
+      ]
     }
   ],
   "ext/native_test.go/TestNativeTypesErrors": [
@@ -16899,6 +19245,240 @@
       "name": "custom5"
     }
   ],
+  "ext/network_test.go/TestIPCost": [
+    {
+      "expectEsimatedCost": {
+        "$expr": "func(c checker.CostEstimate) checker.CostEstimate { return c }"
+      },
+      "expectRuntimeCost": {
+        "$expr": "func(c uint64) uint64 { return c }"
+      },
+      "ops": [
+        ""
+      ]
+    },
+    {
+      "expectEsimatedCost": {
+        "$expr": "func(c checker.CostEstimate) checker.CostEstimate {\n\t\t\t\treturn checker.CostEstimate{Min: c.Min + 1, Max: c.Max + 1}\n\t\t\t}"
+      },
+      "expectRuntimeCost": {
+        "$expr": "func(c uint64) uint64 { return c + 1 }"
+      },
+      "ops": [
+        ".family()",
+        ".isUnspecified()",
+        ".isLoopback()",
+        ".isLinkLocalMulticast()",
+        ".isLinkLocalUnicast()",
+        ".isGlobalUnicast()"
+      ]
+    },
+    {
+      "expectEsimatedCost": {
+        "$expr": "func(c checker.CostEstimate) checker.CostEstimate {\n\t\t\t\treturn c.Add(ipv4BaseEstimatedCost).Add(checker.CostEstimate{Min: 1, Max: 2})\n\t\t\t}"
+      },
+      "expectRuntimeCost": {
+        "$expr": "func(c uint64) uint64 { return c + ipv4BaseRuntimeCost + 1 }"
+      },
+      "ops": [
+        " == ip('192.168.0.1')"
+      ]
+    }
+  ],
+  "ext/network_test.go/TestNetworkCost": [
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(2)"
+      },
+      "expr": "ip('192.168.0.1')",
+      "name": "ip parse",
+      "runtimeCost": 2
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(2)"
+      },
+      "expr": "isIP('192.168.0.1')",
+      "name": "isIP parse",
+      "runtimeCost": 2
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(2)"
+      },
+      "expr": "cidr('192.168.0.0/16')",
+      "name": "cidr parse",
+      "runtimeCost": 2
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(2)"
+      },
+      "expr": "isCIDR('192.168.0.0/16')",
+      "name": "isCIDR parse",
+      "runtimeCost": 2
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "ip.isCanonical('192.168.0.1')",
+      "name": "ip.isCanonical",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 5, Max: 8}"
+      },
+      "expr": "cidr('192.168.0.0/16').containsIP(ip('192.169.0.1'))",
+      "name": "cidr containsIP ip",
+      "runtimeCost": 5
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 4, Max: 7}"
+      },
+      "expr": "cidr('192.168.0.0/16').containsIP('192.0.0.1')",
+      "name": "cidr containsIP string",
+      "runtimeCost": 4
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 7, Max: 11}"
+      },
+      "expr": "cidr('192.168.0.0/16').containsCIDR(cidr('192.0.0.0/30'))",
+      "name": "cidr containsCIDR cidr",
+      "runtimeCost": 7
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.CostEstimate{Min: 7, Max: 11}"
+      },
+      "expr": "cidr('192.168.0.0/16').containsCIDR('192.0.0.0/30')",
+      "name": "cidr containsCIDR string",
+      "runtimeCost": 7
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "ip('192.168.0.1').family()",
+      "name": "ip family",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "ip('192.168.0.1').isUnspecified()",
+      "name": "ip unspecified",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "ip('192.168.0.1').isLoopback()",
+      "name": "ip isLoopback",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "ip('192.168.0.1').isLinkLocalMulticast()",
+      "name": "ip isLinkLocalMulticast",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "ip('192.168.0.1').isLinkLocalUnicast()",
+      "name": "ip isLinkLocalUnicast",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "ip('192.168.0.1').isGlobalUnicast()",
+      "name": "ip isGlobalUnicast",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(5)"
+      },
+      "expr": "ip('2001:db8:3333:4444:5555:6666:7777:8888').family()",
+      "name": "ipv6 family",
+      "runtimeCost": 5
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(5)"
+      },
+      "expr": "ip('2001:db8:3333:4444:5555:6666:7777:8888').isUnspecified()",
+      "name": "ipv6 unspecified",
+      "runtimeCost": 5
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(5)"
+      },
+      "expr": "ip('2001:db8:3333:4444:5555:6666:7777:8888').isLoopback()",
+      "name": "ipv6 isLoopback",
+      "runtimeCost": 5
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(5)"
+      },
+      "expr": "ip('2001:db8:3333:4444:5555:6666:7777:8888').isLinkLocalMulticast()",
+      "name": "ipv6 isLinkLocalMulticast",
+      "runtimeCost": 5
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(5)"
+      },
+      "expr": "ip('2001:db8:3333:4444:5555:6666:7777:8888').isLinkLocalUnicast()",
+      "name": "ipv6 isLinkLocalUnicast",
+      "runtimeCost": 5
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(5)"
+      },
+      "expr": "ip('2001:db8:3333:4444:5555:6666:7777:8888').isGlobalUnicast()",
+      "name": "ipv6 isGlobalUnicast",
+      "runtimeCost": 5
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "cidr('2001:db8::/32').ip()",
+      "name": "cidr ip extraction",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "cidr('2001:db8::/32').prefixLength()",
+      "name": "cidr prefixLength",
+      "runtimeCost": 3
+    },
+    {
+      "estimatedCost": {
+        "$expr": "checker.FixedCostEstimate(3)"
+      },
+      "expr": "cidr('2001:db8::/32').masked()",
+      "name": "cidr masked",
+      "runtimeCost": 3
+    }
+  ],
   "ext/network_test.go/TestNetwork_CompileErrors": [
     {
       "errContains": "invalid ip argument",
@@ -16924,6 +19504,21 @@
       "errContains": "",
       "expr": "cidr('10.0.0.0/8')",
       "name": "cidr constructor valid literal"
+    },
+    {
+      "errContains": "found no matching overload for 'isIP'",
+      "expr": "isIP(cidr('192.168.0.0/24'))",
+      "name": "passing cidr into isIP returns compile error"
+    },
+    {
+      "errContains": "invalid cidr argument",
+      "expr": "cidr('192.168.0.0/')",
+      "name": "cidr parse invalid ipv4"
+    },
+    {
+      "errContains": "invalid cidr argument",
+      "expr": "cidr('2001:db8::/')",
+      "name": "cidr parse invalid ipv6"
     }
   ],
   "ext/network_test.go/TestNetwork_RuntimeErrors": [
@@ -16936,6 +19531,16 @@
       "errContains": "parse error",
       "expr": "cidr('10.0.0.0/8').containsCIDR('not-a-cidr')",
       "name": "containsCIDR string overload invalid"
+    },
+    {
+      "errContains": "parse error",
+      "expr": "ip.isCanonical('127.0.0.1.0')",
+      "name": "ip.isCanonical invalid ipv4"
+    },
+    {
+      "errContains": "parse error",
+      "expr": "ip.isCanonical('2001:db8:::68')",
+      "name": "ip.isCanonical invalid ipv6"
     }
   ],
   "ext/network_test.go/TestNetwork_Success": [
@@ -17174,6 +19779,148 @@
       "expr": "cidr('2001:db8::1/32').isMask()",
       "name": "isMask IPv6 false (host bits)",
       "out": false
+    },
+    {
+      "expr": "ip('127.0.0.1').isUnspecified()",
+      "name": "ipv4 isUnspecified false",
+      "out": false
+    },
+    {
+      "expr": "ip('1.2.3.4').isLoopback()",
+      "name": "ipv4 isLoopback false",
+      "out": false
+    },
+    {
+      "expr": "ip('224.0.0.1').isLinkLocalMulticast()",
+      "name": "ipv4 isLinkLocalMulticast true",
+      "out": true
+    },
+    {
+      "expr": "ip('224.0.1.1').isLinkLocalMulticast()",
+      "name": "ipv4 isLinkLocalMulticast false",
+      "out": false
+    },
+    {
+      "expr": "ip('169.254.169.254').isLinkLocalUnicast()",
+      "name": "ipv4 isLinkLocalUnicast true",
+      "out": true
+    },
+    {
+      "expr": "ip('192.168.0.1').isLinkLocalUnicast()",
+      "name": "ipv4 isLinkLocalUnicast false",
+      "out": false
+    },
+    {
+      "expr": "ip('255.255.255.255').isGlobalUnicast()",
+      "name": "ipv4 isGlobalUnicast false",
+      "out": false
+    },
+    {
+      "expr": "ip('::1').isUnspecified()",
+      "name": "ipv6 isUnspecified false",
+      "out": false
+    },
+    {
+      "expr": "ip('2001:db8::abcd').isLoopback()",
+      "name": "ipv6 isLoopback false",
+      "out": false
+    },
+    {
+      "expr": "ip('fd00::1').isLinkLocalMulticast()",
+      "name": "ipv6 isLinkLocalMulticast false",
+      "out": false
+    },
+    {
+      "expr": "ip('fe80::1').isLinkLocalUnicast()",
+      "name": "ipv6 isLinkLocalUnicast true",
+      "out": true
+    },
+    {
+      "expr": "ip('fd80::1').isLinkLocalUnicast()",
+      "name": "ipv6 isLinkLocalUnicast false",
+      "out": false
+    },
+    {
+      "expr": "ip('2001:db8::abcd').isGlobalUnicast()",
+      "name": "ipv6 isGlobalUnicast true",
+      "out": true
+    },
+    {
+      "expr": "ip('ff00::1').isGlobalUnicast()",
+      "name": "ipv6 isGlobalUnicast false",
+      "out": false
+    },
+    {
+      "expr": "type(ip('192.168.0.1')) == net.IP",
+      "name": "type of IP is net.IP",
+      "out": true
+    },
+    {
+      "expr": "cidr('2001:db8::/32').containsIP(ip('2001:db8::1'))",
+      "name": "contains IP ipv6 (IP)",
+      "out": true
+    },
+    {
+      "expr": "cidr('2001:db8::/32').containsIP(ip('2001:dc8::1'))",
+      "name": "does not contain IP ipv6 (IP)",
+      "out": false
+    },
+    {
+      "expr": "cidr('2001:db8::/32').containsIP('2001:db8::1')",
+      "name": "contains IP ipv6 (string)",
+      "out": true
+    },
+    {
+      "expr": "cidr('2001:db8::/32').containsIP('2001:dc8::1')",
+      "name": "does not contain IP ipv6 (string)",
+      "out": false
+    },
+    {
+      "expr": "cidr('2001:db8::/32').containsCIDR(cidr('2001:db8::/33'))",
+      "name": "contains CIDR ipv6 (CIDR)",
+      "out": true
+    },
+    {
+      "expr": "cidr('2001:db8::/32').containsCIDR(cidr('2001:db8::/31'))",
+      "name": "does not contain CIDR ipv6 (CIDR)",
+      "out": false
+    },
+    {
+      "expr": "cidr('2001:db8::/32').containsCIDR('2001:db8::/33')",
+      "name": "contains CIDR ipv6 (string)",
+      "out": true
+    },
+    {
+      "expr": "cidr('2001:db8::/32').containsCIDR('2001:db8::/31')",
+      "name": "does not contain CIDR ipv6 (string)",
+      "out": false
+    },
+    {
+      "expr": "cidr('2001:db8::/32').ip() == ip('2001:db8::')",
+      "name": "returns IP ipv6",
+      "out": true
+    },
+    {
+      "expr": "cidr('2001:db8::/32').masked() == cidr('2001:db8::/32')",
+      "name": "masks masked ipv6",
+      "out": true
+    },
+    {
+      "expr": "cidr('2001:db8:1::/32').masked() == cidr('2001:db8::/32')",
+      "name": "masks unmasked ipv6",
+      "out": true
+    },
+    {
+      "expr": "cidr('2001:db8::/32').prefixLength()",
+      "name": "returns prefix length ipv6",
+      "out": {
+        "$expr": "int64(32)"
+      }
+    },
+    {
+      "expr": "type(cidr('192.168.0.0/24')) == net.CIDR",
+      "name": "type of CIDR is net.CIDR",
+      "out": true
     }
   ],
   "ext/protos_test.go/TestProtos": [
@@ -17576,6 +20323,28 @@
       ]
     }
   ],
+  "ext/regex_test.go/TestRegexProgramSizeLimit": [
+    {
+      "expr": "'a1'.matches(pat)",
+      "name": "matches"
+    },
+    {
+      "expr": "regex.extract('a1', pat)",
+      "name": "regex.extract"
+    },
+    {
+      "expr": "regex.extractAll('a1', pat)",
+      "name": "regex.extractAll"
+    },
+    {
+      "expr": "regex.replace('a1', pat, 'x')",
+      "name": "regex.replace 3-arg"
+    },
+    {
+      "expr": "regex.replace('a1', pat, 'x', 1)",
+      "name": "regex.replace 4-arg"
+    }
+  ],
   "ext/regex_test.go/TestRegexRuntimeErrors": [
     {
       "err": "error parsing regexp: missing closing ): `(`",
@@ -17651,7 +20420,13 @@
         "x": 10
       },
       "in": {
-        "x": [5, 4, 3, 2, 1]
+        "x": [
+          5,
+          4,
+          3,
+          2,
+          1
+        ]
       },
       "vars": [
         {
@@ -17666,7 +20441,13 @@
       },
       "expr": "sets.contains(x, [1, 1, 1, 1, 1])",
       "in": {
-        "x": [5, 4, 3, 2, 1]
+        "x": [
+          5,
+          4,
+          3,
+          2,
+          1
+        ]
       },
       "vars": [
         {
@@ -18143,7 +20924,10 @@
       "version": 0
     },
     {
-      "introducedFunctions": ["strings.quote", "format"],
+      "introducedFunctions": [
+        "strings.quote",
+        "format"
+      ],
       "version": 1
     },
     {
@@ -18151,7 +20935,9 @@
       "version": 2
     },
     {
-      "introducedFunctions": ["reverse"],
+      "introducedFunctions": [
+        "reverse"
+      ],
       "version": 3
     }
   ],
@@ -18912,6 +21698,212 @@
       "version": 3
     }
   ],
+  "interpreter/activation_test.go/TestIsLocalVariableNested": [
+    {
+      "name": "inner accu",
+      "varName": "accu2",
+      "wantLocal": true
+    },
+    {
+      "name": "inner iter",
+      "varName": "iter2",
+      "wantLocal": true
+    },
+    {
+      "name": "outer accu",
+      "varName": "accu1",
+      "wantLocal": true
+    },
+    {
+      "name": "outer iter",
+      "varName": "iter1",
+      "wantLocal": true
+    },
+    {
+      "name": "outer iter2",
+      "varName": "iter1_2",
+      "wantLocal": true
+    },
+    {
+      "name": "global var",
+      "varName": "x",
+      "wantLocal": false
+    }
+  ],
+  "interpreter/async_test.go/TestAsyncCallStateMatches": [
+    {
+      "name": "NaN vs NaN",
+      "other": {
+        "$expr": "s2"
+      },
+      "state": {
+        "$expr": "s1"
+      },
+      "want": true
+    },
+    {
+      "name": "NaN vs non-NaN",
+      "other": {
+        "$expr": "s3"
+      },
+      "state": {
+        "$expr": "s1"
+      },
+      "want": false
+    },
+    {
+      "name": "non-NaN vs NaN",
+      "other": {
+        "$expr": "s1"
+      },
+      "state": {
+        "$expr": "s3"
+      },
+      "want": false
+    }
+  ],
+  "interpreter/async_test.go/TestHashCall": [
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.String(\"a\")}}"
+      },
+      "name": "node id 1 with string arg a",
+      "wantHash": 13175600815575489707
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.String(\"b\")}}"
+      },
+      "name": "node id 1 with string arg b",
+      "wantHash": 13172731090226426672
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Bool(true)}}"
+      },
+      "name": "node id 1 with bool arg true",
+      "wantHash": 5368363472817480916
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Bool(false)}}"
+      },
+      "name": "node id 1 with bool arg false",
+      "wantHash": 5369320047933835261
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, nil}"
+      },
+      "name": "node id 1 with nil args",
+      "wantHash": 16571860343215109013
+    },
+    {
+      "input": {
+        "$expr": "hashInput{2, overloads.ContainsString, nil}"
+      },
+      "name": "node id 2 with nil args",
+      "wantHash": 7332562693386296450
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.MatchesString, nil}"
+      },
+      "name": "node id 1 with overload matches_string",
+      "wantHash": 6112375249444952169
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.StartsWithString, nil}"
+      },
+      "name": "node id 1 with overload starts_with_string",
+      "wantHash": 17791913581187873402
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Int(1)}}"
+      },
+      "name": "node id 1 with int arg 1",
+      "wantHash": 6250879603390619476
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Uint(1)}}"
+      },
+      "name": "node id 1 with uint arg 1",
+      "wantHash": 6250879603390619476
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Double(1.0)}}"
+      },
+      "name": "node id 1 with double arg 1.0",
+      "wantHash": 6250879603390619476
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Int(2)}}"
+      },
+      "name": "node id 1 with int arg 2",
+      "wantHash": 2269972419901218387
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Double(1.5)}}"
+      },
+      "name": "node id 1 with double arg 1.5",
+      "wantHash": 1181031487041842476
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Double(9.9)}}"
+      },
+      "name": "node id 1 with double arg 9.9",
+      "wantHash": 6763353195175059609
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.String(\"a\"), types.String(\"bc\")}}"
+      },
+      "name": "separation a, bc",
+      "wantHash": 16286284200968323077
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.String(\"ab\"), types.String(\"c\")}}"
+      },
+      "name": "separation ab, c",
+      "wantHash": 14974838604657976619
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Double(math.NaN())}}"
+      },
+      "name": "node id 1 with double arg NaN",
+      "wantHash": 4464412628189895594
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.String(\"NaN\")}}"
+      },
+      "name": "node id 1 with string arg NaN",
+      "wantHash": 17422508148545277865
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Double(0.0)}}"
+      },
+      "name": "node id 1 with double arg 0.0",
+      "wantHash": 2331193227347896467
+    },
+    {
+      "input": {
+        "$expr": "hashInput{1, overloads.ContainsString, []ref.Val{types.Double(math.Copysign(0.0, -1.0))}}"
+      },
+      "name": "node id 1 with double arg -0.0",
+      "wantHash": 2331193227347896467
+    }
+  ],
   "interpreter/attribute_patterns_test.go/TestAttributePattern_UnknownResolution": [
     {
       "matches": [
@@ -19133,6 +22125,164 @@
       }
     }
   ],
+  "interpreter/attribute_patterns_test.go/TestQualifierValueEquals": [
+    {
+      "cases": [
+        {
+          "$expr": "{input: \"foo\", want: true}"
+        },
+        {
+          "$expr": "{input: \"bar\", want: false}"
+        },
+        {
+          "$expr": "{input: 123, want: false}"
+        },
+        {
+          "$expr": "{input: true, want: false}"
+        },
+        {
+          "$expr": "{input: nil, want: false}"
+        }
+      ],
+      "name": "fieldQualifier",
+      "qualifier": {
+        "$expr": "\u0026fieldQualifier{Name: \"foo\"}"
+      }
+    },
+    {
+      "cases": [
+        {
+          "$expr": "{input: \"hello\", want: true}"
+        },
+        {
+          "$expr": "{input: \"world\", want: false}"
+        },
+        {
+          "$expr": "{input: 123, want: false}"
+        },
+        {
+          "$expr": "{input: nil, want: false}"
+        }
+      ],
+      "name": "stringQualifier",
+      "qualifier": {
+        "$expr": "\u0026stringQualifier{value: \"hello\"}"
+      }
+    },
+    {
+      "cases": [
+        {
+          "$expr": "{input: true, want: true}"
+        },
+        {
+          "$expr": "{input: false, want: false}"
+        },
+        {
+          "$expr": "{input: \"true\", want: false}"
+        },
+        {
+          "$expr": "{input: 1, want: false}"
+        },
+        {
+          "$expr": "{input: nil, want: false}"
+        }
+      ],
+      "name": "boolQualifier",
+      "qualifier": {
+        "$expr": "\u0026boolQualifier{value: true}"
+      }
+    },
+    {
+      "cases": [
+        {
+          "$expr": "{input: int64(42), want: true}"
+        },
+        {
+          "$expr": "{input: int32(42), want: true}"
+        },
+        {
+          "$expr": "{input: uint64(42), want: true}"
+        },
+        {
+          "$expr": "{input: float64(42.0), want: true}"
+        },
+        {
+          "$expr": "{input: types.Int(42), want: true}"
+        },
+        {
+          "$expr": "{input: types.Double(42.0), want: true}"
+        },
+        {
+          "$expr": "{input: int64(100), want: false}"
+        },
+        {
+          "$expr": "{input: \"42\", want: false}"
+        },
+        {
+          "$expr": "{input: nil, want: false}"
+        }
+      ],
+      "name": "intQualifier",
+      "qualifier": {
+        "$expr": "\u0026intQualifier{celValue: types.Int(42)}"
+      }
+    },
+    {
+      "cases": [
+        {
+          "$expr": "{input: uint64(100), want: true}"
+        },
+        {
+          "$expr": "{input: int64(100), want: true}"
+        },
+        {
+          "$expr": "{input: float64(100.0), want: true}"
+        },
+        {
+          "$expr": "{input: types.Uint(100), want: true}"
+        },
+        {
+          "$expr": "{input: uint64(50), want: false}"
+        },
+        {
+          "$expr": "{input: \"100\", want: false}"
+        },
+        {
+          "$expr": "{input: nil, want: false}"
+        }
+      ],
+      "name": "uintQualifier",
+      "qualifier": {
+        "$expr": "\u0026uintQualifier{celValue: types.Uint(100)}"
+      }
+    },
+    {
+      "cases": [
+        {
+          "$expr": "{input: float64(3.14), want: true}"
+        },
+        {
+          "$expr": "{input: types.Double(3.14), want: true}"
+        },
+        {
+          "$expr": "{input: float64(2.71), want: false}"
+        },
+        {
+          "$expr": "{input: int64(3), want: false}"
+        },
+        {
+          "$expr": "{input: \"3.14\", want: false}"
+        },
+        {
+          "$expr": "{input: nil, want: false}"
+        }
+      ],
+      "name": "doubleQualifier",
+      "qualifier": {
+        "$expr": "\u0026doubleQualifier{celValue: types.Double(3.14)}"
+      }
+    }
+  ],
   "interpreter/attributes_test.go/TestAttributeStateTracking": [
     {
       "expr": "[{\"field\": true}][0].field",
@@ -19185,7 +22335,12 @@
         "a": {
           "1": {
             "1": 0,
-            "2": ["index", "middex", "outdex", "dex"]
+            "2": [
+              "index",
+              "middex",
+              "outdex",
+              "dex"
+            ]
           }
         }
       },
@@ -19195,9 +22350,19 @@
       "state": {
         "2": {
           "1": 0,
-          "2": ["index", "middex", "outdex", "dex"]
+          "2": [
+            "index",
+            "middex",
+            "outdex",
+            "dex"
+          ]
         },
-        "4": ["index", "middex", "outdex", "dex"],
+        "4": [
+          "index",
+          "middex",
+          "outdex",
+          "dex"
+        ],
         "6": "dex"
       },
       "vars": [
@@ -19212,7 +22377,12 @@
         "a": {
           "1": {
             "1": 0,
-            "2": ["index", "middex", "outdex", "dex"]
+            "2": [
+              "index",
+              "middex",
+              "outdex",
+              "dex"
+            ]
           }
         }
       },
@@ -19225,13 +22395,28 @@
         },
         "2": {
           "1": 0,
-          "2": ["index", "middex", "outdex", "dex"]
+          "2": [
+            "index",
+            "middex",
+            "outdex",
+            "dex"
+          ]
         },
-        "4": ["index", "middex", "outdex", "dex"],
+        "4": [
+          "index",
+          "middex",
+          "outdex",
+          "dex"
+        ],
         "6": "index",
         "8": {
           "1": 0,
-          "2": ["index", "middex", "outdex", "dex"]
+          "2": [
+            "index",
+            "middex",
+            "outdex",
+            "dex"
+          ]
         }
       },
       "vars": [
@@ -19266,8 +22451,14 @@
     {
       "expr": "(a.size() != 0 ? a : b)[0]",
       "in": {
-        "a": ["hello", "world"],
-        "b": ["world", "hello"]
+        "a": [
+          "hello",
+          "world"
+        ],
+        "b": [
+          "world",
+          "hello"
+        ]
       },
       "out": {
         "$expr": "types.String(\"hello\")"
@@ -19452,6 +22643,38 @@
       ]
     }
   ],
+  "interpreter/attributes_test.go/TestAttribute_StringRepresentation": [
+    {
+      "name": "absoluteAttribute",
+      "stringer": {
+        "$expr": "abs.(fmt.Stringer)"
+      }
+    },
+    {
+      "name": "maybeAttribute",
+      "stringer": {
+        "$expr": "maybe.(fmt.Stringer)"
+      }
+    },
+    {
+      "name": "relativeAttribute",
+      "stringer": {
+        "$expr": "rel.(fmt.Stringer)"
+      }
+    },
+    {
+      "name": "conditionalAttribute",
+      "stringer": {
+        "$expr": "cond.(fmt.Stringer)"
+      }
+    },
+    {
+      "name": "AttributeTrail",
+      "stringer": {
+        "$expr": "trail"
+      }
+    }
+  ],
   "interpreter/attributes_test.go/TestAttributesNarrowMapKeyQualifier": [
     {
       "err": {
@@ -19588,11 +22811,15 @@
       }
     },
     {
-      "optQuals": [1],
+      "optQuals": [
+        1
+      ],
       "out": {
         "$expr": "types.OptionalNone"
       },
-      "quals": ["b"],
+      "quals": [
+        "b"
+      ],
       "varName": "a",
       "vars": {
         "a": {
@@ -19604,7 +22831,10 @@
       "err": {
         "$expr": "errors.New(\"no such key: 1\")"
       },
-      "quals": ["b", 1],
+      "quals": [
+        "b",
+        1
+      ],
       "varName": "a",
       "vars": {
         "a": {
@@ -19617,7 +22847,11 @@
         "$expr": "errors.New(\"index out of bounds: 1\")"
       },
       "optQuals": [],
-      "quals": ["b", 1, false],
+      "quals": [
+        "b",
+        1,
+        false
+      ],
       "varName": "a",
       "vars": {
         "a": {
@@ -19626,7 +22860,11 @@
       }
     },
     {
-      "optQuals": ["b", 0, false],
+      "optQuals": [
+        "b",
+        0,
+        false
+      ],
       "out": {
         "$expr": "types.OptionalNone"
       },
@@ -19640,11 +22878,16 @@
       }
     },
     {
-      "optQuals": [true],
+      "optQuals": [
+        true
+      ],
       "out": {
         "$expr": "types.OptionalNone"
       },
-      "quals": ["b", 0],
+      "quals": [
+        "b",
+        0
+      ],
       "varName": "a",
       "vars": {
         "a": {
@@ -19658,7 +22901,11 @@
       "err": {
         "$expr": "errors.New(\"no such key: true\")"
       },
-      "quals": ["b", 0, true],
+      "quals": [
+        "b",
+        0,
+        true
+      ],
       "varName": "a",
       "vars": {
         "a": {
@@ -19810,7 +23057,9 @@
       }
     },
     {
-      "optQuals": ["single_int32"],
+      "optQuals": [
+        "single_int32"
+      ],
       "out": {
         "$expr": "types.OptionalOf(reg.NativeToValue(1))"
       },
@@ -19822,7 +23071,9 @@
       }
     },
     {
-      "optQuals": ["single_int32"],
+      "optQuals": [
+        "single_int32"
+      ],
       "out": {
         "$expr": "types.OptionalNone"
       },
@@ -19971,39 +23222,60 @@
   ],
   "interpreter/frame_test.go/TestFrameCheckInterrupt": [
     {
-      "checks": [false, false],
+      "checks": [
+        false,
+        false
+      ],
       "name": "nil context"
     },
     {
-      "checks": [false, false],
+      "checks": [
+        false,
+        false
+      ],
       "name": "zero frequency not canceled",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tf.SetContext(ctx, 0)\n\t\t\t\treturn nil, nil\n\t\t\t}"
       }
     },
     {
-      "checks": [false, false],
+      "checks": [
+        false,
+        false
+      ],
       "name": "frequency one not canceled",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tf.SetContext(ctx, 1)\n\t\t\t\treturn nil, nil\n\t\t\t}"
       }
     },
     {
-      "checks": [false, true, true],
+      "checks": [
+        false,
+        true,
+        true
+      ],
       "name": "frequency one canceled dynamically",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tc, cancel := context.WithCancel(ctx)\n\t\t\t\tf.SetContext(c, 1)\n\t\t\t\treturn nil, func(step int) {\n\t\t\t\t\tif step == 1 {\n\t\t\t\t\t\tcancel()\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}"
       }
     },
     {
-      "checks": [false, false, false],
+      "checks": [
+        false,
+        false,
+        false
+      ],
       "name": "frequency two not canceled",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tf.SetContext(ctx, 2)\n\t\t\t\treturn nil, nil\n\t\t\t}"
       }
     },
     {
-      "checks": [false, true, true],
+      "checks": [
+        false,
+        true,
+        true
+      ],
       "name": "frequency two canceled dynamically",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tc, cancel := context.WithCancel(ctx)\n\t\t\t\tf.SetContext(c, 2)\n\t\t\t\treturn nil, func(step int) {\n\t\t\t\t\tif step == 1 {\n\t\t\t\t\t\tcancel()\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}"
@@ -20183,6 +23455,48 @@
     {
       "expr": "0.0/0.0 == 0.0/0.0",
       "name": "double_ne_nan",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "0.0/0.0 \u003c 1.0",
+      "name": "double_lt_nan",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "1.0 \u003c 0.0/0.0",
+      "name": "double_nan_lt",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "0.0/0.0 \u003c= 0.0/0.0",
+      "name": "double_nan_le_nan",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "0.0/0.0 \u003e 1.0",
+      "name": "double_gt_nan",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "1.0 \u003e 0.0/0.0",
+      "name": "double_nan_gt",
+      "out": {
+        "$expr": "types.False"
+      }
+    },
+    {
+      "expr": "0.0/0.0 \u003e= 0.0/0.0",
+      "name": "double_nan_ge_nan",
       "out": {
         "$expr": "types.False"
       }
@@ -20382,7 +23696,9 @@
       "in": {
         "a": true,
         "b": 2.0,
-        "c": ["hello"]
+        "c": [
+          "hello"
+        ]
       },
       "name": "cond",
       "out": {
@@ -20404,7 +23720,9 @@
       "err": "index out of bounds: 1",
       "expr": "m[(x ? 0 : 1)] \u003e= 0",
       "in": {
-        "m": [-1],
+        "m": [
+          -1
+        ],
         "x": false
       },
       "name": "cond_attr_out_of_bounds_error",
@@ -20427,7 +23745,9 @@
         "b": {
           "$expr": "time.Millisecond"
         },
-        "m": [1],
+        "m": [
+          1
+        ],
         "x": false
       },
       "name": "cond_attr_qualify_bad_type_error",
@@ -20456,7 +23776,9 @@
         "b": {
           "$expr": "int32(2)"
         },
-        "m": [1],
+        "m": [
+          1
+        ],
         "x": false
       },
       "name": "cond_attr_qualify_bad_field_error",
@@ -20670,7 +23992,10 @@
       "in": {
         "m": {
           "0": 10,
-          "key": [21, 42],
+          "key": [
+            21,
+            42
+          ],
           "null": null
         }
       },
@@ -20809,7 +24134,11 @@
     {
       "expr": "[1, 2, 3]",
       "name": "literal_list",
-      "out": [1, 2, 3]
+      "out": [
+        1,
+        2,
+        3
+      ]
     },
     {
       "expr": "{'hi': 21, 'world': 42u}",
@@ -20981,7 +24310,10 @@
       "expr": "code == \"111\" \u0026\u0026 [\"a\", \"b\"].all(x, x in tags)\n\t\t\t\t|| code == \"222\" \u0026\u0026 [\"a\", \"b\"].all(x, x in tags)",
       "in": {
         "code": "222",
-        "tags": ["a", "b"]
+        "tags": [
+          "a",
+          "b"
+        ]
       },
       "name": "macro_all_non_strict_var",
       "vars": [
@@ -21030,7 +24362,11 @@
     {
       "expr": "[-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3].filter(x, x \u003e 0)",
       "name": "macro_filter",
-      "out": [1, 2, 3]
+      "out": [
+        1,
+        2,
+        3
+      ]
     },
     {
       "expr": "has({'a':1}.a) \u0026\u0026 !has({}.a)",
@@ -21470,17 +24806,40 @@
       "expr": "m.strList[0] == 'string'\n\t\t\t\t\u0026\u0026 m.floatList[0] == 1.5\n\t\t\t\t\u0026\u0026 m.doubleList[0] == -2.0\n\t\t\t\t\u0026\u0026 m.intList[0] == -3\n\t\t\t\t\u0026\u0026 m.int32List[0] == 4\n\t\t\t\t\u0026\u0026 m.int64List[0] == -5\n\t\t\t\t\u0026\u0026 m.uintList[0] == 6u\n\t\t\t\t\u0026\u0026 m.uint32List[0] == 7u\n\t\t\t\t\u0026\u0026 m.uint64List[0] == 8u\n\t\t\t\t\u0026\u0026 m.boolList[0] == true\n\t\t\t\t\u0026\u0026 m.boolList[1] != true\n\t\t\t\t\u0026\u0026 m.ifaceList[0] == {}",
       "in": {
         "m": {
-          "boolList": [true, false],
-          "doubleList": [-2.0],
-          "floatList": [1.5],
-          "ifaceList": [{}],
-          "int32List": [4],
-          "int64List": [-5],
-          "intList": [-3],
-          "strList": ["string"],
-          "uint32List": [7],
-          "uint64List": [8],
-          "uintList": [6]
+          "boolList": [
+            true,
+            false
+          ],
+          "doubleList": [
+            -2.0
+          ],
+          "floatList": [
+            1.5
+          ],
+          "ifaceList": [
+            {}
+          ],
+          "int32List": [
+            4
+          ],
+          "int64List": [
+            -5
+          ],
+          "intList": [
+            -3
+          ],
+          "strList": [
+            "string"
+          ],
+          "uint32List": [
+            7
+          ],
+          "uint64List": [
+            8
+          ],
+          "uintList": [
+            6
+          ]
         }
       },
       "name": "select_index",
@@ -21542,7 +24901,9 @@
       ]
     },
     {
-      "abbrevs": ["google.protobuf.Int32Value"],
+      "abbrevs": [
+        "google.protobuf.Int32Value"
+      ],
       "expr": "!has(a.single_int32_wrapper) \u0026\u0026 a.single_int32_wrapper == null\n\t\t\t\t\u0026\u0026 has(a.single_int64_wrapper) \u0026\u0026 a.single_int64_wrapper == 0\n\t\t\t\t\u0026\u0026 has(a.single_string_wrapper) \u0026\u0026 a.single_string_wrapper == \"hello\"\n\t\t\t\t\u0026\u0026 a.single_int64_wrapper == Int32Value{value: 0}",
       "in": {
         "a": {
@@ -21761,13 +25122,304 @@
     {
       "expr": "[?{}.?missing, ?{'present': 42u}.?present]",
       "name": "literal_list_optional_element",
-      "out": [42]
+      "out": [
+        42
+      ]
     },
     {
       "err": "cannot initialize optional list element from non-optional value 123",
       "expr": "[?123]",
       "name": "literal_list_optional_bad_element",
       "unchecked": true
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "{?'hi': a}",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "unknown_optional_map",
+      "out": {
+        "$expr": "types.NewUnknown(4, types.NewAttributeTrail(\"a\"))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"google.expr.proto3.test\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{?single_int32: a}",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "unknown_optional_pb",
+      "out": {
+        "$expr": "types.NewUnknown(3, types.NewAttributeTrail(\"a\"))"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "[?a]",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "unknown_optional_list",
+      "out": {
+        "$expr": "types.NewUnknown(2, types.NewAttributeTrail(\"a\"))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "[?a, ?b]",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"), NewAttributePattern(\"b\"))"
+      },
+      "name": "unknown_optional_list_multiple",
+      "out": {
+        "$expr": "types.MergeUnknowns(types.NewUnknown(2, types.NewAttributeTrail(\"a\")), types.NewUnknown(3, types.NewAttributeTrail(\"b\")))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.NewOptionalType(types.IntType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "a == b",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"), NewAttributePattern(\"b\"))"
+      },
+      "name": "unknown_eq_multiple",
+      "out": {
+        "$expr": "types.MergeUnknowns(types.NewUnknown(1, types.NewAttributeTrail(\"a\")), types.NewUnknown(3, types.NewAttributeTrail(\"b\")))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.IntType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "a != b",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"), NewAttributePattern(\"b\"))"
+      },
+      "name": "unknown_ne_multiple",
+      "out": {
+        "$expr": "types.MergeUnknowns(types.NewUnknown(1, types.NewAttributeTrail(\"a\")), types.NewUnknown(3, types.NewAttributeTrail(\"b\")))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.IntType)"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "err": "division by zero",
+      "expr": "a == (1/0)",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "unknown_eq_error_precedence",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "err": "division by zero",
+      "expr": "a != (1/0)",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "unknown_ne_error_precedence",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.IntType)"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"google.expr.proto3.test\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{?single_int32: a, repeated_int32: [?b], map_string_string: {?'key': c}}",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"), NewAttributePattern(\"b\"), NewAttributePattern(\"c\"))"
+      },
+      "name": "unknown_optional_nested_aggregate",
+      "out": {
+        "$expr": "types.MergeUnknowns(types.NewUnknown(3, types.NewAttributeTrail(\"a\")), types.MergeUnknowns(types.NewUnknown(6, types.NewAttributeTrail(\"b\")), types.NewUnknown(11, types.NewAttributeTrail(\"c\"))))"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.NewOptionalType(types.IntType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"c\", types.NewOptionalType(types.StringType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "expr": "{?'hi': a, ?'world': b}",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"), NewAttributePattern(\"b\"))"
+      },
+      "name": "unknown_optional_map_multiple",
+      "out": {
+        "$expr": "types.MergeUnknowns(types.NewUnknown(4, types.NewAttributeTrail(\"a\")), types.NewUnknown(7, types.NewAttributeTrail(\"b\")))"
+      },
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.NewOptionalType(types.IntType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"google.expr.proto3.test\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "container": "google.expr.proto3.test",
+      "expr": "TestAllTypes{?single_int32: a, ?single_int64: b}",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"), NewAttributePattern(\"b\"))"
+      },
+      "name": "unknown_optional_pb_multiple",
+      "out": {
+        "$expr": "types.MergeUnknowns(types.NewUnknown(3, types.NewAttributeTrail(\"a\")), types.NewUnknown(5, types.NewAttributeTrail(\"b\")))"
+      },
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        },
+        {
+          "$expr": "decls.NewVariable(\"b\", types.NewOptionalType(types.IntType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "err": "division by zero",
+      "expr": "{?'hi': a, ?'world': {'x': 1/0}.?missing}",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "unknown_optional_map_error_precedence",
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "err": "cannot initialize optional entry 'world' from non-optional value not-optional",
+      "expr": "{?'hi': a, ?'world': 'not-optional'}",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "unknown_optional_map_invalid_type_precedence",
+      "unchecked": true,
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        }
+      ]
+    },
+    {
+      "attrs": {
+        "$expr": "NewPartialAttributeFactory(testContainer(\"google.expr.proto3.test\"), types.DefaultTypeAdapter, types.NewEmptyRegistry())"
+      },
+      "container": "google.expr.proto3.test",
+      "err": "cannot initialize optional entry 'single_int64' from non-optional value 1",
+      "expr": "TestAllTypes{?single_int32: a, ?single_int64: 1}",
+      "in": {
+        "$expr": "newTestPartialActivation(t, map[string]any{}, NewAttributePattern(\"a\"))"
+      },
+      "name": "unknown_optional_pb_invalid_type_precedence",
+      "typeOpts": [
+        {
+          "$expr": "types.ProtoTypeDefs(\u0026proto3pb.TestAllTypes{})"
+        }
+      ],
+      "unchecked": true,
+      "vars": [
+        {
+          "$expr": "decls.NewVariable(\"a\", types.NewOptionalType(types.IntType))"
+        }
+      ]
     },
     {
       "err": "division by zero",
@@ -22446,7 +26098,7 @@
       "in": {
         "$expr": "unknownActivation(\"x\")"
       },
-      "out": "[x, timestamp(0)]"
+      "out": "[x, timestamp(\"1970-01-01T00:00:00Z\")]"
     },
     {
       "expr": "[timestamp(0), timestamp(1)]",
@@ -22517,32 +26169,60 @@
       "out": "[4, 4, 4, four]"
     },
     {
-      "expr": "test == {'a': 1, 'field': 2}.field",
+      "expr": "undef == {'a': 1, 'field': 2}.field",
       "in": {
         "$expr": "unknownActivation()"
       },
-      "out": "test == 2"
+      "out": "undef == {\"a\": 1, \"field\": 2}.field"
     },
     {
-      "expr": "test in {'a': 1, 'field': [2, 3]}.field",
+      "expr": "undef in {'a': 1, 'field': [2, 3]}.field",
       "in": {
         "$expr": "unknownActivation()"
       },
-      "out": "test in [2, 3]"
+      "out": "undef in {\"a\": 1, \"field\": [2, 3]}.field"
     },
     {
-      "expr": "test == {'field': [1 + 2, 2 + 3]}",
+      "expr": "undef == {'field': [1 + 2, 2 + 3]}",
       "in": {
         "$expr": "unknownActivation()"
       },
-      "out": "test == {\"field\": [3, 5]}"
+      "out": "undef == {\"field\": [1 + 2, 2 + 3]}"
     },
     {
-      "expr": "test in {'a': 1, 'field': [test, 3]}.field",
+      "expr": "undef in {'a': 1, 'field': [undef, 3]}.field",
       "in": {
         "$expr": "unknownActivation()"
       },
-      "out": "test in {\"a\": 1, \"field\": [test, 3]}.field"
+      "out": "undef in {\"a\": 1, \"field\": [undef, 3]}.field"
+    },
+    {
+      "expr": "def == {'a': 1, 'field': 2}.field",
+      "in": {
+        "$expr": "unknownActivation(\"def\")"
+      },
+      "out": "def == 2"
+    },
+    {
+      "expr": "def in {'a': 1, 'field': [2, 3]}.field",
+      "in": {
+        "$expr": "unknownActivation(\"def\")"
+      },
+      "out": "def in [2, 3]"
+    },
+    {
+      "expr": "def == {'field': [1 + 2, 2 + 3]}",
+      "in": {
+        "$expr": "unknownActivation(\"def\")"
+      },
+      "out": "def == {\"field\": [3, 5]}"
+    },
+    {
+      "expr": "def in {'a': 1, 'field': [def, 3]}.field",
+      "in": {
+        "$expr": "unknownActivation(\"def\")"
+      },
+      "out": "def in {\"a\": 1, \"field\": [def, 3]}.field"
     },
     {
       "expr": "foo == \"bar\" \u0026\u0026 r.attr.loc in [\"GB\", \"US\"]",
@@ -22649,7 +26329,10 @@
     {
       "expr": "input",
       "in": {
-        "input": [1, 2]
+        "input": [
+          1,
+          2
+        ]
       },
       "name": "identity",
       "vars": [
@@ -22677,7 +26360,9 @@
     {
       "expr": "input[0]",
       "in": {
-        "input": ["v"]
+        "input": [
+          "v"
+        ]
       },
       "name": "select: array index",
       "vars": [
@@ -22720,7 +26405,9 @@
     {
       "expr": "input[3-3]",
       "in": {
-        "input": ["v"]
+        "input": [
+          "v"
+        ]
       },
       "name": "expr select: array index",
       "vars": [
@@ -26834,9 +30521,31 @@
       ],
       "configPath": "../../policy/testdata/restricted_destinations/config.yaml",
       "coveredBranchNodesComplete": [
-        1, 7, 11, 12, 19, 23, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 42
+        1,
+        7,
+        11,
+        12,
+        19,
+        23,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        36,
+        37,
+        38,
+        39,
+        40,
+        42
       ],
-      "coveredBranchNodesPartial": [3, 13, 41],
+      "coveredBranchNodesPartial": [
+        3,
+        13,
+        41
+      ],
       "name": "restricted destinations policy coverage",
       "testSuitePath": "../../policy/testdata/restricted_destinations/tests.yaml",
       "totalASTNodes": 44,
@@ -26851,11 +30560,31 @@
       ],
       "configPath": "../../policy/testdata/k8s/config.yaml",
       "coveredBranchNodesComplete": [],
-      "coveredBranchNodesPartial": [8, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 31],
+      "coveredBranchNodesPartial": [
+        8,
+        16,
+        17,
+        18,
+        19,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        31
+      ],
       "name": "k8s policy coverage",
       "testSuitePath": "../../policy/testdata/k8s/tests.yaml",
       "totalASTNodes": 38,
-      "uncoveredNodes": [5, 6, 7, 11, 12, 38]
+      "uncoveredNodes": [
+        5,
+        6,
+        7,
+        11,
+        12,
+        38
+      ]
     },
     {
       "celExpr": "../../tools/celtest/testdata/custom_policy.celpolicy",
@@ -26867,7 +30596,12 @@
           "$expr": "compiler.PolicyMetadataEnvOption(ParsePolicyVariables)"
         }
       ],
-      "coveredBranchNodesComplete": [1, 2, 3, 6],
+      "coveredBranchNodesComplete": [
+        1,
+        2,
+        3,
+        6
+      ],
       "coveredBranchNodesPartial": [],
       "name": "policy with custom policy metadata coverage",
       "testSuitePath": "../../tools/celtest/testdata/custom_policy_tests.yaml",
@@ -26882,7 +30616,11 @@
         }
       ],
       "configPath": "../../tools/celtest/testdata/config.yaml",
-      "coveredBranchNodesComplete": [1, 6, 8],
+      "coveredBranchNodesComplete": [
+        1,
+        6,
+        8
+      ],
       "coveredBranchNodesPartial": [],
       "name": "raw expression file with unknowns test coverage",
       "testSuitePath": "../../tools/celtest/testdata/raw_expr_tests.yaml",

@@ -126,6 +126,31 @@ export function navigateExpr(ast: AST, expr: Expr): NavigableExpr {
 }
 
 /**
+ * exceedsDepth determines whether an AST contains expressions nested at or beyond maxDepth.
+ *
+ * The root expression has depth zero. Traversal stops at the first prohibited depth so checking
+ * adversarially deep loaded ASTs does not itself overflow the JavaScript call stack.
+ */
+export function exceedsDepth(ast: AST | undefined, maxDepth: number): boolean {
+  if (ast === undefined || maxDepth <= 0 || ast.expr().kind() === 0) {
+    return false;
+  }
+  const pending: Array<{ expression: Expr; depth: number }> = [
+    { expression: ast.expr(), depth: 0 },
+  ];
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    if (current.depth >= maxDepth) {
+      return true;
+    }
+    for (const child of current.expression.children()) {
+      pending.push({ expression: child, depth: current.depth + 1 });
+    }
+  }
+  return false;
+}
+
+/**
  * MatchDescendants returns descendant expressions that satisfy the matcher.
  */
 export function matchDescendants(

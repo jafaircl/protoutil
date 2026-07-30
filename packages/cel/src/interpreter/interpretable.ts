@@ -13,11 +13,13 @@ import {
   FoldableType,
   Int,
   IterableType,
+  isError,
   isUnknown,
   isUnknownOrError,
   ListType,
   labelErrNode,
   MapType,
+  maybeMergeUnknowns,
   maybeNoSuchOverloadErr,
   NullValue,
   Optional,
@@ -38,7 +40,7 @@ import { refValMap } from "../common/types/map.js";
 import type { Constant } from "../gen/cel/expr/syntax_pb.js";
 import type { Activation, ActivationWrapper } from "./activation.js";
 import type { Attribute, ConstantQualifier, Qualifier } from "./attributes.js";
-import { ExecutionFrame } from "./frame.js";
+import { ExecutionFrame, executionFrame } from "./frame.js";
 
 /**
  * Interpretable evaluates an Activation and produces a value.
@@ -381,25 +383,33 @@ class ListInterpretableValue implements InterpretableConstructor {
    */
   public exec(frame: ExecutionFrame): Val {
     const out: Val[] = [];
+    let mergedUnknown: Unknown | undefined;
     for (let index = 0; index < this.elementsValue.length; index += 1) {
-      const value = this.elementsValue[index]!.exec(frame);
-      // If any argument is unknown or error early terminate.
-      if (isUnknownOrError(value)) {
+      let value = this.elementsValue[index]!.exec(frame);
+      if (isError(value)) {
         return value;
       }
+      [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
       if (!this.optionalIndicesValue.has(index)) {
         out.push(value);
         continue;
       }
-      if (!(value instanceof Optional)) {
-        return new Err(
-          `cannot initialize optional list element from non-optional value ${formatConstructorValue(value)}`,
-        );
+      if (!isUnknown(value)) {
+        // Skip optional checks for unknown values as they are not fully resolved yet.
+        if (!(value instanceof Optional)) {
+          return new Err(
+            `cannot initialize optional list element from non-optional value ${formatConstructorValue(value)}`,
+          );
+        }
+        if (value === OptionalNone || !value.hasValue()) {
+          continue;
+        }
+        value = value.getValue();
       }
-      if (value === OptionalNone || !value.hasValue()) {
-        continue;
-      }
-      out.push(value.getValue());
+      out.push(value);
+    }
+    if (mergedUnknown) {
+      return mergedUnknown;
     }
     return refValList(DefaultTypeAdapter, out);
   }
@@ -580,7 +590,7 @@ export function asFrame(options: AsFrameOptions): ExecutionFrame {
   if (options.activation instanceof ExecutionFrame) {
     return options.activation;
   }
-  const frame = new ExecutionFrame(options.activation);
+  const frame = executionFrame({ input: options.activation });
   const parentFrame = findFrame(options.activation);
   if (parentFrame !== undefined) {
     frame.inheritParentFrame({ parentFrame });
@@ -939,7 +949,9 @@ export class AttrInterpretable implements InterpretableAttribute {
       if (this.optionalValue && value instanceof Optional) {
         return value;
       }
-      const adapted = this.adapterValue.nativeToValue(value);
+      // Attribute resolution frequently returns an already-adapted slot or comprehension value.
+      // Preserve it directly instead of repeating the adapter's full native type dispatch.
+      const adapted = isRuntimeVal(value) ? value : this.adapterValue.nativeToValue(value);
       return this.optionalValue ? optionalOf(adapted) : adapted;
     } catch (error) {
       return labelErrNode(this.id(), wrapErr(error));
@@ -1260,13 +1272,20 @@ class BinaryCallInterpretable implements InterpretableCall {
   }
   public exec(frame: ExecutionFrame): Val {
     const lhs = this.lhsValue.exec(frame);
+    const strict = !this.nonStrictValue;
+    if (strict && isError(lhs)) {
+      return lhs;
+    }
     const rhs = this.rhsValue.exec(frame);
-    if (!this.nonStrictValue) {
-      if (isUnknownOrError(lhs)) {
-        return lhs;
-      }
-      if (isUnknownOrError(rhs)) {
-        return rhs;
+    if (strict && isError(rhs)) {
+      return rhs;
+    }
+    if (strict) {
+      let mergedUnknown: Unknown | undefined;
+      [mergedUnknown] = maybeMergeUnknowns(lhs, mergedUnknown);
+      [mergedUnknown] = maybeMergeUnknowns(rhs, mergedUnknown);
+      if (mergedUnknown) {
+        return mergedUnknown;
       }
     }
     if (
@@ -1316,12 +1335,21 @@ class VarArgsCallInterpretable implements InterpretableCall {
     return this.idValue;
   }
   public exec(frame: ExecutionFrame): Val {
-    const args = this.argsValue.map((arg) => arg.exec(frame));
-    if (!this.nonStrictValue) {
-      const firstBad = args.find((arg) => isUnknownOrError(arg));
-      if (firstBad) {
-        return firstBad;
+    const args: Val[] = [];
+    const strict = !this.nonStrictValue;
+    let mergedUnknown: Unknown | undefined;
+    for (const arg of this.argsValue) {
+      const value = arg.exec(frame);
+      args.push(value);
+      if (strict) {
+        if (isError(value)) {
+          return value;
+        }
+        [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
       }
+    }
+    if (strict && mergedUnknown) {
+      return mergedUnknown;
     }
     const receiver = args[0];
     if (
@@ -1498,12 +1526,18 @@ class EqualityInterpretable implements InterpretableCall {
   }
   public exec(frame: ExecutionFrame): Val {
     const lhs = this.lhsValue.exec(frame);
-    const rhs = this.rhsValue.exec(frame);
-    if (isUnknownOrError(lhs)) {
+    if (isError(lhs)) {
       return lhs;
     }
-    if (isUnknownOrError(rhs)) {
+    const rhs = this.rhsValue.exec(frame);
+    if (isError(rhs)) {
       return rhs;
+    }
+    let mergedUnknown: Unknown | undefined;
+    [mergedUnknown] = maybeMergeUnknowns(lhs, mergedUnknown);
+    [mergedUnknown] = maybeMergeUnknowns(rhs, mergedUnknown);
+    if (mergedUnknown) {
+      return mergedUnknown;
     }
     return lhs.equal(rhs);
   }
@@ -1535,12 +1569,18 @@ class NotEqualityInterpretable implements InterpretableCall {
   }
   public exec(frame: ExecutionFrame): Val {
     const lhs = this.lhsValue.exec(frame);
-    const rhs = this.rhsValue.exec(frame);
-    if (isUnknownOrError(lhs)) {
+    if (isError(lhs)) {
       return lhs;
     }
-    if (isUnknownOrError(rhs)) {
+    const rhs = this.rhsValue.exec(frame);
+    if (isError(rhs)) {
       return rhs;
+    }
+    let mergedUnknown: Unknown | undefined;
+    [mergedUnknown] = maybeMergeUnknowns(lhs, mergedUnknown);
+    [mergedUnknown] = maybeMergeUnknowns(rhs, mergedUnknown);
+    if (mergedUnknown) {
+      return mergedUnknown;
     }
     const equal = lhs.equal(rhs);
     return equal instanceof Bool ? new Bool(!equal.value()) : equal;
@@ -1574,16 +1614,21 @@ class MapInterpretableValue implements InterpretableConstructor {
   }
   public exec(frame: ExecutionFrame): Val {
     const entries = new Map<Val, Val>();
+    let mergedUnknown: Unknown | undefined;
     for (let index = 0; index < this.keysValue.length; index += 1) {
       const key = this.keysValue[index]!.exec(frame);
-      const value = this.valuesValue[index]!.exec(frame);
-      if (isUnknownOrError(key)) {
+      if (isError(key)) {
         return key;
       }
-      if (isUnknownOrError(value)) {
+      [mergedUnknown] = maybeMergeUnknowns(key, mergedUnknown);
+
+      const value = this.valuesValue[index]!.exec(frame);
+      if (isError(value)) {
         return value;
       }
+      [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
       if (
+        !isUnknown(key) &&
         !(key instanceof Bool) &&
         !(key instanceof Int) &&
         !(key instanceof Uint) &&
@@ -1593,13 +1638,16 @@ class MapInterpretableValue implements InterpretableConstructor {
       }
       // JavaScript maps use object identity, while CEL map keys use CEL equality. Compare the
       // evaluated keys before insertion so equal values and cross-numeric equalities are rejected.
-      for (const existingKey of entries.keys()) {
-        const equal = existingKey.equal(key);
-        if (equal instanceof Bool && equal.value()) {
-          return new Err(`Failed with repeated key: ${key.value()}`);
+      if (!isUnknown(key)) {
+        for (const existingKey of entries.keys()) {
+          const equal = existingKey.equal(key);
+          if (equal instanceof Bool && equal.value()) {
+            return new Err(`Failed with repeated key: ${key.value()}`);
+          }
         }
       }
-      if (this.optionalEntriesValue[index] === true) {
+      let entryValue = value;
+      if (this.optionalEntriesValue[index] === true && !isUnknown(value)) {
         if (!(value instanceof Optional)) {
           return new Err(
             `cannot initialize optional entry '${key.value()}' from non-optional value ${formatConstructorValue(value)}`,
@@ -1608,10 +1656,14 @@ class MapInterpretableValue implements InterpretableConstructor {
         if (value === OptionalNone || !value.hasValue()) {
           continue;
         }
-        entries.set(key, value.getValue());
-        continue;
+        entryValue = value.getValue();
       }
-      entries.set(key, value);
+      if (!isUnknown(key) && !isUnknown(entryValue)) {
+        entries.set(key, entryValue);
+      }
+    }
+    if (mergedUnknown) {
+      return mergedUnknown;
     }
     return refValMap(DefaultTypeAdapter, entries);
   }
@@ -1643,12 +1695,14 @@ class ObjInterpretableValue implements InterpretableConstructor {
   }
   public exec(frame: ExecutionFrame): Val {
     const fields: Record<string, Val> = {};
+    let mergedUnknown: Unknown | undefined;
     for (let index = 0; index < this.fieldsValue.length; index += 1) {
-      const value = this.valuesValue[index]!.exec(frame);
-      if (isUnknownOrError(value)) {
+      let value = this.valuesValue[index]!.exec(frame);
+      if (isError(value)) {
         return value;
       }
-      if (this.optionalFieldsValue[index] === true) {
+      [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
+      if (this.optionalFieldsValue[index] === true && !isUnknown(value)) {
         if (!(value instanceof Optional)) {
           return new Err(
             `cannot initialize optional entry '${this.fieldsValue[index]}' from non-optional value ${formatConstructorValue(value)}`,
@@ -1657,10 +1711,14 @@ class ObjInterpretableValue implements InterpretableConstructor {
         if (value === OptionalNone || !value.hasValue()) {
           continue;
         }
-        fields[this.fieldsValue[index]!] = value.getValue();
-        continue;
+        value = value.getValue();
       }
-      fields[this.fieldsValue[index]!] = value;
+      if (!isUnknown(value)) {
+        fields[this.fieldsValue[index]!] = value;
+      }
+    }
+    if (mergedUnknown) {
+      return mergedUnknown;
     }
     return labelErrNode(this.idValue, this.providerValue.newValue(this.typeNameValue, fields));
   }
@@ -1700,20 +1758,23 @@ interface FoldIterationOptions {
  * FoldActivation reuses one mutable local scope throughout comprehension evaluation.
  */
 class FoldActivation implements Activation {
-  private accumulatorValue: Val;
+  private accumulatorValue?: Val;
   private firstValue: unknown = undefined;
   private secondValue: unknown = undefined;
   private resultOnly = true;
+  private parentValue?: Activation;
 
   /**
    * constructor initializes the reusable fold scope.
    */
-  constructor(
-    private readonly optionsValue: FoldInterpretableOptions,
-    accumulator: Val,
-    private readonly parentValue: Activation,
-  ) {
+  constructor(private readonly optionsValue: FoldInterpretableOptions) {}
+
+  /**
+   * configure attaches the reusable fold state to one comprehension evaluation.
+   */
+  public configure(accumulator: Val, parent: Activation): void {
     this.accumulatorValue = accumulator;
+    this.parentValue = parent;
   }
 
   /**
@@ -1734,6 +1795,17 @@ class FoldActivation implements Activation {
     this.firstValue = undefined;
     this.secondValue = undefined;
     this.resultOnly = true;
+  }
+
+  /**
+   * reset releases evaluation references before the activation returns to its pool.
+   */
+  public reset(): void {
+    this.accumulatorValue = undefined;
+    this.firstValue = undefined;
+    this.secondValue = undefined;
+    this.resultOnly = true;
+    this.parentValue = undefined;
   }
 
   /**
@@ -1763,12 +1835,27 @@ class FoldActivation implements Activation {
   public parent(): Activation | undefined {
     return this.parentValue;
   }
+
+  /**
+   * isLocalVariable reports whether a name belongs to this comprehension scope.
+   */
+  public isLocalVariable(name: string): boolean {
+    return (
+      name === this.optionsValue.accuVar ||
+      name === this.optionsValue.iterVar ||
+      (this.optionsValue.iterVar2 !== undefined &&
+        this.optionsValue.iterVar2.length !== 0 &&
+        name === this.optionsValue.iterVar2)
+    );
+  }
 }
 
 /**
  * FoldInterpretableValue evaluates a CEL comprehension loop.
  */
 export class FoldInterpretableValue implements InterpretableV2 {
+  private readonly activationPool: FoldActivation[] = [];
+
   constructor(private readonly optionsValue: FoldInterpretableOptions) {}
 
   /**
@@ -1797,31 +1884,65 @@ export class FoldInterpretableValue implements InterpretableV2 {
       this.optionsValue.iterVar2 !== undefined && this.optionsValue.iterVar2.length !== 0;
     // cel-go pools one folder and frame for the complete fold. Reuse the local activation and child
     // frame here as well, updating only their iteration bindings.
-    const foldActivation = new FoldActivation(this.optionsValue, accu, frame);
+    const foldActivation = this.activationPool.pop() ?? new FoldActivation(this.optionsValue);
+    foldActivation.configure(accu, frame);
     const stepFrame = frame.push(foldActivation);
-    for (const [iterKey, iterValue] of iterateRange(iterRange)) {
-      // cel-go's one-variable iterable path yields map keys and list elements. Its two-variable
-      // fold path binds the key or index first and the corresponding value second.
-      const firstIterValue = hasSecondIterVar || iterRange.type() === MapType ? iterKey : iterValue;
-      foldActivation.setIteration({
-        accumulator: accu,
-        first: firstIterValue,
-        second: iterValue,
-      });
-      const cond = this.optionsValue.condition.exec(stepFrame);
-      if (!this.optionsValue.exhaustive && cond instanceof Bool && !cond.value()) {
-        break;
-      }
+    const iteration: FoldIterationOptions = {
+      accumulator: accu,
+      first: undefined,
+      second: undefined,
+    };
+    try {
+      const nativeRange = iterRange.value();
+      if (Array.isArray(nativeRange)) {
+        // Lists are the dominant comprehension input. Iterate their native storage directly so
+        // each step does not allocate a generator result and a key-value tuple.
+        for (let index = 0; index < nativeRange.length; index += 1) {
+          const iterValue = nativeRange[index];
+          iteration.accumulator = accu;
+          iteration.first = hasSecondIterVar ? index : iterValue;
+          iteration.second = iterValue;
+          foldActivation.setIteration(iteration);
+          const cond = this.optionsValue.condition.exec(stepFrame);
+          if (!this.optionsValue.exhaustive && cond instanceof Bool && !cond.value()) {
+            break;
+          }
 
-      // cel-go allows non-strict comprehensions to continue carrying unknown/error accumulator
-      // state forward until a later iteration determines a concrete result.
-      accu = this.optionsValue.step.exec(stepFrame);
-      if (this.optionsValue.interruptable && stepFrame.checkInterrupt()) {
-        return wrapErr(new InterruptError());
+          // cel-go allows non-strict comprehensions to continue carrying unknown/error accumulator
+          // state forward until a later iteration determines a concrete result.
+          accu = this.optionsValue.step.exec(stepFrame);
+          if (this.optionsValue.interruptable && stepFrame.checkInterrupt()) {
+            return wrapErr(new InterruptError());
+          }
+        }
+      } else {
+        for (const [iterKey, iterValue] of iterateRange(iterRange, nativeRange)) {
+          // cel-go's one-variable iterable path yields map keys and list elements. Its two-variable
+          // fold path binds the key or index first and the corresponding value second.
+          iteration.accumulator = accu;
+          iteration.first = hasSecondIterVar || iterRange.type() === MapType ? iterKey : iterValue;
+          iteration.second = iterValue;
+          foldActivation.setIteration(iteration);
+          const cond = this.optionsValue.condition.exec(stepFrame);
+          if (!this.optionsValue.exhaustive && cond instanceof Bool && !cond.value()) {
+            break;
+          }
+
+          // cel-go allows non-strict comprehensions to continue carrying unknown/error accumulator
+          // state forward until a later iteration determines a concrete result.
+          accu = this.optionsValue.step.exec(stepFrame);
+          if (this.optionsValue.interruptable && stepFrame.checkInterrupt()) {
+            return wrapErr(new InterruptError());
+          }
+        }
       }
+      foldActivation.setResult(accu);
+      return this.optionsValue.result.exec(stepFrame);
+    } finally {
+      stepFrame.pop();
+      foldActivation.reset();
+      this.activationPool.push(foldActivation);
     }
-    foldActivation.setResult(accu);
-    return this.optionsValue.result.exec(stepFrame);
   }
   public eval(activation: Activation): Val {
     return this.exec(asFrame({ activation }));
@@ -1977,16 +2098,12 @@ export function foldInterpretable(options: FoldInterpretableOptions): Interpreta
 }
 
 /**
- * iterateRange streams CEL iterable values as key-value pairs for comprehension evaluation.
+ * iterateRange streams non-list CEL iterable values as key-value pairs for comprehension evaluation.
  */
-function* iterateRange(value: Val): Generator<readonly [unknown, unknown], void> {
-  const native = value.value();
-  if (Array.isArray(native)) {
-    for (let index = 0; index < native.length; index += 1) {
-      yield [index, native[index]];
-    }
-    return;
-  }
+function* iterateRange(
+  value: Val,
+  native: unknown,
+): Generator<readonly [unknown, unknown], void> {
   if ((value.type().hasTrait?.(IterableType) ?? false) && native instanceof Map) {
     yield* native.entries();
     return;
@@ -2022,6 +2139,23 @@ function* iterateRange(value: Val): Generator<readonly [unknown, unknown], void>
  */
 function isInterpretableV2(value: Interpretable): value is InterpretableV2 {
   return "exec" in value && typeof value.exec === "function";
+}
+
+/**
+ * isRuntimeVal returns whether a resolved attribute already implements the complete CEL value contract.
+ */
+function isRuntimeVal(value: unknown): value is Val {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<Val>;
+  return (
+    typeof candidate.convertToNative === "function" &&
+    typeof candidate.convertToType === "function" &&
+    typeof candidate.equal === "function" &&
+    typeof candidate.type === "function" &&
+    typeof candidate.value === "function"
+  );
 }
 
 /**

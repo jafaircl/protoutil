@@ -9,10 +9,36 @@ import {
   durationOf,
   Int,
   type Timestamp,
+  TimestampType,
   timestampOf,
 } from "./index.js";
 
 describe("common/types timestamp", () => {
+  it("common/types/timestamp_test.go/TestIsStrictRFC3339MatchesPattern", () => {
+    const accepted = [
+      "2025-01-01T12:34:56Z",
+      "2025-01-01T12:34:56z",
+      "2025-01-01t12:34:56Z",
+      "2025-01-01T12:34:56.123456789Z",
+      "2025-01-01T23:59:60-08:00",
+    ];
+    const rejected = [
+      "2025-00-01T12:34:56Z",
+      "2025-01-01T12:34:56,123Z",
+      "2025-01-01T24:00:00Z",
+      "2025-01-01T12:34:56+24:00",
+      "2025-01-01 12:34:56Z",
+    ];
+    for (const value of accepted) {
+      expect(new CelString(value).convertToType(TimestampType).type(), value).toBe(TimestampType);
+    }
+    for (const value of rejected) {
+      expect(new CelString(value).convertToType(TimestampType).type().typeName(), value).toBe(
+        "error",
+      );
+    }
+  });
+
   it("common/types/timestamp_test.go/TestTimestampConvertToNative_Any", () => {
     const ts = timestampOf(7506n, 0);
     const actual = ts.convertToNative(anyValueType) as Any;

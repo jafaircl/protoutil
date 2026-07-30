@@ -802,7 +802,8 @@ export class TypeDesc {
     }
     const [structType, structFound] = tp.findStructType(this.typeName);
     if (structFound && structType) {
-      return structType;
+      // FindStructType returns `type(T)`. The first parameter is the type name.
+      return structType.parameters()[0] ?? structType;
     }
     const [ident, found] = tp.findIdent(this.typeName);
     if (!found || !(ident instanceof Type)) {

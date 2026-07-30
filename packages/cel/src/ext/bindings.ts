@@ -129,12 +129,22 @@ interface BlockValueOptions {
  * blockValue creates an interpretable which evaluates block slots at most once.
  */
 function blockValue(options: BlockValueOptions): InterpretableV2 {
+  // Keep one stack-safe pool per planned block. A nested evaluation acquires another activation,
+  // while sequential evaluations reuse the arrays allocated for the block's fixed slot count.
+  const activationPool: SlotActivation[] = [];
   /** evaluate executes the block against an existing frame. */
   const evaluate = (frame: ExecutionFrame): Val => {
-    const activation = new SlotActivation(frame.activation(), frame, options.slots);
+    const activation = activationPool.pop() ?? new SlotActivation(options.slots);
+    activation.configure(frame.activation(), frame);
     const child = frame.push(activation);
     activation.setFrame(child);
-    return options.expression.exec(child);
+    try {
+      return options.expression.exec(child);
+    } finally {
+      child.pop();
+      activation.reset();
+      activationPool.push(activation);
+    }
   };
   return {
     id: () => options.expression.id(),
@@ -154,24 +164,34 @@ function blockValue(options: BlockValueOptions): InterpretableV2 {
  * SlotActivation resolves lazily computed `@indexN` block variables.
  */
 class SlotActivation implements Activation {
-  private frameValue: ExecutionFrame;
+  private frameValue?: ExecutionFrame;
+  private parentActivation?: Activation;
   private readonly values: Array<Val | undefined>;
   private readonly visited: boolean[];
 
   /** constructor initializes an empty lazy slot cache. */
-  constructor(
-    private readonly parentActivation: Activation,
-    frame: ExecutionFrame,
-    private readonly slots: readonly InterpretableV2[],
-  ) {
-    this.frameValue = frame;
+  constructor(private readonly slots: readonly InterpretableV2[]) {
     this.values = Array.from({ length: slots.length });
     this.visited = Array.from({ length: slots.length }, () => false);
+  }
+
+  /** configure attaches the reusable slot state to one block evaluation. */
+  public configure(parent: Activation, frame: ExecutionFrame): void {
+    this.parentActivation = parent;
+    this.frameValue = frame;
   }
 
   /** setFrame installs the child frame used while evaluating slot expressions. */
   public setFrame(frame: ExecutionFrame): void {
     this.frameValue = frame;
+  }
+
+  /** reset releases evaluation references and clears every cached slot. */
+  public reset(): void {
+    this.parentActivation = undefined;
+    this.frameValue = undefined;
+    this.values.fill(undefined);
+    this.visited.fill(false);
   }
 
   /** parent returns the original activation outside the slot scope. */
@@ -183,13 +203,16 @@ class SlotActivation implements Activation {
   public resolveName(name: string): [unknown, boolean] {
     const index = matchSlot(name, this.slots.length);
     if (index === undefined) {
-      return this.parentActivation.resolveName(name);
+      return this.parentActivation?.resolveName(name) ?? [undefined, false];
     }
     if (this.visited[index]) {
       return this.values[index] === undefined ? [undefined, false] : [this.values[index], true];
     }
     // Mark the slot before evaluation so a self-reference resolves as not found.
     this.visited[index] = true;
+    if (this.frameValue === undefined) {
+      return [undefined, false];
+    }
     const value = this.slots[index]!.exec(this.frameValue);
     this.values[index] = value;
     return [value, true];
@@ -203,11 +226,21 @@ function matchSlot(name: string, slotCount: number): number | undefined {
   if (!name.startsWith(indexPrefix)) {
     return undefined;
   }
-  const suffix = name.slice(indexPrefix.length);
-  if (!/^\d+$/.test(suffix)) {
+  if (name.length === indexPrefix.length) {
     return undefined;
   }
-  const index = Number(suffix);
+  let index = 0;
+  for (let offset = indexPrefix.length; offset < name.length; offset += 1) {
+    const digit = name.charCodeAt(offset) - 48;
+    if (digit < 0 || digit > 9) {
+      return undefined;
+    }
+    index = index * 10 + digit;
+    // Stop parsing as soon as the identifier cannot refer to a block slot.
+    if (index >= slotCount) {
+      return undefined;
+    }
+  }
   return index < slotCount ? index : undefined;
 }
 

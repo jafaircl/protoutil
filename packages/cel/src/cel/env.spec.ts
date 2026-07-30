@@ -26,6 +26,7 @@ import {
   TypeDesc,
 } from "../common/env/env.js";
 import { syncedCases } from "../common/spec-helpers.js";
+import { textSource } from "../common/source.js";
 import type { Bytes } from "../common/types/bytes.js";
 import { resolveSyncedExpr, resolveSyncedVariableDecl } from "../common/types/spec-helpers.js";
 import { type Expr, ExprSchema } from "../gen/cel/expr/syntax_pb.js";
@@ -45,6 +46,7 @@ import {
   String as CelString,
   container,
   contextProtoVars,
+  compile,
   DefaultTypeAdapter,
   Double,
   DoubleType,
@@ -288,10 +290,35 @@ function invalidEnvironmentConfig(name: string): Config {
           limit: 2.5,
         }),
       );
+    case "invalid cel_bind validator config":
+      return config.addValidators(new ConfigValidator("cel.validator.bind_nesting_limit"));
+    case "invalid cel_bind validator config type - unsupported type":
+      return config.addValidators(
+        new ConfigValidator("cel.validator.bind_nesting_limit").setConfig({
+          limit: "2",
+        }),
+      );
+    case "invalid cel_bind validator config type - fractional":
+      return config.addValidators(
+        new ConfigValidator("cel.validator.bind_nesting_limit").setConfig({
+          limit: 2.5,
+        }),
+      );
     default:
       throw new Error(`unsupported invalid environment config case: ${name}`);
   }
 }
+
+describe("cel/cel_test.go/TestCompile", () => {
+  it("compiles an executable program and reports type errors", () => {
+    const program = compile('"hello " + name', {
+      variables: [variableDecl("name", StringType)],
+    });
+
+    expect(program.eval({ name: "world" }).value()).toBe("hello world");
+    expect(() => compile('1 + "invalid"')).toThrow();
+  });
+});
 
 describe("Env.optimize", () => {
   it("applies ergonomic inline and fold passes in order", () => {
@@ -2023,6 +2050,62 @@ describe("cel/cel_test.go/TestParserExpressionSizeLimit", () => {
   });
 });
 
+describe("cel/cel_test.go/TestExpressionNodeLimit", () => {
+  it("limits parser nodes including macro expansion", () => {
+    const expression =
+      "x.optMap(a, a + 1).optMap(b, b + 1).optMap(c, c + 1).optMap(d, d + 1).optMap(e, e + 1).optMap(f, f + 1)";
+    const limited = env({
+      libraries: [optionalTypes()],
+      parser: { maxExpressionNodeCount: 100 },
+      variables: [variableDecl("x", optionalType(IntType))],
+    });
+    expect(limited.tryParse(expression).errors?.toString()).toContain(
+      "expression count exceeds limit of 100 while expanding macro 'optMap'",
+    );
+
+    const unbounded = env({
+      libraries: [optionalTypes()],
+      parser: { maxExpressionNodeCount: -1 },
+      variables: [variableDecl("x", optionalType(IntType))],
+    });
+    expect(unbounded.tryParse(expression).errors).toBeUndefined();
+  });
+});
+
+describe("cel/cel_test.go/TestExpressionNodeLimitCheck", () => {
+  it("rejects an externally parsed AST above the checker limit", () => {
+    const source = textSource("x + 1 + 2 + 3 + 4 + 5");
+    const parsed = env({
+      parser: { maxExpressionNodeCount: -1 },
+      variables: [variableDecl("x", IntType)],
+    }).parseSource(source);
+    expect(() =>
+      env({
+        parser: { maxExpressionNodeCount: 5 },
+        variables: [variableDecl("x", IntType)],
+      }).check(parsed, source),
+    ).toThrow("expression node count exceeds limit");
+  });
+});
+
+describe("cel/cel_test.go/TestRegexProgramSizeLimit", () => {
+  it("enforces literal patterns during validation and dynamic patterns during evaluation", () => {
+    const celEnv = env({
+      regexProgramSizeLimit: 5,
+      variables: [variableDecl("pattern", StringType)],
+    });
+    expect(
+      celEnv.tryCompile(`"123 abc 456".matches('(a|b)*[0-9]+')`).errors?.toString(),
+    ).toContain("regex program size 8 exceeds limit of 5");
+
+    const program = celEnv.program(celEnv.compile(`"123 abc 456".matches(pattern)`));
+    expect(program.eval({ pattern: "(a|b)*[0-9]+" }).toString()).toContain(
+      "regex program size 8 exceeds limit of 5",
+    );
+    expect(program.eval({ pattern: "[0-9]+" }).value()).toBe(true);
+  });
+});
+
 describe("cel/cel_test.go/TestAstProgramNilValue", () => {
   it("rejects an absent AST with an unsupported-expression error", () => {
     expect(() => env().program(undefined as never)).toThrow(/unsupported expr/);
@@ -2545,6 +2628,54 @@ describe("cel/env_test.go/TestDeclareContextProto_Duplicate", () => {
     expect(() => celEnv.extend({ contextProto: Proto3TestAllTypesSchema })).toThrow(
       "overlapping identifier",
     );
+  });
+});
+
+describe("TypeScript extension/TestStrongEnumEnvironment", () => {
+  it("checks and evaluates typed protobuf enum conversions", () => {
+    const typeRegistry = registry();
+    typeRegistry.registerDescriptor(Proto3TestAllTypesSchema.file);
+    typeRegistry.withStrongEnums(true);
+    const celEnv = env({
+      container: container({ name: "google.expr.proto3.test" }),
+      registry: typeRegistry,
+    });
+
+    const named = celEnv.tryCompile('GlobalEnum("GAZ")');
+    expect(named.errors).toBeUndefined();
+    expect(astOutputType(named.ast).typeName()).toBe("google.expr.proto3.test.GlobalEnum");
+    const namedResult = celEnv.program(named.ast).eval({});
+    expect(namedResult.type().typeName()).toBe("google.expr.proto3.test.GlobalEnum");
+    expect(namedResult.value()).toBe(2n);
+
+    const assigned = celEnv
+      .program(
+        celEnv.compile(
+          "TestAllTypes{standalone_enum: TestAllTypes.NestedEnum(-1)}.standalone_enum",
+        ),
+      )
+      .eval({});
+    expect(assigned.type().typeName()).toBe(
+      "google.expr.proto3.test.TestAllTypes.NestedEnum",
+    );
+    expect(assigned.value()).toBe(-1n);
+
+    expect(
+      celEnv.program(celEnv.compile("int(GlobalEnum.GAZ)")).eval({}).value(),
+    ).toBe(2n);
+    expect(
+      celEnv.tryCompile("TestAllTypes{standalone_enum: GlobalEnum.GAR}").errors,
+    ).toBeDefined();
+
+    const invalidName = celEnv
+      .program(celEnv.compile('GlobalEnum("MISSING")'))
+      .eval({});
+    expect(isError(invalidName)).toBe(true);
+
+    const overflow = celEnv
+      .program(celEnv.compile("GlobalEnum(2147483648)"))
+      .eval({});
+    expect(isError(overflow)).toBe(true);
   });
 });
 

@@ -5,6 +5,7 @@ import {
   ast,
   constantValueMatcher,
   ExprKind,
+  exprFactory,
   functionMatcher,
   kindMatcher,
   matchDescendants,
@@ -13,11 +14,52 @@ import {
   type NavigableExpr,
   navigateAst,
   navigateExpr,
+  exceedsDepth,
   postOrderVisit,
   preOrderVisit,
 } from "./index.js";
 
 describe("common/ast navigable", () => {
+  describe("common/ast/navigable_test.go/TestExceedsDepth", () => {
+    it("reports expressions which reach the configured nesting depth", () => {
+      const cases = [
+        ["'a' == 'b'", 2, false],
+        ["'a' == 'b'", 1, true],
+        ["[1, 2, 3][0]", 3, false],
+        ["[1, 2, 3][0]", 2, true],
+        ["[true].exists(i, i)", 3, true],
+        ["[true].exists(i, i)", 4, false],
+        ["[true].exists(i, i)", 0, false],
+        ["[true].exists(i, i)", -1, false],
+      ] as const;
+      for (const [source, maxDepth, expected] of cases) {
+        expect(exceedsDepth(parse(source), maxDepth), source).toBe(expected);
+      }
+    });
+  });
+
+  describe("common/ast/navigable_test.go/TestExceedsDepthNilSafety", () => {
+    it("accepts empty ASTs", () => {
+      expect(exceedsDepth(undefined, 250)).toBe(false);
+      expect(exceedsDepth(ast(undefined, undefined), 250)).toBe(false);
+    });
+  });
+
+  describe("common/ast/navigable_test.go/TestExceedsDepthBoundedTraversal", () => {
+    it("bounds traversal at the first prohibited depth", () => {
+      const factory = exprFactory();
+      let expression = factory.literal(1, true);
+      for (let index = 0; index < 300; index++) {
+        expression = factory.call(index + 2, "!_", expression);
+      }
+      const deep = ast(expression, undefined);
+      expect(exceedsDepth(deep, 250)).toBe(true);
+      expect(exceedsDepth(deep, 300)).toBe(true);
+      expect(exceedsDepth(deep, 301)).toBe(false);
+      expect(exceedsDepth(deep, 0)).toBe(false);
+    });
+  });
+
   it("common/ast/navigable_test.go/TestNavigateAST", () => {
     const cases = [
       ["'a' == 'b'", 3, 1, 1, 4],

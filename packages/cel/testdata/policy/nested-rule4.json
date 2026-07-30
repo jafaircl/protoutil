@@ -1,0 +1,83 @@
+{
+  "path": "nested_rule4",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"nested_rule4\"\nvariables:\n  - name: x\n    type:\n      type_name: int\n",
+      "value": {
+        "name": "nested_rule4",
+        "variables": [
+          {
+            "name": "x",
+            "type": {
+              "type_name": "int"
+            }
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: nested_rule4\nrule:\n  match:\n    - condition: x \u003e 0\n      rule:\n        match:\n          - rule:\n              match:\n                - output: \"true\"\n    - output: \"false\"\n",
+      "value": {
+        "name": "nested_rule4",
+        "rule": {
+          "match": [
+            {
+              "condition": "x \u003e 0",
+              "rule": {
+                "match": [
+                  {
+                    "rule": {
+                      "match": [
+                        {
+                          "output": "true"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "output": "false"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: \"Nested rule tests which explore optional vs non-optional returns\"\nsection:\n  - name: \"valid\"\n    tests:\n      - name: \"x=0\"\n        input:\n          x:\n            value: 0\n        output:\n          value: false\n      - name: \"x=2\"\n        input:\n          x:\n            value: 2\n        output:\n          value: true\n",
+      "value": {
+        "description": "Nested rule tests which explore optional vs non-optional returns",
+        "section": [
+          {
+            "name": "valid",
+            "tests": [
+              {
+                "input": {
+                  "x": {
+                    "value": 0
+                  }
+                },
+                "name": "x=0",
+                "output": {
+                  "value": false
+                }
+              },
+              {
+                "input": {
+                  "x": {
+                    "value": 2
+                  }
+                },
+                "name": "x=2",
+                "output": {
+                  "value": true
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

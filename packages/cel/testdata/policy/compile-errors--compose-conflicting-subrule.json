@@ -1,0 +1,86 @@
+{
+  "path": "compile_errors/compose_conflicting_subrule",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"labels\"\nvariables:\n- name: \"resource\"\n  type_name: \"map\"\n  params:\n  - type_name: \"string\"\n  - type_name: \"dyn\"\n",
+      "value": {
+        "name": "labels",
+        "variables": [
+          {
+            "name": "resource",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: nested_rule\nrule:\n  variables:\n  - name: \"permitted_regions\"\n    expression: \"['us', 'uk', 'es']\"\n  match:\n  - rule:\n      id: \"banned regions\"\n      description: \u003e\n        determine whether the resource origin is in the banned\n        list. If the region is also in the permitted list, the\n        ban has no effect.\n      variables:\n      - name: \"banned_regions\"\n        expression: \"{'us': false, 'ru': false, 'ir': false}\"\n      match:\n      - condition: |\n          resource.origin in variables.banned_regions \u0026\u0026\n          !(resource.origin in variables.permitted_regions)\n        output: \"true\"\n  - condition: resource.origin in variables.permitted_regions\n    output: \"{'banned': false}\"\n  - output: \"{'banned': true}\"\n",
+      "value": {
+        "name": "nested_rule",
+        "rule": {
+          "match": [
+            {
+              "rule": {
+                "description": "determine whether the resource origin is in the banned list. If the region is also in the permitted list, the ban has no effect.\n",
+                "id": "banned regions",
+                "match": [
+                  {
+                    "condition": "resource.origin in variables.banned_regions \u0026\u0026\n!(resource.origin in variables.permitted_regions)\n",
+                    "output": "true"
+                  }
+                ],
+                "variables": [
+                  {
+                    "expression": "{'us': false, 'ru': false, 'ir': false}",
+                    "name": "banned_regions"
+                  }
+                ]
+              }
+            },
+            {
+              "condition": "resource.origin in variables.permitted_regions",
+              "output": "{'banned': false}"
+            },
+            {
+              "output": "{'banned': true}"
+            }
+          ],
+          "variables": [
+            {
+              "expression": "['us', 'uk', 'es']",
+              "name": "permitted_regions"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_compose_conflicting_subrule\"\ndescription: \"Tests for conflicting subrules in policy compilation\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"incompatible_output_types\"\n    output:\n      error_set:\n      # Java: failed composing the subrule 'banned regions' due to incompatible output types.\n      # Go: incompatible output types: block has output type map(string, bool), but previous outputs have type bool\n      - \"incompatible output types\"\n",
+      "value": {
+        "description": "Tests for conflicting subrules in policy compilation",
+        "name": "errors_compose_conflicting_subrule",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "incompatible_output_types",
+                "output": {
+                  "error_set": ["incompatible output types"]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

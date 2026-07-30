@@ -130,7 +130,7 @@ export function wrapErr(err: unknown): Val {
 /**
  * IsError returns whether the input element is an Err value.
  */
-export function isError(val: Val): boolean {
+export function isError(val: Val): val is Err {
   return val instanceof Err;
 }
 

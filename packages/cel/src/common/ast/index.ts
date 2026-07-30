@@ -15,6 +15,7 @@ export {
   heights,
   identReference,
   maxId,
+  nodeCount,
   type OffsetRange,
   postOrderVisit,
   preOrderVisit,
@@ -65,6 +66,7 @@ export { type ExprFactory, exprFactory, exprFactoryWithAccumulator } from "./fac
 export {
   allMatcher,
   constantValueMatcher,
+  exceedsDepth,
   functionMatcher,
   kindMatcher,
   matchDescendants,

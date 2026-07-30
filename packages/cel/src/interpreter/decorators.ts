@@ -12,6 +12,7 @@ import {
   type Val,
   wrapErr,
 } from "../common/types/index.js";
+import { regexProgramSize } from "../common/types/regex.js";
 import type { Activation } from "./activation.js";
 import { emptyActivation } from "./activation.js";
 import {
@@ -275,6 +276,94 @@ export function regexOptimizerDecorator(
       pattern: String(regexArg.value().value()),
     });
   };
+}
+
+/**
+ * RegexProgramSizeLimitDecoratorOptions configures regex instruction-count enforcement.
+ */
+export interface RegexProgramSizeLimitDecoratorOptions {
+  /** limit is the maximum permitted compiled regex instruction count. */
+  limit: number;
+}
+
+/**
+ * regexProgramSizeLimitDecorator enforces regex program-size limits at planning and evaluation.
+ */
+export function regexProgramSizeLimitDecorator(
+  options: RegexProgramSizeLimitDecoratorOptions,
+): InterpretableDecoratorV2 {
+  return (value) => {
+    if (
+      options.limit <= 0 ||
+      !isInterpretableCall(value) ||
+      !isRegexFunction(value.functionName(), value.overloadId())
+    ) {
+      return value;
+    }
+    const pattern = value.args()[1];
+    if (pattern === undefined) {
+      return value;
+    }
+    if (isInterpretableConst(pattern) && pattern.value() instanceof CelString) {
+      assertRegexProgramSize(String(pattern.value().value()), options.limit);
+      return value;
+    }
+    const execute = (frame: Parameters<InterpretableV2["exec"]>[0]): Val => {
+      const patternValue = pattern.exec(frame);
+      if (isUnknownOrError(patternValue)) {
+        return patternValue;
+      }
+      if (patternValue instanceof CelString) {
+        try {
+          assertRegexProgramSize(String(patternValue.value()), options.limit);
+        } catch (error) {
+          return wrapErr(error);
+        }
+      }
+      return value.exec(frame);
+    };
+    return {
+      id: () => value.id(),
+      exec: execute,
+      eval: (activation) => {
+        const frame = executionFrame({ input: activation });
+        try {
+          return execute(frame);
+        } finally {
+          frame.close();
+        }
+      },
+      functionName: () => value.functionName(),
+      overloadId: () => value.overloadId(),
+      args: () => value.args(),
+    };
+  };
+}
+
+/**
+ * isRegexFunction reports whether a call interprets its second argument as an RE2 pattern.
+ */
+function isRegexFunction(functionName: string, overloadId: string): boolean {
+  return (
+    functionName === overloads.Matches ||
+    functionName === "regex.extract" ||
+    functionName === "regex.extractAll" ||
+    functionName === "regex.replace" ||
+    overloadId === overloads.Matches ||
+    overloadId === overloads.MatchesString ||
+    overloadId.startsWith("regex_extract") ||
+    overloadId.startsWith("regex_replace")
+  );
+}
+
+/**
+ * assertRegexProgramSize throws when a compiled pattern exceeds the configured limit.
+ */
+function assertRegexProgramSize(pattern: string, limit: number): void {
+  const size = regexProgramSize(pattern);
+  if (size > limit) {
+    throw new Error(`regex program size ${size} exceeds limit of ${limit}`);
+  }
 }
 
 /**

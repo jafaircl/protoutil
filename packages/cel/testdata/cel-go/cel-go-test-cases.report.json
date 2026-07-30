@@ -1,10 +1,10 @@
 {
-  "testFilesScanned": 97,
-  "candidateTablesFound": 237,
-  "exportedTables": 232,
-  "rowsExported": 3451,
-  "structuredFields": 6981,
-  "fallbackFields": 3018,
+  "testFilesScanned": 113,
+  "candidateTablesFound": 268,
+  "exportedTables": 257,
+  "rowsExported": 3798,
+  "structuredFields": 7959,
+  "fallbackFields": 3276,
   "skippedTables": [],
   "unresolvedTableUsages": [
     {
@@ -46,6 +46,11 @@
       "file": "cel/optimizer_test.go",
       "test": "TestStaticOptimizerNewAST",
       "table": "tests"
+    },
+    {
+      "file": "cel/program_async_test.go",
+      "test": "TestConcurrentEvalProgramThreadSafety",
+      "table": "numGoroutines"
     },
     {
       "file": "checker/format_test.go",
@@ -100,6 +105,16 @@
     {
       "file": "common/decls/decls_test.go",
       "test": "TestFunctionVariableArgBindings",
+      "table": "bindings"
+    },
+    {
+      "file": "common/decls/decls_test.go",
+      "test": "TestAsyncBinding",
+      "table": "bindings"
+    },
+    {
+      "file": "common/decls/decls_test.go",
+      "test": "TestAsyncBindingTypeGuards",
       "table": "bindings"
     },
     {
@@ -188,6 +203,21 @@
       "table": "expected"
     },
     {
+      "file": "common/types/string_test.go",
+      "test": "TestStringConvertToTimestampStrict",
+      "table": "valid"
+    },
+    {
+      "file": "common/types/string_test.go",
+      "test": "TestStringConvertToTimestampStrict",
+      "table": "invalid"
+    },
+    {
+      "file": "common/types/timestamp_test.go",
+      "test": "TestIsStrictRFC3339MatchesPattern",
+      "table": "cases"
+    },
+    {
       "file": "common/types/type_test.go",
       "test": "TestType_ConvertToType",
       "table": "stdTypes"
@@ -238,6 +268,11 @@
       "table": "asts"
     },
     {
+      "file": "ext/encoders_test.go",
+      "test": "TestEncodersCosts",
+      "table": "asts"
+    },
+    {
       "file": "ext/formatting_test.go",
       "test": "TestStringFormat",
       "table": "vars"
@@ -268,6 +303,11 @@
       "table": "asts"
     },
     {
+      "file": "ext/math_test.go",
+      "test": "TestMathCosts",
+      "table": "asts"
+    },
+    {
       "file": "ext/native_test.go",
       "test": "TestNativeTypes",
       "table": "asts"
@@ -291,6 +331,16 @@
       "file": "ext/native_test.go",
       "test": "TestNativeNestedStruct",
       "table": "asts"
+    },
+    {
+      "file": "ext/network_test.go",
+      "test": "TestCIDRCost",
+      "table": "ipv4Cases"
+    },
+    {
+      "file": "ext/network_test.go",
+      "test": "TestCIDRCost",
+      "table": "ipv6Cases"
     },
     {
       "file": "ext/protos_test.go",
@@ -331,6 +381,21 @@
       "file": "ext/strings_test.go",
       "test": "TestFunctionsForVersions",
       "table": "functions"
+    },
+    {
+      "file": "interpreter/async_test.go",
+      "test": "TestTrackerComprehensionReuse",
+      "table": "args"
+    },
+    {
+      "file": "interpreter/async_test.go",
+      "test": "TestTrackerComprehensionReuse",
+      "table": "states"
+    },
+    {
+      "file": "interpreter/async_test.go",
+      "test": "TestLaunchAdmissionAndBounding",
+      "table": "total"
     },
     {
       "file": "interpreter/interpreter_test.go",

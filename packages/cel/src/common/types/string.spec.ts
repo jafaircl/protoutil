@@ -9,6 +9,7 @@ import {
   stringContains,
   stringEndsWith,
   stringStartsWith,
+  TimestampType,
   TypeType,
 } from "./index.js";
 
@@ -77,6 +78,32 @@ describe("common/types string", () => {
     expect(
       (new CelString("abc").convertToType(new Bytes(new Uint8Array()).type()) as Bytes).value(),
     ).toEqual(new TextEncoder().encode("abc"));
+  });
+
+  it("common/types/string_test.go/TestStringConvertToTimestampStrict", () => {
+    const valid = [
+      "2025-01-17T01:00:00.001Z",
+      "2025-01-01T12:34:56Z",
+      "2025-01-01T12:34:56.123456789Z",
+      "2025-01-01T12:34:56+05:30",
+      "2025-01-01T12:34:56-08:00",
+      "2025-01-01T12:34:56+14:00",
+    ];
+    const invalid = [
+      "2025-01-17T01:00:00,001Z",
+      "2025-01-17T1:00:00Z",
+      "2025-01-17T01:5:00Z",
+      "2025-01-18T01:01:01.001+24:01",
+      "2025-01-17T01:01:01.001+00:60",
+    ];
+    for (const value of valid) {
+      expect(new CelString(value).convertToType(TimestampType).type(), value).toBe(TimestampType);
+    }
+    for (const value of invalid) {
+      expect(new CelString(value).convertToType(TimestampType).type().typeName(), value).toBe(
+        "error",
+      );
+    }
   });
 
   it("common/types/string_test.go/TestStringEqual", () => {

@@ -100,6 +100,14 @@ export interface PartialActivationConverter {
 }
 
 /**
+ * LocalVariableHolder identifies an activation scope which can recognize local variables.
+ */
+export interface LocalVariableHolder {
+  /** isLocalVariable reports whether name is locally bound in this activation hierarchy. */
+  isLocalVariable(name: string): boolean;
+}
+
+/**
  * EmptyActivationImpl is a variable-free activation.
  */
 class EmptyActivationImpl implements Activation {
@@ -168,7 +176,7 @@ class MapActivation implements Activation {
  * HierarchicalActivationImpl implements Activation with parent and child scopes.
  */
 class HierarchicalActivationImpl
-  implements Activation, ActivationWrapper, PartialActivationConverter
+  implements Activation, ActivationWrapper, PartialActivationConverter, LocalVariableHolder
 {
   /**
    * constructor initializes the parent-child activation chain.
@@ -218,6 +226,16 @@ class HierarchicalActivationImpl
       }
     }
     return asPartialActivation(this.parentValue);
+  }
+
+  /**
+   * isLocalVariable searches child and parent local scopes for a variable name.
+   */
+  public isLocalVariable(name: string): boolean {
+    if (isLocalVariableHolder(this.childValue) && this.childValue.isLocalVariable(name)) {
+      return true;
+    }
+    return isLocalVariableHolder(this.parentValue) && this.parentValue.isLocalVariable(name);
   }
 }
 
@@ -353,6 +371,13 @@ export function isPartialActivationConverter(
   value: Activation,
 ): value is Activation & PartialActivationConverter {
   return "asPartialActivation" in value && typeof value.asPartialActivation === "function";
+}
+
+/**
+ * isLocalVariableHolder reports whether an activation tracks locally bound variable names.
+ */
+export function isLocalVariableHolder(value: Activation): value is Activation & LocalVariableHolder {
+  return "isLocalVariable" in value && typeof value.isLocalVariable === "function";
 }
 
 /**

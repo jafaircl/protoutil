@@ -7,6 +7,7 @@ import {
   Double,
   Err,
   Int,
+  Kind,
   type Lister,
   ListType,
   type Mapper,
@@ -14,6 +15,8 @@ import {
   OptionalNone,
   optionalOf,
   type Provider,
+  type ProviderFieldType,
+  type Type,
   Uint,
   Unknown,
   type Val,
@@ -135,6 +138,11 @@ export interface QualifierOptions {
    * idValue identifies the qualifier location in the expression tree.
    */
   id: number;
+
+  /**
+   * objectType is the statically checked type of the value being qualified.
+   */
+  objectType?: Type;
 
   /**
    * value contains the raw constant or attribute value for the qualifier.
@@ -276,6 +284,21 @@ class AttributeFactoryImpl implements AttributeFactory {
       return new AttributeQualifierImpl(options.id, options.value, options.optional, this);
     }
     if (typeof options.value === "string") {
+      if (options.objectType?.kind() === Kind.Struct) {
+        const [fieldType, found] = this.providerValue.findStructFieldType(
+          options.objectType.typeName(),
+          options.value,
+        );
+        if (found && fieldType && supportsFieldQualifier(fieldType.type)) {
+          return new FieldQualifier({
+            adapter: this.adapterValue,
+            id: options.id,
+            optional: options.optional,
+            name: options.value,
+            fieldType,
+          });
+        }
+      }
       return new StringQualifier(
         options.id,
         options.optional,
@@ -447,9 +470,137 @@ abstract class QualifierBase implements Qualifier {
 }
 
 /**
+ * FieldQualifierOptions configures a typed protobuf field qualifier.
+ */
+interface FieldQualifierOptions {
+  /**
+   * adapter converts native protobuf field values into their CEL runtime representation.
+   */
+  adapter: Adapter;
+
+  /**
+   * fieldType contains the provider's precomputed presence and value accessors.
+   */
+  fieldType: ProviderFieldType;
+
+  /**
+   * id is the expression identifier associated with the field selection.
+   */
+  id: number;
+
+  /**
+   * name is the protobuf field name.
+   */
+  name: string;
+
+  /**
+   * optional reports whether qualification should produce an optional value.
+   */
+  optional: boolean;
+}
+
+/**
+ * FieldQualifier indicates that qualification targets a well-defined field with a known type.
+ *
+ * When the field type is known, its precomputed accessors improve the speed and efficiency of
+ * field resolution.
+ */
+class FieldQualifier extends QualifierBase implements ConstantQualifier {
+  /**
+   * celValueValue stores the field name as a reusable CEL string.
+   */
+  private readonly celValueValue: CelString;
+
+  /**
+   * constructor stores the precomputed provider field accessors.
+   */
+  constructor(private readonly optionsValue: FieldQualifierOptions) {
+    super(optionsValue.id, optionsValue.optional);
+    this.celValueValue = new CelString(optionsValue.name);
+  }
+
+  /**
+   * qualify reads the field directly through its precomputed getter.
+   */
+  public qualify(_vars: Activation, obj: unknown): unknown {
+    const target = isValLike(obj) ? obj.value() : obj;
+    return this.fieldValue(target);
+  }
+
+  /**
+   * qualifyIfPresent checks field presence before reading the field value.
+   */
+  public override qualifyIfPresent(
+    _vars: Activation,
+    obj: unknown,
+    presenceOnly: boolean,
+  ): [unknown, boolean] {
+    const target = isValLike(obj) ? obj.value() : obj;
+    if (!this.optionsValue.fieldType.isSet(target)) {
+      return [undefined, false];
+    }
+    if (presenceOnly) {
+      return [undefined, true];
+    }
+    return [this.fieldValue(target), true];
+  }
+
+  /**
+   * value returns the field name as a CEL string.
+   */
+  public value(): Val {
+    return this.celValueValue;
+  }
+
+  /**
+   * fieldValue reads and adapts a statically typed scalar or message field.
+   */
+  private fieldValue(target: unknown): Val {
+    const value = this.optionsValue.fieldType.getFrom(target);
+    if (value === null || value === undefined) {
+      return this.optionsValue.adapter.nativeToValue(value);
+    }
+    switch (this.optionsValue.fieldType.type.kind()) {
+      case Kind.Double:
+        return new Double(Number(value));
+      case Kind.Uint:
+        return new Uint(BigInt(value as number | bigint));
+      default:
+        return this.optionsValue.adapter.nativeToValue(value);
+    }
+  }
+}
+
+/**
+ * supportsFieldQualifier reports whether static type metadata is sufficient for exact CEL adaptation.
+ */
+function supportsFieldQualifier(type: Type): boolean {
+  switch (type.kind()) {
+    case Kind.Bool:
+    case Kind.Bytes:
+    case Kind.Double:
+    case Kind.Duration:
+    case Kind.Int:
+    case Kind.String:
+    case Kind.Struct:
+    case Kind.Timestamp:
+    case Kind.Uint:
+      return true;
+    default:
+      // Dynamic, Any, list, and map fields require descriptor-aware conversion by ObjectValue.
+      return false;
+  }
+}
+
+/**
  * ConstantQualifierBase provides shared CEL value handling for constant qualifiers.
  */
 abstract class ConstantQualifierBase extends QualifierBase implements ConstantQualifier {
+  /**
+   * celValueValue stores the qualifier's adapted CEL key for reuse across evaluations.
+   */
+  private readonly celValueValue: Val;
+
   /**
    * constructor initializes the constant qualifier state.
    */
@@ -458,17 +609,18 @@ abstract class ConstantQualifierBase extends QualifierBase implements ConstantQu
     optional: boolean,
     private readonly adapterValue: Adapter,
     private readonly rawValue: boolean | number | bigint | string,
-    private readonly celValueOverride?: Val,
+    celValueOverride?: Val,
     private readonly errorOnBadPresenceTest = false,
   ) {
     super(id, optional);
+    this.celValueValue = celValueOverride ?? adapterValue.nativeToValue(rawValue);
   }
 
   /**
    * value returns the constant CEL value associated with the qualifier.
    */
   public value(): Val {
-    return this.celValueOverride ?? this.adapterValue.nativeToValue(this.rawValue);
+    return this.celValueValue;
   }
 
   /**
@@ -546,7 +698,32 @@ export class IntQualifier extends ConstantQualifierBase {
    * qualify applies an integer index or key access to the target object.
    */
   public qualify(_: Activation, obj: unknown): unknown {
+    if (Array.isArray(obj)) {
+      const index = Number(this.raw());
+      if (index >= 0 && index < obj.length) {
+        return obj[index];
+      }
+      throw missingIndex(this.value());
+    }
     return this.qualifyValue(obj);
+  }
+
+  /**
+   * qualifyIfPresent indexes native lists directly while preserving presence-test behavior.
+   */
+  public override qualifyIfPresent(
+    vars: Activation,
+    obj: unknown,
+    presenceOnly: boolean,
+  ): [unknown, boolean] {
+    if (Array.isArray(obj)) {
+      const index = Number(this.raw());
+      if (index >= 0 && index < obj.length) {
+        return [presenceOnly ? undefined : obj[index], true];
+      }
+      return [undefined, false];
+    }
+    return super.qualifyIfPresent(vars, obj, presenceOnly);
   }
 }
 
@@ -750,6 +927,10 @@ class AbsoluteAttributeImpl implements NamespacedAttribute {
       if (found) {
         if (value instanceof Err) {
           throw value;
+        }
+        if (this.qualifiersValue.length === 0 && !(value instanceof Optional)) {
+          // Bare identifiers need no qualifier traversal or intermediate result wrapper.
+          return value;
         }
         return wrapQualifiedValue(applyQualifiers(vars, value, this.qualifiersValue));
       }

@@ -45,21 +45,17 @@ class RelativeSource implements Source {
   }
 
   /**
-   * lineOffsets returns the local snippet line offsets.
+   * lineOffsets returns the containing source line offsets.
    */
   public lineOffsets(): number[] {
-    return this.localSource.lineOffsets();
+    return this.sourceValue.lineOffsets();
   }
 
   /**
-   * locationOffset translates a relative location to a local snippet offset.
+   * locationOffset translates an absolute location to a containing-source offset.
    */
   public locationOffset(location: Location): [number, boolean] {
-    const absolute = this.sourceValue.locationOffset(location);
-    if (absolute[1]) {
-      return absolute;
-    }
-    return this.localSource.locationOffset(location);
+    return this.sourceValue.locationOffset(location);
   }
 
   /**
@@ -74,17 +70,17 @@ class RelativeSource implements Source {
   }
 
   /**
-   * location returns a local source location.
+   * location returns an absolute containing-source location.
    */
   public location(line: number, column: number): Location {
-    return this.localSource.location(line, column);
+    return this.sourceValue.location(line, column);
   }
 
   /**
-   * snippet returns the local line snippet.
+   * snippet returns a containing-source line.
    */
   public snippet(line: number): [string, boolean] {
-    return this.localSource.snippet(line);
+    return this.sourceValue.snippet(line);
   }
 }
 
@@ -139,6 +135,16 @@ describe("parser/parser_test.go", () => {
     });
   });
 
+  describe("TestMaxExpressionNodeCount", () => {
+    it("parser/parser_test.go/TestMaxExpressionNodeCount", () => {
+      const celParser = parser({ maxExpressionNodeCount: 10 });
+      const errs = celParser.tryParse("a.exists(x, x.exists(y, y == 1))").errors;
+      expect(errs?.getErrors()[0]?.message).toContain(
+        "expression count exceeds limit of 10 while expanding macro 'exists'",
+      );
+    });
+  });
+
   describe("TestParserOptionErrors", () => {
     it("parser/parser_test.go/TestParserOptionErrors max recursion depth", () => {
       expect(() => parser({ maxRecursionDepth: -2 })).toThrow(
@@ -167,6 +173,12 @@ describe("parser/parser_test.go", () => {
     it("parser/parser_test.go/TestParserOptionErrors expression size code point limit", () => {
       expect(() => parser({ expressionSizeCodePointLimit: -2 })).toThrow(
         "expression size code point limit must be greater than or equal to -1: -2",
+      );
+    });
+
+    it("parser/parser_test.go/TestParserOptionErrors max expression node count", () => {
+      expect(() => parser({ maxExpressionNodeCount: -2 })).toThrow(
+        "max expression node count must be greater than or equal to -1: -2",
       );
     });
   });

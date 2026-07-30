@@ -9,7 +9,13 @@ import {
   parseDescriptions,
   variableDoc,
 } from "./doc.js";
-import type { BinaryOp, FunctionOp, Overload as RuntimeOverload, UnaryOp } from "./functions.js";
+import type {
+  AsyncOp,
+  BinaryOp,
+  FunctionOp,
+  Overload as RuntimeOverload,
+  UnaryOp,
+} from "./functions.js";
 import * as operators from "./operators.js";
 import { isError, err as newErr } from "./types/err.js";
 import type { Val } from "./types/ref/reference.js";
@@ -32,6 +38,8 @@ export type OverloadSelector = (overload: OverloadDecl) => boolean;
  * SingletonBinding configures a singleton function definition to be used for all function overloads.
  */
 export interface SingletonBinding {
+  /** async provides one asynchronous implementation for every overload. */
+  async?: AsyncOp;
   unary?: UnaryOp;
   binary?: BinaryOp;
   func?: FunctionOp;
@@ -62,6 +70,8 @@ export interface OverloadDeclOptions {
   unaryBinding?: UnaryOp;
   binaryBinding?: BinaryOp;
   functionBinding?: FunctionOp;
+  /** asyncBinding provides a promise-returning implementation resolved by concurrent evaluation. */
+  asyncBinding?: AsyncOp;
   lateBinding?: boolean;
   nonStrict?: boolean;
   operandTrait?: number;
@@ -269,8 +279,11 @@ export class FunctionDecl {
 
   /** HasLateBinding returns true if the function has late bindings. A function cannot mix late bindings with other bindings. */
   public hasLateBinding(): boolean {
-    return this.overloadOrdinals.some((overloadId) =>
-      this.overloads.get(overloadId)!.hasLateBinding(),
+    return (
+      this.singleton?.async !== undefined ||
+      this.overloadOrdinals.some((overloadId) =>
+        this.overloads.get(overloadId)!.hasLateBinding(),
+      )
     );
   }
 
@@ -290,6 +303,7 @@ export class FunctionDecl {
         unary: overload.guardedUnaryOp(this.name(), this.disableTypeGuardsValue),
         binary: overload.guardedBinaryOp(this.name(), this.disableTypeGuardsValue),
         func: overload.guardedFunctionOp(this.name(), this.disableTypeGuardsValue),
+        async: overload.guardedAsyncOp(this.name(), this.disableTypeGuardsValue),
         operandTrait: overload.operandTrait(),
         nonStrict: overload.isNonStrict(),
       });
@@ -309,6 +323,7 @@ export class FunctionDecl {
         unary: this.singleton.unary,
         binary: this.singleton.binary,
         func: this.singleton.func,
+        async: this.singleton.async,
         operandTrait: this.singleton.operandTrait,
         nonStrict: this.singleton.nonStrict,
       });
@@ -320,6 +335,7 @@ export class FunctionDecl {
           unary: overloads[0]!.unary,
           binary: overloads[0]!.binary,
           func: overloads[0]!.func,
+          async: overloads[0]!.async,
           operandTrait: overloads[0]!.operandTrait,
           nonStrict: overloads[0]!.nonStrict,
         });
@@ -383,6 +399,8 @@ export class OverloadDecl {
   private binaryOp?: BinaryOp;
   // functionOp is a catch-all for zero-arity and three-plus arity functions.
   private functionOp?: FunctionOp;
+  // asyncOp is an asynchronous function binding evaluated by concurrent program execution.
+  private asyncOp?: AsyncOp;
 
   /** Constructor accepts the explicit overload seam plus plain TypeScript option-object configuration. */
   constructor(
@@ -407,6 +425,9 @@ export class OverloadDecl {
     }
     if (options.functionBinding) {
       this.setFunctionBinding(options.functionBinding);
+    }
+    if (options.asyncBinding) {
+      this.setAsyncBinding(options.asyncBinding);
     }
     if (options.nonStrict) {
       this.setNonStrict();
@@ -454,7 +475,7 @@ export class OverloadDecl {
 
   /** HasLateBinding returns whether the overload has a binding which is not known at compile time. */
   public hasLateBinding(): boolean {
-    return this.hasLateBindingValue;
+    return this.hasLateBindingValue || this.asyncOp !== undefined;
   }
 
   /**
@@ -525,6 +546,7 @@ export class OverloadDecl {
   public hasBinding(): boolean {
     return (
       this.unaryOp !== undefined || this.binaryOp !== undefined || this.functionOp !== undefined
+      || this.asyncOp !== undefined
     );
   }
 
@@ -564,6 +586,19 @@ export class OverloadDecl {
         return maybeNoSuchOverload(funcName, ...args);
       }
       return this.functionOp!(...args);
+    };
+  }
+
+  /** guardedAsyncOp creates a runtime type guard around an asynchronous binding. */
+  public guardedAsyncOp(funcName: string, disableTypeGuards: boolean): AsyncOp | undefined {
+    if (this.asyncOp === undefined) {
+      return undefined;
+    }
+    return async (signal, ...args) => {
+      if (!this.matchesRuntimeSignature(disableTypeGuards, ...args)) {
+        return maybeNoSuchOverload(funcName, ...args);
+      }
+      return this.asyncOp!(signal, ...args);
     };
   }
 
@@ -656,6 +691,19 @@ export class OverloadDecl {
   }
 
   /**
+   * setAsyncBinding provides an asynchronous implementation for this overload.
+   */
+  private setAsyncBinding(binding: AsyncOp): void {
+    if (this.hasBinding()) {
+      throw new Error(`overload already has a binding: ${this.id()}`);
+    }
+    if (this.hasLateBindingValue) {
+      throw new Error(`overload already has a late binding: ${this.id()}`);
+    }
+    this.asyncOp = binding;
+  }
+
+  /**
    * setLateBinding indicates that the function has a binding which is not known at compile time.
    * This is useful for functions which have side-effects or are not deterministically computable.
    */
@@ -693,6 +741,11 @@ export class OverloadDecl {
 
   public functionOpValue(): FunctionOp | undefined {
     return this.functionOp;
+  }
+
+  /** asyncOpValue returns the asynchronous implementation, if one is configured. */
+  public asyncOpValue(): AsyncOp | undefined {
+    return this.asyncOp;
   }
 }
 
@@ -886,7 +939,8 @@ function runtimeSingletonOverload(
   const bindingCount =
     Number(binding.unary !== undefined) +
     Number(binding.binary !== undefined) +
-    Number(binding.func !== undefined);
+    Number(binding.func !== undefined) +
+    Number(binding.async !== undefined);
   if (bindingCount !== 1) {
     throw new Error(
       `function singleton binding must define exactly one implementation: ${functionName}`,
@@ -897,6 +951,7 @@ function runtimeSingletonOverload(
     unary: binding.unary,
     binary: binding.binary,
     func: binding.func,
+    async: binding.async,
     operandTrait: binding.trait ?? 0,
     nonStrict: false,
   };
@@ -915,6 +970,7 @@ function singletonBindingsEqual(left: RuntimeOverload, right: RuntimeOverload): 
     left.unary === right.unary &&
     left.binary === right.binary &&
     left.func === right.func &&
+    left.async === right.async &&
     left.operandTrait === right.operandTrait &&
     left.nonStrict === right.nonStrict
   );

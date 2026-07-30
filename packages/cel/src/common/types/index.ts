@@ -16,6 +16,7 @@ export * from "./object.js";
 export * from "./optional.js";
 export * from "./overflow.js";
 export * from "./provider.js";
+export * from "./regex.js";
 export type { NativeTypeDescriptor, Type as RefType, Val } from "./ref/index.js";
 export {
   type FieldGetter,

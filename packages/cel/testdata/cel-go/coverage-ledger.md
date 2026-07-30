@@ -12,29 +12,30 @@ completion still requires reviewing assertions and implementation against the up
 
 | Kind | Covered | TODO | Skipped | Missing | Total | Coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Tests | 773 | 24 | 0 | 39 | 836 | 92.5% |
-| Examples | 3 | 0 | 0 | 3 | 6 | 50.0% |
+| Tests | 874 | 24 | 0 | 37 | 935 | 93.5% |
+| Examples | 3 | 0 | 0 | 33 | 36 | 8.3% |
 
 ## Package summary
 
 | Upstream package | Covered | TODO | Skipped | Missing | Total | Coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `cel` | 156 | 0 | 0 | 0 | 156 | 100.0% |
+| `cel` | 187 | 0 | 0 | 0 | 187 | 100.0% |
+| `cel/async` | 10 | 0 | 0 | 0 | 10 | 100.0% |
 | `checker` | 12 | 0 | 0 | 0 | 12 | 100.0% |
 | `common` | 15 | 0 | 0 | 0 | 15 | 100.0% |
-| `common/ast` | 53 | 0 | 0 | 0 | 53 | 100.0% |
+| `common/ast` | 57 | 0 | 0 | 0 | 57 | 100.0% |
 | `common/containers` | 9 | 0 | 0 | 0 | 9 | 100.0% |
-| `common/decls` | 41 | 2 | 0 | 0 | 43 | 95.3% |
+| `common/decls` | 46 | 2 | 0 | 0 | 48 | 95.8% |
 | `common/env` | 26 | 0 | 0 | 0 | 26 | 100.0% |
 | `common/runes` | 7 | 0 | 0 | 0 | 7 | 100.0% |
-| `common/types` | 258 | 19 | 0 | 0 | 277 | 93.1% |
+| `common/types` | 263 | 19 | 0 | 0 | 282 | 93.3% |
 | `common/types/pb` | 18 | 3 | 0 | 0 | 21 | 85.7% |
 | `conformance` | 1 | 0 | 0 | 1 | 2 | 50.0% |
-| `conformance/policy` | 0 | 0 | 0 | 2 | 2 | 0.0% |
-| `examples` | 0 | 0 | 0 | 3 | 3 | 0.0% |
-| `ext` | 85 | 0 | 0 | 0 | 85 | 100.0% |
-| `interpreter` | 67 | 0 | 0 | 0 | 67 | 100.0% |
-| `parser` | 10 | 0 | 0 | 0 | 10 | 100.0% |
+| `conformance/policy` | 2 | 0 | 0 | 0 | 2 | 100.0% |
+| `examples` | 0 | 0 | 0 | 33 | 33 | 0.0% |
+| `ext` | 97 | 0 | 0 | 0 | 97 | 100.0% |
+| `interpreter` | 98 | 0 | 0 | 0 | 98 | 100.0% |
+| `parser` | 11 | 0 | 0 | 0 | 11 | 100.0% |
 | `policy` | 18 | 0 | 0 | 0 | 18 | 100.0% |
 | `repl` | 0 | 0 | 0 | 27 | 27 | 0.0% |
 | `repl/parser` | 0 | 0 | 0 | 2 | 2 | 0.0% |
@@ -42,6 +43,21 @@ completion still requires reviewing assertions and implementation against the up
 | `tools/compiler` | 0 | 0 | 0 | 3 | 3 | 0.0% |
 
 ## Test functions
+
+### `cel/async/async_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `TestRetryMultipleAttemptsTimerReset` | covered | `src/cel/async.spec.ts` |
+| `TestRetryMaxAttemptsExhausted` | covered | `src/cel/async.spec.ts` |
+| `TestRetryBindingCancellation` | covered | `src/cel/async.spec.ts` |
+| `TestRetryNonRetryableError` | covered | `src/cel/async.spec.ts` |
+| `TestRetryStandardError` | covered | `src/cel/async.spec.ts` |
+| `TestAsyncCallMethods` | covered | `src/cel/async.spec.ts` |
+| `TestDrainNone` | covered | `src/cel/async.spec.ts` |
+| `TestDrainAll` | covered | `src/cel/async.spec.ts` |
+| `TestDrainReady` | covered | `src/cel/async.spec.ts` |
+| `TestTimeoutBindingEnforcesAgainstContextIgnoringOp` | covered | `src/cel/async.spec.ts` |
 
 ### `cel/cel_example_test.go`
 
@@ -56,6 +72,7 @@ completion still requires reviewing assertions and implementation against the up
 | Upstream function | Status | Canonical spec |
 | --- | --- | --- |
 | `Test_ExampleWithBuiltins` | covered | `src/cel/env.spec.ts` |
+| `TestCompile` | covered | `src/cel/env.spec.ts` |
 | `TestEval` | covered | `src/cel/env.spec.ts` |
 | `TestAbbrevsCompiled` | covered | `src/cel/env.spec.ts` |
 | `TestAbbrevsParsed` | covered | `src/cel/env.spec.ts` |
@@ -107,6 +124,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestContextProto` | covered | `src/cel/env.spec.ts` |
 | `TestContextProtoJSONFieldNames` | covered | `src/cel/env.spec.ts` |
 | `TestRegexOptimizer` | covered | `src/cel/env.spec.ts` |
+| `TestRegexProgramSizeLimit` | covered | `src/cel/env.spec.ts` |
 | `TestDefaultUTCTimeZoneDisabled` | covered | `src/cel/env.spec.ts` |
 | `TestDefaultUTCTimeZoneExtension` | covered | `src/cel/env.spec.ts` |
 | `TestDefaultUTCTimeZoneError` | covered | `src/cel/env.spec.ts` |
@@ -120,6 +138,8 @@ completion still requires reviewing assertions and implementation against the up
 | `TestEnableErrorOnBadPresenceTest` | covered | `src/cel/env.spec.ts` |
 | `TestOptionalMacroError` | covered | `src/cel/env.spec.ts` |
 | `TestParserExpressionSizeLimit` | covered | `src/cel/env.spec.ts` |
+| `TestExpressionNodeLimit` | covered | `src/cel/env.spec.ts` |
+| `TestExpressionNodeLimitCheck` | covered | `src/cel/env.spec.ts` |
 | `TestAstProgramNilValue` | covered | `src/cel/env.spec.ts` |
 | `TestJSONFieldNames` | covered | `src/cel/env.spec.ts` |
 | `TestJSONFieldNamesInvalidProvider` | covered | `src/cel/env.spec.ts` |
@@ -190,10 +210,15 @@ completion still requires reviewing assertions and implementation against the up
 | Upstream function | Status | Canonical spec |
 | --- | --- | --- |
 | `TestConstantFoldingOptimizer` | covered | `src/cel/folding.spec.ts` |
+| `TestConstantFoldingInListIdent` | covered | `src/cel/folding.spec.ts` |
 | `TestConstantFoldingCallsWithSideEffects` | covered | `src/cel/folding.spec.ts` |
 | `TestConstantFoldingOptimizerMacroElimination` | covered | `src/cel/folding.spec.ts` |
 | `TestConstantFoldingOptimizerWithLimit` | covered | `src/cel/folding.spec.ts` |
 | `TestConstantFoldingNormalizeIDs` | covered | `src/cel/folding.spec.ts` |
+| `TestConstantFoldingOption_FoldKnownValuesNilInput` | covered | `src/cel/folding.spec.ts` |
+| `TestNewConstantFoldingOptimizer_OptionErrorPropagation` | covered | `src/cel/folding.spec.ts` |
+| `TestConstantFoldingOptimizer_EvaluateExpr` | covered | `src/cel/folding.spec.ts` |
+| `TestConstantFoldingOptimizer_VariadicShortcircuitLogic` | covered | `src/cel/folding.spec.ts` |
 
 ### `cel/inlining_test.go`
 
@@ -218,6 +243,8 @@ completion still requires reviewing assertions and implementation against the up
 | `TestAstToParsedExprNil` | covered | `src/cel/io.spec.ts` |
 | `TestCheckedExprToAstConstantExpr` | covered | `src/cel/io.spec.ts` |
 | `TestCheckedExprToAstMissingInfo` | covered | `src/cel/io.spec.ts` |
+| `TestLoadedAstDepthLimit` | covered | `src/cel/io.spec.ts` |
+| `TestExpressionNestingDepthLimitConfigRoundTrip` | covered | `src/cel/io.spec.ts` |
 | `TestRefValueToValue_Error` | covered | `src/cel/io.spec.ts` |
 | `TestExprValueAsAlphaProto` | covered | `src/cel/io.spec.ts` |
 | `TestRefValToExprValue_Wrappers` | covered | `src/cel/io.spec.ts` |
@@ -238,6 +265,25 @@ completion still requires reviewing assertions and implementation against the up
 | `TestStaticOptimizerNewAST` | covered | `src/cel/optimizer.spec.ts` |
 | `TestOptimizeWithSource` | covered | `src/cel/optimizer.spec.ts` |
 | `TestStaticOptimizerNilAST` | covered | `src/cel/optimizer.spec.ts` |
+| `TestConstantFoldingOptimizerTwoVar` | covered | `src/cel/folding.spec.ts` |
+
+### `cel/program_async_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `TestConcurrentEval` | covered | `src/cel/program.spec.ts` |
+| `TestContextEvalRejectsAsync` | covered | `src/cel/program.spec.ts` |
+| `TestEvalRejectsAsync` | covered | `src/cel/program.spec.ts` |
+| `TestContextEvalAllowsPartialUnknown` | covered | `src/cel/program.spec.ts` |
+| `TestConcurrentEvalAllowsPartialUnknown` | covered | `src/cel/program.spec.ts` |
+| `TestConcurrentEvalAsyncObserver` | covered | `src/cel/program.spec.ts` |
+| `TestConcurrentEvalProgramThreadSafety` | covered | `src/cel/program.spec.ts` |
+| `TestConcurrentEvalPreCanceledContext` | covered | `src/cel/program.spec.ts` |
+| `TestSyncEvalRejectsAsyncBeforeEvaluating` | covered | `src/cel/program.spec.ts` |
+| `TestSyncEvalRejectedInAsyncEnv` | covered | `src/cel/program.spec.ts` |
+| `TestConcurrentEvalDrainReady` | covered | `src/cel/program.spec.ts` |
+| `TestConcurrentEvalCancelDuringDebounce` | covered | `src/cel/program.spec.ts` |
+| `TestConcurrentEvalRecover` | covered | `src/cel/program.spec.ts` |
 
 ### `cel/prompt_test.go`
 
@@ -254,10 +300,16 @@ completion still requires reviewing assertions and implementation against the up
 | `TestValidateDurationLiterals` | covered | `src/cel/validator.spec.ts` |
 | `TestValidateTimestampLiterals` | covered | `src/cel/validator.spec.ts` |
 | `TestValidateRegexLiterals` | covered | `src/cel/validator.spec.ts` |
+| `TestValidateRegexProgramSizeLimit` | covered | `src/cel/validator.spec.ts` |
+| `TestValidateRegexProgramSizeLimitToConfig` | covered | `src/cel/validator.spec.ts` |
+| `TestValidateRegexProgramSizeLimitFactory` | covered | `src/cel/validator.spec.ts` |
 | `TestValidateHomogeneousAggregateLiterals` | covered | `src/cel/validator.spec.ts` |
 | `TestValidateComprehensionNestingLimit` | covered | `src/cel/validator.spec.ts` |
 | `TestExtendedValidations` | covered | `src/cel/validator.spec.ts` |
 | `TestValidatorConfig` | covered | `src/cel/validator.spec.ts` |
+| `TestOverrideValidator` | covered | `src/cel/validator.spec.ts` |
+| `TestOverrideValidatorFromConfig` | covered | `src/cel/validator.spec.ts` |
+| `TestOverrideValidatorPreservesOrder` | covered | `src/cel/validator.spec.ts` |
 
 ### `checker/checker_test.go`
 
@@ -304,6 +356,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestReferenceInfoAddOverload` | covered | `src/common/ast/ast.spec.ts` |
 | `TestNewSourceInfoRelative` | covered | `src/common/ast/ast.spec.ts` |
 | `TestMaxID` | covered | `src/common/ast/ast.spec.ts` |
+| `TestNodeCount` | covered | `src/common/ast/ast.spec.ts` |
 | `TestHeights` | covered | `src/common/ast/ast.spec.ts` |
 | `TestHasExtension` | covered | `src/common/ast/ast.spec.ts` |
 | `TestSourceInfoRenumberIDs` | covered | `src/common/ast/ast.spec.ts` |
@@ -353,6 +406,9 @@ completion still requires reviewing assertions and implementation against the up
 | --- | --- | --- |
 | `TestNavigateAST` | covered | `src/common/ast/navigable.spec.ts` |
 | `TestExprVisitor` | covered | `src/common/ast/navigable.spec.ts` |
+| `TestExceedsDepth` | covered | `src/common/ast/navigable.spec.ts` |
+| `TestExceedsDepthNilSafety` | covered | `src/common/ast/navigable.spec.ts` |
+| `TestExceedsDepthBoundedTraversal` | covered | `src/common/ast/navigable.spec.ts` |
 | `TestNavigableASTNilSafety` | covered | `src/common/ast/navigable.spec.ts` |
 | `TestNavigableExpr` | covered | `src/common/ast/navigable.spec.ts` |
 | `TestNavigableCallExprMember` | covered | `src/common/ast/navigable.spec.ts` |
@@ -425,6 +481,11 @@ completion still requires reviewing assertions and implementation against the up
 | `TestVariableDeclToExprDeclInvalid` | covered | `src/common/decls.spec.ts` |
 | `TestNilFunction` | todo | `src/common/decls.spec.ts` |
 | `TestNilVariable` | todo | `src/common/decls.spec.ts` |
+| `TestAsyncBinding` | covered | `src/common/decls.spec.ts` |
+| `TestAsyncBindingTypeGuards` | covered | `src/common/decls.spec.ts` |
+| `TestSingletonAsyncBinding` | covered | `src/common/decls.spec.ts` |
+| `TestAsyncBindingRedefinition` | covered | `src/common/decls.spec.ts` |
+| `TestSingletonAsyncBindingRedefinition` | covered | `src/common/decls.spec.ts` |
 
 ### `common/doc_test.go`
 
@@ -526,6 +587,7 @@ completion still requires reviewing assertions and implementation against the up
 | Upstream function | Status | Canonical spec |
 | --- | --- | --- |
 | `TestBytesAdd` | covered | `src/common/types/bytes.spec.ts` |
+| `TestBytesAddNoAlias` | covered | `src/common/types/bytes.spec.ts` |
 | `TestBytesCompare` | covered | `src/common/types/bytes.spec.ts` |
 | `TestBytesConvertToNative_Any` | covered | `src/common/types/bytes.spec.ts` |
 | `TestBytesConvertToNative_ByteSlice` | covered | `src/common/types/bytes.spec.ts` |
@@ -815,6 +877,13 @@ completion still requires reviewing assertions and implementation against the up
 | `TestNativeToValue_Primitive` | covered | `src/common/types/provider.spec.ts` |
 | `TestUnsupportedConversion` | covered | `src/common/types/provider.spec.ts` |
 
+### `common/types/regex_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `TestRegexProgramSize` | covered | `src/common/types/regex.spec.ts` |
+| `TestCompileRegexWithLimit` | covered | `src/common/types/regex.spec.ts` |
+
 ### `common/types/string_test.go`
 
 | Upstream function | Status | Canonical spec |
@@ -829,6 +898,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestStringConvertToNative_CustomString` | covered | `src/common/types/string.spec.ts` |
 | `TestStringConvertToNative_Wrapper` | covered | `src/common/types/string.spec.ts` |
 | `TestStringConvertToType` | covered | `src/common/types/string.spec.ts` |
+| `TestStringConvertToTimestampStrict` | covered | `src/common/types/string.spec.ts` |
 | `TestStringEqual` | covered | `src/common/types/string.spec.ts` |
 | `TestStringIsZeroValue` | covered | `src/common/types/string.spec.ts` |
 | `TestStringMatch` | covered | `src/common/types/string.spec.ts` |
@@ -855,6 +925,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestTimestampGetMinutes` | covered | `src/common/types/timestamp.spec.ts` |
 | `TestTimestampGetSeconds` | covered | `src/common/types/timestamp.spec.ts` |
 | `TestTimestampGetMilliseconds` | covered | `src/common/types/timestamp.spec.ts` |
+| `TestIsStrictRFC3339MatchesPattern` | covered | `src/common/types/timestamp.spec.ts` |
 
 ### `common/types/type_test.go`
 
@@ -928,26 +999,116 @@ completion still requires reviewing assertions and implementation against the up
 
 | Upstream function | Status | Canonical spec |
 | --- | --- | --- |
-| `TestMain` | missing | `—` |
-| `TestConformance` | missing | `—` |
+| `TestMain` | covered | `src/policy.spec.ts` |
+| `TestConformance` | covered | `src/policy.spec.ts` |
 
-### `examples/example_cel_eval_test.go`
-
-| Upstream function | Status | Canonical spec |
-| --- | --- | --- |
-| `Example_cel_Eval` | missing | `—` |
-
-### `examples/example_cel_member_test.go`
+### `examples/example_cel_advanced_test.go`
 
 | Upstream function | Status | Canonical spec |
 | --- | --- | --- |
-| `Example_cel_MemberOverload` | missing | `—` |
+| `Example_cel_CommonErrors` | missing | `—` |
+| `Example_cel_NameResolution` | missing | `—` |
 
-### `examples/example_cel_overload_test.go`
+### `examples/example_cel_collections_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_Collections` | missing | `—` |
+| `Example_cel_Lists` | missing | `—` |
+| `Example_cel_Maps` | missing | `—` |
+
+### `examples/example_cel_compile_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_Compile` | missing | `—` |
+| `Example_cel_Compile_options` | missing | `—` |
+
+### `examples/example_cel_context_eval_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_ContextEval` | missing | `—` |
+
+### `examples/example_cel_custom_functions_test.go`
 
 | Upstream function | Status | Canonical spec |
 | --- | --- | --- |
 | `Example_cel_Overload` | missing | `—` |
+| `Example_cel_MemberOverload` | missing | `—` |
+| `Example_cel_CustomFunctions` | missing | `—` |
+
+### `examples/example_cel_custom_macros_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_CustomMacros` | missing | `—` |
+
+### `examples/example_cel_execution_cost_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_ExecutionCost` | missing | `—` |
+
+### `examples/example_cel_logic_and_conditions_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_LogicAndConditions` | missing | `—` |
+| `Example_cel_LogicalOperators` | missing | `—` |
+| `Example_cel_Ternary` | missing | `—` |
+
+### `examples/example_cel_native_structs_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_NativeTypes` | missing | `—` |
+| `Example_cel_NativeTypes_structTags` | missing | `—` |
+
+### `examples/example_cel_operators_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_Arithmetic` | missing | `—` |
+| `Example_cel_Comparison` | missing | `—` |
+| `Example_cel_Null` | missing | `—` |
+
+### `examples/example_cel_protocol_buffers_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_ProtocolBuffers` | missing | `—` |
+| `Example_cel_WellKnownTypes` | missing | `—` |
+
+### `examples/example_cel_strings_and_numbers_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_StringsAndNumbers` | missing | `—` |
+| `Example_cel_Strings` | missing | `—` |
+| `Example_cel_StringsExtension` | missing | `—` |
+| `Example_cel_Primitives` | missing | `—` |
+
+### `examples/example_cel_time_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_TimestampsAndDurations` | missing | `—` |
+| `Example_cel_Time` | missing | `—` |
+
+### `examples/example_cel_transforming_data_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_TransformingData` | missing | `—` |
+| `Example_cel_Macros` | missing | `—` |
+
+### `examples/example_cel_type_conversions_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `Example_cel_TypeConversions` | missing | `—` |
+| `Example_cel_TypeIntrospection` | missing | `—` |
 
 ### `ext/bindings_test.go`
 
@@ -962,6 +1123,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestBlockEval_RuntimeErrors` | covered | `src/ext/bindings.spec.ts` |
 | `TestDynamicBlockEval` | covered | `src/ext/bindings.spec.ts` |
 | `TestConstantBlockEval` | covered | `src/ext/bindings.spec.ts` |
+| `TestValidateBindNestingLimit` | covered | `src/ext/bindings.spec.ts` |
 
 ### `ext/comprehensions_test.go`
 
@@ -981,6 +1143,9 @@ completion still requires reviewing assertions and implementation against the up
 | --- | --- | --- |
 | `TestEncoders` | covered | `src/ext/encoders.spec.ts` |
 | `TestEncodersVersion` | covered | `src/ext/encoders.spec.ts` |
+| `TestEncodersCosts` | covered | `src/ext/encoders.spec.ts` |
+| `TestDecodeNonBase64Error` | covered | `src/ext/encoders.spec.ts` |
+| `TestJSONEncodeCostUnbounded` | covered | `src/ext/encoders.spec.ts` |
 
 ### `ext/extension_option_factory_test.go`
 
@@ -1029,6 +1194,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestMathNonMatch` | covered | `src/ext/math.spec.ts` |
 | `TestMathWithExtension` | covered | `src/ext/math.spec.ts` |
 | `TestMathVersions` | covered | `src/ext/math.spec.ts` |
+| `TestMathCosts` | covered | `src/ext/math.spec.ts` |
 
 ### `ext/native_test.go`
 
@@ -1050,9 +1216,12 @@ completion still requires reviewing assertions and implementation against the up
 | `TestNativeTypeValue` | covered | `src/ext/native.spec.ts` |
 | `TestNativeStructWithMultipleSameFieldNames` | covered | `src/ext/native.spec.ts` |
 | `TestNativeStructEmbedded` | covered | `src/ext/native.spec.ts` |
+| `TestNativeStructEmbeddedPointer` | covered | `src/ext/native.spec.ts` |
+| `TestNativeStructHiddenField` | covered | `src/ext/native.spec.ts` |
 | `TestNativeNestedStruct` | covered | `src/ext/native.spec.ts` |
 | `TestNativeTypesVersion` | covered | `src/ext/native.spec.ts` |
 | `TestTypeResolutionRace` | covered | `src/ext/native.spec.ts` |
+| `TestNativeToValueDelegatesUnregisteredStructs` | covered | `src/ext/native.spec.ts` |
 
 ### `ext/network_test.go`
 
@@ -1062,6 +1231,9 @@ completion still requires reviewing assertions and implementation against the up
 | `TestNetwork_RuntimeErrors` | covered | `src/ext/network.spec.ts` |
 | `TestNetwork_TypeConversions` | covered | `src/ext/network.spec.ts` |
 | `TestNetwork_CompileErrors` | covered | `src/ext/network.spec.ts` |
+| `TestNetworkCost` | covered | `src/ext/network.spec.ts` |
+| `TestIPCost` | covered | `src/ext/network.spec.ts` |
+| `TestCIDRCost` | covered | `src/ext/network.spec.ts` |
 
 ### `ext/protos_test.go`
 
@@ -1083,6 +1255,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestRegexEnvCreationErrors` | covered | `src/ext/regex.spec.ts` |
 | `TestRegexVersion` | covered | `src/ext/regex.spec.ts` |
 | `TestRegexCosts` | covered | `src/ext/regex.spec.ts` |
+| `TestRegexProgramSizeLimit` | covered | `src/ext/regex.spec.ts` |
 
 ### `ext/sets_test.go`
 
@@ -1114,6 +1287,35 @@ completion still requires reviewing assertions and implementation against the up
 | `TestActivation_ResolveLazyAny` | covered | `src/interpreter/activation.spec.ts` |
 | `TestHierarchicalActivation` | covered | `src/interpreter/activation.spec.ts` |
 | `TestAsPartialActivation` | covered | `src/interpreter/activation.spec.ts` |
+| `TestIsLocalVariableNested` | covered | `src/interpreter/activation.spec.ts` |
+| `TestActivation_NewActivationNilInput` | covered | `src/interpreter/activation.spec.ts` |
+| `TestPartialActivation_NewPartialActivationNilInput` | covered | `src/interpreter/activation.spec.ts` |
+| `TestAsPartialActivation_NonPartialActivation` | covered | `src/interpreter/activation.spec.ts` |
+
+### `interpreter/async_test.go`
+
+| Upstream function | Status | Canonical spec |
+| --- | --- | --- |
+| `TestComputeResultWithoutContext` | covered | `src/interpreter/async.spec.ts` |
+| `TestComputeResultResolves` | covered | `src/interpreter/async.spec.ts` |
+| `TestTrackerDedupAndCallIDs` | covered | `src/interpreter/async.spec.ts` |
+| `TestHashCall` | covered | `src/interpreter/async.spec.ts` |
+| `TestTrackerComprehensionReuse` | covered | `src/interpreter/async.spec.ts` |
+| `TestTrackerRegistrationLookup` | covered | `src/interpreter/async.spec.ts` |
+| `TestAsyncObserverLifecycle` | covered | `src/interpreter/async.spec.ts` |
+| `TestAsyncObserverOnCancellation` | covered | `src/interpreter/async.spec.ts` |
+| `TestLaunchAdmissionAndBounding` | covered | `src/interpreter/async.spec.ts` |
+| `TestLaunchUnlimitedWhenNoSemaphore` | covered | `src/interpreter/async.spec.ts` |
+| `TestAsyncCallStateCancellation` | covered | `src/interpreter/async.spec.ts` |
+| `TestAsyncTrackerPoolReleaseClearsState` | covered | `src/interpreter/async.spec.ts` |
+| `TestAsyncCallStateMatches` | covered | `src/interpreter/async.spec.ts` |
+| `TestExecutionFrameChildSharesAsyncContext` | covered | `src/interpreter/async.spec.ts` |
+| `TestEvalAsyncFuncGetters` | covered | `src/interpreter/async.spec.ts` |
+| `TestEvalAsyncFuncLifecycle` | covered | `src/interpreter/async.spec.ts` |
+| `TestEvalAsyncFuncEarlyReturn` | covered | `src/interpreter/async.spec.ts` |
+| `TestTrackerPoolShrink` | covered | `src/interpreter/async.spec.ts` |
+| `TestAsyncWithTraceAndExhaustiveEval` | covered | `src/interpreter/async.spec.ts` |
+| `TestAsyncSetupWithoutContextErrors` | covered | `src/interpreter/async.spec.ts` |
 
 ### `interpreter/attribute_patterns_test.go`
 
@@ -1121,6 +1323,10 @@ completion still requires reviewing assertions and implementation against the up
 | --- | --- | --- |
 | `TestAttributePattern_UnknownResolution` | covered | `src/interpreter/attribute-patterns.spec.ts` |
 | `TestAttributePattern_CrossReference` | covered | `src/interpreter/attribute-patterns.spec.ts` |
+| `TestAttributePattern_LocallyBound` | covered | `src/interpreter/attribute-patterns.spec.ts` |
+| `TestQualifierValueEquals` | covered | `src/interpreter/attribute-patterns.spec.ts` |
+| `TestPartialAttributeFactory_MaybeAttributeGloballyNamespaced` | covered | `src/interpreter/attribute-patterns.spec.ts` |
+| `TestPartialAttributeFactory_ResolveUnknownQualifier` | covered | `src/interpreter/attribute-patterns.spec.ts` |
 
 ### `interpreter/attributes_test.go`
 
@@ -1145,6 +1351,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestAttributeStateTracking` | covered | `src/interpreter/attributes.spec.ts` |
 | `TestConditionalAttributeQualify` | covered | `src/interpreter/attributes.spec.ts` |
 | `TestQualifyIfPresent` | covered | `src/interpreter/attributes.spec.ts` |
+| `TestAttribute_StringRepresentation` | covered | `src/interpreter/attributes.spec.ts` |
 
 ### `interpreter/frame_test.go`
 
@@ -1157,6 +1364,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestFrameAsPartialActivation` | covered | `src/interpreter/frame.spec.ts` |
 | `TestFramePushPop` | covered | `src/interpreter/frame.spec.ts` |
 | `TestFrameClose` | covered | `src/interpreter/frame.spec.ts` |
+| `TestFrameDoubleClose` | covered | `src/interpreter/frame.spec.ts` |
 | `TestFrameLifecycleAndPooling` | covered | `src/interpreter/frame.spec.ts` |
 | `TestFrameSetContext` | covered | `src/interpreter/frame.spec.ts` |
 | `TestFrameSetContextTwiceError` | covered | `src/interpreter/frame.spec.ts` |
@@ -1174,6 +1382,7 @@ completion still requires reviewing assertions and implementation against the up
 | `TestInterpreter_LogicalAndMissingType` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_ExhaustiveConditionalExpr` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_InterruptableEval` | covered | `src/interpreter/interpreter.spec.ts` |
+| `TestInterpreter_RegexProgramSizeLimit` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_ExhaustiveLogicalOrEquals` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_SetProto2PrimitiveFields` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_MissingIdentInSelect` | covered | `src/interpreter/interpreter.spec.ts` |
@@ -1225,6 +1434,7 @@ completion still requires reviewing assertions and implementation against the up
 | --- | --- | --- |
 | `TestParse` | covered | `src/parser/parser.spec.ts` |
 | `TestExpressionSizeCodePointLimit` | covered | `src/parser/parser.spec.ts` |
+| `TestMaxExpressionNodeCount` | covered | `src/parser/parser.spec.ts` |
 | `TestParserOptionErrors` | covered | `src/parser/parser.spec.ts` |
 | `TestParseErrorData` | covered | `src/parser/parser.spec.ts` |
 

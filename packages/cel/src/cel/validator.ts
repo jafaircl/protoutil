@@ -8,6 +8,7 @@ import {
 } from "../common/ast/index.js";
 import type { Errors } from "../common/errors.js";
 import * as overloads from "../common/overloads.js";
+import { regexProgramSize } from "../common/types/regex.js";
 import { compileRegexPattern } from "../common/types/string.js";
 import { exprTypeToType, type Type } from "../common/types/types.js";
 import type { Env } from "./env.js";
@@ -36,6 +37,16 @@ const HomogeneousValidatorName = "cel.validator.homogeneous_literals";
  * NestingLimitValidatorName is the unique comprehension nesting validator name.
  */
 const NestingLimitValidatorName = "cel.validator.comprehension_nesting_limit";
+
+/**
+ * BindNestingLimitValidatorName is the unique cel.bind nesting validator name.
+ */
+const BindNestingLimitValidatorName = "cel.validator.bind_nesting_limit";
+
+/**
+ * RegexProgramSizeLimitValidatorName is the unique regex program-size validator name.
+ */
+const RegexProgramSizeLimitValidatorName = "cel.validator.regex_program_size_limit";
 
 /**
  * HomogeneousAggregateLiteralExemptFunctions is the ValidatorConfig key used to configure
@@ -159,6 +170,22 @@ export function validateHomogeneousAggregateLiterals(): ASTValidator {
  */
 export function validateComprehensionNestingLimit(limit: number): ASTValidator {
   return new NestingLimitValidator(limit);
+}
+
+/**
+ * validateBindNestingLimit ensures that cel.bind macro nesting does not exceed the limit.
+ *
+ * This validator can be useful for preventing arbitrarily nested cel.bind macro calls.
+ */
+export function validateBindNestingLimit(limit: number): ASTValidator {
+  return new BindNestingLimitValidator(limit);
+}
+
+/**
+ * validateRegexProgramSizeLimit ensures literal regex programs do not exceed the limit.
+ */
+export function validateRegexProgramSizeLimit(limit: number): ASTValidator {
+  return new RegexProgramSizeLimitValidator(limit);
 }
 
 /**
@@ -376,6 +403,143 @@ class NestingLimitValidator implements ASTValidator {
       }
     }
   }
+}
+
+/**
+ * BindNestingLimitValidator limits the depth of nested cel.bind macro expansions.
+ */
+class BindNestingLimitValidator implements ASTValidator {
+  /** constructor records the maximum permitted bind nesting depth. */
+  public constructor(private readonly limit: number) {}
+
+  /** name returns the cel.bind nesting-limit validator name. */
+  public name(): string {
+    return BindNestingLimitValidatorName;
+  }
+
+  /** config returns the serializable cel.bind nesting limit. */
+  public config(): Record<string, unknown> {
+    return { limit: this.limit };
+  }
+
+  /** validate reports cel.bind comprehensions nested beyond the configured limit. */
+  public validate(_environment: Env, _config: ValidatorConfig, ast: AST, issues: Errors): void {
+    const binds = matchDescendants(
+      navigateAst(ast),
+      (expression) => expression.kind() === ExprKind.Comprehension && isCelBind(expression),
+    );
+    if (binds.length <= this.limit) {
+      return;
+    }
+    for (const bind of binds) {
+      let count = 0;
+      let current: NavigableExpr | undefined = bind;
+      while (current !== undefined) {
+        if (isCelBind(current)) {
+          count++;
+          if (count > this.limit) {
+            issues.reportErrorAtId(
+              bind.id(),
+              ast.sourceInfo().getStartLocation(bind.id()),
+              "cel.bind exceeds nesting limit",
+            );
+            break;
+          }
+        }
+        [current] = current.parent();
+      }
+    }
+  }
+}
+
+/**
+ * RegexProgramSizeLimitValidator limits the compiled instruction count of literal regex patterns.
+ */
+class RegexProgramSizeLimitValidator implements ASTValidator {
+  /** constructor records the maximum permitted regex instruction count. */
+  public constructor(private readonly limit: number) {}
+
+  /** name returns the regex program-size validator name. */
+  public name(): string {
+    return RegexProgramSizeLimitValidatorName;
+  }
+
+  /** config returns the serializable regex program-size limit. */
+  public config(): Record<string, unknown> {
+    return { limit: this.limit };
+  }
+
+  /** validate reports literal regular expressions whose programs exceed the configured limit. */
+  public validate(_environment: Env, _config: ValidatorConfig, ast: AST, issues: Errors): void {
+    if (this.limit <= 0) {
+      return;
+    }
+    const calls = matchDescendants(navigateAst(ast), kindMatcher(ExprKind.Call));
+    for (const expression of calls) {
+      const call = expression.asCall()!;
+      if (!isRegexFunctionName(call.functionName())) {
+        continue;
+      }
+      const patternIndex =
+        (call.functionName() === overloads.Matches || call.functionName() === "matches") &&
+        call.isMemberFunction()
+          ? 0
+          : 1;
+      const argument = call.args()[patternIndex];
+      if (argument?.kind() !== ExprKind.Literal || typeof argument.asLiteral() !== "string") {
+        continue;
+      }
+      try {
+        const size = regexProgramSize(argument.asLiteral() as string);
+        if (size > this.limit) {
+          issues.reportErrorAtId(
+            argument.id(),
+            ast.sourceInfo().getStartLocation(argument.id()),
+            "regex program size %d exceeds limit of %d",
+            size,
+            this.limit,
+          );
+        }
+      } catch {
+        // Invalid regex literals are handled by the format validator.
+      }
+    }
+  }
+}
+
+/**
+ * isRegexFunctionName reports whether a function interprets one argument as a regex pattern.
+ */
+function isRegexFunctionName(functionName: string): boolean {
+  return (
+    functionName === overloads.Matches ||
+    functionName === "matches" ||
+    functionName === "regex.extract" ||
+    functionName === "regex.extractAll" ||
+    functionName === "regex.replace"
+  );
+}
+
+/**
+ * isCelBind reports whether a comprehension has the canonical cel.bind expansion shape.
+ */
+function isCelBind(expression: NavigableExpr): boolean {
+  if (expression.kind() !== ExprKind.Comprehension) {
+    return false;
+  }
+  const comprehension = expression.asComprehension()!;
+  const iterRange = comprehension.iterRange();
+  const loopCondition = comprehension.loopCondition();
+  const loopStep = comprehension.loopStep();
+  return (
+    iterRange.kind() === ExprKind.List &&
+    iterRange.asList()?.size() === 0 &&
+    comprehension.iterVar() === "#unused" &&
+    loopCondition.kind() === ExprKind.Literal &&
+    loopCondition.asLiteral() === false &&
+    loopStep.kind() === ExprKind.Ident &&
+    loopStep.asIdent() === comprehension.accuVar()
+  );
 }
 
 /**

@@ -1,0 +1,375 @@
+{
+  "path": "restricted_destinations",
+  "files": {
+    "base_config.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"labels\"\nextensions:\n  - name: \"lists\"\n  - name: \"sets\"\nvariables:\n  - name: \"destination.ip\"\n    type_name: \"string\"\n  - name: \"origin.ip\"\n    type_name: \"string\"\n  - name: \"spec.restricted_destinations\"\n    type_name: \"list\"\n    params:\n      - type_name: \"string\"\n  - name: \"spec.origin\"\n    type_name: \"string\"\n  - name: \"request\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\n  - name: \"resource\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\n",
+      "value": {
+        "extensions": [
+          {
+            "name": "lists"
+          },
+          {
+            "name": "sets"
+          }
+        ],
+        "name": "labels",
+        "variables": [
+          {
+            "name": "destination.ip",
+            "type_name": "string"
+          },
+          {
+            "name": "origin.ip",
+            "type_name": "string"
+          },
+          {
+            "name": "spec.restricted_destinations",
+            "params": [
+              {
+                "type_name": "string"
+              }
+            ],
+            "type_name": "list"
+          },
+          {
+            "name": "spec.origin",
+            "type_name": "string"
+          },
+          {
+            "name": "request",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          },
+          {
+            "name": "resource",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          }
+        ]
+      }
+    },
+    "config.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"labels\"\nextensions:\n  - name: \"lists\"\n  - name: \"sets\"\nstdlib:\n  include_macros:\n    - \"has\"\nvariables:\n  - name: \"destination.ip\"\n    type_name: \"string\"\n  - name: \"origin.ip\"\n    type_name: \"string\"\n  - name: \"spec.restricted_destinations\"\n    type_name: \"list\"\n    params:\n      - type_name: \"string\"\n  - name: \"spec.origin\"\n    type_name: \"string\"\n  - name: \"request\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\n  - name: \"resource\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\nfunctions:\n  - name: \"locationCode\"\n    overloads:\n      - id: \"locationCode_string\"\n        args:\n          - type_name: \"string\"\n        return:\n          type_name: \"string\"\n",
+      "value": {
+        "extensions": [
+          {
+            "name": "lists"
+          },
+          {
+            "name": "sets"
+          }
+        ],
+        "functions": [
+          {
+            "name": "locationCode",
+            "overloads": [
+              {
+                "args": [
+                  {
+                    "type_name": "string"
+                  }
+                ],
+                "id": "locationCode_string",
+                "return": {
+                  "type_name": "string"
+                }
+              }
+            ]
+          }
+        ],
+        "name": "labels",
+        "stdlib": {
+          "include_macros": ["has"]
+        },
+        "variables": [
+          {
+            "name": "destination.ip",
+            "type_name": "string"
+          },
+          {
+            "name": "origin.ip",
+            "type_name": "string"
+          },
+          {
+            "name": "spec.restricted_destinations",
+            "params": [
+              {
+                "type_name": "string"
+              }
+            ],
+            "type_name": "list"
+          },
+          {
+            "name": "spec.origin",
+            "type_name": "string"
+          },
+          {
+            "name": "request",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          },
+          {
+            "name": "resource",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          }
+        ]
+      }
+    },
+    "partial_config.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"labels\"\nfunctions:\n- name: \"locationCode\"\n  overloads:\n  - id: \"locationCode_string\"\n    args:\n    - type_name: \"string\"\n    return:\n      type_name: \"string\"\n",
+      "value": {
+        "functions": [
+          {
+            "name": "locationCode",
+            "overloads": [
+              {
+                "args": [
+                  {
+                    "type_name": "string"
+                  }
+                ],
+                "id": "locationCode_string",
+                "return": {
+                  "type_name": "string"
+                }
+              }
+            ]
+          }
+        ],
+        "name": "labels"
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"restricted_destinations\"\nrule:\n  variables:\n    - name: matches_origin_ip\n      expression: \u003e\n        locationCode(origin.ip) == spec.origin\n    - name: has_nationality\n      expression: \u003e\n        has(request.auth.claims.nationality)\n    - name: matches_nationality\n      expression: \u003e\n        variables.has_nationality \u0026\u0026 request.auth.claims.nationality == spec.origin\n    - name: matches_dest_ip\n      expression: \u003e\n        locationCode(destination.ip) in spec.restricted_destinations\n    - name: matches_dest_label\n      expression: \u003e\n        resource.labels.location in spec.restricted_destinations\n    - name: matches_dest\n      expression: \u003e\n        variables.matches_dest_ip || variables.matches_dest_label\n  match:\n    - condition: variables.matches_nationality \u0026\u0026 variables.matches_dest\n      output: \"true\"\n    - condition: \u003e\n        !variables.has_nationality \u0026\u0026 variables.matches_origin_ip \u0026\u0026 variables.matches_dest\n      output: \"true\"\n    - output: \"false\"\n",
+      "value": {
+        "name": "restricted_destinations",
+        "rule": {
+          "match": [
+            {
+              "condition": "variables.matches_nationality \u0026\u0026 variables.matches_dest",
+              "output": "true"
+            },
+            {
+              "condition": "!variables.has_nationality \u0026\u0026 variables.matches_origin_ip \u0026\u0026 variables.matches_dest\n",
+              "output": "true"
+            },
+            {
+              "output": "false"
+            }
+          ],
+          "variables": [
+            {
+              "expression": "locationCode(origin.ip) == spec.origin\n",
+              "name": "matches_origin_ip"
+            },
+            {
+              "expression": "has(request.auth.claims.nationality)\n",
+              "name": "has_nationality"
+            },
+            {
+              "expression": "variables.has_nationality \u0026\u0026 request.auth.claims.nationality == spec.origin\n",
+              "name": "matches_nationality"
+            },
+            {
+              "expression": "locationCode(destination.ip) in spec.restricted_destinations\n",
+              "name": "matches_dest_ip"
+            },
+            {
+              "expression": "resource.labels.location in spec.restricted_destinations\n",
+              "name": "matches_dest_label"
+            },
+            {
+              "expression": "variables.matches_dest_ip || variables.matches_dest_label\n",
+              "name": "matches_dest"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: Restricted destinations conformance tests.\nsection:\n  - name: \"valid\"\n    tests:\n      - name: \"ip_allowed\"\n        input:\n          spec.origin:\n            value: \"us\"\n          spec.restricted_destinations:\n            value:\n              - \"cu\"\n              - \"ir\"\n              - \"kp\"\n              - \"sd\"\n              - \"sy\"\n          destination.ip:\n            value: \"10.0.0.1\"\n          origin.ip:\n            value: \"10.0.0.1\"\n          request:\n            value:\n              auth:\n                claims: {}\n          resource:\n            value:\n              name: \"/company/acme/secrets/doomsday-device\"\n              labels:\n                location: \"us\"\n        output:\n          value: false # false means unrestricted\n      - name: \"nationality_allowed\"\n        input:\n          spec.origin:\n            value: \"us\"\n          spec.restricted_destinations:\n            value:\n              - \"cu\"\n              - \"ir\"\n              - \"kp\"\n              - \"sd\"\n              - \"sy\"\n          destination.ip:\n            value: \"10.0.0.1\"\n          request:\n            value:\n              auth:\n                claims:\n                  nationality: \"us\"\n          resource:\n            value:\n              name: \"/company/acme/secrets/doomsday-device\"\n              labels:\n                location: \"us\"\n        output:\n          value: false\n  - name: \"invalid\"\n    tests:\n      - name: \"destination_ip_prohibited\"\n        input:\n          spec.origin:\n            value: \"us\"\n          spec.restricted_destinations:\n            value:\n              - \"cu\"\n              - \"ir\"\n              - \"kp\"\n              - \"sd\"\n              - \"sy\"\n          destination.ip:\n            value: \"123.123.123.123\"\n          origin.ip:\n            value: \"10.0.0.1\"\n          request:\n            value:\n              auth:\n                claims: {}\n          resource:\n            value:\n              name: \"/company/acme/secrets/doomsday-device\"\n              labels:\n                location: \"us\"\n        output:\n          value: true # true means restricted\n      - name: \"resource_nationality_prohibited\"\n        input:\n          spec.origin:\n            value: \"us\"\n          spec.restricted_destinations:\n            value:\n              - \"cu\"\n              - \"ir\"\n              - \"kp\"\n              - \"sd\"\n              - \"sy\"\n          destination.ip:\n            value: \"10.0.0.1\"\n          request:\n            value:\n              auth:\n                claims:\n                  nationality: \"us\"\n          resource:\n            value:\n              name: \"/company/acme/secrets/doomsday-device\"\n              labels:\n                location: \"cu\"\n        output:\n          value: true\n",
+      "value": {
+        "description": "Restricted destinations conformance tests.",
+        "section": [
+          {
+            "name": "valid",
+            "tests": [
+              {
+                "input": {
+                  "destination.ip": {
+                    "value": "10.0.0.1"
+                  },
+                  "origin.ip": {
+                    "value": "10.0.0.1"
+                  },
+                  "request": {
+                    "value": {
+                      "auth": {
+                        "claims": {}
+                      }
+                    }
+                  },
+                  "resource": {
+                    "value": {
+                      "labels": {
+                        "location": "us"
+                      },
+                      "name": "/company/acme/secrets/doomsday-device"
+                    }
+                  },
+                  "spec.origin": {
+                    "value": "us"
+                  },
+                  "spec.restricted_destinations": {
+                    "value": ["cu", "ir", "kp", "sd", "sy"]
+                  }
+                },
+                "name": "ip_allowed",
+                "output": {
+                  "value": false
+                }
+              },
+              {
+                "input": {
+                  "destination.ip": {
+                    "value": "10.0.0.1"
+                  },
+                  "request": {
+                    "value": {
+                      "auth": {
+                        "claims": {
+                          "nationality": "us"
+                        }
+                      }
+                    }
+                  },
+                  "resource": {
+                    "value": {
+                      "labels": {
+                        "location": "us"
+                      },
+                      "name": "/company/acme/secrets/doomsday-device"
+                    }
+                  },
+                  "spec.origin": {
+                    "value": "us"
+                  },
+                  "spec.restricted_destinations": {
+                    "value": ["cu", "ir", "kp", "sd", "sy"]
+                  }
+                },
+                "name": "nationality_allowed",
+                "output": {
+                  "value": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "invalid",
+            "tests": [
+              {
+                "input": {
+                  "destination.ip": {
+                    "value": "123.123.123.123"
+                  },
+                  "origin.ip": {
+                    "value": "10.0.0.1"
+                  },
+                  "request": {
+                    "value": {
+                      "auth": {
+                        "claims": {}
+                      }
+                    }
+                  },
+                  "resource": {
+                    "value": {
+                      "labels": {
+                        "location": "us"
+                      },
+                      "name": "/company/acme/secrets/doomsday-device"
+                    }
+                  },
+                  "spec.origin": {
+                    "value": "us"
+                  },
+                  "spec.restricted_destinations": {
+                    "value": ["cu", "ir", "kp", "sd", "sy"]
+                  }
+                },
+                "name": "destination_ip_prohibited",
+                "output": {
+                  "value": true
+                }
+              },
+              {
+                "input": {
+                  "destination.ip": {
+                    "value": "10.0.0.1"
+                  },
+                  "request": {
+                    "value": {
+                      "auth": {
+                        "claims": {
+                          "nationality": "us"
+                        }
+                      }
+                    }
+                  },
+                  "resource": {
+                    "value": {
+                      "labels": {
+                        "location": "cu"
+                      },
+                      "name": "/company/acme/secrets/doomsday-device"
+                    }
+                  },
+                  "spec.origin": {
+                    "value": "us"
+                  },
+                  "spec.restricted_destinations": {
+                    "value": ["cu", "ir", "kp", "sd", "sy"]
+                  }
+                },
+                "name": "resource_nationality_prohibited",
+                "output": {
+                  "value": true
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

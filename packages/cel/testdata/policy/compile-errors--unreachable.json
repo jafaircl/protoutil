@@ -1,0 +1,117 @@
+{
+  "path": "compile_errors/unreachable",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_unreachable\"\nextensions:\n  - name: \"sets\"\n  - name: \"strings\"\n    version: \"latest\"\nvariables:\n  - name: \"request\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\n  - name: \"resource\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\n",
+      "value": {
+        "extensions": [
+          {
+            "name": "sets"
+          },
+          {
+            "name": "strings",
+            "version": "latest"
+          }
+        ],
+        "name": "errors_unreachable",
+        "variables": [
+          {
+            "name": "request",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          },
+          {
+            "name": "resource",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_unreachable\"\nrule:\n  variables:\n  - name: want\n    expression: request.labels\n  - name: missing\n    expression: variables.want.filter(l, !(l in resource.labels))\n  - name: invalid\n    expression: \u003e\n      resource.labels.filter(l,\n        l in variables.want \u0026\u0026 variables.want[l] != resource.labels[l])\n  match:\n  - rule:\n      match:\n      - output: \"''\"\n  - condition: variables.missing.size() \u003e 0\n    output: |\n      \"missing one or more required labels: [\\\"\" + variables.missing.join(',') + \"\\\"]\"\n  - condition: variables.invalid.size() \u003e 0\n    rule:\n      match:\n      - output: |\n          \"invalid values provided on one or more labels: [\\\"\" + variables.invalid.join(',') + \"\\\"]\"\n      - condition: \"false\"\n        output: \"'unreachable'\"\n",
+      "value": {
+        "name": "errors_unreachable",
+        "rule": {
+          "match": [
+            {
+              "rule": {
+                "match": [
+                  {
+                    "output": "''"
+                  }
+                ]
+              }
+            },
+            {
+              "condition": "variables.missing.size() \u003e 0",
+              "output": "\"missing one or more required labels: [\\\"\" + variables.missing.join(',') + \"\\\"]\"\n"
+            },
+            {
+              "condition": "variables.invalid.size() \u003e 0",
+              "rule": {
+                "match": [
+                  {
+                    "output": "\"invalid values provided on one or more labels: [\\\"\" + variables.invalid.join(',') + \"\\\"]\"\n"
+                  },
+                  {
+                    "condition": "false",
+                    "output": "'unreachable'"
+                  }
+                ]
+              }
+            }
+          ],
+          "variables": [
+            {
+              "expression": "request.labels",
+              "name": "want"
+            },
+            {
+              "expression": "variables.want.filter(l, !(l in resource.labels))",
+              "name": "missing"
+            },
+            {
+              "expression": "resource.labels.filter(l,\n  l in variables.want \u0026\u0026 variables.want[l] != resource.labels[l])\n",
+              "name": "invalid"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_unreachable\"\ndescription: \"Tests for unreachable outputs in policy compilation\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"unreachable_outputs\"\n    output:\n      error_set:\n      - \"rule creates unreachable outputs\"\n",
+      "value": {
+        "description": "Tests for unreachable outputs in policy compilation",
+        "name": "errors_unreachable",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "unreachable_outputs",
+                "output": {
+                  "error_set": ["rule creates unreachable outputs"]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

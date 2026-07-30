@@ -3,7 +3,21 @@ export {
   declarationFromProto,
 } from "./cel/decls.js";
 export {
+  type AsyncCall,
+  type AsyncObserver,
+  type DrainAction,
+  type DrainStrategy,
+  drainAll,
+  drainNone,
+  drainReady,
+  type RetryOptions,
+  retry,
+  type TimeoutOptions,
+  timeout,
+} from "./cel/async.js";
+export {
   astOutputType,
+  compile,
   type CompileResult,
   type ContextProtoVarsOptions,
   contextProtoVars,
@@ -102,10 +116,12 @@ export {
   HomogeneousAggregateLiteralExemptFunctions,
   type MutableValidatorConfig,
   type ValidatorConfig,
+  validateBindNestingLimit,
   validateComprehensionNestingLimit,
   validateDurationLiterals,
   validateHomogeneousAggregateLiterals,
   validateRegexLiterals,
+  validateRegexProgramSizeLimit,
   validateTimestampLiterals,
   validatorConfig,
 } from "./cel/validator.js";
