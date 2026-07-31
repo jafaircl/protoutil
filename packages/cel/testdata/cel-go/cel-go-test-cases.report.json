@@ -1,10 +1,10 @@
 {
-  "testFilesScanned": 113,
-  "candidateTablesFound": 268,
-  "exportedTables": 257,
-  "rowsExported": 3798,
-  "structuredFields": 7959,
-  "fallbackFields": 3276,
+  "testFilesScanned": 112,
+  "candidateTablesFound": 258,
+  "exportedTables": 251,
+  "rowsExported": 3771,
+  "structuredFields": 7903,
+  "fallbackFields": 3269,
   "skippedTables": [],
   "unresolvedTableUsages": [
     {

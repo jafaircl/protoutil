@@ -143,10 +143,7 @@ export class ConstantFoldingOptimizer implements ASTOptimizer {
     // operands are now constant. Fold those newly exposed expressions before final adaptation.
     foldableExpressions = optionalsPruned ? matchDescendants(root, matcher) : [];
     let postPruneFoldCount = 0;
-    while (
-      foldableExpressions.length !== 0 &&
-      postPruneFoldCount < this.maxFoldIterations
-    ) {
+    while (foldableExpressions.length !== 0 && postPruneFoldCount < this.maxFoldIterations) {
       for (const fold of foldableExpressions) {
         if (fold.kind() === ExprKind.Call && maybePruneBranches(context, ast, fold)) {
           continue;

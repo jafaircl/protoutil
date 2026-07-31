@@ -1,23 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  String as CelString,
   Double,
   Err,
   Int,
   isError,
   isUnknown,
-  String as CelString,
   True,
   Unknown,
   unknown,
   type Val,
 } from "../common/types/index.js";
+import { activation } from "./activation.js";
 import {
   AsyncCallTracker,
+  type AsyncResultOptions,
   asyncCallInterpretable,
   hashCall,
-  type AsyncResultOptions,
 } from "./async.js";
-import { activation } from "./activation.js";
 import { executionFrame } from "./frame.js";
 import { constValue } from "./interpretable.js";
 
@@ -94,12 +94,8 @@ describe("interpreter/async_test.go/TestTrackerDedupAndCallIDs", () => {
 
 describe("interpreter/async_test.go/TestHashCall", () => {
   it("matches cel-go's stable FNV hashes", () => {
-    expect(hashCall(1, "contains_string", [new CelString("a")])).toBe(
-      13_175_600_815_575_489_707n,
-    );
-    expect(hashCall(1, "contains_string", [new CelString("b")])).toBe(
-      13_172_731_090_226_426_672n,
-    );
+    expect(hashCall(1, "contains_string", [new CelString("a")])).toBe(13_175_600_815_575_489_707n);
+    expect(hashCall(1, "contains_string", [new CelString("b")])).toBe(13_172_731_090_226_426_672n);
   });
 });
 
@@ -109,14 +105,12 @@ describe("interpreter/async_test.go/TestTrackerComprehensionReuse", () => {
       maxConcurrency: 0,
       signal: new AbortController().signal,
     });
-    const ids = [1n, 2n, 3n].map((value) =>
-      asyncIds(tracker.computeResult(asyncResultOptions(value)))[0],
+    const ids = [1n, 2n, 3n].map(
+      (value) => asyncIds(tracker.computeResult(asyncResultOptions(value)))[0],
     );
     expect(new Set(ids).size).toBe(3);
     expect(
-      [1n, 2n, 3n].map(
-        (value) => asyncIds(tracker.computeResult(asyncResultOptions(value)))[0],
-      ),
+      [1n, 2n, 3n].map((value) => asyncIds(tracker.computeResult(asyncResultOptions(value)))[0]),
     ).toEqual(ids);
   });
 });

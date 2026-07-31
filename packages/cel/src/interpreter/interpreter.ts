@@ -389,9 +389,7 @@ export function compileRegexConstantsConfig(options: CompileRegexConstantsOption
 /**
  * regexProgramSizeLimitConfig caps regex program size during planning and evaluation.
  */
-export function regexProgramSizeLimitConfig(
-  options: RegexProgramSizeLimitOptions,
-): PlannerConfig {
+export function regexProgramSizeLimitConfig(options: RegexProgramSizeLimitOptions): PlannerConfig {
   return {
     decorators: [regexProgramSizeLimitDecorator(options)],
   };

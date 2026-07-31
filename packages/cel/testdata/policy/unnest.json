@@ -6,7 +6,12 @@
       "value": {
         "name": "unnest",
         "stdlib": {
-          "include_macros": ["filter", "all", "map", "exists"]
+          "include_macros": [
+            "filter",
+            "all",
+            "map",
+            "exists"
+          ]
         },
         "variables": [
           {

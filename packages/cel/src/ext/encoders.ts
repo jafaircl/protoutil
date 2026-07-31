@@ -5,8 +5,8 @@ import {
   type AstNode,
   CallEstimate,
   type CostEstimator,
-  fixedCostEstimate,
   type FunctionEstimator,
+  fixedCostEstimate,
   type SizeEstimate,
   sizeEstimate,
   unknownCostEstimate,
@@ -116,9 +116,7 @@ const estimateEncode: FunctionEstimator = (estimator, _target, args) => {
     return undefined;
   }
   const size = estimateNodeSize(estimator, args[0]!);
-  const cost = size
-    .multiplyByCostFactor(StringTraversalCostFactor)
-    .add(fixedCostEstimate(1));
+  const cost = size.multiplyByCostFactor(StringTraversalCostFactor).add(fixedCostEstimate(1));
   const resultSize = sizeEstimate(
     (size.Min * 4n + 2n) / 3n,
     size.Max > uint64Max / 4n ? uint64Max : (size.Max * 4n + 2n) / 3n,
@@ -132,9 +130,7 @@ const estimateDecode: FunctionEstimator = (estimator, _target, args) => {
     return undefined;
   }
   const size = estimateNodeSize(estimator, args[0]!);
-  const cost = size
-    .multiplyByCostFactor(StringTraversalCostFactor)
-    .add(fixedCostEstimate(1));
+  const cost = size.multiplyByCostFactor(StringTraversalCostFactor).add(fixedCostEstimate(1));
   return new CallEstimate(
     cost.Min,
     cost.Max,

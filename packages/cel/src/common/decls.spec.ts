@@ -390,9 +390,10 @@ describe("common/decls/decls_test.go", () => {
           }),
         ],
       });
-      const result = await declaration
-        .bindings()[0]!
-        .async!(new AbortController().signal, new CelString("hello"));
+      const result = await declaration.bindings()[0]!.async!(
+        new AbortController().signal,
+        new CelString("hello"),
+      );
       expect(isError(result)).toBe(true);
     });
   });
@@ -411,9 +412,10 @@ describe("common/decls/decls_test.go", () => {
       expect(declaration.bindings()).toHaveLength(1);
       expect(declaration.hasLateBinding()).toBe(true);
       expect(
-        await declaration
-          .bindings()[0]!
-          .async!(new AbortController().signal, new CelString("hello")),
+        await declaration.bindings()[0]!.async!(
+          new AbortController().signal,
+          new CelString("hello"),
+        ),
       ).toEqual(new CelString("hello"));
     });
   });

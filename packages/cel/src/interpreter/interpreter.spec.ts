@@ -163,9 +163,7 @@ describe("interpreter/interpreter_test.go/TestInterpreter_RegexProgramSizeLimit"
   it("limits constant and dynamic regex programs without affecting other functions", () => {
     const constantEnvironment = celEnv({ regexProgramSizeLimit: 5 });
     expect(() =>
-      constantEnvironment.program(
-        constantEnvironment.compile(`"hello".matches("(a|b)*[0-9]+")`),
-      ),
+      constantEnvironment.program(constantEnvironment.compile(`"hello".matches("(a|b)*[0-9]+")`)),
     ).toThrow("regex program size 8 exceeds limit of 5");
 
     const dynamicEnvironment = celEnv({

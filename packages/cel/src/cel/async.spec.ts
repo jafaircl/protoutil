@@ -139,9 +139,7 @@ describe("cel/async/async_test.go/TestRetryNonRetryableError", () => {
       isRetryable,
       maxAttempts: 5,
     });
-    expect((await operation(new AbortController().signal)).toString()).toContain(
-      "do not retry me",
-    );
+    expect((await operation(new AbortController().signal)).toString()).toContain("do not retry me");
     expect(attempts).toBe(1);
   });
 });

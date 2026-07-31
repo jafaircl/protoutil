@@ -170,10 +170,7 @@ describe("TypeScript extension/TestStrongEnumValueRoundTrip", () => {
     const adapter = registry();
     adapter.registerDescriptor(TestAllTypesSchema.file);
     adapter.withStrongEnums(true);
-    const value = adapter.enumValueOf(
-      "google.expr.proto3.test.TestAllTypes.NestedEnum",
-      -987n,
-    );
+    const value = adapter.enumValueOf("google.expr.proto3.test.TestAllTypes.NestedEnum", -987n);
 
     const serialized = refValueToValue(value);
     expect(serialized.kind).toEqual({
@@ -186,9 +183,7 @@ describe("TypeScript extension/TestStrongEnumValueRoundTrip", () => {
     });
 
     const roundTrip = valueToRefValue(adapter, serialized);
-    expect(roundTrip.type().typeName()).toBe(
-      "google.expr.proto3.test.TestAllTypes.NestedEnum",
-    );
+    expect(roundTrip.type().typeName()).toBe("google.expr.proto3.test.TestAllTypes.NestedEnum");
     expect(roundTrip.value()).toBe(-987n);
     expect(value.equal(roundTrip).value()).toBe(true);
   });

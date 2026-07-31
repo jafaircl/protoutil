@@ -79,8 +79,7 @@ describe("cel/program_async_test.go/TestConcurrentEval", () => {
         functionDecl("asyncDouble", {
           overloads: [
             overload("async_double_int", [IntType], IntType, {
-              asyncBinding: async (_signal, value) =>
-                new Int((value as Int).value() * 2n),
+              asyncBinding: async (_signal, value) => new Int((value as Int).value() * 2n),
             }),
           ],
         }),
@@ -126,9 +125,9 @@ describe("cel/program_async_test.go/TestContextEvalRejectsAsync", () => {
       ],
     });
     const program = celEnv.program(celEnv.compile("asyncIdentity(1)"));
-    expect(() =>
-      program.contextEval({}, { signal: new AbortController().signal }),
-    ).toThrow("expression contains asynchronous function calls; use concurrentEval");
+    expect(() => program.contextEval({}, { signal: new AbortController().signal })).toThrow(
+      "expression contains asynchronous function calls; use concurrentEval",
+    );
   });
 });
 
@@ -218,10 +217,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalProgramThreadSafety", () =
     const program = celEnv.program(celEnv.compile("asyncIdentity(value)"));
     const results = await Promise.all(
       [1, 2, 3, 4].map((value) =>
-        program.concurrentEval(
-          { value },
-          { signal: new AbortController().signal },
-        ),
+        program.concurrentEval({ value }, { signal: new AbortController().signal }),
       ),
     );
     expect(results.map((result) => result.value.value())).toEqual([1n, 2n, 3n, 4n]);
@@ -235,9 +231,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalPreCanceledContext", () =>
     const celEnv = env({
       functions: [
         functionDecl("asyncTrue", {
-          overloads: [
-            overload("async_true", [], BoolType, { asyncBinding: async () => True }),
-          ],
+          overloads: [overload("async_true", [], BoolType, { asyncBinding: async () => True })],
         }),
       ],
     });
@@ -276,15 +270,11 @@ describe("cel/program_async_test.go/TestSyncEvalRejectedInAsyncEnv", () => {
     const celEnv = env({
       functions: [
         functionDecl("asyncTrue", {
-          overloads: [
-            overload("async_true", [], BoolType, { asyncBinding: async () => True }),
-          ],
+          overloads: [overload("async_true", [], BoolType, { asyncBinding: async () => True })],
         }),
       ],
     });
-    expect(() => celEnv.program(celEnv.compile("true")).eval({})).toThrow(
-      "use concurrentEval",
-    );
+    expect(() => celEnv.program(celEnv.compile("true")).eval({})).toThrow("use concurrentEval");
   });
 });
 
@@ -315,9 +305,7 @@ describe("cel/program_async_test.go/TestAsyncWithTraceAndExhaustiveEval", () => 
     const celEnv = env({
       functions: [
         functionDecl("asyncTrue", {
-          overloads: [
-            overload("async_true", [], BoolType, { asyncBinding: async () => True }),
-          ],
+          overloads: [overload("async_true", [], BoolType, { asyncBinding: async () => True })],
         }),
       ],
     });

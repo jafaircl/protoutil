@@ -111,9 +111,7 @@ describe("ext/regex_test.go/TestRegexProgramSizeLimit", () => {
       expect(String(program.eval({ pat: "(a|b)*[0-9]+" })), expression).toContain(
         "regex program size 8 exceeds limit of 5",
       );
-      expect(String(program.eval({ pat: "a[0-9]" })), expression).not.toContain(
-        "exceeds limit",
-      );
+      expect(String(program.eval({ pat: "a[0-9]" })), expression).not.toContain("exceeds limit");
     }
   });
 });

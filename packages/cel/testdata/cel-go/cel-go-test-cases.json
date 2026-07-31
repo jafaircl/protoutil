@@ -334,10 +334,10 @@
       "name": "chained optMap exceeding configured limit"
     },
     {
-      "errSubstring": "expression count exceeds limit of 200 while expanding macro 'optMap'",
+      "errSubstring": "expression count exceeds limit of 100000 while expanding macro 'optMap'",
       "expectErr": true,
       "expr": "x.optMap(a, [a, a]).optMap(b, {b: b}).optMap(c, c + 1).optMap(d, d + 2).optMap(e, e + 3).optMap(f, f + 4).optMap(g, g + 5).optMap(h, h + 6).optMap(i, i + 7).optMap(j, j + 8).optMap(k, k + 9).optMap(l, l + 10).optMap(m, m + 11).optMap(n, n + 12)",
-      "limit": 200,
+      "limit": 0,
       "name": "chained optMap of various complexity exceeding default limit"
     },
     {
@@ -762,24 +762,6 @@
       },
       "out": {
         "$expr": "types.OptionalOf(types.Int(43))"
-      }
-    },
-    {
-      "expr": "{0: 10}[?0].optMap(v, v + 1)",
-      "out": {
-        "$expr": "types.OptionalOf(types.Int(11))"
-      }
-    },
-    {
-      "expr": "{0: 10}[?0].optMap(a, a + 1).optMap(b, b * 2)",
-      "out": {
-        "$expr": "types.OptionalOf(types.Int(22))"
-      }
-    },
-    {
-      "expr": "{0: 10}[?1].optMap(a, a + 1).optMap(b, b * 2)",
-      "out": {
-        "$expr": "types.OptionalNone"
       }
     },
     {
@@ -1427,31 +1409,6 @@
     {
       "err": "error parsing regexp: unexpected ): `)[0-9]*`",
       "expr": "\"123 abc 456\".matches(')[0-9]*')"
-    }
-  ],
-  "cel/cel_test.go/TestRegexProgramSizeLimit": [
-    {
-      "compileErr": "regex program size 8 exceeds limit of 5",
-      "expr": "\"123 abc 456\".matches('(a|b)*[0-9]+')",
-      "name": "constant_regex_exceeds_limit_ast_validation"
-    },
-    {
-      "evalErr": "regex program size 8 exceeds limit of 5",
-      "expr": "\"123 abc 456\".matches(pattern)",
-      "name": "dynamic_regex_exceeds_limit_runtime",
-      "vars": {
-        "pattern": "(a|b)*[0-9]+"
-      }
-    },
-    {
-      "expr": "\"123 abc 456\".matches(pattern)",
-      "name": "dynamic_regex_within_limit",
-      "vars": {
-        "pattern": "[0-9]+"
-      },
-      "want": {
-        "$expr": "types.True"
-      }
     }
   ],
   "cel/cel_test.go/TestResidualAstMacros": [
@@ -4806,18 +4763,6 @@
     {
       "expr": "'hello'.matches('??el*')",
       "iss": "\n\t\t\tERROR: \u003cinput\u003e:1:17: invalid matches argument\n             | 'hello'.matches('??el*')\n             | ................^"
-    },
-    {
-      "expr": "'hello'.matches(x)"
-    }
-  ],
-  "cel/validator_test.go/TestValidateRegexProgramSizeLimit": [
-    {
-      "expr": "'hello'.matches('el*')"
-    },
-    {
-      "expr": "'hello'.matches('(a|b)*[0-9]+')",
-      "iss": "\n\t\t\tERROR: \u003cinput\u003e:1:17: regex program size 8 exceeds limit of 5\n             | 'hello'.matches('(a|b)*[0-9]+')\n             | ................^"
     },
     {
       "expr": "'hello'.matches(x)"
@@ -11691,48 +11636,6 @@
         }
       },
       "typeName": "google.expr.proto3.test.TestAllTypes"
-    }
-  ],
-  "common/types/regex_test.go/TestCompileRegexWithLimit": [
-    {
-      "limit": 10,
-      "pattern": "el*"
-    },
-    {
-      "limit": 0,
-      "pattern": "el*"
-    },
-    {
-      "limit": -1,
-      "pattern": "el*"
-    },
-    {
-      "hasError": true,
-      "limit": 5,
-      "pattern": "(a|b)*[0-9]+"
-    },
-    {
-      "hasError": true,
-      "limit": 10,
-      "pattern": "("
-    }
-  ],
-  "common/types/regex_test.go/TestRegexProgramSize": [
-    {
-      "minSize": 1,
-      "pattern": "a"
-    },
-    {
-      "minSize": 3,
-      "pattern": "el*"
-    },
-    {
-      "minSize": 5,
-      "pattern": "(a|b)*[0-9]+"
-    },
-    {
-      "hasError": true,
-      "pattern": "("
     }
   ],
   "common/types/timestamp_test.go/TestTimestampOperators": [
@@ -18816,40 +18719,6 @@
         }
       },
       "out": true
-    },
-    {
-      "expr": "test.Name == \"name\"",
-      "in": {
-        "test": {
-          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tCustom: Custom{Name: \"name\"},\n\t\t\t\t}"
-        }
-      },
-      "out": true
-    }
-  ],
-  "ext/native_test.go/TestNativeStructEmbeddedPointer": [
-    {
-      "expr": "!has(test.custom_name) \u0026\u0026 test.custom_name == \"\"",
-      "in": {
-        "test": {
-          "$expr": "\u0026TestEmbeddedPointerTypes{\n\t\t\t\t\tTestNestedType: nil,\n\t\t\t\t}"
-        }
-      },
-      "out": true
-    },
-    {
-      "expr": "has(test.custom_name) \u0026\u0026 test.custom_name == \"name\"",
-      "in": {
-        "test": {
-          "$expr": "\u0026TestEmbeddedPointerTypes{\n\t\t\t\t\tTestNestedType: \u0026TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t}"
-        }
-      },
-      "out": true
-    },
-    {
-      "expr": "ext.TestEmbeddedPointerTypes{custom_name: \"name\"}.custom_name == \"name\"",
-      "in": null,
-      "out": true
     }
   ],
   "ext/native_test.go/TestNativeTypeConvertToType": [
@@ -20321,28 +20190,6 @@
           "$expr": "cel.OptionalTypes()"
         }
       ]
-    }
-  ],
-  "ext/regex_test.go/TestRegexProgramSizeLimit": [
-    {
-      "expr": "'a1'.matches(pat)",
-      "name": "matches"
-    },
-    {
-      "expr": "regex.extract('a1', pat)",
-      "name": "regex.extract"
-    },
-    {
-      "expr": "regex.extractAll('a1', pat)",
-      "name": "regex.extractAll"
-    },
-    {
-      "expr": "regex.replace('a1', pat, 'x')",
-      "name": "regex.replace 3-arg"
-    },
-    {
-      "expr": "regex.replace('a1', pat, 'x', 1)",
-      "name": "regex.replace 4-arg"
     }
   ],
   "ext/regex_test.go/TestRegexRuntimeErrors": [

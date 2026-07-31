@@ -5,6 +5,7 @@ import {
   ast,
   constantValueMatcher,
   ExprKind,
+  exceedsDepth,
   exprFactory,
   functionMatcher,
   kindMatcher,
@@ -14,7 +15,6 @@ import {
   type NavigableExpr,
   navigateAst,
   navigateExpr,
-  exceedsDepth,
   postOrderVisit,
   preOrderVisit,
 } from "./index.js";

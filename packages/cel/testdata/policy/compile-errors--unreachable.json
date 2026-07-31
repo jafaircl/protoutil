@@ -105,7 +105,9 @@
               {
                 "name": "unreachable_outputs",
                 "output": {
-                  "error_set": ["rule creates unreachable outputs"]
+                  "error_set": [
+                    "rule creates unreachable outputs"
+                  ]
                 }
               }
             ]

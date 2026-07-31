@@ -368,9 +368,7 @@ export interface AsyncCallInterpretableOptions {
 /**
  * asyncCallInterpretable creates the planned representation of an asynchronous function call.
  */
-export function asyncCallInterpretable(
-  options: AsyncCallInterpretableOptions,
-): InterpretableCall {
+export function asyncCallInterpretable(options: AsyncCallInterpretableOptions): InterpretableCall {
   return new AsyncCallInterpretable(
     options.id,
     options.functionName,

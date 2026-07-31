@@ -6,15 +6,15 @@ import {
   CallEstimate,
   type CostEstimate,
   type CostEstimator,
-  fixedCostEstimate,
   type FunctionEstimator,
+  fixedCostEstimate,
   type SizeEstimate,
   sizeEstimate,
   unknownSizeEstimate,
 } from "../checker/cost.js";
 import type { AST } from "../common/ast/index.js";
-import { StringTraversalCostFactor } from "../common/cost.js";
 import { ExprKind, matchDescendants, navigateAst } from "../common/ast/index.js";
+import { StringTraversalCostFactor } from "../common/cost.js";
 import { functionDecl, memberOverload, overload } from "../common/decls.js";
 import type { Errors } from "../common/errors.js";
 import { Bool } from "../common/types/bool.js";
@@ -369,9 +369,7 @@ const estimateIPIsCanonicalCost: FunctionEstimator = (estimator, _target, args) 
     return undefined;
   }
   return networkCallEstimate(
-    estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(
-      2 * StringTraversalCostFactor,
-    ),
+    estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(2 * StringTraversalCostFactor),
   );
 };
 
@@ -394,11 +392,7 @@ const estimateNetworkContainsIPIPCost: FunctionEstimator = () => {
 };
 
 /** estimateNetworkContainsIPStringCost adds parsing cost for the string argument. */
-const estimateNetworkContainsIPStringCost: FunctionEstimator = (
-  estimator,
-  _target,
-  args,
-) => {
+const estimateNetworkContainsIPStringCost: FunctionEstimator = (estimator, _target, args) => {
   if (args.length < 1) {
     return undefined;
   }
@@ -406,11 +400,7 @@ const estimateNetworkContainsIPStringCost: FunctionEstimator = (
   const cost = size
     .add(size)
     .multiplyByCostFactor(StringTraversalCostFactor)
-    .add(
-      estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(
-        StringTraversalCostFactor,
-      ),
-    );
+    .add(estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(StringTraversalCostFactor));
   return networkCallEstimate(cost);
 };
 
@@ -426,11 +416,7 @@ const estimateNetworkContainsCIDRCIDRCost: FunctionEstimator = () => {
 };
 
 /** estimateNetworkContainsCIDRStringCost adds CIDR parsing to prefix containment cost. */
-const estimateNetworkContainsCIDRStringCost: FunctionEstimator = (
-  estimator,
-  _target,
-  args,
-) => {
+const estimateNetworkContainsCIDRStringCost: FunctionEstimator = (estimator, _target, args) => {
   if (args.length < 1) {
     return undefined;
   }
@@ -439,11 +425,7 @@ const estimateNetworkContainsCIDRStringCost: FunctionEstimator = (
     .add(size)
     .multiplyByCostFactor(StringTraversalCostFactor)
     .add(size.multiplyByCostFactor(StringTraversalCostFactor))
-    .add(
-      estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(
-        StringTraversalCostFactor,
-      ),
-    )
+    .add(estimateNetworkSize(estimator, args[0]!).multiplyByCostFactor(StringTraversalCostFactor))
     .add(fixedCostEstimate(1));
   return networkCallEstimate(cost);
 };
@@ -455,8 +437,7 @@ const trackNetworkParseCost: FunctionTracker = {
 
 /** trackIPIsCanonicalCost measures parsing plus canonical comparison. */
 const trackIPIsCanonicalCost: FunctionTracker = {
-  cost: ({ args }) =>
-    Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor),
+  cost: ({ args }) => Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor),
 };
 
 /** trackNetworkNominalCost assigns one runtime unit to constant-time operations. */
@@ -464,8 +445,7 @@ const trackNetworkNominalCost: FunctionTracker = { cost: () => 1 };
 
 /** trackNetworkContainsIPIPCost measures two prefix-address traversals. */
 const trackNetworkContainsIPIPCost: FunctionTracker = {
-  cost: ({ args }) =>
-    Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor),
+  cost: ({ args }) => Math.ceil(networkValueSize(args[0]!) * 2 * StringTraversalCostFactor),
 };
 
 /** trackNetworkContainsIPStringCost adds parsing of the string operand. */

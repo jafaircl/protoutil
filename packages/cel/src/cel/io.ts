@@ -112,7 +112,11 @@ export function parsedExprToAst(parsedExpr: ParsedExpr): AST {
  * Prefer {@link parsedExprToAst} when loading expressions from storage.
  */
 export function parsedExprToAstWithSource(parsedExpr: ParsedExpr, source?: Source): AST {
-  const loaded = ast(protoToExpr(parsedExpr.expr), protoToSourceInfo(parsedExpr.sourceInfo), source);
+  const loaded = ast(
+    protoToExpr(parsedExpr.expr),
+    protoToSourceInfo(parsedExpr.sourceInfo),
+    source,
+  );
   assertLoadedAstDepth(loaded);
   return loaded;
 }

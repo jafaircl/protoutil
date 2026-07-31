@@ -281,9 +281,7 @@ export class FunctionDecl {
   public hasLateBinding(): boolean {
     return (
       this.singleton?.async !== undefined ||
-      this.overloadOrdinals.some((overloadId) =>
-        this.overloads.get(overloadId)!.hasLateBinding(),
-      )
+      this.overloadOrdinals.some((overloadId) => this.overloads.get(overloadId)!.hasLateBinding())
     );
   }
 
@@ -545,8 +543,10 @@ export class OverloadDecl {
   /** HasBinding indicates whether the overload already has a definition. */
   public hasBinding(): boolean {
     return (
-      this.unaryOp !== undefined || this.binaryOp !== undefined || this.functionOp !== undefined
-      || this.asyncOp !== undefined
+      this.unaryOp !== undefined ||
+      this.binaryOp !== undefined ||
+      this.functionOp !== undefined ||
+      this.asyncOp !== undefined
     );
   }
 

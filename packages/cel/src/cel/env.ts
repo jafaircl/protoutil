@@ -21,13 +21,13 @@ import {
 } from "../common/decls.js";
 import {
   type Config,
+  limit as configLimit,
   validator as configValidator,
   contextVariable,
   config as environmentConfig,
   extension,
   feature,
   importType,
-  limit as configLimit,
   type LibrarySubset,
   librarySubset,
 } from "../common/env/env.js";
@@ -953,8 +953,7 @@ export class Env {
         ...options.parser,
       },
       maxAstDepth: options.maxAstDepth ?? this.maxAstDepthValue,
-      regexProgramSizeLimit:
-        options.regexProgramSizeLimit ?? this.regexProgramSizeLimitValue,
+      regexProgramSizeLimit: options.regexProgramSizeLimit ?? this.regexProgramSizeLimitValue,
       macros:
         options.macros === undefined
           ? undefined
@@ -1314,22 +1313,13 @@ export class Env {
         observers: [...(plannerConfig?.observers ?? []), ...(regexConfig.observers ?? [])],
       };
     }
-    if (
-      this.regexProgramSizeLimitValue !== undefined &&
-      this.regexProgramSizeLimitValue > 0
-    ) {
+    if (this.regexProgramSizeLimitValue !== undefined && this.regexProgramSizeLimitValue > 0) {
       const regexLimitConfig = regexProgramSizeLimitConfig({
         limit: this.regexProgramSizeLimitValue,
       });
       plannerConfig = {
-        decorators: [
-          ...(plannerConfig?.decorators ?? []),
-          ...(regexLimitConfig.decorators ?? []),
-        ],
-        observers: [
-          ...(plannerConfig?.observers ?? []),
-          ...(regexLimitConfig.observers ?? []),
-        ],
+        decorators: [...(plannerConfig?.decorators ?? []), ...(regexLimitConfig.decorators ?? [])],
+        observers: [...(plannerConfig?.observers ?? []), ...(regexLimitConfig.observers ?? [])],
       };
     }
     if (resolvedOptions.exhaustiveEval) {

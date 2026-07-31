@@ -21,7 +21,7 @@ import (
 
 const (
 	defaultRepoURL = "https://github.com/google/cel-go.git"
-	defaultRef     = "v0.29.2"
+	defaultRef     = "v0.30.0"
 	defaultOutPath = "packages/cel/testdata/cel-go/cel-go-test-cases.json"
 	defaultReport  = "packages/cel/testdata/cel-go/cel-go-test-cases.report.json"
 )

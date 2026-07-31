@@ -25,8 +25,8 @@ import {
   Limit,
   TypeDesc,
 } from "../common/env/env.js";
-import { syncedCases } from "../common/spec-helpers.js";
 import { textSource } from "../common/source.js";
+import { syncedCases } from "../common/spec-helpers.js";
 import type { Bytes } from "../common/types/bytes.js";
 import { resolveSyncedExpr, resolveSyncedVariableDecl } from "../common/types/spec-helpers.js";
 import { type Expr, ExprSchema } from "../gen/cel/expr/syntax_pb.js";
@@ -44,9 +44,9 @@ import {
   BoolType,
   BytesType,
   String as CelString,
+  compile,
   container,
   contextProtoVars,
-  compile,
   DefaultTypeAdapter,
   Double,
   DoubleType,
@@ -2094,9 +2094,9 @@ describe("cel/cel_test.go/TestRegexProgramSizeLimit", () => {
       regexProgramSizeLimit: 5,
       variables: [variableDecl("pattern", StringType)],
     });
-    expect(
-      celEnv.tryCompile(`"123 abc 456".matches('(a|b)*[0-9]+')`).errors?.toString(),
-    ).toContain("regex program size 8 exceeds limit of 5");
+    expect(celEnv.tryCompile(`"123 abc 456".matches('(a|b)*[0-9]+')`).errors?.toString()).toContain(
+      "regex program size 8 exceeds limit of 5",
+    );
 
     const program = celEnv.program(celEnv.compile(`"123 abc 456".matches(pattern)`));
     expect(program.eval({ pattern: "(a|b)*[0-9]+" }).toString()).toContain(
@@ -2655,26 +2655,16 @@ describe("TypeScript extension/TestStrongEnumEnvironment", () => {
         ),
       )
       .eval({});
-    expect(assigned.type().typeName()).toBe(
-      "google.expr.proto3.test.TestAllTypes.NestedEnum",
-    );
+    expect(assigned.type().typeName()).toBe("google.expr.proto3.test.TestAllTypes.NestedEnum");
     expect(assigned.value()).toBe(-1n);
 
-    expect(
-      celEnv.program(celEnv.compile("int(GlobalEnum.GAZ)")).eval({}).value(),
-    ).toBe(2n);
-    expect(
-      celEnv.tryCompile("TestAllTypes{standalone_enum: GlobalEnum.GAR}").errors,
-    ).toBeDefined();
+    expect(celEnv.program(celEnv.compile("int(GlobalEnum.GAZ)")).eval({}).value()).toBe(2n);
+    expect(celEnv.tryCompile("TestAllTypes{standalone_enum: GlobalEnum.GAR}").errors).toBeDefined();
 
-    const invalidName = celEnv
-      .program(celEnv.compile('GlobalEnum("MISSING")'))
-      .eval({});
+    const invalidName = celEnv.program(celEnv.compile('GlobalEnum("MISSING")')).eval({});
     expect(isError(invalidName)).toBe(true);
 
-    const overflow = celEnv
-      .program(celEnv.compile("GlobalEnum(2147483648)"))
-      .eval({});
+    const overflow = celEnv.program(celEnv.compile("GlobalEnum(2147483648)")).eval({});
     expect(isError(overflow)).toBe(true);
   });
 });

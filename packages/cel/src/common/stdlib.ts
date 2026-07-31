@@ -1051,7 +1051,7 @@ function relationBinding(
 ): (lhs: Val, rhs: Val) => Val {
   return (lhs, rhs) => {
     // IEEE 754 ordering comparisons involving NaN are always false.
-    if (isNaN(lhs) || isNaN(rhs)) {
+    if (isDoubleNaN(lhs) || isDoubleNaN(rhs)) {
       return False;
     }
     const cmp = (lhs as unknown as Comparer).compare(rhs);
@@ -1078,9 +1078,9 @@ function relationBinding(
 }
 
 /**
- * isNaN reports whether a CEL value is a double containing IEEE 754 NaN.
+ * isDoubleNaN reports whether a CEL value is a double containing IEEE 754 NaN.
  */
-function isNaN(value: Val): boolean {
+function isDoubleNaN(value: Val): boolean {
   return value instanceof Double && Number.isNaN(value.value());
 }
 

@@ -74,7 +74,9 @@
               {
                 "name": "incompatible_output_types",
                 "output": {
-                  "error_set": ["incompatible output types"]
+                  "error_set": [
+                    "incompatible output types"
+                  ]
                 }
               }
             ]

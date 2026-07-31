@@ -35,11 +35,7 @@ import {
   type TestAllTypes as Proto3TestAllTypes,
   TestAllTypesSchema as Proto3TestAllTypesSchema,
 } from "./gen/test/proto3pb/test_all_types_pb.js";
-import {
-  type Activation,
-  activation,
-  partialActivation,
-} from "./interpreter/activation.js";
+import { type Activation, activation, partialActivation } from "./interpreter/activation.js";
 import { attributePattern } from "./interpreter/attribute-patterns.js";
 import { matchesRegexOptimization } from "./interpreter/optimizations.js";
 import { unparse } from "./parser/unparser.js";
@@ -871,19 +867,23 @@ function benchmarkDiagnostic(context: BenchmarkContext): BenchmarkResult[] {
   });
   const stateValue = stateProgram.evalWithDetails(input).value.value();
   if (!nativeEqual(stateValue, benchmarkCase.expected)) {
-    throw new Error(`unexpected ${benchmarkCase.name} state-tracking result: ${String(stateValue)}`);
+    throw new Error(
+      `unexpected ${benchmarkCase.name} state-tracking result: ${String(stateValue)}`,
+    );
   }
   return [
     benchmark({
       operation: "eval",
       scenario: benchmarkCase.name,
-      notes: "Reuses one baseline program and activation to expose incremental runtime feature cost.",
+      notes:
+        "Reuses one baseline program and activation to expose incremental runtime feature cost.",
       run: () => program.eval(input),
     }),
     benchmark({
       operation: "eval-details",
       scenario: benchmarkCase.name,
-      notes: "Reuses one baseline program and activation while allocating public evaluation details.",
+      notes:
+        "Reuses one baseline program and activation while allocating public evaluation details.",
       run: () => program.evalWithDetails(input),
     }),
     benchmark({
@@ -898,9 +898,7 @@ function benchmarkDiagnostic(context: BenchmarkContext): BenchmarkResult[] {
 /**
  * residualBenchmarkContext prepares one checked expression, partial activation, and reusable state.
  */
-function residualBenchmarkContext(
-  benchmarkCase: ResidualBenchmarkCase,
-): ResidualBenchmarkContext {
+function residualBenchmarkContext(benchmarkCase: ResidualBenchmarkCase): ResidualBenchmarkContext {
   const environment = celEnv({
     variables: benchmarkCase.variables.map((variable) =>
       variableDecl(variable.name, variable.type),

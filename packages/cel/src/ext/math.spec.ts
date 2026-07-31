@@ -5,10 +5,7 @@ import { functionDecl, memberOverload, variableDecl } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import type { Int } from "../common/types/int.js";
 import type { Val } from "../common/types/ref/index.js";
-import {
-  resolveSyncedExpr,
-  resolveSyncedVariableDecl,
-} from "../common/types/spec-helpers.js";
+import { resolveSyncedExpr, resolveSyncedVariableDecl } from "../common/types/spec-helpers.js";
 import { DoubleType, DynType, IntType, listType } from "../common/types/types.js";
 import { math } from "./math.js";
 

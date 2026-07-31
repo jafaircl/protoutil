@@ -2100,10 +2100,7 @@ export function foldInterpretable(options: FoldInterpretableOptions): Interpreta
 /**
  * iterateRange streams non-list CEL iterable values as key-value pairs for comprehension evaluation.
  */
-function* iterateRange(
-  value: Val,
-  native: unknown,
-): Generator<readonly [unknown, unknown], void> {
+function* iterateRange(value: Val, native: unknown): Generator<readonly [unknown, unknown], void> {
   if ((value.type().hasTrait?.(IterableType) ?? false) && native instanceof Map) {
     yield* native.entries();
     return;

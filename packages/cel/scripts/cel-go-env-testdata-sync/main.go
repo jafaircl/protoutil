@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	defaultRepoURL    = "https://github.com/google/cel-go.git"
-	defaultRef        = "v0.29.2"
-	defaultWorkdir    = "./.tmp/cel-go-upstream"
+	defaultRepoURL = "https://github.com/google/cel-go.git"
+	defaultRef     = "v0.30.0"
+	defaultWorkdir = "./.tmp/cel-go-upstream"
 )
 
 type syncTarget struct {

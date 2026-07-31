@@ -144,10 +144,7 @@ describe("interpreter/activation_test.go", () => {
 
   describe("interpreter/activation_test.go/TestAsPartialActivation_NonPartialActivation", () => {
     it("reports ordinary activations as non-partial", () => {
-      expect(asPartialActivation(activation({ bindings: { a: 1 } }))).toEqual([
-        undefined,
-        false,
-      ]);
+      expect(asPartialActivation(activation({ bindings: { a: 1 } }))).toEqual([undefined, false]);
     });
   });
 

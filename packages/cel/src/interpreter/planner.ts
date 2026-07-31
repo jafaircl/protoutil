@@ -4,8 +4,8 @@ import * as operators from "../common/operators.js";
 import type { Provider } from "../common/types/index.js";
 import { type Adapter, Double, exprTypeToType, Int, Uint } from "../common/types/index.js";
 import { Type_PrimitiveType } from "../gen/cel/expr/checked_pb.js";
-import type { AttributeFactory } from "./attributes.js";
 import { asyncCallInterpretable } from "./async.js";
+import type { AttributeFactory } from "./attributes.js";
 import type { InterpretableDecoratorV2 } from "./decorators.js";
 import type { Dispatcher } from "./dispatcher.js";
 import {

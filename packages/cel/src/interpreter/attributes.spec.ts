@@ -64,10 +64,7 @@ describe("interpreter/attributes_test.go/TestAttribute_StringRepresentation", ()
     });
     const absolute = factory.absoluteAttribute(1, "a.b");
     const maybe = factory.maybeAttribute(2, "c");
-    const relative = factory.relativeAttribute(
-      3,
-      constValue({ id: 1, value: new CelString("d") }),
-    );
+    const relative = factory.relativeAttribute(3, constValue({ id: 1, value: new CelString("d") }));
     const conditional = factory.conditionalAttribute(
       4,
       constValue({ id: 1, value: True }),
@@ -75,13 +72,7 @@ describe("interpreter/attributes_test.go/TestAttribute_StringRepresentation", ()
       maybe,
     );
 
-    for (const value of [
-      absolute,
-      maybe,
-      relative,
-      conditional,
-      attributeTrail("x"),
-    ]) {
+    for (const value of [absolute, maybe, relative, conditional, attributeTrail("x")]) {
       expect(String(value)).not.toBe("");
     }
   });

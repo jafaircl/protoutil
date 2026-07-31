@@ -55,8 +55,8 @@ import {
   typeTypeWithParam,
   Uint,
   UintType,
-  unknown,
   type Unknown,
+  unknown,
   type Val,
 } from "./index.js";
 import { dynamicList } from "./list.js";

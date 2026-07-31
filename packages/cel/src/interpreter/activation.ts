@@ -376,7 +376,9 @@ export function isPartialActivationConverter(
 /**
  * isLocalVariableHolder reports whether an activation tracks locally bound variable names.
  */
-export function isLocalVariableHolder(value: Activation): value is Activation & LocalVariableHolder {
+export function isLocalVariableHolder(
+  value: Activation,
+): value is Activation & LocalVariableHolder {
   return "isLocalVariable" in value && typeof value.isLocalVariable === "function";
 }
 

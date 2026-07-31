@@ -3,9 +3,9 @@ import {
   type AstNode,
   CallEstimate,
   type CostEstimator,
+  type FunctionEstimator,
   fixedCostEstimate,
   fixedSizeEstimate,
-  type FunctionEstimator,
   unknownSizeEstimate,
 } from "../checker/cost.js";
 import { type Expr, ExprKind } from "../common/ast/index.js";
@@ -25,9 +25,9 @@ import {
   UintType,
 } from "../common/types/types.js";
 import { Uint } from "../common/types/uint.js";
+import type { FunctionTracker } from "../interpreter/runtime-cost.js";
 import { receiverVarArgMacro } from "../parser/macro.js";
 import type { Macro } from "../parser/options.js";
-import type { FunctionTracker } from "../interpreter/runtime-cost.js";
 
 /** mathNamespace is the receiver required for the math macros. */
 const mathNamespace = "math";
@@ -224,9 +224,7 @@ function mathListCostEstimates(): Record<string, FunctionEstimator> {
 
 /** mathListCostTrackers maps list extremum overloads to their shared runtime tracker. */
 function mathListCostTrackers(): Record<string, FunctionTracker> {
-  return Object.fromEntries(
-    mathListOverloads.map((overloadId) => [overloadId, trackMathListCost]),
-  );
+  return Object.fromEntries(mathListOverloads.map((overloadId) => [overloadId, trackMathListCost]));
 }
 
 /** estimateMathNodeSize returns a computed, hinted, or unknown list size. */

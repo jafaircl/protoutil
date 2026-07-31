@@ -240,19 +240,17 @@ describe("ext/native_test.go/TestNativeStructEmbeddedPointer", () => {
     const absent = celEnv
       .program(celEnv.compile("!has(test.ListVal)"))
       .eval({ test: { $celTypeName: "ext.TestNestedStruct" } });
-    const populated = celEnv
-      .program(celEnv.compile("test.ListVal[0].custom_name == 'name'"))
-      .eval({
-        test: nativeRegistry().nativeToValue({
-          $celTypeName: "ext.TestNestedStruct",
-          listVal: [
-            nativeRegistry().nativeToValue({
-              $celTypeName: "ext.TestNestedType",
-              nestedCustomName: "name",
-            }),
-          ],
-        }),
-      });
+    const populated = celEnv.program(celEnv.compile("test.ListVal[0].custom_name == 'name'")).eval({
+      test: nativeRegistry().nativeToValue({
+        $celTypeName: "ext.TestNestedStruct",
+        listVal: [
+          nativeRegistry().nativeToValue({
+            $celTypeName: "ext.TestNestedType",
+            nestedCustomName: "name",
+          }),
+        ],
+      }),
+    });
 
     expect(absent.value()).toBe(true);
     expect(populated.value()).toBe(true);
@@ -262,9 +260,7 @@ describe("ext/native_test.go/TestNativeStructEmbeddedPointer", () => {
 describe("ext/native_test.go/TestNativeStructHiddenField", () => {
   it("does not expose object properties omitted from the explicit TypeScript descriptor", () => {
     const celEnv = nativeEnv();
-    expect(celEnv.tryCompile("test.hidden").errors?.toDisplayString()).toContain(
-      "undefined field",
-    );
+    expect(celEnv.tryCompile("test.hidden").errors?.toDisplayString()).toContain("undefined field");
   });
 });
 

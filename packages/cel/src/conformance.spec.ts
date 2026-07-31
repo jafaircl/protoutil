@@ -600,10 +600,7 @@ function executeConformance(execution: ConformanceExecution): ConformanceResult 
   const test = execution.test;
   let environment: Env;
   try {
-    environment = configuredEnvironment(
-      conformanceEnvironment(execution),
-      test,
-    );
+    environment = configuredEnvironment(conformanceEnvironment(execution), test);
   } catch {
     return { execution, failure: "environment" };
   }
@@ -783,23 +780,19 @@ function markdownReport(results: ConformanceResult[], skipped: Record<string, st
 }
 
 describe("conformance/conformance_test.go/TestConformance", () => {
-  it(
-    "executes synchronized fixtures and writes the conformance dashboard",
-    () => {
-      const { executions, skipped } = conformanceCases();
-      const results = executions.map(executeConformance);
-      const failures = results
-        .filter((result) => result.failure !== undefined)
-        .map((result) => `${result.execution.name}: ${result.failure}`);
-      const report = markdownReport(results, skipped);
+  it("executes synchronized fixtures and writes the conformance dashboard", () => {
+    const { executions, skipped } = conformanceCases();
+    const results = executions.map(executeConformance);
+    const failures = results
+      .filter((result) => result.failure !== undefined)
+      .map((result) => `${result.execution.name}: ${result.failure}`);
+    const report = markdownReport(results, skipped);
 
-      writeFileSync(reportPath, report);
+    writeFileSync(reportPath, report);
 
-      expect(executions.length).toBeGreaterThan(0);
-      expect(Object.keys(skipped).length).toBeGreaterThan(0);
-      expect(readFileSync(reportPath, "utf8")).toBe(report);
-      expect(failures).toEqual([]);
-    },
-    15_000,
-  );
+    expect(executions.length).toBeGreaterThan(0);
+    expect(Object.keys(skipped).length).toBeGreaterThan(0);
+    expect(readFileSync(reportPath, "utf8")).toBe(report);
+    expect(failures).toEqual([]);
+  }, 15_000);
 });

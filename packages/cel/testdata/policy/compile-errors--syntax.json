@@ -37,7 +37,9 @@
               {
                 "name": "syntax_error",
                 "output": {
-                  "error_set": ["mismatched input 'resource'"]
+                  "error_set": [
+                    "mismatched input 'resource'"
+                  ]
                 }
               }
             ]

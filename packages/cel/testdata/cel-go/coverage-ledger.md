@@ -12,14 +12,14 @@ completion still requires reviewing assertions and implementation against the up
 
 | Kind | Covered | TODO | Skipped | Missing | Total | Coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Tests | 874 | 24 | 0 | 37 | 935 | 93.5% |
+| Tests | 864 | 24 | 0 | 37 | 925 | 93.4% |
 | Examples | 3 | 0 | 0 | 33 | 36 | 8.3% |
 
 ## Package summary
 
 | Upstream package | Covered | TODO | Skipped | Missing | Total | Coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `cel` | 187 | 0 | 0 | 0 | 187 | 100.0% |
+| `cel` | 183 | 0 | 0 | 0 | 183 | 100.0% |
 | `cel/async` | 10 | 0 | 0 | 0 | 10 | 100.0% |
 | `checker` | 12 | 0 | 0 | 0 | 12 | 100.0% |
 | `common` | 15 | 0 | 0 | 0 | 15 | 100.0% |
@@ -28,13 +28,13 @@ completion still requires reviewing assertions and implementation against the up
 | `common/decls` | 46 | 2 | 0 | 0 | 48 | 95.8% |
 | `common/env` | 26 | 0 | 0 | 0 | 26 | 100.0% |
 | `common/runes` | 7 | 0 | 0 | 0 | 7 | 100.0% |
-| `common/types` | 263 | 19 | 0 | 0 | 282 | 93.3% |
+| `common/types` | 261 | 19 | 0 | 0 | 280 | 93.2% |
 | `common/types/pb` | 18 | 3 | 0 | 0 | 21 | 85.7% |
 | `conformance` | 1 | 0 | 0 | 1 | 2 | 50.0% |
 | `conformance/policy` | 2 | 0 | 0 | 0 | 2 | 100.0% |
 | `examples` | 0 | 0 | 0 | 33 | 33 | 0.0% |
-| `ext` | 97 | 0 | 0 | 0 | 97 | 100.0% |
-| `interpreter` | 98 | 0 | 0 | 0 | 98 | 100.0% |
+| `ext` | 94 | 0 | 0 | 0 | 94 | 100.0% |
+| `interpreter` | 97 | 0 | 0 | 0 | 97 | 100.0% |
 | `parser` | 11 | 0 | 0 | 0 | 11 | 100.0% |
 | `policy` | 18 | 0 | 0 | 0 | 18 | 100.0% |
 | `repl` | 0 | 0 | 0 | 27 | 27 | 0.0% |
@@ -124,7 +124,6 @@ completion still requires reviewing assertions and implementation against the up
 | `TestContextProto` | covered | `src/cel/env.spec.ts` |
 | `TestContextProtoJSONFieldNames` | covered | `src/cel/env.spec.ts` |
 | `TestRegexOptimizer` | covered | `src/cel/env.spec.ts` |
-| `TestRegexProgramSizeLimit` | covered | `src/cel/env.spec.ts` |
 | `TestDefaultUTCTimeZoneDisabled` | covered | `src/cel/env.spec.ts` |
 | `TestDefaultUTCTimeZoneExtension` | covered | `src/cel/env.spec.ts` |
 | `TestDefaultUTCTimeZoneError` | covered | `src/cel/env.spec.ts` |
@@ -300,9 +299,6 @@ completion still requires reviewing assertions and implementation against the up
 | `TestValidateDurationLiterals` | covered | `src/cel/validator.spec.ts` |
 | `TestValidateTimestampLiterals` | covered | `src/cel/validator.spec.ts` |
 | `TestValidateRegexLiterals` | covered | `src/cel/validator.spec.ts` |
-| `TestValidateRegexProgramSizeLimit` | covered | `src/cel/validator.spec.ts` |
-| `TestValidateRegexProgramSizeLimitToConfig` | covered | `src/cel/validator.spec.ts` |
-| `TestValidateRegexProgramSizeLimitFactory` | covered | `src/cel/validator.spec.ts` |
 | `TestValidateHomogeneousAggregateLiterals` | covered | `src/cel/validator.spec.ts` |
 | `TestValidateComprehensionNestingLimit` | covered | `src/cel/validator.spec.ts` |
 | `TestExtendedValidations` | covered | `src/cel/validator.spec.ts` |
@@ -877,13 +873,6 @@ completion still requires reviewing assertions and implementation against the up
 | `TestNativeToValue_Primitive` | covered | `src/common/types/provider.spec.ts` |
 | `TestUnsupportedConversion` | covered | `src/common/types/provider.spec.ts` |
 
-### `common/types/regex_test.go`
-
-| Upstream function | Status | Canonical spec |
-| --- | --- | --- |
-| `TestRegexProgramSize` | covered | `src/common/types/regex.spec.ts` |
-| `TestCompileRegexWithLimit` | covered | `src/common/types/regex.spec.ts` |
-
 ### `common/types/string_test.go`
 
 | Upstream function | Status | Canonical spec |
@@ -1216,12 +1205,10 @@ completion still requires reviewing assertions and implementation against the up
 | `TestNativeTypeValue` | covered | `src/ext/native.spec.ts` |
 | `TestNativeStructWithMultipleSameFieldNames` | covered | `src/ext/native.spec.ts` |
 | `TestNativeStructEmbedded` | covered | `src/ext/native.spec.ts` |
-| `TestNativeStructEmbeddedPointer` | covered | `src/ext/native.spec.ts` |
 | `TestNativeStructHiddenField` | covered | `src/ext/native.spec.ts` |
 | `TestNativeNestedStruct` | covered | `src/ext/native.spec.ts` |
 | `TestNativeTypesVersion` | covered | `src/ext/native.spec.ts` |
 | `TestTypeResolutionRace` | covered | `src/ext/native.spec.ts` |
-| `TestNativeToValueDelegatesUnregisteredStructs` | covered | `src/ext/native.spec.ts` |
 
 ### `ext/network_test.go`
 
@@ -1255,7 +1242,6 @@ completion still requires reviewing assertions and implementation against the up
 | `TestRegexEnvCreationErrors` | covered | `src/ext/regex.spec.ts` |
 | `TestRegexVersion` | covered | `src/ext/regex.spec.ts` |
 | `TestRegexCosts` | covered | `src/ext/regex.spec.ts` |
-| `TestRegexProgramSizeLimit` | covered | `src/ext/regex.spec.ts` |
 
 ### `ext/sets_test.go`
 
@@ -1382,7 +1368,6 @@ completion still requires reviewing assertions and implementation against the up
 | `TestInterpreter_LogicalAndMissingType` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_ExhaustiveConditionalExpr` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_InterruptableEval` | covered | `src/interpreter/interpreter.spec.ts` |
-| `TestInterpreter_RegexProgramSizeLimit` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_ExhaustiveLogicalOrEquals` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_SetProto2PrimitiveFields` | covered | `src/interpreter/interpreter.spec.ts` |
 | `TestInterpreter_MissingIdentInSelect` | covered | `src/interpreter/interpreter.spec.ts` |

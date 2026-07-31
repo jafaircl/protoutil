@@ -1,5 +1,5 @@
-import { Unknown } from "../common/types/unknown.js";
 import type { Val } from "../common/types/ref/reference.js";
+import { Unknown } from "../common/types/unknown.js";
 import type { Activation } from "../interpreter/activation.js";
 import type { AsyncObserver } from "../interpreter/async.js";
 import type { EvalState } from "../interpreter/eval-state.js";

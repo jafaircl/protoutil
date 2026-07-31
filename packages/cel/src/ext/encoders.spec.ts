@@ -3,10 +3,7 @@ import { env } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { isError } from "../common/types/err.js";
-import {
-  resolveSyncedExpr,
-  resolveSyncedVariableDecl,
-} from "../common/types/spec-helpers.js";
+import { resolveSyncedExpr, resolveSyncedVariableDecl } from "../common/types/spec-helpers.js";
 import { BytesType, DynType, StringType } from "../common/types/types.js";
 import { encoders } from "./encoders.js";
 
@@ -67,9 +64,7 @@ describe("ext/encoders_test.go/TestEncodersVersion", () => {
 
 describe("ext/encoders_test.go/TestEncodersCosts", () => {
   it("matches every synchronized checker and runtime cost", () => {
-    for (const testCase of syncedCases<EncoderCostCase>(
-      "ext/encoders_test.go/TestEncodersCosts",
-    )) {
+    for (const testCase of syncedCases<EncoderCostCase>("ext/encoders_test.go/TestEncodersCosts")) {
       const celEnv = env({
         libraries: [encoders({ version: testCase.version })],
         variables: (testCase.vars ?? []).map((value) =>
@@ -103,9 +98,7 @@ describe("ext/encoders_test.go/TestEncodersCosts", () => {
       // CEL-Go's uint64 counter wraps MaxUint64 plus the equality cost to one. TypeScript cost
       // counters use safe numbers, so the equivalent unbounded marker remains visibly saturated.
       const actualCost =
-        testCase.name === "json_encode_dyn"
-          ? Number.MAX_SAFE_INTEGER + 1
-          : testCase.actualCost;
+        testCase.name === "json_encode_dyn" ? Number.MAX_SAFE_INTEGER + 1 : testCase.actualCost;
       expect(result.details.actualCost(), testCase.name).toBe(actualCost);
     }
   });
@@ -147,8 +140,7 @@ function parseEncoderCost(expression: string): [bigint, bigint] {
   if (ranged) {
     return [BigInt(ranged[1]!), BigInt(ranged[2]!)];
   }
-  const unbounded =
-    /^checker\.CostEstimate\{Min: (\d+), Max: math\.MaxUint64\}$/.exec(expression);
+  const unbounded = /^checker\.CostEstimate\{Min: (\d+), Max: math\.MaxUint64\}$/.exec(expression);
   if (unbounded) {
     return [BigInt(unbounded[1]!), (1n << 64n) - 1n];
   }
@@ -161,12 +153,7 @@ function resolveEncoderInput(input: Record<string, unknown>): Record<string, unk
     Object.entries(input).map(([name, value]) => {
       const expression = (value as { $expr?: string } | undefined)?.$expr;
       const bytes = expression ? /^\[\]byte\("(.*)"\)$/.exec(expression) : undefined;
-      return [
-        name,
-        bytes
-          ? new TextEncoder().encode(bytes[1]!)
-          : resolveSyncedExpr(value),
-      ];
+      return [name, bytes ? new TextEncoder().encode(bytes[1]!) : resolveSyncedExpr(value)];
     }),
   );
 }

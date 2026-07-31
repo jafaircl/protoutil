@@ -220,7 +220,7 @@ const durationUnitNanos: Readonly<Record<string, bigint>> = {
   s: 1_000_000_000n,
   ms: 1_000_000n,
   us: 1_000n,
-  "µs": 1_000n,
+  µs: 1_000n,
   ns: 1n,
 };
 

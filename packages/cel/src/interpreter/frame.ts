@@ -1,3 +1,5 @@
+import type { Val } from "../common/types/index.js";
+import { Err } from "../common/types/index.js";
 import {
   type Activation,
   asPartialActivation,
@@ -6,13 +8,7 @@ import {
   isLocalVariableHolder,
   type PartialActivation,
 } from "./activation.js";
-import {
-  AsyncCallTracker,
-  type AsyncObserver,
-  type AsyncResultOptions,
-} from "./async.js";
-import type { Val } from "../common/types/index.js";
-import { Err } from "../common/types/index.js";
+import { AsyncCallTracker, type AsyncObserver, type AsyncResultOptions } from "./async.js";
 
 /**
  * FrameContext tracks interrupt-related state shared across a frame hierarchy.
@@ -222,11 +218,6 @@ export class ExecutionFrame implements Activation {
    * activationValue stores the active name-resolution scope.
    */
   private activationValue?: Activation;
-
-  /**
-   * constructor initializes an inactive frame which is configured when acquired from the pool.
-   */
-  constructor() {}
 
   /**
    * acquire configures an inactive pooled frame for one root or child scope.

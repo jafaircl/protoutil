@@ -1,8 +1,4 @@
 export {
-  type Declaration,
-  declarationFromProto,
-} from "./cel/decls.js";
-export {
   type AsyncCall,
   type AsyncObserver,
   type DrainAction,
@@ -16,10 +12,14 @@ export {
   timeout,
 } from "./cel/async.js";
 export {
+  type Declaration,
+  declarationFromProto,
+} from "./cel/decls.js";
+export {
   astOutputType,
-  compile,
   type CompileResult,
   type ContextProtoVarsOptions,
+  compile,
   contextProtoVars,
   Env,
   type EnvConfigurationOptions,

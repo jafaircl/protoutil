@@ -33,7 +33,9 @@
               {
                 "name": "undeclared_reference",
                 "output": {
-                  "error_set": ["undeclared reference to 'spec"]
+                  "error_set": [
+                    "undeclared reference to 'spec"
+                  ]
                 }
               }
             ]

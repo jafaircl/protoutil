@@ -104,21 +104,17 @@ describe("provider", () => {
     expect(unnamed).toBeInstanceOf(ProtoEnum);
     expect(unnamed.value()).toBe(-33n);
 
-    expect(
-      reg.enumValueOf("google.expr.proto3.test.GlobalEnum", "MISSING"),
-    ).toBeInstanceOf(Err);
-    expect(
-      reg.enumValueOf("google.expr.proto3.test.GlobalEnum", 2_147_483_648n),
-    ).toBeInstanceOf(Err);
-    expect(
-      reg.enumValueOf("google.expr.proto3.test.GlobalEnum", -2_147_483_649n),
-    ).toBeInstanceOf(Err);
+    expect(reg.enumValueOf("google.expr.proto3.test.GlobalEnum", "MISSING")).toBeInstanceOf(Err);
+    expect(reg.enumValueOf("google.expr.proto3.test.GlobalEnum", 2_147_483_648n)).toBeInstanceOf(
+      Err,
+    );
+    expect(reg.enumValueOf("google.expr.proto3.test.GlobalEnum", -2_147_483_649n)).toBeInstanceOf(
+      Err,
+    );
 
     const copy = reg.copy();
     expect(copy.strongEnumsEnabled()).toBe(true);
-    expect(copy.enumValueOf("google.expr.proto3.test.GlobalEnum", "GAR")).toBeInstanceOf(
-      ProtoEnum,
-    );
+    expect(copy.enumValueOf("google.expr.proto3.test.GlobalEnum", "GAR")).toBeInstanceOf(ProtoEnum);
   });
 
   it("common/types/provider_test.go/TestRegistryFindStructType", () => {

@@ -556,11 +556,7 @@ class FlattenPathAstNode implements AstNode {
 }
 
 /** estimateFlattenSize estimates nested flattened output size from list-item path hints. */
-function estimateFlattenSize(
-  estimator: CostEstimator,
-  node: AstNode,
-  depth: bigint,
-): SizeEstimate {
+function estimateFlattenSize(estimator: CostEstimator, node: AstNode, depth: bigint): SizeEstimate {
   const size = estimateSize(estimator, node);
   if (depth === 0n || node.type().kind() !== Kind.List) {
     return size;
@@ -614,7 +610,10 @@ function estimateListDistinct(
   }
   const size = estimateSize(estimator, target);
   const itemSize = estimateItemSize(estimator, target);
-  const elementCost = estimateElementEqualityCost(target.type().parameters()[0] ?? DynType, itemSize);
+  const elementCost = estimateElementEqualityCost(
+    target.type().parameters()[0] ?? DynType,
+    itemSize,
+  );
   const cost = size.multiply(size).multiplyByCost(elementCost).multiplyByCostFactor(2);
   const resultSize = sizeEstimate(size.Min > 0n ? 1n : 0n, size.Max);
   return estimateListCallWithDirectCost(cost, resultSize);
@@ -664,7 +663,10 @@ function estimateAllocatingListCall(costFactor: number, listSizeValue: SizeEstim
 }
 
 /** estimateListCallWithDirectCost adds call dispatch and list allocation to a direct cost. */
-function estimateListCallWithDirectCost(cost: CostEstimate, resultSize: SizeEstimate): CallEstimate {
+function estimateListCallWithDirectCost(
+  cost: CostEstimate,
+  resultSize: SizeEstimate,
+): CallEstimate {
   const total = cost.add(
     new CostEstimate(BigInt(ListCreateBaseCost + 1), BigInt(ListCreateBaseCost + 1)),
   );
@@ -711,9 +713,7 @@ function estimateListDistinctLegacy(
   const size = estimateSize(estimator, target);
   const elementType = target.type().parameters()[0];
   const factor =
-    elementType === StringType || elementType === BytesType
-      ? 2 + StringTraversalCostFactor
-      : 2;
+    elementType === StringType || elementType === BytesType ? 2 + StringTraversalCostFactor : 2;
   return estimateAllocatingListCall(factor, size.multiply(size));
 }
 
@@ -726,9 +726,7 @@ function estimateListSortLegacy(type: Type): FunctionEstimator {
 /** estimateListSortByLegacy returns the version-three estimator for a concrete key type. */
 function estimateListSortByLegacy(type: Type): FunctionEstimator {
   return (estimator, target, args) =>
-    target && args.length === 1
-      ? estimateListSortCostLegacy(estimator, args[0]!, type)
-      : undefined;
+    target && args.length === 1 ? estimateListSortCostLegacy(estimator, args[0]!, type) : undefined;
 }
 
 /** estimateListSortCostLegacy computes the version-three O(n²) comparison cost. */

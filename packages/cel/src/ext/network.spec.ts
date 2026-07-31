@@ -98,9 +98,7 @@ describe("ext/network_test.go/TestNetwork_CompileErrors", () => {
 describe("ext/network_test.go/TestNetworkCost", () => {
   it("matches every synchronized network checker and runtime cost", () => {
     const celEnv = env({ libraries: [network()] });
-    for (const testCase of syncedCases<NetworkCostCase>(
-      "ext/network_test.go/TestNetworkCost",
-    )) {
+    for (const testCase of syncedCases<NetworkCostCase>("ext/network_test.go/TestNetworkCost")) {
       const ast = celEnv.compile(testCase.expr);
       const estimate = celEnv.estimateCost(ast);
       expect([estimate.Min, estimate.Max], testCase.name).toEqual(
