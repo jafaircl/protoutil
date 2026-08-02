@@ -112,6 +112,7 @@ If a requested change would require violating this file, stop and tell the user 
 - Do not run individual test suites ever. When you do that, you risk breaking things in other modules. Do not ever do that for any reason. The only test command you ever need to run is `pnpm run --filter @protoutil/cel test`
 - You are never allowed to skip a test and claim you are finished.
 - Do not run any git commands unless the user specifically asks you to.
+- You are never allowed to run an `rm -rf` command or similar. If you need a directory deleted, ask the user.
 
 ## TypeScript Return Values
 

@@ -7,7 +7,7 @@ import {
   fixedSizeEstimate,
   sizeEstimate,
 } from "../checker/cost.js";
-import { functionDecl, memberOverload, overload } from "../common/decls.js";
+import { func, memberOverload, overload } from "../common/decls.js";
 import { Bool } from "../common/types/bool.js";
 import { Bytes } from "../common/types/bytes.js";
 import { Double } from "../common/types/double.js";
@@ -66,14 +66,14 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
     throw new Error(`failed to parse locale: language: subtag "locale" is well-formed but unknown`);
   }
   const functions = [
-    functionDecl("charAt", {
+    func("charAt", {
       overloads: [
         memberOverload("string_char_at_int", [StringType, IntType], StringType, {
           binaryBinding: (text, index) => charAt(text, index),
         }),
       ],
     }),
-    functionDecl("indexOf", {
+    func("indexOf", {
       overloads: [
         memberOverload("string_index_of_string", [StringType, StringType], IntType, {
           binaryBinding: (text, search) => indexOf({ offset: new Int(0n), search, text }),
@@ -84,7 +84,7 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
         }),
       ],
     }),
-    functionDecl("lastIndexOf", {
+    func("lastIndexOf", {
       overloads: [
         memberOverload("string_last_index_of_string", [StringType, StringType], IntType, {
           binaryBinding: lastIndexOf,
@@ -100,14 +100,14 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
         ),
       ],
     }),
-    functionDecl("lowerAscii", {
+    func("lowerAscii", {
       overloads: [
         memberOverload("string_lower_ascii", [StringType], StringType, {
           unaryBinding: (text) => asciiCase(text, "lower"),
         }),
       ],
     }),
-    functionDecl("replace", {
+    func("replace", {
       overloads: [
         memberOverload(
           "string_replace_string_string",
@@ -139,7 +139,7 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
         ),
       ],
     }),
-    functionDecl("split", {
+    func("split", {
       overloads: [
         memberOverload("string_split_string", [StringType, StringType], listType(StringType), {
           binaryBinding: (text, separator) => split({ limit: -1, separator, text }),
@@ -159,7 +159,7 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
         ),
       ],
     }),
-    functionDecl("substring", {
+    func("substring", {
       overloads: [
         memberOverload("string_substring_int", [StringType, IntType], StringType, {
           binaryBinding: (text, start) => substring({ start, text }),
@@ -170,21 +170,21 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
         }),
       ],
     }),
-    functionDecl("trim", {
+    func("trim", {
       overloads: [
         memberOverload("string_trim", [StringType], StringType, {
           unaryBinding: trimSpace,
         }),
       ],
     }),
-    functionDecl("upperAscii", {
+    func("upperAscii", {
       overloads: [
         memberOverload("string_upper_ascii", [StringType], StringType, {
           unaryBinding: (text) => asciiCase(text, "upper"),
         }),
       ],
     }),
-    functionDecl("join", {
+    func("join", {
       overloads: [
         memberOverload("list_join", [listType(StringType)], StringType, {
           unaryBinding: (list) => join(list, ""),
@@ -198,7 +198,7 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
 
   if (version >= 1) {
     functions.push(
-      functionDecl("format", {
+      func("format", {
         overloads: [
           memberOverload("string_format", [StringType, listType(DynType)], StringType, {
             binaryBinding: (format, args) =>
@@ -213,7 +213,7 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
           }),
         ],
       }),
-      functionDecl("strings.quote", {
+      func("strings.quote", {
         overloads: [
           overload("strings_quote", [StringType], StringType, {
             unaryBinding: quote,
@@ -224,7 +224,7 @@ export function strings(options: StringsOptions = {}): StringsLibrary {
   }
   if (version >= 3) {
     functions.push(
-      functionDecl("reverse", {
+      func("reverse", {
         overloads: [
           memberOverload("string_reverse", [StringType], StringType, {
             unaryBinding: (text) =>

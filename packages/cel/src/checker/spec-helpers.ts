@@ -1,13 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { container, defaultContainer } from "../common/containers.js";
 import { StringTraversalCostFactor } from "../common/cost.js";
-import {
-  type FunctionDecl,
-  functionDecl,
-  memberOverload,
-  overload,
-  variableDecl,
-} from "../common/decls.js";
+import { type FunctionDecl, func, memberOverload, overload, variable } from "../common/decls.js";
 import * as overloadIds from "../common/overloads.js";
 import {
   BoolType,
@@ -64,7 +58,7 @@ export interface ResolvedCheckerCase {
   parserConfig: ParserConfig;
   checkerOptions: CheckerOptions;
   sourceContainerName: string;
-  idents: Array<ReturnType<typeof variableDecl>>;
+  idents: Array<ReturnType<typeof variable>>;
   functions: FunctionDecl[];
 }
 
@@ -87,7 +81,7 @@ export interface ResolvedCostCase {
   expr: string;
   hints: Record<string, number>;
   options: CostOptions;
-  vars: Array<ReturnType<typeof variableDecl>>;
+  vars: Array<ReturnType<typeof variable>>;
   wanted: CostEstimate;
 }
 
@@ -99,7 +93,7 @@ for (const [name, value] of Object.entries(overloadIds)) {
 }
 
 type ParsedTestEnv = {
-  idents: Array<ReturnType<typeof variableDecl>>;
+  idents: Array<ReturnType<typeof variable>>;
   functions: FunctionDecl[];
   variadicASTs: boolean;
   optionalSyntax: boolean;
@@ -283,19 +277,19 @@ function emptyTestEnv(): ParsedTestEnv {
 function defaultTestEnv(): ParsedTestEnv {
   return {
     idents: [
-      variableDecl("is", StringType),
-      variableDecl("ii", IntType),
-      variableDecl("iu", UintType),
-      variableDecl("iz", BoolType),
-      variableDecl("ib", BytesType),
-      variableDecl("id", DoubleType),
-      variableDecl("ix", NullType),
+      variable("is", StringType),
+      variable("ii", IntType),
+      variable("iu", UintType),
+      variable("iz", BoolType),
+      variable("ib", BytesType),
+      variable("id", DoubleType),
+      variable("ix", NullType),
     ],
     functions: [
-      functionDecl("fg_s", {
+      func("fg_s", {
         overloads: [overload("fg_s_0", [], StringType)],
       }),
-      functionDecl("fi_s_s", {
+      func("fi_s_s", {
         overloads: [memberOverload("fi_s_s_0", [StringType], StringType)],
       }),
     ],
@@ -305,7 +299,7 @@ function defaultTestEnv(): ParsedTestEnv {
   };
 }
 
-function parseVariableDeclList(source: string): Array<ReturnType<typeof variableDecl>> {
+function parseVariableDeclList(source: string): Array<ReturnType<typeof variable>> {
   const body = unwrapGoComposite(source, "[]*decls.VariableDecl");
   if (body.length === 0) {
     return [];
@@ -313,17 +307,14 @@ function parseVariableDeclList(source: string): Array<ReturnType<typeof variable
   return splitTopLevel(body).map(parseVariableDecl);
 }
 
-function parseVariableDecl(source: string): ReturnType<typeof variableDecl> {
+function parseVariableDecl(source: string): ReturnType<typeof variable> {
   const args = parseCall(source, "decls.NewVariable");
-  return variableDecl(
-    unquoteGoString(args[0]!),
-    resolveCheckerTypeExpr({ $expr: args[1]! }) as Type,
-  );
+  return variable(unquoteGoString(args[0]!), resolveCheckerTypeExpr({ $expr: args[1]! }) as Type);
 }
 
-function parseCostVariableDecl(source: string): ReturnType<typeof variableDecl> {
+function parseCostVariableDecl(source: string): ReturnType<typeof variable> {
   const args = parseCall(source.trim(), "decls.NewVariable");
-  return variableDecl(unquoteGoString(args[0]!), resolveCostTypeExpr(args[1]!));
+  return variable(unquoteGoString(args[0]!), resolveCostTypeExpr(args[1]!));
 }
 
 function parseFunctionDeclList(source: string): FunctionDecl[] {
@@ -338,7 +329,7 @@ function parseFunctionDecl(source: string): FunctionDecl {
   const args = parseCall(source, "testFunction");
   const name = unquoteGoString(args[1]!);
   const overloads = args.slice(2).map(parseOverloadDecl);
-  return functionDecl(name, { overloads });
+  return func(name, { overloads });
 }
 
 function parseOverloadDecl(source: string) {

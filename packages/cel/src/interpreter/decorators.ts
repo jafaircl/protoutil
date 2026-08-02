@@ -21,8 +21,8 @@ import {
   type ConstantQualifier,
   isAttribute,
   isConstantQualifier,
-  qualifierAbsent,
   type Qualifier,
+  qualifierAbsent,
 } from "./attributes.js";
 import { executionFrame } from "./frame.js";
 import type {

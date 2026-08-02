@@ -2,7 +2,7 @@ import { setExtension } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { container } from "../common/containers.js";
-import { functionDecl, memberOverload, variableDecl } from "../common/decls.js";
+import { func, memberOverload, variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { True } from "../common/types/bool.js";
 import { registry } from "../common/types/provider.js";
@@ -47,14 +47,14 @@ describe("ext/protos_test.go/TestProtos", () => {
 describe("ext/protos_test.go/TestProtosNonMatch", () => {
   it("leaves receiver calls outside the proto namespace unexpanded", () => {
     const celEnv = protosEnv([
-      functionDecl("getExt", {
+      func("getExt", {
         overloads: [
           memberOverload("msg_getExt_field_default", [DynType, StringType, DynType], DynType, {
             functionBinding: (message, field) => (message as unknown as Indexer).get(field),
           }),
         ],
       }),
-      functionDecl("hasExt", {
+      func("hasExt", {
         overloads: [
           memberOverload("msg_hasExt_field_any", [DynType, StringType, DynType], BoolType, {
             functionBinding: () => True,
@@ -106,7 +106,7 @@ describe("ext/protos_test.go/TestProtosVersion", () => {
 /**
  * protosEnv creates the shared proto2 extension environment.
  */
-function protosEnv(functions: ReturnType<typeof functionDecl>[] = []) {
+function protosEnv(functions: ReturnType<typeof func>[] = []) {
   const typeRegistry = registry();
   typeRegistry.registerDescriptor(file_test_proto2pb_test_all_types);
   typeRegistry.registerDescriptor(file_test_proto2pb_test_extensions);
@@ -115,7 +115,7 @@ function protosEnv(functions: ReturnType<typeof functionDecl>[] = []) {
     functions,
     libraries: [protos()],
     registry: typeRegistry,
-    variables: [variableDecl("msg", objectType("google.expr.proto2.test.ExampleType"))],
+    variables: [variable("msg", objectType("google.expr.proto2.test.ExampleType"))],
   });
 }
 

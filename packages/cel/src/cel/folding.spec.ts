@@ -9,13 +9,13 @@ import {
   astToString,
   BoolType,
   BytesType,
-  constantDecl,
+  constant,
   constantFoldingOptimizer,
   DoubleType,
   DurationType,
   DynType,
   env,
-  functionDecl,
+  func,
   Int,
   IntType,
   listType,
@@ -24,7 +24,7 @@ import {
   objectType,
   optionalType,
   optionalTypes,
-  declOverload as overload,
+  overload,
   postOrderVisit,
   registry,
   StringType,
@@ -32,7 +32,7 @@ import {
   TimestampType,
   TypeType,
   UintType,
-  variableDecl,
+  variable,
 } from "../index.js";
 
 /**
@@ -93,24 +93,24 @@ function foldingEnvironment(options: { sideEffects?: boolean } = {}) {
   return env({
     functions: options.sideEffects
       ? [
-          functionDecl("noSideEffect", {
+          func("noSideEffect", {
             overloads: [
               overload("noSideEffect_int_int", [IntType], IntType, {
                 unaryBinding: (argument) => argument,
               }),
             ],
           }),
-          functionDecl("withSideEffect", {
+          func("withSideEffect", {
             overloads: [
               overload("withSideEffect_int_int", [IntType], IntType, {
                 lateBinding: true,
               }),
             ],
           }),
-          functionDecl("noImpl", {
+          func("noImpl", {
             overloads: [overload("noImpl_int_int", [IntType], IntType)],
           }),
-          functionDecl("asyncFunc", {
+          func("asyncFunc", {
             overloads: [
               overload("asyncFunc_int_int", [IntType], IntType, {
                 lateBinding: true,
@@ -124,28 +124,28 @@ function foldingEnvironment(options: { sideEffects?: boolean } = {}) {
     parser: { populateMacroCalls: true },
     registry: provider,
     variables: [
-      constantDecl("c", IntType, new Int(2n)),
-      variableDecl("b", BoolType),
-      variableDecl("by", BytesType),
-      variableDecl("d", DoubleType),
-      variableDecl("du", DurationType),
-      variableDecl("i", IntType),
-      variableDecl("ld", listType(DoubleType)),
-      variableDecl("li", listType(IntType)),
-      variableDecl("lli", listType(listType(IntType))),
-      variableDecl("x", DynType),
-      variableDecl("lx", listType(DynType)),
-      variableDecl("msd", mapType(StringType, DoubleType)),
-      variableDecl("msi", mapType(StringType, IntType)),
-      variableDecl("n", NullType),
-      variableDecl("oi", optionalType(IntType)),
-      variableDecl("s", StringType),
-      variableDecl("ts", TimestampType),
-      variableDecl("ty", TypeType),
-      variableDecl("u", UintType),
-      variableDecl("y", DynType),
-      variableDecl("l", listType(StringType)),
-      variableDecl("o", objectType(TestAllTypesSchema.typeName)),
+      constant("c", IntType, new Int(2n)),
+      variable("b", BoolType),
+      variable("by", BytesType),
+      variable("d", DoubleType),
+      variable("du", DurationType),
+      variable("i", IntType),
+      variable("ld", listType(DoubleType)),
+      variable("li", listType(IntType)),
+      variable("lli", listType(listType(IntType))),
+      variable("x", DynType),
+      variable("lx", listType(DynType)),
+      variable("msd", mapType(StringType, DoubleType)),
+      variable("msi", mapType(StringType, IntType)),
+      variable("n", NullType),
+      variable("oi", optionalType(IntType)),
+      variable("s", StringType),
+      variable("ts", TimestampType),
+      variable("ty", TypeType),
+      variable("u", UintType),
+      variable("y", DynType),
+      variable("l", listType(StringType)),
+      variable("o", objectType(TestAllTypesSchema.typeName)),
     ],
   });
 }
@@ -295,7 +295,7 @@ describe("cel/folding_test.go/TestConstantFoldingOptimizer_EvaluateExpr", () => 
       "cel/folding_test.go/TestConstantFoldingOptimizer_EvaluateExpr",
     )) {
       const celEnv = env({
-        variables: testCase.expr.includes("x") ? [variableDecl("x", IntType)] : [],
+        variables: testCase.expr.includes("x") ? [variable("x", IntType)] : [],
       });
       const optimized = staticOptimizer({
         optimizers: [constantFoldingOptimizer()],
@@ -308,7 +308,7 @@ describe("cel/folding_test.go/TestConstantFoldingOptimizer_EvaluateExpr", () => 
 describe("cel/folding_test.go/TestConstantFoldingOptimizer_VariadicShortcircuitLogic", () => {
   it("removes a constant true operand without changing the remaining logical expression", () => {
     const celEnv = env({
-      variables: [variableDecl("x", BoolType), variableDecl("y", BoolType)],
+      variables: [variable("x", BoolType), variable("y", BoolType)],
     });
     const optimized = staticOptimizer({
       optimizers: [constantFoldingOptimizer()],
@@ -324,11 +324,11 @@ describe("cel/optimizer_test.go/TestConstantFoldingOptimizerTwoVar", () => {
       libraries: [optionalTypes(), twoVarComprehensions()],
       parser: { populateMacroCalls: true },
       variables: [
-        variableDecl("i", IntType),
-        variableDecl("k", IntType),
-        variableDecl("l", listType(IntType)),
-        variableDecl("v", IntType),
-        variableDecl("x", IntType),
+        variable("i", IntType),
+        variable("k", IntType),
+        variable("l", listType(IntType)),
+        variable("v", IntType),
+        variable("x", IntType),
       ],
     });
     for (const testCase of syncedCases<FoldingCase>(

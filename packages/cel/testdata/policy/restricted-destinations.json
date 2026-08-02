@@ -93,9 +93,7 @@
         ],
         "name": "labels",
         "stdlib": {
-          "include_macros": [
-            "has"
-          ]
+          "include_macros": ["has"]
         },
         "variables": [
           {
@@ -252,13 +250,7 @@
                     "value": "us"
                   },
                   "spec.restricted_destinations": {
-                    "value": [
-                      "cu",
-                      "ir",
-                      "kp",
-                      "sd",
-                      "sy"
-                    ]
+                    "value": ["cu", "ir", "kp", "sd", "sy"]
                   }
                 },
                 "name": "ip_allowed",
@@ -292,13 +284,7 @@
                     "value": "us"
                   },
                   "spec.restricted_destinations": {
-                    "value": [
-                      "cu",
-                      "ir",
-                      "kp",
-                      "sd",
-                      "sy"
-                    ]
+                    "value": ["cu", "ir", "kp", "sd", "sy"]
                   }
                 },
                 "name": "nationality_allowed",
@@ -338,13 +324,7 @@
                     "value": "us"
                   },
                   "spec.restricted_destinations": {
-                    "value": [
-                      "cu",
-                      "ir",
-                      "kp",
-                      "sd",
-                      "sy"
-                    ]
+                    "value": ["cu", "ir", "kp", "sd", "sy"]
                   }
                 },
                 "name": "destination_ip_prohibited",
@@ -378,13 +358,7 @@
                     "value": "us"
                   },
                   "spec.restricted_destinations": {
-                    "value": [
-                      "cu",
-                      "ir",
-                      "kp",
-                      "sd",
-                      "sy"
-                    ]
+                    "value": ["cu", "ir", "kp", "sd", "sy"]
                   }
                 },
                 "name": "resource_nationality_prohibited",

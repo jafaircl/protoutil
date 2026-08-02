@@ -37,9 +37,7 @@
               {
                 "name": "overlapping_identifier",
                 "output": {
-                  "error_set": [
-                    "overlapping"
-                  ]
+                  "error_set": ["overlapping"]
                 }
               }
             ]

@@ -94,10 +94,7 @@ export interface Provider {
   findIdent(identName: string): Val | undefined;
   findStructType(structType: string): Type | undefined;
   findStructFieldNames(structType: string): string[] | undefined;
-  findStructFieldType(
-    structType: string,
-    fieldName: string,
-  ): ProviderFieldType | undefined;
+  findStructFieldType(structType: string, fieldName: string): ProviderFieldType | undefined;
   newValue(structType: string, fields: Record<string, Val>): Val;
 }
 
@@ -269,10 +266,7 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     return [...td.fieldMap().keys()];
   }
 
-  public findFieldType(
-    messageType: string,
-    fieldName: string,
-  ): DeprecatedFieldType | undefined {
+  public findFieldType(messageType: string, fieldName: string): DeprecatedFieldType | undefined {
     const field = this.findStructFieldType(messageType, fieldName);
     return field
       ? {
@@ -284,10 +278,7 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       : undefined;
   }
 
-  public findStructFieldType(
-    structType: string,
-    fieldName: string,
-  ): ProviderFieldType | undefined {
+  public findStructFieldType(structType: string, fieldName: string): ProviderFieldType | undefined {
     const nativeType = this.nativeTypes.get(stripLeadingDot(structType));
     if (nativeType) {
       const field = nativeType.fields.find((candidate) => candidate.celName === fieldName);

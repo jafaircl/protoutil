@@ -1,5 +1,4 @@
-import type { DescMessage, MessageShape } from "@bufbuild/protobuf";
-import { getField } from "@protoutil/core";
+import type { DescMessage } from "@bufbuild/protobuf";
 import { check as checkExpression, tryCheck as tryCheckExpression } from "../checker/checker.js";
 import {
   type CostEstimate,
@@ -13,23 +12,23 @@ import { AST, nodeCount, type SourceInfo } from "../common/ast/index.js";
 import { type Container, container, defaultContainer } from "../common/containers.js";
 import {
   type FunctionDecl,
-  functionDecl,
+  func,
   overload,
   typeVariable,
   type VariableDecl,
-  variableDecl,
+  variable,
 } from "../common/decls.js";
 import {
   type Config,
-  limit as configLimit,
-  validator as configValidator,
-  contextVariable,
+  configContextVariable,
+  configExtension,
+  configFeature,
+  configImportType,
+  configLibrarySubset,
+  configLimit,
+  configValidator,
   config as environmentConfig,
-  extension,
-  feature,
-  importType,
   type LibrarySubset,
-  librarySubset,
 } from "../common/env/env.js";
 import type { Error as CommonError } from "../common/error.js";
 import { type Errors, errorsValue, noLocation } from "../common/errors.js";
@@ -47,8 +46,8 @@ import {
 } from "../common/types/types.js";
 import {
   type ActivationBindings,
-  activationNameAbsent,
   activation,
+  activationNameAbsent,
   type PartialActivation,
   partialActivation,
 } from "../interpreter/activation.js";
@@ -350,41 +349,6 @@ export interface CompileResult {
 
   /** errors contains environment diagnostics when parsing, checking, or validation fails. */
   errors?: Issues;
-}
-
-/**
- * ContextProtoVarsOptions configures activation bindings derived from a protobuf context message.
- */
-export interface ContextProtoVarsOptions<Desc extends DescMessage = DescMessage> {
-  /** jsonFieldNames uses each field's protobuf JSON name as its activation key. */
-  jsonFieldNames?: boolean;
-
-  /** message contains the protobuf context values exposed to CEL. */
-  message: MessageShape<Desc>;
-
-  /** schema describes the protobuf context message fields. */
-  schema: Desc;
-}
-
-/**
- * contextProtoVars exposes protobuf message fields as top-level CEL activation bindings.
- */
-export function contextProtoVars<Desc extends DescMessage>(
-  options: ContextProtoVarsOptions<Desc>,
-): Record<string, unknown> {
-  if (options.message.$typeName !== options.schema.typeName) {
-    throw new Error(
-      `context proto type mismatch: got ${options.message.$typeName}, wanted ${options.schema.typeName}`,
-    );
-  }
-  const bindings: Record<string, unknown> = {};
-  for (const field of options.schema.fields) {
-    bindings[options.jsonFieldNames ? field.jsonName : field.name] = getField(
-      options.message,
-      field,
-    );
-  }
-  return bindings;
 }
 
 /**
@@ -1002,10 +966,10 @@ export class Env {
       config.setContainer(this.containerValue.name());
     }
     for (const qualifiedName of this.containerValue.aliasSet().values()) {
-      config.addImports(importType(qualifiedName));
+      config.addImports(configImportType(qualifiedName));
     }
     if (this.standardLibraryValue === false) {
-      config.setStdLib(librarySubset({ disabled: true }));
+      config.setStdLib(configLibrarySubset({ disabled: true }));
     } else if (this.standardLibraryValue.subset !== undefined) {
       config.setStdLib(this.standardLibraryValue.subset);
     }
@@ -1019,10 +983,10 @@ export class Env {
             ? "latest"
             : String(library.libraryVersion)
           : "latest";
-      config.addExtensions(extension(library.libraryAlias, version));
+      config.addExtensions(configExtension(library.libraryAlias, version));
     }
     if (this.contextProtoTypeNameValue !== undefined) {
-      config.setContextVariable(contextVariable(this.contextProtoTypeNameValue));
+      config.setContextVariable(configContextVariable(this.contextProtoTypeNameValue));
     }
     const contextNames = new Set(
       contextVariableDeclarations({
@@ -1037,10 +1001,10 @@ export class Env {
     );
     config.addFunctionDecls(...this.customFunctionsValue);
     if (this.jsonFieldNamesValue) {
-      config.addFeatures(feature("cel.feature.json_field_names", true));
+      config.addFeatures(configFeature("cel.feature.json_field_names", true));
     }
     if (this.parserConfigValue.populateMacroCalls) {
-      config.addFeatures(feature("cel.feature.macro_call_tracking", true));
+      config.addFeatures(configFeature("cel.feature.macro_call_tracking", true));
     }
     if (this.parserConfigValue.maxExpressionNodeCount !== undefined) {
       config.addLimits(
@@ -1360,12 +1324,14 @@ export class Env {
         adapter: this.registryValue,
         asyncMaxConcurrency: resolvedOptions.asyncMaxConcurrency,
         asyncObserver: resolvedOptions.asyncObserver,
+        contextProto: this.contextProtoValue,
         costTrackerSink,
         globals:
           resolvedOptions.globals === undefined
             ? undefined
             : activation({ bindings: resolvedOptions.globals }),
         interruptCheckFrequency: resolvedOptions.interruptCheckFrequency,
+        jsonFieldNames: this.jsonFieldNamesValue,
         hasAsync: this.functionsValue.some((declaration) =>
           declaration.bindings().some((binding) => binding.async !== undefined),
         ),
@@ -1416,7 +1382,7 @@ function contextVariableDeclarations(options: ContextVariableDeclarationsOptions
       if (fieldType === undefined) {
         throw new Error(`context proto field type not found: ${options.typeName}.${name}`);
       }
-      return variableDecl(name, fieldType.type);
+      return variable(name, fieldType.type);
     });
   }
   return options.schema.fields.map((field) => {
@@ -1425,7 +1391,7 @@ function contextVariableDeclarations(options: ContextVariableDeclarationsOptions
     if (fieldType === undefined) {
       throw new Error(`context proto field type not found: ${options.schema!.typeName}.${name}`);
     }
-    return variableDecl(name, fieldType.type);
+    return variable(name, fieldType.type);
   });
 }
 
@@ -1593,7 +1559,7 @@ function strongEnumFunctions(typeRegistry: Registry): FunctionDecl[] {
   for (const enumType of typeRegistry.enumTypes()) {
     const resultType = objectType(enumType.typeName);
     constructors.push(
-      functionDecl(enumType.typeName, {
+      func(enumType.typeName, {
         doc: [`convert an int or declared symbolic name to ${enumType.typeName}`],
         overloads: [
           overload(`${enumType.typeName}_from_int`, [IntType], resultType, {
@@ -1615,7 +1581,7 @@ function strongEnumFunctions(typeRegistry: Registry): FunctionDecl[] {
   }
   if (intConversions.length !== 0) {
     constructors.push(
-      functionDecl("int", {
+      func("int", {
         doc: ["convert a strongly typed protobuf enum to its signed numeric value"],
         overloads: intConversions,
       }),

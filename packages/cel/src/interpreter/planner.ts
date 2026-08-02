@@ -2,7 +2,14 @@ import type { AST, Expr } from "../common/ast/index.js";
 import type { Container } from "../common/containers.js";
 import * as operators from "../common/operators.js";
 import type { Provider } from "../common/types/index.js";
-import { type Adapter, Double, exprTypeToType, Int, type RefType, Uint } from "../common/types/index.js";
+import {
+  type Adapter,
+  Double,
+  exprTypeToType,
+  Int,
+  type RefType,
+  Uint,
+} from "../common/types/index.js";
 import { Type_PrimitiveType } from "../gen/cel/expr/checked_pb.js";
 import { asyncCallInterpretable } from "./async.js";
 import { isPartialAttributeMatcher } from "./attribute-patterns.js";
@@ -309,9 +316,7 @@ class PlanBuilder {
     overloadId: string,
     args: InterpretableV2[],
   ): InterpretableV2 {
-    const resolved = overloadId
-      ? this.plannerValue.dispatcher.findOverload(overloadId)
-      : undefined;
+    const resolved = overloadId ? this.plannerValue.dispatcher.findOverload(overloadId) : undefined;
     const fallback = this.plannerValue.dispatcher.findOverload(functionName);
     const overload = resolved ?? fallback;
     if (overload?.async !== undefined) {

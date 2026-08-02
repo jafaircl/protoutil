@@ -4,7 +4,7 @@ import { validateBindNestingLimit } from "../cel/validator.js";
 import { sizeEstimate } from "../checker/cost.js";
 import { ast, type Expr, exprFactory } from "../common/ast/index.js";
 import { container } from "../common/containers.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import * as operators from "../common/operators.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { IntType, listType, StringType } from "../common/types/types.js";
@@ -125,7 +125,7 @@ describe("ext/bindings_test.go/TestBlockEval_BadPlan", () => {
     expect(() =>
       env({
         libraries: [bindings({ version: 1 })],
-        variables: [variableDecl("x", StringType)],
+        variables: [variable("x", StringType)],
       }).program(ast(expression)),
     ).toThrow("expects two arguments");
   });
@@ -143,7 +143,7 @@ describe("ext/bindings_test.go/TestBlockEval_BadBlock", () => {
     expect(() =>
       env({
         libraries: [bindings({ version: 1 })],
-        variables: [variableDecl("x", StringType)],
+        variables: [variable("x", StringType)],
       }).program(ast(expression)),
     ).toThrow("expects a list constructor");
   });
@@ -157,7 +157,7 @@ describe("ext/bindings_test.go/TestBlockEval_RuntimeErrors", () => {
       const expression = runtimeErrorBlock(testCase.name);
       const result = env({
         libraries: [bindings()],
-        variables: [variableDecl("x", StringType)],
+        variables: [variable("x", StringType)],
       })
         .program(ast(expression))
         .eval({});
@@ -177,7 +177,7 @@ describe("ext/bindings_test.go/TestDynamicBlockEval", () => {
     );
     const celEnv = env({
       libraries: [bindings()],
-      variables: [variableDecl("x", StringType)],
+      variables: [variable("x", StringType)],
     });
     expect(celEnv.program(ast(expression)).eval({ x: "value" }).value()).toBe(true);
   });
@@ -212,7 +212,7 @@ describe("ext/bindings_test.go/BenchmarkBlockEval", () => {
     );
     const program = env({
       libraries: [bindings()],
-      variables: [variableDecl("x", StringType)],
+      variables: [variable("x", StringType)],
     }).program(ast(expression));
     const push = vi.spyOn(ExecutionFrame.prototype, "push");
     try {
@@ -233,9 +233,9 @@ function bindingEnv(serialized: Array<{ $expr: string }> = []) {
     variables: [],
   };
   for (const entry of serialized) {
-    const variable = /^cel\.Variable\("([^"]+)", cel\.(.+)\)$/.exec(entry.$expr);
-    if (variable) {
-      options.variables!.push(variableDecl(variable[1]!, resolveType(variable[2]!)));
+    const variableMatch = /^cel\.Variable\("([^"]+)", cel\.(.+)\)$/.exec(entry.$expr);
+    if (variableMatch) {
+      options.variables!.push(variable(variableMatch[1]!, resolveType(variableMatch[2]!)));
       continue;
     }
     const namespace = /^cel\.Container\("([^"]+)"\)$/.exec(entry.$expr);
@@ -309,7 +309,7 @@ function blockFixture(name: string): BlockFixture {
           factory.ident(10, "@index0"),
         ),
       ),
-      options: { variables: [variableDecl("x", StringType)] },
+      options: { variables: [variable("x", StringType)] },
     };
   }
   const literal = name !== "mixed block dynamic values";
@@ -341,9 +341,9 @@ function blockFixture(name: string): BlockFixture {
     options: {
       variables:
         name === "mixed block dynamic values"
-          ? [variableDecl("x", StringType)]
+          ? [variable("x", StringType)]
           : name === "mixed block constant values dyn var"
-            ? [variableDecl("y", IntType)]
+            ? [variable("y", IntType)]
             : [],
     },
   };

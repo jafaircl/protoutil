@@ -797,12 +797,12 @@ export class VariableDecl {
 }
 
 /**
- * functionDecl creates a new function declaration with a set of TypeScript option objects to configure overloads
+ * func creates a new function declaration with a set of TypeScript option objects to configure overloads
  * and function definitions (implementations).
  *
  * Functions are checked for name collisions and singleton redefinition.
  */
-export function functionDecl(name: string, options: FunctionDeclOptions = {}): FunctionDecl {
+export function func(name: string, options: FunctionDeclOptions = {}): FunctionDecl {
   const fn = new FunctionDecl(name, options);
   if (fn.overloadDecls().length === 0) {
     throw new Error(`function ${name} must have at least one overload`);
@@ -873,24 +873,24 @@ export function memberOverload(
   return new OverloadDecl(overloadId, argTypes, resultType, true, options);
 }
 
-/** constantDecl creates a new constant declaration. */
-export function constantDecl(name: string, type: Type, value: Val): VariableDecl {
+/** constant creates a new constant declaration. */
+export function constant(name: string, type: Type, value: Val): VariableDecl {
   return new VariableDecl(name, type, value);
 }
 
-/** variableDecl creates a new variable declaration. */
-export function variableDecl(name: string, type: Type): VariableDecl {
+/** variable creates a new variable declaration. */
+export function variable(name: string, type: Type): VariableDecl {
   return new VariableDecl(name, type);
 }
 
-/** variableDeclWithDoc creates a new variable declaration with usage documentation. */
-export function variableDeclWithDoc(name: string, type: Type, doc: string): VariableDecl {
+/** variableWithDoc creates a new variable declaration with usage documentation. */
+export function variableWithDoc(name: string, type: Type, doc: string): VariableDecl {
   return new VariableDecl(name, type, undefined, doc);
 }
 
 /** typeVariable creates a new type identifier for use within a types.Provider */
 export function typeVariable(type: Type): VariableDecl {
-  return variableDecl(type.typeName(), typeTypeWithParam(type));
+  return variable(type.typeName(), typeTypeWithParam(type));
 }
 
 /** variableDeclToExprDecl converts a CEL-native variable declaration into a protobuf-typed variable declaration. */

@@ -17,7 +17,7 @@ import {
 import { optionalTypes } from "./cel/library.js";
 import type { Program } from "./cel/program.js";
 import type { AST } from "./common/ast/index.js";
-import { variableDecl } from "./common/decls.js";
+import { variable } from "./common/decls.js";
 import { configFromYAML } from "./common/env/io.js";
 import { type Source, textSource } from "./common/source.js";
 import { isError } from "./common/types/err.js";
@@ -908,9 +908,7 @@ function benchmarkDiagnostic(context: BenchmarkContext): BenchmarkResult[] {
  */
 function residualBenchmarkContext(benchmarkCase: ResidualBenchmarkCase): ResidualBenchmarkContext {
   const environment = celEnv({
-    variables: benchmarkCase.variables.map((variable) =>
-      variableDecl(variable.name, variable.type),
-    ),
+    variables: benchmarkCase.variables.map((v) => variable(v.name, v.type)),
     parser: { populateMacroCalls: true },
   });
   const ast = environment.compile(benchmarkCase.expression);
@@ -1171,9 +1169,7 @@ function benchmarkContext(benchmarkCase: BenchmarkCase): BenchmarkContext {
   ]);
   const programEnv = celEnv({
     registry: registryValue,
-    variables: benchmarkCase.variables.map((variable) =>
-      variableDecl(variable.name, variable.type),
-    ),
+    variables: benchmarkCase.variables.map((v) => variable(v.name, v.type)),
     parser: {
       enableOptionalSyntax: true,
       maxRecursionDepth: 32,

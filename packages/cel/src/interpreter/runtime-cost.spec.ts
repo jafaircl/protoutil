@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
 import { defaultContainer } from "../common/containers.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import * as overloads from "../common/overloads.js";
 import { textSource } from "../common/source.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -221,13 +221,13 @@ function runtimeCostType(expr: string): Type {
  */
 function runtimeCostVariables(
   vars: Array<{ $expr?: string }> | undefined,
-): Array<ReturnType<typeof variableDecl>> {
+): Array<ReturnType<typeof variable>> {
   return (vars ?? []).map((entry) => {
     const match = /^decls\.NewVariable\("([^"]+)",\s*([\s\S]+)\)$/.exec(entry.$expr ?? "");
     if (!match) {
       throw new Error(`unsupported runtime-cost variable expression: ${entry.$expr}`);
     }
-    return variableDecl(match[1]!, runtimeCostType(match[2]!));
+    return variable(match[1]!, runtimeCostType(match[2]!));
   });
 }
 

@@ -45,7 +45,8 @@ export class Uint implements Val, Adder, Comparer, Divider, Modder, Multiplier, 
 
   constructor(value: number | bigint) {
     if (typeof value === "number") {
-      this.inner = Number.isSafeInteger(value) && value >= 0 ? (value === 0 ? 0 : value) : BigInt(value);
+      this.inner =
+        Number.isSafeInteger(value) && value >= 0 ? (value === 0 ? 0 : value) : BigInt(value);
       return;
     }
     this.inner = value >= 0n && value <= MAX_SAFE_UINT ? Number(value) : value;

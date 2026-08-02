@@ -31,9 +31,7 @@
               {
                 "name": "incompatible_output_types",
                 "output": {
-                  "error_set": [
-                    "incompatible output types: block has output type"
-                  ]
+                  "error_set": ["incompatible output types: block has output type"]
                 }
               }
             ]

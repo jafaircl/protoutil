@@ -1,9 +1,11 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { MessageShape } from "@bufbuild/protobuf";
+import { getField } from "@protoutil/core";
 import { describe, expect, it } from "vitest";
-import { contextProtoVars, type Env, type EnvOptions, env } from "./cel/env.js";
+import { type Env, type EnvOptions, env } from "./cel/env.js";
 import { optionalTypes } from "./cel/library.js";
-import { functionDecl, overload } from "./common/decls.js";
+import { func, overload } from "./common/decls.js";
 import { configFromYAML } from "./common/env/io.js";
 import { isError } from "./common/types/err.js";
 import { Optional } from "./common/types/optional.js";
@@ -306,7 +308,7 @@ function locationCode(ip: Val): Val {
 
 /** locationCodeDeclaration declares and binds the upstream conformance helper function. */
 function locationCodeDeclaration() {
-  return functionDecl("locationCode", {
+  return func("locationCode", {
     overloads: [
       overload("locationCode_string", [StringType], StringType, {
         unaryBinding: locationCode,
@@ -458,11 +460,24 @@ function caseBindings(environment: Env, test: PolicyTestCase): Record<string, un
     }
     Object.assign(
       bindings,
-      contextProtoVars({
-        message: context as never,
-        schema: TestAllTypesSchema,
-      }),
+      protobufContextBindings(context as MessageShape<typeof TestAllTypesSchema>),
     );
+  }
+  return bindings;
+}
+
+/**
+ * protobufContextBindings adapts the upstream policy fixture context to its activation map.
+ *
+ * Policy configuration names a context type but does not retain its protobuf descriptor, so this
+ * conformance harness supplies the registered fixture descriptor explicitly.
+ */
+function protobufContextBindings(
+  message: MessageShape<typeof TestAllTypesSchema>,
+): Record<string, unknown> {
+  const bindings: Record<string, unknown> = {};
+  for (const field of TestAllTypesSchema.fields) {
+    bindings[field.name] = getField(message, field);
   }
   return bindings;
 }

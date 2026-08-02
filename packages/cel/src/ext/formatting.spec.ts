@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { container } from "../common/containers.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { True } from "../common/types/bool.js";
 import { durationOf } from "../common/types/duration.js";
@@ -77,7 +77,7 @@ describe("ext/formatting_test.go/TestStringFormat", () => {
         container: container({ abbrevs: ["google.expr.proto3.test"] }),
         libraries: [strings({ locale: testCase.locale, version: 3 })],
         registry: typeRegistry,
-        variables: Object.keys(inputs).map((name) => variableDecl(name, DynType)),
+        variables: Object.keys(inputs).map((name) => variable(name, DynType)),
       });
       const expression = `${JSON.stringify(testCase.format)}.format([${
         testCase.formatArgs ?? ""

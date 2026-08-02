@@ -3,7 +3,7 @@ import { env } from "../cel/env.js";
 import { astToString } from "../cel/io.js";
 import { optionalTypes } from "../cel/library.js";
 import { sizeEstimate } from "../checker/cost.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { Int } from "../common/types/int.js";
 import { refValMap } from "../common/types/map.js";
@@ -177,7 +177,7 @@ describe("ext/comprehensions_test.go/TestTwoVarComprehensionsResidualAST", () =>
 });
 
 /** comprehensionEnv creates the shared extension environment. */
-function comprehensionEnv(variables: ReturnType<typeof variableDecl>[] = []) {
+function comprehensionEnv(variables: ReturnType<typeof variable>[] = []) {
   return env({
     libraries: [optionalTypes(), bindings(), strings(), lists(), twoVarComprehensions()],
     parser: { populateMacroCalls: true },
@@ -191,7 +191,7 @@ function resolveVariable(expression: string) {
   if (!match) {
     throw new Error(`unsupported synchronized comprehension variable: ${expression}`);
   }
-  return variableDecl(match[1]!, resolveType(match[2]!));
+  return variable(match[1]!, resolveType(match[2]!));
 }
 
 /** resolveType decodes the recursively nested type forms used by comprehension tests. */

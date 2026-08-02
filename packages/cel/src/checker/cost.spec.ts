@@ -1,7 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { defaultContainer } from "../common/containers.js";
-import { functionDecl, memberOverload } from "../common/decls.js";
+import { func, memberOverload } from "../common/decls.js";
 import { textSource } from "../common/source.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { standardFunctions } from "../common/stdlib.js";
@@ -13,14 +13,14 @@ import { CallEstimate, cost, SizeEstimate, sizeEstimate } from "./cost.js";
 import { env } from "./env.js";
 import { resolveCostCase, type SyncedCostCase } from "./spec-helpers.js";
 
-function standardEnv(vars: Array<ReturnType<typeof functionDecl>> | Array<unknown> = []) {
+function standardEnv(vars: Array<ReturnType<typeof func>> | Array<unknown> = []) {
   const checkerEnv = env(
     defaultContainer,
     registry([create(Proto3TestAllTypesSchema), Proto3TestAllTypesSchema]),
   );
   checkerEnv.addFunctions(
     ...standardFunctions(),
-    functionDecl("max", {
+    func("max", {
       overloads: [memberOverload("list_bytes_max", [listType(BytesType)], BytesType)],
     }),
   );

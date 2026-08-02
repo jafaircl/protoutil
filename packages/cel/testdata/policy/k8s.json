@@ -12,9 +12,7 @@
         ],
         "name": "k8s",
         "stdlib": {
-          "include_macros": [
-            "all"
-          ]
+          "include_macros": ["all"]
         },
         "variables": [
           {
@@ -58,16 +56,9 @@
           "matchConstraints": {
             "resourceRules": [
               {
-                "apiGroups": [
-                  "services"
-                ],
-                "apiVersions": [
-                  "v3"
-                ],
-                "operations": [
-                  "CREATE",
-                  "UPDATE"
-                ]
+                "apiGroups": ["services"],
+                "apiVersions": ["v3"],
+                "operations": ["CREATE", "UPDATE"]
               }
             ]
           },

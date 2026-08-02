@@ -2,8 +2,8 @@ import type { Val } from "../common/types/index.js";
 import { Err } from "../common/types/index.js";
 import type { Adapter } from "../common/types/provider.js";
 import {
-  activationNameAbsent,
   type Activation,
+  activationNameAbsent,
   asPartialActivation,
   hierarchicalActivation,
   isActivation,

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { container } from "../common/containers.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { registry } from "../common/types/provider.js";
 import { resolveSyncedExpr } from "../common/types/spec-helpers.js";
@@ -30,7 +30,7 @@ interface SetsCase {
 describe("ext/sets_test.go/TestSets", () => {
   it("evaluates every synced set relationship case", () => {
     for (const testCase of syncedCases<SetsCase>("ext/sets_test.go/TestSets")) {
-      const variables = testCase.vars === undefined ? [] : [variableDecl("x", listType(IntType))];
+      const variables = testCase.vars === undefined ? [] : [variable("x", listType(IntType))];
       const celEnv = env({ libraries: [sets()], variables });
       const ast = celEnv.compile(testCase.expr);
       const estimator: CostEstimator = {
@@ -73,7 +73,7 @@ describe("ext/sets_test.go/TestSetsMembershipRewriter", () => {
       }
       const variables = testCase.opts.flatMap((option) => {
         const match = /cel\.Variable\("([^"]+)", cel\.(Int|String)Type\)/.exec(option.$expr);
-        return match ? [variableDecl(match[1]!, match[2] === "String" ? StringType : IntType)] : [];
+        return match ? [variable(match[1]!, match[2] === "String" ? StringType : IntType)] : [];
       });
       const celEnv = env({
         container: usesEnum ? container({ name: "google.expr.proto3" }) : undefined,

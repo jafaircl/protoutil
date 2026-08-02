@@ -46,7 +46,6 @@ import {
   String as CelString,
   compile,
   container,
-  contextProtoVars,
   DefaultTypeAdapter,
   Double,
   DoubleType,
@@ -64,7 +63,7 @@ import {
   False,
   type FunctionDecl,
   fold,
-  functionDecl,
+  func,
   functionReference,
   IntType,
   IntZero,
@@ -83,7 +82,7 @@ import {
   operators,
   optionalType,
   optionalTypes,
-  declOverload as overload,
+  overload,
   overloads,
   type ReferenceInfo,
   Registry,
@@ -100,7 +99,7 @@ import {
   Unknown,
   type Val,
   validateComprehensionNestingLimit,
-  variableDecl,
+  variable,
 } from "../index.js";
 import { emptyActivation } from "../interpreter/activation.js";
 import { adaptLegacyDecorator } from "../interpreter/decorators.js";
@@ -313,7 +312,7 @@ function invalidEnvironmentConfig(name: string): Config {
 describe("cel/cel_test.go/TestCompile", () => {
   it("compiles an executable program and reports type errors", () => {
     const program = compile('"hello " + name', {
-      variables: [variableDecl("name", StringType)],
+      variables: [variable("name", StringType)],
     });
 
     expect(program.eval({ name: "world" }).value()).toBe("hello world");
@@ -324,7 +323,7 @@ describe("cel/cel_test.go/TestCompile", () => {
 describe("Env.optimize", () => {
   it("applies ergonomic inline and fold passes in order", () => {
     const celEnv = env({
-      variables: [variableDecl("greeting", StringType), variableDecl("subject", StringType)],
+      variables: [variable("greeting", StringType), variable("subject", StringType)],
     });
     const optimized = celEnv.optimize(
       celEnv.compile('greeting + ", " + subject + "!"'),
@@ -339,7 +338,7 @@ describe("Env.optimize", () => {
 
   it("accepts checked CEL expressions as inline definitions", () => {
     const celEnv = env({
-      variables: [variableDecl("subtotal", IntType)],
+      variables: [variable("subtotal", IntType)],
     });
     const optimized = celEnv.optimize(
       celEnv.compile("subtotal * 2"),
@@ -407,7 +406,7 @@ describe("cel/cel_test.go/TestMacroSubset", () => {
         custom: [HasMacro],
         standard: false,
       },
-      variables: [variableDecl("name", mapType(StringType, StringType))],
+      variables: [variable("name", mapType(StringType, StringType))],
     });
     const result = celEnv
       .program(celEnv.compile("has(name.first)"))
@@ -421,7 +420,7 @@ describe("cel/cel_test.go/TestMacroSubset", () => {
 describe("cel/cel_test.go/Test_ExampleWithBuiltins", () => {
   it("compiles and evaluates an expression using standard functions", () => {
     const celEnv = env({
-      variables: [variableDecl("i", StringType), variableDecl("you", StringType)],
+      variables: [variable("i", StringType), variable("you", StringType)],
     });
     const ast = celEnv.compile(`"Hello " + you + "! I'm " + i + "."`);
     const program = celEnv.program(ast);
@@ -442,7 +441,7 @@ describe("cel/cel_test.go/TestEval", () => {
       in: Record<string, unknown>;
     }>("cel/cel_test.go/TestEval");
     const celEnv = env({
-      variables: [variableDecl("input", listType(IntType))],
+      variables: [variable("input", listType(IntType))],
     });
 
     for (const testCase of cases) {
@@ -496,7 +495,7 @@ describe("cel/cel_test.go/TestAbbrevsCompiled", () => {
     // Test whether abbreviations successfully resolve at type-check time (compile time).
     const celEnv = env({
       container: container({ abbrevs: ["qualified.identifier.name"] }),
-      variables: [variableDecl("qualified.identifier.name.first", StringType)],
+      variables: [variable("qualified.identifier.name.first", StringType)],
     });
     // The abbreviation is resolved while compiling the checked expression.
     const program = celEnv.program(celEnv.compile(`"hello " + name.first`));
@@ -530,7 +529,7 @@ describe("cel/cel_test.go/TestCustomEnv", () => {
   it("evaluates declared attributes without installing standard operators", () => {
     const celEnv = env({
       standardLibrary: false,
-      variables: [variableDecl("a.b.c", BoolType)],
+      variables: [variable("a.b.c", BoolType)],
     });
 
     expect(celEnv.tryCompile("a.b.c == true").errors).toBeDefined();
@@ -589,12 +588,12 @@ describe("cel/cel_test.go/TestOptionalValuesCompile", () => {
     const celEnv = env({
       libraries: [optionalTypes()],
       variables: [
-        variableDecl("m", mapType(StringType, mapType(StringType, StringType))),
-        variableDecl("optm", optionalType(mapType(StringType, mapType(StringType, StringType)))),
-        variableDecl("l", listType(StringType)),
-        variableDecl("optl", optionalType(listType(StringType))),
-        variableDecl("x", optionalType(IntType)),
-        variableDecl("y", IntType),
+        variable("m", mapType(StringType, mapType(StringType, StringType))),
+        variable("optm", optionalType(mapType(StringType, mapType(StringType, StringType)))),
+        variable("l", listType(StringType)),
+        variable("optl", optionalType(listType(StringType))),
+        variable("x", optionalType(IntType)),
+        variable("y", IntType),
       ],
     });
 
@@ -647,7 +646,7 @@ describe("cel/cel_test.go/TestOptionalMacroError", () => {
   it("validates macro variables and gates optFlatMap by library version", () => {
     const currentEnv = env({
       libraries: [optionalTypes()],
-      variables: [variableDecl("x", optionalType(IntType))],
+      variables: [variable("x", optionalType(IntType))],
     });
 
     for (const expression of ["x.optMap(y.z, y.z + 1)", "x.optFlatMap(y.z, y.z + 1)"]) {
@@ -658,7 +657,7 @@ describe("cel/cel_test.go/TestOptionalMacroError", () => {
 
     const versionZeroEnv = env({
       libraries: [optionalTypes({ version: 0 })],
-      variables: [variableDecl("x", optionalType(IntType))],
+      variables: [variable("x", optionalType(IntType))],
     });
     expect(versionZeroEnv.tryCompile("x.optFlatMap(y, y + 1)").errors?.toDisplayString()).toContain(
       "undeclared reference to 'optFlatMap'",
@@ -686,13 +685,13 @@ describe("cel/cel_test.go/TestParseError", () => {
 describe("cel/cel_test.go/TestEnvExtensionIsolation", () => {
   it("isolates declarations added to sibling environments", () => {
     const baseEnv = env({
-      variables: [variableDecl("age", IntType)],
+      variables: [variable("age", IntType)],
     });
     const env1 = baseEnv.extend({
-      variables: [variableDecl("name", StringType)],
+      variables: [variable("name", StringType)],
     });
     const env2 = baseEnv.extend({
-      variables: [variableDecl("group", StringType)],
+      variables: [variable("group", StringType)],
     });
 
     expect(env1.tryCompile("age > 20 && name.size() > 10").errors).toBeUndefined();
@@ -725,7 +724,7 @@ describe("cel/cel_test.go/TestEnvExtension", () => {
 describe("cel/cel_test.go/TestContextEval", () => {
   it("evaluates comprehensions and observes cancellation", () => {
     const celEnv = env({
-      variables: [variableDecl("items", listType(IntType))],
+      variables: [variable("items", listType(IntType))],
     });
     const ast = celEnv.compile("items.map(i, i * 2).filter(i, i >= 50).size()");
     const program = celEnv.program(ast, {
@@ -765,9 +764,9 @@ describe("cel/cel_test.go/TestContextEval", () => {
 describe("cel/cel_example_test.go/Example", () => {
   it("supports custom member functions and lazy input bindings", () => {
     const celEnv = env({
-      variables: [variableDecl("i", StringType), variableDecl("you", StringType)],
+      variables: [variable("i", StringType), variable("you", StringType)],
       functions: [
-        functionDecl("greet", {
+        func("greet", {
           overloads: [
             memberOverload("string_greet_string", [StringType, StringType], StringType, {
               binaryBinding: (left, right) =>
@@ -810,7 +809,7 @@ describe("cel/cel_example_test.go/Example_statefulOverload", () => {
  * fetchDeclaration creates the state-dependent function used by the cel-go example.
  */
 function fetchDeclaration(value?: string): FunctionDecl {
-  return functionDecl("fetch", {
+  return func("fetch", {
     overloads: [
       overload("fetch_string", [StringType], StringType, {
         unaryBinding: () =>
@@ -836,9 +835,9 @@ describe("cel/cel_example_test.go/Example_globalOverload", () => {
     // the desired extension functions. In many cases the desired functionality will
     // be present in a built-in function.
     const celEnv = env({
-      variables: [variableDecl("i", StringType), variableDecl("you", StringType)],
+      variables: [variable("i", StringType), variable("you", StringType)],
       functions: [
-        functionDecl("shake_hands", {
+        func("shake_hands", {
           overloads: [
             overload("shake_hands_string_string", [StringType, StringType], StringType, {
               binaryBinding: (left, right) =>
@@ -872,7 +871,7 @@ describe("cel/cel_test.go/TestAbbrevsDisambiguation", () => {
         abbrevs: ["external.Expr"],
       }),
       registry: typeRegistry,
-      variables: [variableDecl("test", BoolType), variableDecl("external.Expr", StringType)],
+      variables: [variable("test", BoolType), variable("external.Expr", StringType)],
     });
     // This expression returns either a string or a protobuf Expr value depending on `test`.
     // The fully qualified type name disambiguates the protobuf type from `external.Expr`.
@@ -922,10 +921,10 @@ describe("cel/cel_test.go/TestCustomEnvError", () => {
       env({
         standardLibrary: false,
         functions: [
-          functionDecl("duplicate", {
+          func("duplicate", {
             overloads: [overload("duplicate_overload", [], StringType)],
           }),
-          functionDecl("duplicate", {
+          func("duplicate", {
             overloads: [overload("duplicate_overload", [], IntType)],
           }),
         ],
@@ -938,7 +937,7 @@ describe("cel/cel_test.go/TestExtendStdlibFunction", () => {
   it("extends contains with a bytes overload while retaining the string overload", () => {
     const celEnv = env({
       functions: [
-        functionDecl(overloads.Contains, {
+        func(overloads.Contains, {
           overloads: [
             memberOverload("bytes_contains_bytes", [BytesType, BytesType], BoolType, {
               binaryBinding: (value, substring) => {
@@ -1017,7 +1016,7 @@ describe("cel/cel_test.go/TestSubsetStdLibMerge", () => {
     expect(() =>
       env({
         functions: [
-          functionDecl(overloads.Size, {
+          func(overloads.Size, {
             overloads: [memberOverload(overloads.SizeStringInst, [StringType], IntType)],
           }),
         ],
@@ -1035,7 +1034,7 @@ describe("cel/cel_test.go/TestSubsetStdLibMergeError", () => {
     expect(() =>
       env({
         functions: [
-          functionDecl(overloads.Size, {
+          func(overloads.Size, {
             overloads: [memberOverload(overloads.SizeStringInst, [StringType], UintType)],
           }),
         ],
@@ -1053,7 +1052,7 @@ describe("cel/cel_test.go/TestCustomTypes", () => {
       container: container({ name: "cel.expr" }),
       registry: typeRegistry,
       types: [BoolType, IntType, StringType],
-      variables: [variableDecl("expr", objectType(ExprSchema.typeName))],
+      variables: [variable("expr", objectType(ExprSchema.typeName))],
     });
     const ast = celEnv.compile(`
       expr == Expr{id: 2,
@@ -1113,14 +1112,14 @@ describe("cel/cel_test.go/TestTypeIsolation", () => {
     }
     const typedEnv = env({
       registry: isolatedRegistry,
-      variables: [variableDecl("myteam", objectType("cel.testdata.Team"))],
+      variables: [variable("myteam", objectType("cel.testdata.Team"))],
     });
     const expression = "myteam.members[0].name == 'Cyclops'";
 
     expect(typedEnv.tryCompile(expression).errors).toBeUndefined();
     expect(
       env({
-        variables: [variableDecl("myteam", objectType("cel.testdata.Team"))],
+        variables: [variable("myteam", objectType("cel.testdata.Team"))],
       }).tryCompile(expression).errors,
     ).toBeDefined();
   });
@@ -1170,7 +1169,7 @@ describe("cel/cel_test.go/TestDynamicProtoFileDescriptors", () => {
     }
     const celEnv = env({
       registry: typeRegistry,
-      variables: [variableDecl("mutant", objectType(mutantSchema.typeName))],
+      variables: [variable("mutant", objectType(mutantSchema.typeName))],
     });
     const result = celEnv
       .program(celEnv.compile("has(mutant.name) && mutant.name == 'Wolverine'"), {
@@ -1185,10 +1184,7 @@ describe("cel/cel_test.go/TestDynamicProtoFileDescriptors", () => {
 describe("cel/cel_test.go/TestGlobalVars", () => {
   it("uses program globals unless evaluation variables override them", () => {
     const celEnv = env({
-      variables: [
-        variableDecl("attrs", mapType(StringType, DynType)),
-        variableDecl("default", DynType),
-      ],
+      variables: [variable("attrs", mapType(StringType, DynType)), variable("default", DynType)],
     });
     const ast = celEnv.compile(
       `"first" in attrs
@@ -1352,7 +1348,7 @@ describe("cel/cel_test.go/TestCustomExistsMacro", () => {
       );
     });
     const celEnv = env({
-      variables: [variableDecl("attr", mapType(StringType, BoolType))],
+      variables: [variable("attr", mapType(StringType, BoolType))],
       macros: { custom: [kleeneOr, kleeneEq] },
     });
     const program = celEnv.program(
@@ -1396,7 +1392,7 @@ describe("cel/cel_test.go/TestParseAndCheckConcurrently", () => {
     const celEnv = env({
       container: container({ name: "cel.expr" }),
       registry: typeRegistry,
-      variables: [variableDecl("expr", objectType(ExprSchema.typeName))],
+      variables: [variable("expr", objectType(ExprSchema.typeName))],
     });
 
     await Promise.all(
@@ -1432,7 +1428,7 @@ describe("cel/cel_test.go/TestCustomInterpreterDecorator", () => {
       }
       return constValue({ id: instruction.id(), value });
     };
-    const celEnv = env({ variables: [variableDecl("foo", IntType)] });
+    const celEnv = env({ variables: [variable("foo", IntType)] });
 
     celEnv.program(celEnv.compile("foo == -1 + 2 * 3 / 3"), {
       partialEval: true,
@@ -1473,7 +1469,7 @@ describe("cel/cel_test.go/TestCustomInterpreterDecoratorV2", () => {
       }
       return constValue({ id: instruction.id(), value });
     };
-    const celEnv = env({ variables: [variableDecl("foo", IntType)] });
+    const celEnv = env({ variables: [variable("foo", IntType)] });
 
     celEnv.program(celEnv.compile("foo == -1 + 2 * 3 / 3"), {
       partialEval: true,
@@ -1571,7 +1567,7 @@ describe("cel/cel_test.go/TestCostLimit", () => {
 describe("cel/cel_test.go/TestCostTrackingConsistentAcrossEvals", () => {
   it("creates independent cost state for repeated evaluations", () => {
     const celEnv = env({
-      variables: [variableDecl("val1", IntType), variableDecl("val2", IntType)],
+      variables: [variable("val1", IntType), variable("val2", IntType)],
     });
     const program = celEnv.program(celEnv.compile("val1 + val2"), {
       costTracking: {},
@@ -1587,7 +1583,7 @@ describe("cel/cel_test.go/TestCostTrackingConsistentAcrossEvals", () => {
 });
 
 describe("cel/cel_test.go/TestContextProto", () => {
-  it("declares protobuf fields as top-level variables and creates their activation", () => {
+  it("evaluates a context protobuf message directly", () => {
     const input = proto3ContextMessage();
     const celEnv = env({
       contextProto: Proto3TestAllTypesSchema,
@@ -1602,14 +1598,14 @@ describe("cel/cel_test.go/TestContextProto", () => {
       && map_string_string == {'': ''}`;
     const result = celEnv
       .program(celEnv.compile(expression))
-      .eval(contextProtoVars({ message: input, schema: Proto3TestAllTypesSchema }));
+      .eval(input);
 
     expect(result).toBe(True);
   });
 });
 
 describe("cel/cel_test.go/TestContextProtoJSONFieldNames", () => {
-  it("uses protobuf JSON names for context declarations and activation keys", () => {
+  it("uses protobuf JSON names for context declarations and direct message evaluation", () => {
     const input = proto3ContextMessage();
     const celEnv = env({
       contextProto: Proto3TestAllTypesSchema,
@@ -1623,13 +1619,7 @@ describe("cel/cel_test.go/TestContextProtoJSONFieldNames", () => {
       && standaloneEnum == google.expr.proto3.test.TestAllTypes.NestedEnum.FOO
       && repeatedInt32 == [1, 2]
       && mapStringString == {'': ''}`;
-    const result = celEnv.program(celEnv.compile(expression)).eval(
-      contextProtoVars({
-        jsonFieldNames: true,
-        message: input,
-        schema: Proto3TestAllTypesSchema,
-      }),
-    );
+    const result = celEnv.program(celEnv.compile(expression)).eval(input);
 
     expect(result).toBe(True);
   });
@@ -1678,19 +1668,19 @@ describe("cel/cel_test.go/TestDefaultUTCTimeZoneDisabled", () => {
     const environments = [
       {
         name: "default",
-        value: env({ variables: [variableDecl("x", TimestampType)] }),
+        value: env({ variables: [variable("x", TimestampType)] }),
       },
       {
         name: "enabled",
         value: env({
-          variables: [variableDecl("x", TimestampType)],
+          variables: [variable("x", TimestampType)],
           defaultUTCTimeZone: true,
         }),
       },
       {
         name: "disabled",
         value: env({
-          variables: [variableDecl("x", TimestampType)],
+          variables: [variable("x", TimestampType)],
           defaultUTCTimeZone: false,
         }),
       },
@@ -1801,7 +1791,7 @@ describe("cel/cel_test.go/TestDefaultUTCTimeZoneDisabled", () => {
 describe("cel/cel_test.go/TestDefaultUTCTimeZoneExtension", () => {
   it("preserves default UTC timestamp and duration functions after extension", () => {
     const celEnv = env({
-      variables: [variableDecl("x", TimestampType), variableDecl("y", DurationType)],
+      variables: [variable("x", TimestampType), variable("y", DurationType)],
     }).extend();
     const program = celEnv.program(
       celEnv.compile(`
@@ -1827,7 +1817,7 @@ describe("cel/cel_test.go/TestDefaultUTCTimeZoneExtension", () => {
 describe("cel/cel_test.go/TestDefaultUTCTimeZoneError", () => {
   it("returns an error for invalid explicit timezones", () => {
     const celEnv = env({
-      variables: [variableDecl("x", TimestampType)],
+      variables: [variable("x", TimestampType)],
     });
     const program = celEnv.program(
       celEnv.compile(`
@@ -1902,7 +1892,7 @@ describe("cel/cel_test.go/TestQuotedFields", () => {
 
 describe("cel/cel_test.go/TestDynamicDispatch", () => {
   it("dispatches homogeneous and dynamic lists to their runtime overloads", () => {
-    const first = functionDecl("first", {
+    const first = func("first", {
       overloads: [
         memberOverload("first_list_int", [listType(IntType)], IntType, {
           unaryBinding: (value) => {
@@ -1976,13 +1966,13 @@ describe("cel/cel_test.go/TestOptionalValuesEval", () => {
       libraries: [optionalTypes()],
       registry: typeRegistry,
       variables: [
-        variableDecl("m", mapType(StringType, mapType(StringType, StringType))),
-        variableDecl("l", listType(StringType)),
-        variableDecl("optm", optionalType(mapType(StringType, mapType(StringType, StringType)))),
-        variableDecl("optl", optionalType(listType(StringType))),
-        variableDecl("x", optionalType(IntType)),
-        variableDecl("y", optionalType(IntType)),
-        variableDecl("z", IntType),
+        variable("m", mapType(StringType, mapType(StringType, StringType))),
+        variable("l", listType(StringType)),
+        variable("optm", optionalType(mapType(StringType, mapType(StringType, StringType)))),
+        variable("optl", optionalType(listType(StringType))),
+        variable("x", optionalType(IntType)),
+        variable("y", optionalType(IntType)),
+        variable("z", IntType),
       ],
     });
 
@@ -2010,9 +2000,9 @@ describe("cel/cel_test.go/TestOptionalValuesEvalUnknowns", () => {
     const celEnv = env({
       libraries: [optionalTypes()],
       variables: [
-        variableDecl("x", optionalType(IntType)),
-        variableDecl("y", optionalType(IntType)),
-        variableDecl("z", IntType),
+        variable("x", optionalType(IntType)),
+        variable("y", optionalType(IntType)),
+        variable("z", IntType),
       ],
     });
 
@@ -2085,7 +2075,7 @@ describe("cel/cel_test.go/TestExpressionNodeLimit", () => {
     const limited = env({
       libraries: [optionalTypes()],
       parser: { maxExpressionNodeCount: 100 },
-      variables: [variableDecl("x", optionalType(IntType))],
+      variables: [variable("x", optionalType(IntType))],
     });
     expect(limited.tryParse(expression).errors?.toString()).toContain(
       "expression count exceeds limit of 100 while expanding macro 'optMap'",
@@ -2094,7 +2084,7 @@ describe("cel/cel_test.go/TestExpressionNodeLimit", () => {
     const unbounded = env({
       libraries: [optionalTypes()],
       parser: { maxExpressionNodeCount: -1 },
-      variables: [variableDecl("x", optionalType(IntType))],
+      variables: [variable("x", optionalType(IntType))],
     });
     expect(unbounded.tryParse(expression).errors).toBeUndefined();
   });
@@ -2105,12 +2095,12 @@ describe("cel/cel_test.go/TestExpressionNodeLimitCheck", () => {
     const source = textSource("x + 1 + 2 + 3 + 4 + 5");
     const parsed = env({
       parser: { maxExpressionNodeCount: -1 },
-      variables: [variableDecl("x", IntType)],
+      variables: [variable("x", IntType)],
     }).parseSource(source);
     expect(() =>
       env({
         parser: { maxExpressionNodeCount: 5 },
-        variables: [variableDecl("x", IntType)],
+        variables: [variable("x", IntType)],
       }).check(parsed, source),
     ).toThrow("expression node count exceeds limit");
   });
@@ -2120,7 +2110,7 @@ describe("cel/cel_test.go/TestRegexProgramSizeLimit", () => {
   it("enforces literal patterns during validation and dynamic patterns during evaluation", () => {
     const celEnv = env({
       regexProgramSizeLimit: 5,
-      variables: [variableDecl("pattern", StringType)],
+      variables: [variable("pattern", StringType)],
     });
     expect(celEnv.tryCompile(`"123 abc 456".matches('(a|b)*[0-9]+')`).errors?.toString()).toContain(
       "regex program size 8 exceeds limit of 5",
@@ -2168,8 +2158,8 @@ describe("cel/cel_test.go/TestJSONFieldNames", () => {
         parser: { enableIdentEscapeSyntax: true },
         registry: typeRegistry,
         variables: [
-          variableDecl("msg", objectType(Proto3TestAllTypesSchema.typeName)),
-          variableDecl("jsonOptMsg", objectType(TestJsonNamesSchema.typeName)),
+          variable("msg", objectType(Proto3TestAllTypesSchema.typeName)),
+          variable("jsonOptMsg", objectType(TestJsonNamesSchema.typeName)),
         ],
       });
       const expression = resolveSyncedExpr(testCase.expr) as string;
@@ -2384,7 +2374,7 @@ describe("cel/env_test.go/TestEnvCheckExtendRace", () => {
           Promise.resolve().then(() => celEnv.compile("1 + 1 * 20 < 400")),
           Promise.resolve().then(() =>
             celEnv.extend({
-              variables: [variableDecl("bar", BoolType)],
+              variables: [variable("bar", BoolType)],
             }),
           ),
         ]);
@@ -2438,11 +2428,11 @@ describe("cel/env_test.go/TestEnvToConfig", () => {
             : testCase.name === "std env disabled"
               ? env({ standardLibrary: false })
               : testCase.name === "std env - with variable"
-                ? env({ variables: [variableDecl("var", IntType)] })
+                ? env({ variables: [variable("var", IntType)] })
                 : testCase.name === "std env - with function"
                   ? env({
                       functions: [
-                        functionDecl("hello", {
+                        func("hello", {
                           overloads: [overload("hello_string", [StringType], StringType)],
                         }),
                       ],
@@ -2454,7 +2444,7 @@ describe("cel/env_test.go/TestEnvToConfig", () => {
                       : testCase.name === "optional lib - alt last()"
                         ? env({
                             functions: [
-                              functionDecl("last", {
+                              func("last", {
                                 doc: "return the last value in a list, or last character in a string",
                                 overloads: [
                                   memberOverload("string_last", [StringType], StringType),
@@ -2479,7 +2469,7 @@ describe("cel/env_test.go/TestEnvToConfig", () => {
                                     contextProto: Proto3TestAllTypesSchema,
                                     registry: typeRegistry,
                                     variables: testCase.name.includes("extra")
-                                      ? [variableDecl("extra", StringType)]
+                                      ? [variable("extra", StringType)]
                                       : [],
                                   })
                                 : env();
@@ -2551,7 +2541,7 @@ describe("cel/env_test.go/TestEnvFromConfig", () => {
     const celEnv = env({
       configuration: { config },
       functions: [
-        functionDecl("plus", {
+        func("plus", {
           overloads: [
             overload("plus_int_int", [IntType, IntType], IntType, {
               binaryBinding: (left, right) =>
@@ -2588,7 +2578,7 @@ describe("cel/env_test.go/TestEnvFromConfig", () => {
         extensions: {
           plus: {
             functions: [
-              functionDecl("plus", {
+              func("plus", {
                 overloads: [
                   overload("plus_int_int", [IntType, IntType], IntType, {
                     binaryBinding: (left, right) =>

@@ -13,6 +13,9 @@ import {
 } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
 import { TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import {
+  alphaProtoAsCheckedExpr,
+  alphaProtoAsExpr,
+  alphaProtoAsParsedExpr,
   ast,
   astToAlphaCheckedExpr,
   astToAlphaExpr,
@@ -44,7 +47,7 @@ import {
   textSource,
   type Val,
   valueToRefValue,
-  variableDecl,
+  variable,
 } from "../index.js";
 
 /**
@@ -185,7 +188,7 @@ describe("TypeScript extension/TestAlphaProtoSchemaCompatibility", () => {
 });
 
 describe("TypeScript extension/TestAlphaExpressionProtos", () => {
-  it("converts canonical expression protobufs and ASTs to alpha protobufs", () => {
+  it("converts canonical expression protobufs and ASTs to and from alpha protobufs", () => {
     const parsedAst = env().parse('title == "Dune"');
     const expression = parsedAst.expr().toProto();
 
@@ -209,8 +212,24 @@ describe("TypeScript extension/TestAlphaExpressionProtos", () => {
     expect(astToAlphaParsedExpr(parsedAst)).toEqual(alphaParsed);
     expect(astToAlphaParsedExpr().$typeName).toBe("google.api.expr.v1alpha1.ParsedExpr");
 
+    const canonicalExpr = alphaProtoAsExpr(alphaExpr);
+    expect(canonicalExpr).toEqual(expression);
+    expect(canonicalExpr.$typeName).toBe("cel.expr.Expr");
+    if (canonicalExpr.exprKind.case !== "callExpr") {
+      throw new Error("expected a canonical call expression");
+    }
+    expect(canonicalExpr.exprKind.value.args.map((arg) => arg.$typeName)).toEqual([
+      "cel.expr.Expr",
+      "cel.expr.Expr",
+    ]);
+
+    const canonicalParsed = alphaProtoAsParsedExpr(alphaParsed);
+    expect(canonicalParsed).toEqual(parsed);
+    expect(canonicalParsed.$typeName).toBe("cel.expr.ParsedExpr");
+    expect(canonicalParsed.expr?.$typeName).toBe("cel.expr.Expr");
+
     const checkedAst = env({
-      variables: [variableDecl("title", StringType)],
+      variables: [variable("title", StringType)],
     }).compile('title == "Dune"');
     const checked = astToCheckedExpr(checkedAst);
     const alphaChecked = checkedExprAsAlphaProto(checked);
@@ -222,6 +241,12 @@ describe("TypeScript extension/TestAlphaExpressionProtos", () => {
     );
     expect(astToAlphaCheckedExpr(checkedAst)).toEqual(alphaChecked);
     expect(() => astToAlphaCheckedExpr(parsedAst)).toThrow("cannot convert unchecked ast");
+
+    const canonicalChecked = alphaProtoAsCheckedExpr(alphaChecked);
+    expect(canonicalChecked).toEqual(checked);
+    expect(canonicalChecked.$typeName).toBe("cel.expr.CheckedExpr");
+    expect(canonicalChecked.expr?.$typeName).toBe("cel.expr.Expr");
+    expect(canonicalChecked.typeMap[String(checked.expr?.id)].$typeName).toBe("cel.expr.Type");
   });
 });
 
@@ -328,7 +353,7 @@ describe("TypeScript extension/TestStrongEnumValueRoundTrip", () => {
 describe("cel/io_test.go/TestAstToProto", () => {
   it("round-trips parsed and checked AST protobuf messages", () => {
     const celEnv = env({
-      variables: [variableDecl("a", DynType), variableDecl("b", DynType)],
+      variables: [variable("a", DynType), variable("b", DynType)],
     });
     const parsedAst = celEnv.parse("a + b");
     const parsedExpr = astToParsedExpr(parsedAst);

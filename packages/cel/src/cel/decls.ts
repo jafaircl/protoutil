@@ -1,13 +1,13 @@
 import { constantToVal } from "../common/ast/expr.js";
 import {
-  constantDecl,
+  constant,
   type FunctionDecl,
-  functionDecl,
+  func,
   memberOverload,
   type OverloadDecl,
   overload,
   type VariableDecl,
-  variableDeclWithDoc,
+  variableWithDoc,
 } from "../common/decls.js";
 import { DefaultTypeAdapter } from "../common/types/provider.js";
 import { exprTypeToType } from "../common/types/types.js";
@@ -33,7 +33,7 @@ interface OverloadFromProtoOptions {
 export function declarationFromProto(declaration: Decl): Declaration {
   switch (declaration.declKind.case) {
     case "function":
-      return functionDecl(declaration.name, {
+      return func(declaration.name, {
         doc: declaration.declKind.value.doc,
         overloads: declaration.declKind.value.overloads.map((overloadValue) =>
           overloadFromProto({ overload: overloadValue }),
@@ -46,9 +46,9 @@ export function declarationFromProto(declaration: Decl): Declaration {
       }
       const type = exprTypeToType(identifier.type);
       if (identifier.value === undefined) {
-        return variableDeclWithDoc(declaration.name, type, identifier.doc);
+        return variableWithDoc(declaration.name, type, identifier.doc);
       }
-      return constantDecl(
+      return constant(
         declaration.name,
         type,
         DefaultTypeAdapter.nativeToValue(constantToVal(identifier.value)),

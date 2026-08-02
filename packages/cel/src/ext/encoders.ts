@@ -13,7 +13,7 @@ import {
   unknownSizeEstimate,
 } from "../checker/cost.js";
 import { StringTraversalCostFactor } from "../common/cost.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import { Bytes } from "../common/types/bytes.js";
 import { err } from "../common/types/err.js";
 import type { Val } from "../common/types/ref/index.js";
@@ -52,14 +52,14 @@ export type EncodersLibrary = SingletonLibrary & LibraryAliaser & LibraryVersion
 export function encoders(options: EncodersOptions = {}): EncodersLibrary {
   const version = options.version ?? Number.MAX_SAFE_INTEGER;
   const functions = [
-    functionDecl("base64.decode", {
+    func("base64.decode", {
       overloads: [
         overload("base64_decode_string", [StringType], BytesType, {
           unaryBinding: (value) => base64Decode(value),
         }),
       ],
     }),
-    functionDecl("base64.encode", {
+    func("base64.encode", {
       overloads: [
         overload("base64_encode_bytes", [BytesType], StringType, {
           unaryBinding: (value) => base64Encode(value),
@@ -69,7 +69,7 @@ export function encoders(options: EncodersOptions = {}): EncodersLibrary {
   ];
   if (version >= 1) {
     functions.push(
-      functionDecl("json.encode", {
+      func("json.encode", {
         overloads: [
           overload("json_encode_dyn", [DynType], StringType, {
             unaryBinding: (value) => jsonEncode(value),

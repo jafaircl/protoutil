@@ -2,7 +2,7 @@ import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { type AST, ast, ExprKind } from "../common/ast/index.js";
 import { defaultContainer } from "../common/containers.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { standardFunctions } from "../common/stdlib.js";
 import {
@@ -359,15 +359,15 @@ function decodeActivation(input: unknown): Activation {
 function runtimeDispatcher() {
   const runtime = dispatcher();
   const optionalFunctions = [
-    functionDecl("optional.none", {
+    func("optional.none", {
       overloads: [overload("optional_none", [], OptionalType)],
       singletonBinding: { func: () => OptionalNone },
     }),
-    functionDecl("optional.of", {
+    func("optional.of", {
       overloads: [overload("optional_of_value", [DynType], OptionalType)],
       singletonBinding: { unary: (value) => optionalOf(value) },
     }),
-    functionDecl("last", {
+    func("last", {
       overloads: [overload("list_last", [ListType], OptionalType)],
       singletonBinding: {
         unary: (value) => {

@@ -2,7 +2,7 @@ import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { AST, exprFactory, protoToExpr, sourceInfo } from "../common/ast/index.js";
 import { defaultContainer } from "../common/containers.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import { textSource } from "../common/source.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { standardFunctions } from "../common/stdlib.js";
@@ -94,12 +94,12 @@ describe("checker/checker", () => {
 
   it("checker/checker_test.go/TestAddEquivalentDeclarations", () => {
     const checkerEnv = standardEnv();
-    const optIndex = functionDecl("optional_index", {
+    const optIndex = func("optional_index", {
       overloads: [
         overload("optional_map_key_value", [mapType(IntType, StringType), IntType], StringType),
       ],
     });
-    const optIndexEquiv = functionDecl("optional_index", {
+    const optIndexEquiv = func("optional_index", {
       overloads: [
         overload("optional_map_key_value", [mapType(IntType, StringType), IntType], StringType),
       ],

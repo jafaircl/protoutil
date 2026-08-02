@@ -18,9 +18,7 @@ export {
 export {
   astOutputType,
   type CompileResult,
-  type ContextProtoVarsOptions,
   compile,
-  contextProtoVars,
   Env,
   type EnvConfigurationOptions,
   type EnvOptions,
@@ -57,6 +55,9 @@ export {
   inliningOptimizer,
 } from "./cel/inlining.js";
 export {
+  alphaProtoAsCheckedExpr,
+  alphaProtoAsExpr,
+  alphaProtoAsParsedExpr,
   astToAlphaCheckedExpr,
   astToAlphaExpr,
   astToAlphaParsedExpr,

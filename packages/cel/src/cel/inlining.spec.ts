@@ -13,7 +13,7 @@ import {
   DynType,
   type Env,
   env,
-  functionDecl,
+  func,
   type InlineVariable,
   IntType,
   inlineVariable,
@@ -25,14 +25,14 @@ import {
   NullType,
   nullableType,
   objectType,
-  declOverload as overload,
+  overload,
   registry,
   StringType,
   staticOptimizer,
   TimestampType,
   type Type,
   UintType,
-  variableDecl,
+  variable,
 } from "../index.js";
 
 /**
@@ -179,14 +179,14 @@ function optimizerEnvironment(definitions: VariableExpression[], containerName =
   return env({
     container: container({ name: containerName }),
     functions: [
-      functionDecl("productsToConsumers", {
+      func("productsToConsumers", {
         overloads: [overload("productsToConsumers_list", [listType(IntType)], listType(IntType))],
       }),
     ],
     macros: { standard: true },
     parser: { populateMacroCalls: true },
     registry: provider,
-    variables: [...declarations].map(([name, type]) => variableDecl(name, type)),
+    variables: [...declarations].map(([name, type]) => variable(name, type)),
   });
 }
 

@@ -10,7 +10,7 @@ import {
 } from "../checker/cost.js";
 import { type Expr, ExprKind } from "../common/ast/index.js";
 import { ListCreateBaseCost, StringTraversalCostFactor } from "../common/cost.js";
-import { functionDecl, memberOverload, overload } from "../common/decls.js";
+import { func, memberOverload, overload } from "../common/decls.js";
 import * as operators from "../common/operators.js";
 import { True } from "../common/types/bool.js";
 import { err } from "../common/types/err.js";
@@ -86,7 +86,7 @@ export function lists(options: ListsOptions = {}): ListsLibrary {
   const elementType = typeParamType("T");
   const genericList = listType(elementType);
   const functions = [
-    functionDecl("slice", {
+    func("slice", {
       overloads: [
         memberOverload("list_slice", [genericList, IntType, IntType], genericList, {
           functionBinding: (...args) =>
@@ -103,7 +103,7 @@ export function lists(options: ListsOptions = {}): ListsLibrary {
 
   if (version >= 1) {
     functions.push(
-      functionDecl("flatten", {
+      func("flatten", {
         singletonBinding: {
           func: (...args) => flattenBinding(args),
         },
@@ -119,21 +119,21 @@ export function lists(options: ListsOptions = {}): ListsLibrary {
     functions.push(sortDeclaration());
     functions.push(sortByAssociatedKeysDeclaration());
     functions.push(
-      functionDecl("lists.range", {
+      func("lists.range", {
         overloads: [
           overload("lists_range", [IntType], listType(IntType), {
             unaryBinding: (value) => generateRange(value, maxRangeSize),
           }),
         ],
       }),
-      functionDecl("reverse", {
+      func("reverse", {
         overloads: [
           memberOverload("list_reverse", [genericList], genericList, {
             unaryBinding: reverseList,
           }),
         ],
       }),
-      functionDecl("distinct", {
+      func("distinct", {
         overloads: [
           memberOverload("list_distinct", [genericList], genericList, {
             unaryBinding: distinctList,
@@ -198,7 +198,7 @@ export function lists(options: ListsOptions = {}): ListsLibrary {
 
 /** sortDeclaration creates typed `sort` overloads with one shared runtime binding. */
 function sortDeclaration() {
-  return functionDecl("sort", {
+  return func("sort", {
     singletonBinding: { unary: sortList },
     overloads: comparableTypes.map((type) =>
       memberOverload(`list_${type.typeName()}_sort`, [listType(type)], listType(type)),
@@ -209,7 +209,7 @@ function sortDeclaration() {
 /** sortByAssociatedKeysDeclaration creates the internal sort-by-key overload set. */
 function sortByAssociatedKeysDeclaration() {
   const genericList = listType(typeParamType("T"));
-  return functionDecl("@sortByAssociatedKeys", {
+  return func("@sortByAssociatedKeys", {
     singletonBinding: { binary: sortListByAssociatedKeys },
     overloads: comparableTypes.map((type) =>
       memberOverload(

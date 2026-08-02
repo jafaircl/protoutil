@@ -450,11 +450,7 @@ class AttributeMatcher implements NamespacedAttribute {
   /**
    * qualifyIfPresent applies the current attribute as a presence-tested qualifier.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     const value = this.resolve(vars);
     if (value instanceof Unknown) {
       return value;
@@ -567,11 +563,7 @@ class MaybeAttributeWithFactory implements Attribute {
   /**
    * qualifyIfPresent resolves the current attribute and applies it as a presence-tested qualifier.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     const value = this.resolve(vars);
     if (value instanceof Unknown) {
       return value;

@@ -6,19 +6,19 @@ import {
   BoolType,
   DynType,
   env,
-  functionDecl,
+  func,
   Int,
   IntType,
   isUnknown,
   listType,
   mapType,
-  declOverload as overload,
+  overload,
   StringType,
   TimestampType,
   True,
   type Unknown,
   type Val,
-  variableDecl,
+  variable,
 } from "../index.js";
 import {
   type Activation,
@@ -51,7 +51,7 @@ describe("cel/cel_test.go/BenchmarkEvalOptions", () => {
 
 describe("TypeScript extension/TestProgramCachesMapInputAdaptationPerEvaluation", () => {
   it("adapts a map binding once per evaluation without caching custom activations", () => {
-    const celEnv = env({ variables: [variableDecl("x", IntType)] });
+    const celEnv = env({ variables: [variable("x", IntType)] });
     const evalProgram = celEnv.program(celEnv.compile("x + x"));
     let reads = 0;
     let value = 1;
@@ -84,7 +84,7 @@ describe("TypeScript extension/TestProgramCachesMapInputAdaptationPerEvaluation"
 
   it("keeps the first binding cached after resolving a second binding", () => {
     const celEnv = env({
-      variables: [variableDecl("x", IntType), variableDecl("y", IntType)],
+      variables: [variable("x", IntType), variable("y", IntType)],
     });
     const evalProgram = celEnv.program(celEnv.compile("x + y + x"));
     let xReads = 0;
@@ -119,7 +119,7 @@ describe("cel/cel_test.go/TestEvalRecover", () => {
   it("converts host binding exceptions into internal evaluation errors", () => {
     const celEnv = env({
       functions: [
-        functionDecl("panic", {
+        func("panic", {
           overloads: [
             overload("global_panic", [], BoolType, {
               functionBinding: () => {
@@ -143,7 +143,7 @@ describe("cel/program_async_test.go/TestConcurrentEval", () => {
   it("resolves dependent asynchronous calls across evaluation passes", async () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncDouble", {
+        func("asyncDouble", {
           overloads: [
             overload("async_double_int", [IntType], IntType, {
               asyncBinding: async (_signal, value) => new Int((value as Int).value() * 2n),
@@ -162,7 +162,7 @@ describe("cel/program_async_test.go/TestEvalRejectsAsync", () => {
   it("rejects asynchronous declarations from synchronous evaluation", () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncIdentity", {
+        func("asyncIdentity", {
           overloads: [
             overload("async_identity_int", [IntType], IntType, {
               asyncBinding: async (_signal, value) => value!,
@@ -182,7 +182,7 @@ describe("cel/program_async_test.go/TestContextEvalRejectsAsync", () => {
   it("rejects asynchronous declarations from context-aware synchronous evaluation", () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncIdentity", {
+        func("asyncIdentity", {
           overloads: [
             overload("async_identity_int", [IntType], IntType, {
               asyncBinding: async (_signal, value) => value!,
@@ -202,7 +202,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalAllowsPartialUnknown", () 
   it("preserves unrelated partial unknowns after async calls resolve", async () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncTrue", {
+        func("asyncTrue", {
           overloads: [
             overload("async_true", [], BoolType, {
               asyncBinding: async () => True,
@@ -210,7 +210,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalAllowsPartialUnknown", () 
           ],
         }),
       ],
-      variables: [variableDecl("missing", BoolType)],
+      variables: [variable("missing", BoolType)],
     });
     const program = celEnv.program(celEnv.compile("asyncTrue() && missing"), {
       partialEval: true,
@@ -228,7 +228,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalAllowsPartialUnknown", () 
 
 describe("cel/program_async_test.go/TestContextEvalAllowsPartialUnknown", () => {
   it("does not mistake a partial-evaluation variable unknown for an async call", () => {
-    const celEnv = env({ variables: [variableDecl("x", IntType)] });
+    const celEnv = env({ variables: [variable("x", IntType)] });
     const program = celEnv.program(celEnv.compile("x + 1"), { partialEval: true });
     const result = program.contextEval(
       partialActivation({
@@ -247,7 +247,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalAsyncObserver", () => {
     const events: string[] = [];
     const celEnv = env({
       functions: [
-        functionDecl("asyncIdentity", {
+        func("asyncIdentity", {
           overloads: [
             overload("async_identity_int", [IntType], IntType, {
               asyncBinding: async (_signal, value) => value!,
@@ -271,7 +271,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalProgramThreadSafety", () =
   it("uses isolated trackers for concurrent evaluations of one program", async () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncIdentity", {
+        func("asyncIdentity", {
           overloads: [
             overload("async_identity_int", [IntType], IntType, {
               asyncBinding: async (_signal, value) => value!,
@@ -279,7 +279,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalProgramThreadSafety", () =
           ],
         }),
       ],
-      variables: [variableDecl("value", IntType)],
+      variables: [variable("value", IntType)],
     });
     const program = celEnv.program(celEnv.compile("asyncIdentity(value)"));
     const results = await Promise.all(
@@ -297,7 +297,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalPreCanceledContext", () =>
     controller.abort(new Error("cancelled"));
     const celEnv = env({
       functions: [
-        functionDecl("asyncTrue", {
+        func("asyncTrue", {
           overloads: [overload("async_true", [], BoolType, { asyncBinding: async () => True })],
         }),
       ],
@@ -315,7 +315,7 @@ describe("cel/program_async_test.go/TestSyncEvalRejectsAsyncBeforeEvaluating", (
     let calls = 0;
     const celEnv = env({
       functions: [
-        functionDecl("asyncTrue", {
+        func("asyncTrue", {
           overloads: [
             overload("async_true", [], BoolType, {
               asyncBinding: async () => {
@@ -336,7 +336,7 @@ describe("cel/program_async_test.go/TestSyncEvalRejectedInAsyncEnv", () => {
   it("rejects sync evaluation even when the selected expression has no async call", () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncTrue", {
+        func("asyncTrue", {
           overloads: [overload("async_true", [], BoolType, { asyncBinding: async () => True })],
         }),
       ],
@@ -349,7 +349,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalRecover", () => {
   it("converts rejected async bindings to CEL errors", async () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncFailure", {
+        func("asyncFailure", {
           overloads: [
             overload("async_failure", [], BoolType, {
               asyncBinding: async () => {
@@ -371,7 +371,7 @@ describe("cel/program_async_test.go/TestAsyncWithTraceAndExhaustiveEval", () => 
   it("returns evaluation state after asynchronous exhaustive evaluation", async () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncTrue", {
+        func("asyncTrue", {
           overloads: [overload("async_true", [], BoolType, { asyncBinding: async () => True })],
         }),
       ],
@@ -391,7 +391,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalDrainReady", () => {
   it("completes independent async calls under bounded concurrency", async () => {
     const celEnv = env({
       functions: [
-        functionDecl("asyncIdentity", {
+        func("asyncIdentity", {
           overloads: [
             overload("async_identity_int", [IntType], IntType, {
               asyncBinding: async (_signal, value) => value!,
@@ -414,7 +414,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalCancelDuringDebounce", () 
     const controller = new AbortController();
     const celEnv = env({
       functions: [
-        functionDecl("asyncSlow", {
+        func("asyncSlow", {
           overloads: [
             overload("async_slow", [], BoolType, {
               asyncBinding: async () =>
@@ -436,7 +436,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalCancelDuringDebounce", () 
 describe("cel/cel_test.go/TestExhaustiveEval", () => {
   it("evaluates and records both sides of a short-circuiting expression", () => {
     const celEnv = env({
-      variables: [variableDecl("k", StringType), variableDecl("v", BoolType)],
+      variables: [variable("k", StringType), variable("v", BoolType)],
     });
     const ast = celEnv.compile("{k: true}[k] || v != false");
     const evaluated = celEnv
@@ -454,7 +454,7 @@ describe("cel/cel_test.go/TestExhaustiveEval", () => {
 describe("cel/cel_test.go/TestContextEvalUnknowns", () => {
   it("returns the same unknown from regular and context-aware evaluation", () => {
     const celEnv = env({
-      variables: [variableDecl("groups", listType(IntType)), variableDecl("id", IntType)],
+      variables: [variable("groups", listType(IntType)), variable("id", IntType)],
     });
     const vars = partialActivation({
       bindings: { groups: [1, 2, 3] },
@@ -479,7 +479,7 @@ describe("cel/cel_test.go/TestContextEvalUnknowns", () => {
 describe("cel/cel_test.go/TestResidualAst", () => {
   it("prunes known branches from a parsed expression", () => {
     const celEnv = env({
-      variables: [variableDecl("x", IntType), variableDecl("y", IntType)],
+      variables: [variable("x", IntType), variable("y", IntType)],
     });
     const ast = celEnv.parse(`x < 10 && (y == 0 || "hello" != "goodbye")`);
     const evaluated = celEnv
@@ -495,9 +495,9 @@ describe("cel/cel_test.go/TestResidualAstComplex", () => {
   it("retains only an unknown qualified attribute comparison", () => {
     const celEnv = env({
       variables: [
-        variableDecl("resource.name", StringType),
-        variableDecl("request.time", TimestampType),
-        variableDecl("request.auth.claims", mapType(StringType, StringType)),
+        variable("resource.name", StringType),
+        variable("request.time", TimestampType),
+        variable("request.auth.claims", mapType(StringType, StringType)),
       ],
     });
     const vars = partialActivation({
@@ -563,7 +563,7 @@ describe("cel/cel_test.go/TestPartialVars", () => {
       partialOut?: unknown;
     }>("cel/cel_test.go/TestPartialVars");
     const celEnv = env({
-      variables: [variableDecl("x", StringType), variableDecl("y", IntType)],
+      variables: [variable("x", StringType), variable("y", IntType)],
     });
     const program = celEnv.program(celEnv.compile("x == string(y)"), {
       partialEval: true,
@@ -588,9 +588,9 @@ describe("cel/cel_test.go/TestResidualAstAttributeQualifiers", () => {
   it("replaces resolved map, list, and conditional qualifiers with values", () => {
     const celEnv = env({
       variables: [
-        variableDecl("x", mapType(StringType, DynType)),
-        variableDecl("y", listType(IntType)),
-        variableDecl("u", IntType),
+        variable("x", mapType(StringType, DynType)),
+        variable("y", listType(IntType)),
+        variable("u", IntType),
       ],
     });
     const ast = celEnv.parse(
@@ -619,7 +619,7 @@ describe("cel/cel_test.go/TestResidualAstAttributeQualifiers", () => {
 describe("cel/cel_test.go/TestPartialVarsEnv", () => {
   it("does not infer unknowns when every environment variable is bound", () => {
     const celEnv = env({
-      variables: [variableDecl("x", IntType), variableDecl("y", IntType)],
+      variables: [variable("x", IntType), variable("y", IntType)],
     });
     const result = celEnv
       .program(celEnv.compile("x == y"), { partialEval: true })
@@ -632,11 +632,11 @@ describe("cel/cel_test.go/TestPartialVarsEnv", () => {
 describe("cel/cel_test.go/TestPartialVarsExtendedEnv", () => {
   it("infers missing variables declared by a parent environment", () => {
     const celEnv = env({
-      variables: [variableDecl("x", IntType), variableDecl("y", IntType)],
+      variables: [variable("x", IntType), variable("y", IntType)],
     });
     celEnv.compile("x == y");
     const extended = celEnv.extend({
-      variables: [variableDecl("z", IntType)],
+      variables: [variable("z", IntType)],
     });
     const result = extended
       .program(extended.compile("x == y && y == z"), { partialEval: true })
@@ -650,7 +650,7 @@ describe("cel/cel_test.go/TestPartialVarsExtendedEnv", () => {
 describe("cel/cel_test.go/TestResidualAstModified", () => {
   it("leaves the source AST unchanged across repeated residualization", () => {
     const celEnv = env({
-      variables: [variableDecl("x", mapType(StringType, IntType)), variableDecl("y", IntType)],
+      variables: [variable("x", mapType(StringType, IntType)), variable("y", IntType)],
     });
     const ast = celEnv.parse("x == y");
     const program = celEnv.program(ast, { partialEval: true, trackState: true });
@@ -697,7 +697,7 @@ function residualMacroEnv(expression: string) {
       /Variable\(("[^"]+"), (ListType\(IntType\)|IntType|MapType\(StringType, DynType\))\)/g,
     ),
   ].map((match) =>
-    variableDecl(
+    variable(
       JSON.parse(match[1]!) as string,
       match[2] === "ListType(IntType)"
         ? listType(IntType)

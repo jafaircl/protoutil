@@ -30,18 +30,13 @@
       "overloads": [
         {
           "id": "wrapper_string_isEmpty",
-          "examples": [
-            "''.isEmpty() // true"
-          ],
+          "examples": ["''.isEmpty() // true"],
           "target": "wrapper_string",
           "return": "bool"
         },
         {
           "id": "list_isEmpty",
-          "examples": [
-            "[].isEmpty() // true",
-            "[1].isEmpty() // false"
-          ],
+          "examples": ["[].isEmpty() // true", "[1].isEmpty() // false"],
           "target": "list<~T>",
           "return": "bool"
         }
@@ -55,10 +50,7 @@
           "id": "map_getOrDefault",
           "target": "map<~K, ~V>",
           "return": "~V",
-          "args": [
-            "~K",
-            "~V"
-          ]
+          "args": ["~K", "~V"]
         }
       ]
     }

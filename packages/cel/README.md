@@ -1,4 +1,4 @@
-# @protoutil/cel
+# Common Expression Language
 
 The Common Expression Language (CEL) is a non-Turing complete language designed
 for simplicity, speed, safety, and portability. CEL's C-like [syntax][1] looks
@@ -32,12 +32,12 @@ cel-policy conformance results.
 
 ---
 
-- [@protoutil/cel](#protoutilcel)
+- [Common Expression Language](#common-expression-language)
   - [Overview](#overview)
     - [Environment Setup](#environment-setup)
+    - [Context Protobufs](#context-protobufs)
     - [Parse and Check](#parse-and-check)
       - [Macros](#macros)
-    - [Export Alpha Protobufs](#export-alpha-protobufs)
     - [Evaluate](#evaluate)
       - [Partial State](#partial-state)
     - [Errors](#errors)
@@ -77,6 +77,26 @@ const myEnv = env({
 That's it. The environment is ready to be used for parsing and type-checking.
 CEL supports all the usual primitive types in addition to lists, maps, as well
 as first-class support for JSON and Protocol Buffers.
+
+### Context Protobufs
+
+Use `contextProto` when each field of one protobuf message should be a
+top-level CEL variable. Evaluate the program with a message constructed from
+that schema; CEL creates the field bindings automatically.
+
+```ts
+import { create } from "@bufbuild/protobuf";
+import { env } from "@protoutil/cel";
+import { RequestSchema } from "./gen/request_pb.js";
+
+const celEnv = env({ contextProto: RequestSchema });
+const program = celEnv.program(celEnv.compile("user == 'alice'"));
+
+const result = program.eval(create(RequestSchema, { user: "alice" }));
+```
+
+Set `jsonFieldNames: true` on `env()` to use protobuf JSON field names instead
+of protobuf field names.
 
 ### Parse and Check
 
@@ -134,35 +154,6 @@ has(message.field)
 
 Both cases traditionally require special syntax at the language level, but
 these features are exposed via macros in CEL.
-
-### Export Alpha Protobufs
-
-Use the alpha converters when another library accepts legacy
-`google.api.expr.v1alpha1` messages. Use `astToAlphaCheckedExpr` for AIPQL.
-It preserves the expression, source information, type map, and reference map.
-
-```ts
-import {
-  StringType,
-  astToAlphaCheckedExpr,
-  env,
-  variableDecl,
-} from "@protoutil/cel";
-import { postgres } from "@protoutil/aipql";
-
-const celEnv = env({
-  variables: [variableDecl("title", StringType)],
-});
-const checked = astToAlphaCheckedExpr(celEnv.compile('title == "Dune"'));
-const { sql, params } = postgres(checked);
-
-// sql:    '"title" = $1'
-// params: ["Dune"]
-```
-
-Use `astToAlphaExpr` to export only the expression tree. Use
-`astToAlphaParsedExpr` to include source information without checker metadata.
-Use `exprValueAsAlphaProto` only for an evaluated CEL `Val`.
 
 ### Evaluate
 

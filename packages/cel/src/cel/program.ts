@@ -1,3 +1,5 @@
+import type { DescMessage, MessageShape } from "@bufbuild/protobuf";
+import { getField } from "@protoutil/core";
 import type { Adapter } from "../common/types/provider.js";
 import type { Val } from "../common/types/ref/reference.js";
 import { Unknown } from "../common/types/unknown.js";
@@ -118,7 +120,8 @@ export class ProgramCostTrackerSink {
  */
 export interface Program {
   /**
-   * eval returns the result of evaluating the program against an activation or binding map.
+   * eval returns the result of evaluating against an activation, binding map, or configured context
+   * protobuf message.
    */
   eval(input: unknown): Val;
 
@@ -178,6 +181,11 @@ export interface EvalProgramOptions {
   costTrackerSink?: ProgramCostTrackerSink;
 
   /**
+   * contextProto identifies a protobuf message whose fields form the evaluation activation.
+   */
+  contextProto?: DescMessage;
+
+  /**
    * globals contains program-scoped variables resolved after evaluation-specific input.
    */
   globals?: Activation;
@@ -191,6 +199,11 @@ export interface EvalProgramOptions {
    * interruptCheckFrequency controls how often comprehensions inspect the abort signal.
    */
   interruptCheckFrequency?: number;
+
+  /**
+   * jsonFieldNames selects protobuf JSON names for context protobuf activation bindings.
+   */
+  jsonFieldNames?: boolean;
 
   /**
    * stateSink receives evaluation state from a configured interpreter observer.
@@ -278,7 +291,10 @@ export class EvalProgram implements Program {
     }
     this.options.stateSink?.reset();
     this.options.costTrackerSink?.reset();
-    const frame = executionFrame({ input, adapter: this.options.adapter });
+    const frame = executionFrame({
+      input: this.contextProtoInput(input),
+      adapter: this.options.adapter,
+    });
     if (this.options.globals !== undefined) {
       frame.setActivationHierarchy({
         parent: this.options.globals,
@@ -344,7 +360,10 @@ export class EvalProgram implements Program {
   private execute(options: ProgramEvaluationOptions): Val {
     this.options.stateSink?.reset();
     this.options.costTrackerSink?.reset();
-    const frame = executionFrame({ input: options.input, adapter: this.options.adapter });
+    const frame = executionFrame({
+      input: this.contextProtoInput(options.input),
+      adapter: this.options.adapter,
+    });
     if (this.options.globals !== undefined) {
       // Evaluation inputs form the child scope so callers can override program globals.
       frame.setActivationHierarchy({
@@ -369,6 +388,41 @@ export class EvalProgram implements Program {
       frame.close();
     }
   }
+
+  /**
+   * contextProtoInput converts a configured context protobuf message into activation bindings.
+   */
+  private contextProtoInput(input: unknown): unknown {
+    const schema = this.options.contextProto;
+    if (schema === undefined || !isMessage(input)) {
+      return input;
+    }
+    if (input.$typeName !== schema.typeName) {
+      throw new Error(
+        `context proto type mismatch: got ${input.$typeName}, wanted ${schema.typeName}`,
+      );
+    }
+    const bindings: Record<string, unknown> = {};
+    for (const field of schema.fields) {
+      bindings[this.options.jsonFieldNames ? field.jsonName : field.name] = getField(
+        input as MessageShape<typeof schema>,
+        field,
+      );
+    }
+    return bindings;
+  }
+}
+
+/**
+ * isMessage reports whether a value has the runtime discriminator used by Protobuf-ES messages.
+ */
+function isMessage(value: unknown): value is { $typeName: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "$typeName" in value &&
+    typeof (value as { $typeName: unknown }).$typeName === "string"
+  );
 }
 
 /**

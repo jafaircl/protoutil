@@ -15,9 +15,7 @@
         ],
         "name": "labels",
         "stdlib": {
-          "include_macros": [
-            "filter"
-          ]
+          "include_macros": ["filter"]
         },
         "variables": [
           {

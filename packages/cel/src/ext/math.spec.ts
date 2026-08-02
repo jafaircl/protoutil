@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
-import { functionDecl, memberOverload, variableDecl } from "../common/decls.js";
+import { func, memberOverload, variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import type { Int } from "../common/types/int.js";
 import type { Val } from "../common/types/ref/index.js";
@@ -80,14 +80,14 @@ describe("ext/math_test.go/TestMathRuntimeErrors", () => {
 
 describe("ext/math_test.go/TestMathNonMatch", () => {
   it("leaves receiver calls outside the math namespace unexpanded", () => {
-    const greatest = functionDecl("greatest", {
+    const greatest = func("greatest", {
       overloads: [
         memberOverload("int_greatest_int", [IntType, IntType], IntType, {
           binaryBinding: (left, right) => numericPair({ left, operation: "greatest", right }),
         }),
       ],
     });
-    const least = functionDecl("least", {
+    const least = func("least", {
       overloads: [
         memberOverload("int_least_int", [IntType, IntType], IntType, {
           binaryBinding: (left, right) => numericPair({ left, operation: "least", right }),
@@ -170,9 +170,9 @@ function mathEnv() {
   return env({
     libraries: [math()],
     variables: [
-      variableDecl("a", DynType),
-      variableDecl("b", IntType),
-      variableDecl("numbers", listType(DoubleType)),
+      variable("a", DynType),
+      variable("b", IntType),
+      variable("numbers", listType(DoubleType)),
     ],
   });
 }

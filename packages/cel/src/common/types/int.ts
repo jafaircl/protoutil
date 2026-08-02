@@ -54,8 +54,7 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
       this.inner = Number.isSafeInteger(value) ? (value === 0 ? 0 : value) : BigInt(value);
       return;
     }
-    this.inner =
-      value >= MIN_SAFE_INT && value <= MAX_SAFE_INT ? Number(value) : value;
+    this.inner = value >= MIN_SAFE_INT && value <= MAX_SAFE_INT ? Number(value) : value;
   }
 
   public add(other: Val): Val {

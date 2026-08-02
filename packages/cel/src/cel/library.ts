@@ -1,5 +1,5 @@
 import { type Expr, ExprKind } from "../common/ast/index.js";
-import { type FunctionDecl, functionDecl, memberOverload, overload } from "../common/decls.js";
+import { type FunctionDecl, func, memberOverload, overload } from "../common/decls.js";
 import type { LibrarySubset } from "../common/env/env.js";
 import * as operators from "../common/operators.js";
 import * as overloads from "../common/overloads.js";
@@ -151,7 +151,7 @@ const legacyTimestampOverloads: readonly LegacyTimestampOverload[] = [
  */
 export function legacyTimeFunctions(): FunctionDecl[] {
   return legacyTimestampOverloads.map(({ functionName, overloadId }) =>
-    functionDecl(functionName, {
+    func(functionName, {
       overloads: [
         memberOverload(overloadId, [TimestampType], IntType, {
           unaryBinding: (timestamp) =>
@@ -410,7 +410,7 @@ export function optionalTypes(options: OptionalTypesOptions = {}): OptionalTypes
     compileOptions: {
       types: [OptionalType],
       functions: [
-        functionDecl("optional.of", {
+        func("optional.of", {
           doc: "create an optional_type(T) with a value where any value is considered valid",
           overloads: [
             overload("optional_of", [paramTypeV], optionalTypeV, {
@@ -418,7 +418,7 @@ export function optionalTypes(options: OptionalTypesOptions = {}): OptionalTypes
             }),
           ],
         }),
-        functionDecl("optional.ofNonZeroValue", {
+        func("optional.ofNonZeroValue", {
           doc: "create an optional_type(T) when the value is not a zero or empty value",
           overloads: [
             overload("optional_ofNonZeroValue", [paramTypeV], optionalTypeV, {
@@ -426,7 +426,7 @@ export function optionalTypes(options: OptionalTypesOptions = {}): OptionalTypes
             }),
           ],
         }),
-        functionDecl("optional.none", {
+        func("optional.none", {
           doc: "singleton value representing an optional without a value",
           overloads: [
             overload("optional_none", [], optionalTypeV, {
@@ -434,7 +434,7 @@ export function optionalTypes(options: OptionalTypesOptions = {}): OptionalTypes
             }),
           ],
         }),
-        functionDecl("value", {
+        func("value", {
           doc: "obtain the value contained by the optional, error if optional.none()",
           overloads: [
             memberOverload("optional_value", [optionalTypeV], paramTypeV, {
@@ -442,7 +442,7 @@ export function optionalTypes(options: OptionalTypesOptions = {}): OptionalTypes
             }),
           ],
         }),
-        functionDecl("hasValue", {
+        func("hasValue", {
           doc: "determine whether the optional contains a value",
           overloads: [
             memberOverload("optional_hasValue", [optionalTypeV], BoolType, {
@@ -450,23 +450,23 @@ export function optionalTypes(options: OptionalTypesOptions = {}): OptionalTypes
             }),
           ],
         }),
-        functionDecl("or", {
+        func("or", {
           doc: "chain optional expressions together, picking the first valued optional expression",
           overloads: [
             memberOverload("optional_or_optional", [optionalTypeV, optionalTypeV], optionalTypeV),
           ],
         }),
-        functionDecl("orValue", {
+        func("orValue", {
           doc: "chain optional expressions together, picking the first valued optional or default",
           overloads: [
             memberOverload("optional_orValue_value", [optionalTypeV, paramTypeV], paramTypeV),
           ],
         }),
-        functionDecl(operators.OptSelect, {
+        func(operators.OptSelect, {
           doc: "create an optional field value when the field is present",
           overloads: [overload("select_optional_field", [DynType, StringType], optionalTypeV)],
         }),
-        functionDecl(operators.OptIndex, {
+        func(operators.OptIndex, {
           doc: "create an optional index value when the index is present",
           overloads: [
             overload("list_optindex_optional_int", [listTypeV, IntType], optionalTypeV),
@@ -483,7 +483,7 @@ export function optionalTypes(options: OptionalTypesOptions = {}): OptionalTypes
             ),
           ],
         }),
-        functionDecl(operators.Index, {
+        func(operators.Index, {
           overloads: [
             overload("optional_list_index_int", [optionalType(listTypeV), IntType], optionalTypeV),
             overload(
@@ -537,7 +537,7 @@ interface OptionalVersionTwoFunctionOptions {
  */
 function optionalVersionTwoFunctions(options: OptionalVersionTwoFunctionOptions): FunctionDecl[] {
   return [
-    functionDecl("last", {
+    func("last", {
       doc: "return the last value in a list if present, otherwise optional.none()",
       overloads: [
         memberOverload("list_last", [options.listTypeV], options.optionalTypeV, {
@@ -545,7 +545,7 @@ function optionalVersionTwoFunctions(options: OptionalVersionTwoFunctionOptions)
         }),
       ],
     }),
-    functionDecl("first", {
+    func("first", {
       doc: "return the first value in a list if present, otherwise optional.none()",
       overloads: [
         memberOverload("list_first", [options.listTypeV], options.optionalTypeV, {
@@ -553,7 +553,7 @@ function optionalVersionTwoFunctions(options: OptionalVersionTwoFunctionOptions)
         }),
       ],
     }),
-    functionDecl("optional.unwrap", {
+    func("optional.unwrap", {
       doc: "convert a list of optional values to a list containing only present values",
       overloads: [
         overload("optional_unwrap", [options.listOptionalTypeV], options.listTypeV, {
@@ -561,7 +561,7 @@ function optionalVersionTwoFunctions(options: OptionalVersionTwoFunctionOptions)
         }),
       ],
     }),
-    functionDecl("unwrapOpt", {
+    func("unwrapOpt", {
       doc: "convert a list of optional values to a list containing only present values",
       overloads: [
         memberOverload("optional_unwrapOpt", [options.listOptionalTypeV], options.listTypeV, {

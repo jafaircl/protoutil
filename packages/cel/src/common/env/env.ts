@@ -2,13 +2,13 @@ import {
   overload as declarationOverload,
   excludeOverloads,
   type FunctionDecl,
-  functionDecl,
+  func,
   includeOverloads,
   memberOverload,
   type OverloadDecl,
   type VariableDecl,
-  variableDecl,
-  variableDeclWithDoc,
+  variable,
+  variableWithDoc,
 } from "../decls.js";
 import type { Provider as TypeProvider } from "../types/provider.js";
 import {
@@ -143,7 +143,7 @@ export class Config {
       if (!declaration) {
         continue;
       }
-      const serial = variable({
+      const serial = configVariable({
         name: declaration.name(),
         type: serializeTypeDesc(declaration.type()),
         description: declaration.description(),
@@ -177,7 +177,7 @@ export class Config {
         const resultType = serializeTypeDesc(entry.resultType());
         const examples = entry.examples();
         if (entry.isMemberFunction()) {
-          return overload({
+          return configOverload({
             id: entry.id(),
             args: argTypes.slice(1),
             returnType: resultType,
@@ -185,14 +185,14 @@ export class Config {
             examples,
           });
         }
-        return overload({
+        return configOverload({
           id: entry.id(),
           args: argTypes,
           returnType: resultType,
           examples,
         });
       });
-      const serial = func({
+      const serial = configFunc({
         name: fn.name(),
         overloads,
         description: fn.description(),
@@ -308,8 +308,8 @@ export class Variable {
     }
     const type = this.getType()!.asCELType(tp);
     return this.description.length === 0
-      ? variableDecl(this.name, type)
-      : variableDeclWithDoc(this.name, type, this.description);
+      ? variable(this.name, type)
+      : variableWithDoc(this.name, type, this.description);
   }
 }
 
@@ -368,7 +368,7 @@ export class Function {
       throw err;
     }
     const overloads = this.overloads.map((overloadConfig) => overloadConfig.asFunctionOption(tp));
-    return functionDecl(this.name, {
+    return func(this.name, {
       doc: this.description.length === 0 ? undefined : this.description,
       overloads,
     });
@@ -850,11 +850,11 @@ export function config(options: ConfigOptions): Config {
 }
 
 /**
- * ImportType returns a serializable import value from the qualified type name.
+ * ConfigImportType returns a serializable import value from the qualified type name.
  *
- * The `importType` name avoids colliding with the JavaScript `import` keyword.
+ * The name avoids colliding with the JavaScript `import` keyword.
  */
-export function importType(name: string): Import {
+export function configImportType(name: string): Import {
   return new Import(name);
 }
 
@@ -865,15 +865,15 @@ export interface VariableOptions {
   description?: string;
 }
 
-/** Variable returns a serializable variable from a name and type definition. */
-export function variable(options: VariableOptions): Variable {
+/** ConfigVariable returns a serializable variable from a name and type definition. */
+export function configVariable(options: VariableOptions): Variable {
   const value = new Variable(options.name, options.type);
   value.description = options.description ?? "";
   return value;
 }
 
-/** ContextVariable creates a serializable context variable with a specific type name. */
-export function contextVariable(typeName: string): ContextVariable {
+/** ConfigContextVariable creates a serializable context variable with a specific type name. */
+export function configContextVariable(typeName: string): ContextVariable {
   return new ContextVariable(typeName);
 }
 
@@ -884,8 +884,8 @@ export interface FuncOptions {
   description?: string;
 }
 
-/** Function creates a serializable function and overload set. */
-export function func(options: FuncOptions): Function {
+/** ConfigFunc creates a serializable function and overload set. */
+export function configFunc(options: FuncOptions): Function {
   const value = new Function(options.name, [...(options.overloads ?? [])]);
   value.description = options.description ?? "";
   return value;
@@ -900,15 +900,15 @@ export interface OverloadOptions {
   examples?: string[];
 }
 
-/** Overload returns a serializable representation of a global or member overload. */
-export function overload(options: OverloadOptions): Overload {
+/** ConfigOverload returns a serializable representation of a global or member overload. */
+export function configOverload(options: OverloadOptions): Overload {
   return new Overload(options.id, [...(options.args ?? [])], options.returnType, options.target, [
     ...(options.examples ?? []),
   ]);
 }
 
-/** Extension creates a serializable extension from a name and version string. */
-export function extension(name: string, version?: string): Extension {
+/** ConfigExtension creates a serializable extension from a name and version string. */
+export function configExtension(name: string, version?: string): Extension {
   return new Extension(name, version);
 }
 
@@ -922,8 +922,8 @@ export interface LibrarySubsetOptions {
   excludeFunctions?: Function[];
 }
 
-/** LibrarySubset creates a configurable subset of macros and functions. */
-export function librarySubset(options: LibrarySubsetOptions = {}): LibrarySubset {
+/** ConfigLibrarySubset creates a configurable subset of macros and functions. */
+export function configLibrarySubset(options: LibrarySubsetOptions = {}): LibrarySubset {
   const value = new LibrarySubset();
   value.disabled = options.disabled ?? false;
   value.disableMacros = options.disableMacros ?? false;
@@ -934,20 +934,20 @@ export function librarySubset(options: LibrarySubsetOptions = {}): LibrarySubset
   return value;
 }
 
-/** Validator returns a named validator instance. */
-export function validator(name: string, config: Record<string, unknown> = {}): Validator {
+/** ConfigValidator returns a named validator instance. */
+export function configValidator(name: string, config: Record<string, unknown> = {}): Validator {
   const value = new Validator(name);
   value.config = { ...config };
   return value;
 }
 
-/** Feature creates a feature flag with a boolean enablement flag. */
-export function feature(name: string, enabled: boolean): Feature {
+/** ConfigFeature creates a feature flag with a boolean enablement flag. */
+export function configFeature(name: string, enabled: boolean): Feature {
   return new Feature(name, enabled);
 }
 
-/** Limit creates a named CEL environment limit. */
-export function limit(name: string, value: number): Limit {
+/** ConfigLimit creates a named CEL environment limit. */
+export function configLimit(name: string, value: number): Limit {
   return new Limit(name, value);
 }
 
@@ -958,8 +958,8 @@ export interface TypeDescOptions {
   isTypeParam?: boolean;
 }
 
-/** TypeDesc describes a simple or complex type with parameters. */
-export function typeDesc(options: TypeDescOptions): TypeDesc {
+/** ConfigTypeDesc describes a simple or complex type with parameters. */
+export function configTypeDesc(options: TypeDescOptions): TypeDesc {
   return new TypeDesc(options.typeName, [...(options.params ?? [])], options.isTypeParam);
 }
 
@@ -975,13 +975,13 @@ const wrapperTypeNames = new Map<Kind, string>([
 /** SerializeTypeDesc converts a CEL native Type to a serializable TypeDesc. */
 export function serializeTypeDesc(t: Type): TypeDesc {
   if (t.kind() === Kind.TypeParam) {
-    return typeDesc({ typeName: t.typeName(), isTypeParam: true });
+    return configTypeDesc({ typeName: t.typeName(), isTypeParam: true });
   }
   let typeName = t.typeName();
   if (t !== NullType && t.isAssignableType(NullType)) {
     const wrapperType = wrapperTypeNames.get(t.kind());
     if (wrapperType) {
-      return typeDesc({ typeName: wrapperType });
+      return configTypeDesc({ typeName: wrapperType });
     }
   }
   const params = t.parameters().map((param) => serializeTypeDesc(param));
@@ -998,7 +998,7 @@ export function serializeTypeDesc(t: Type): TypeDesc {
     default:
       break;
   }
-  return typeDesc({ typeName, params });
+  return configTypeDesc({ typeName, params });
 }
 
 type RawObject = Record<string, unknown>;
@@ -1025,7 +1025,7 @@ function typeDescFromRaw(value: unknown): TypeDesc | undefined {
   if (!isRecord(value)) {
     throw new Error("unsupported yaml for TypeDesc");
   }
-  return typeDesc({
+  return configTypeDesc({
     typeName: toStringValue(value.type_name),
     params: Array.isArray(value.params) ? value.params.map((entry) => typeDescFromRaw(entry)!) : [],
     isTypeParam: Boolean(value.is_type_param),
@@ -1042,17 +1042,17 @@ export function hydrateConfig(raw: unknown): Config {
     description: toStringValue(raw.description),
     container: toStringValue(raw.container),
     imports: Array.isArray(raw.imports)
-      ? raw.imports.map((entry) => importType(toStringValue((entry as RawObject).name)))
+      ? raw.imports.map((entry) => configImportType(toStringValue((entry as RawObject).name)))
       : [],
     stdlib: isRecord(raw.stdlib) ? hydrateLibrarySubset(raw.stdlib) : undefined,
     extensions: Array.isArray(raw.extensions)
       ? raw.extensions.map((entry) => {
           const obj = entry as RawObject;
-          return extension(toStringValue(obj.name), toStringValue(obj.version));
+          return configExtension(toStringValue(obj.name), toStringValue(obj.version));
         })
       : [],
     contextVariable: isRecord(raw.context_variable)
-      ? contextVariable(toStringValue((raw.context_variable as RawObject).type_name))
+      ? configContextVariable(toStringValue((raw.context_variable as RawObject).type_name))
       : undefined,
     variables: Array.isArray(raw.variables)
       ? raw.variables.map((entry) => hydrateVariable(entry))
@@ -1063,19 +1063,22 @@ export function hydrateConfig(raw: unknown): Config {
     validators: Array.isArray(raw.validators)
       ? raw.validators.map((entry) => {
           const obj = entry as RawObject;
-          return validator(toStringValue(obj.name), isRecord(obj.config) ? obj.config : undefined);
+          return configValidator(
+            toStringValue(obj.name),
+            isRecord(obj.config) ? obj.config : undefined,
+          );
         })
       : [],
     features: Array.isArray(raw.features)
       ? raw.features.map((entry) => {
           const obj = entry as RawObject;
-          return feature(toStringValue(obj.name), Boolean(obj.enabled));
+          return configFeature(toStringValue(obj.name), Boolean(obj.enabled));
         })
       : [],
     limits: Array.isArray(raw.limits)
       ? raw.limits.map((entry) => {
           const obj = entry as RawObject;
-          return limit(toStringValue(obj.name), Number(obj.value ?? 0));
+          return configLimit(toStringValue(obj.name), Number(obj.value ?? 0));
         })
       : [],
   });
@@ -1083,7 +1086,7 @@ export function hydrateConfig(raw: unknown): Config {
 }
 
 function hydrateLibrarySubset(raw: RawObject): LibrarySubset {
-  return librarySubset({
+  return configLibrarySubset({
     disabled: Boolean(raw.disabled),
     disableMacros: Boolean(raw.disable_macros),
     includeMacros: toStringArray(raw.include_macros),
@@ -1099,7 +1102,7 @@ function hydrateLibrarySubset(raw: RawObject): LibrarySubset {
 
 function hydrateVariable(raw: unknown): Variable {
   const obj = raw as RawObject;
-  const variableValue = variable({
+  const variableValue = configVariable({
     name: toStringValue(obj.name),
     type:
       obj.type_name !== undefined || obj.params !== undefined || obj.is_type_param !== undefined
@@ -1115,7 +1118,7 @@ function hydrateVariable(raw: unknown): Variable {
 
 function hydrateFunction(raw: unknown): Function {
   const obj = raw as RawObject;
-  return func({
+  return configFunc({
     name: toStringValue(obj.name),
     overloads: Array.isArray(obj.overloads)
       ? obj.overloads.map((entry) => hydrateOverload(entry))
@@ -1126,7 +1129,7 @@ function hydrateFunction(raw: unknown): Function {
 
 function hydrateOverload(raw: unknown): Overload {
   const obj = raw as RawObject;
-  return overload({
+  return configOverload({
     id: toStringValue(obj.id),
     args: Array.isArray(obj.args) ? obj.args.map((entry) => typeDescFromRaw(entry)!) : [],
     returnType: typeDescFromRaw(obj.return),
@@ -1277,7 +1280,7 @@ class TypeDescParser {
     this.skipWhitespace();
     if (this.current() === "~") {
       this.pos += 1;
-      return typeDesc({ typeName: this.parseTypeParamIdent(), isTypeParam: true });
+      return configTypeDesc({ typeName: this.parseTypeParamIdent(), isTypeParam: true });
     }
     return this.parseConcreteType();
   }
@@ -1285,7 +1288,7 @@ class TypeDescParser {
   private parseConcreteType(): TypeDesc {
     const id = this.parseNamespaceIdentifier();
     if (this.current() !== "<") {
-      return typeDesc({ typeName: id });
+      return configTypeDesc({ typeName: id });
     }
     this.pos += 1;
     const params: TypeDesc[] = [];
@@ -1303,7 +1306,7 @@ class TypeDescParser {
       }
       throw new Error(`expected ',' or '>' at position ${this.pos}`);
     }
-    return typeDesc({ typeName: id, params });
+    return configTypeDesc({ typeName: id, params });
   }
 
   private parseNamespaceIdentifier(): string {

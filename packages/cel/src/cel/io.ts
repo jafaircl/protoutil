@@ -38,9 +38,14 @@ import {
 } from "../common/types/types.js";
 import { Uint } from "../common/types/uint.js";
 import { Unknown } from "../common/types/unknown.js";
-import type { CheckedExpr } from "../gen/cel/expr/checked_pb.js";
+import { type CheckedExpr, CheckedExprSchema } from "../gen/cel/expr/checked_pb.js";
 import type { ExprValue } from "../gen/cel/expr/eval_pb.js";
-import type { ParsedExpr, Expr as ProtoExpr } from "../gen/cel/expr/syntax_pb.js";
+import {
+  ExprSchema,
+  type ParsedExpr,
+  ParsedExprSchema,
+  type Expr as ProtoExpr,
+} from "../gen/cel/expr/syntax_pb.js";
 import type { MapValue_Entry, Value } from "../gen/cel/expr/value_pb.js";
 import {
   type CheckedExpr as AlphaCheckedExpr,
@@ -187,6 +192,15 @@ export function exprAsAlphaProto(expr: ProtoExpr): AlphaExpr {
 }
 
 /**
+ * alphaProtoAsExpr converts a wire-compatible legacy google.api.expr.v1alpha1.Expr to the CEL
+ * expression schema.
+ */
+export function alphaProtoAsExpr(expr: AlphaExpr): ProtoExpr {
+  // TestAlphaProtoSchemaCompatibility recursively verifies this cast's schema assumption.
+  return create(ExprSchema, expr as unknown as MessageInitShape<typeof ExprSchema>);
+}
+
+/**
  * parsedExprAsAlphaProto converts a CEL parsed expression to the wire-compatible legacy
  * google.api.expr.v1alpha1.ParsedExpr schema.
  */
@@ -199,6 +213,18 @@ export function parsedExprAsAlphaProto(parsedExpr: ParsedExpr): AlphaParsedExpr 
 }
 
 /**
+ * alphaProtoAsParsedExpr converts a wire-compatible legacy google.api.expr.v1alpha1.ParsedExpr
+ * to the CEL parsed-expression schema.
+ */
+export function alphaProtoAsParsedExpr(parsedExpr: AlphaParsedExpr): ParsedExpr {
+  // TestAlphaProtoSchemaCompatibility recursively verifies this cast's schema assumption.
+  return create(
+    ParsedExprSchema,
+    parsedExpr as unknown as MessageInitShape<typeof ParsedExprSchema>,
+  );
+}
+
+/**
  * checkedExprAsAlphaProto converts a CEL checked expression to the wire-compatible legacy
  * google.api.expr.v1alpha1.CheckedExpr schema.
  */
@@ -207,6 +233,18 @@ export function checkedExprAsAlphaProto(checkedExpr: CheckedExpr): AlphaCheckedE
   return create(
     AlphaCheckedExprSchema,
     checkedExpr as unknown as MessageInitShape<typeof AlphaCheckedExprSchema>,
+  );
+}
+
+/**
+ * alphaProtoAsCheckedExpr converts a wire-compatible legacy google.api.expr.v1alpha1.CheckedExpr
+ * to the CEL checked-expression schema.
+ */
+export function alphaProtoAsCheckedExpr(checkedExpr: AlphaCheckedExpr): CheckedExpr {
+  // TestAlphaProtoSchemaCompatibility recursively verifies this cast's schema assumption.
+  return create(
+    CheckedExprSchema,
+    checkedExpr as unknown as MessageInitShape<typeof CheckedExprSchema>,
   );
 }
 

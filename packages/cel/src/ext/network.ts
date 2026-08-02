@@ -15,7 +15,7 @@ import {
 import type { AST } from "../common/ast/index.js";
 import { ExprKind, matchDescendants, navigateAst } from "../common/ast/index.js";
 import { StringTraversalCostFactor } from "../common/cost.js";
-import { functionDecl, memberOverload, overload } from "../common/decls.js";
+import { func, memberOverload, overload } from "../common/decls.js";
 import type { Errors } from "../common/errors.js";
 import { Bool } from "../common/types/bool.js";
 import { err } from "../common/types/err.js";
@@ -90,14 +90,14 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
               networkLiteralValidator("cidr", parsePrefix),
             ],
       functions: [
-        functionDecl("cidr", {
+        func("cidr", {
           overloads: [
             overload("string_to_cidr", [StringType], CIDRType, {
               unaryBinding: cidrFromString,
             }),
           ],
         }),
-        functionDecl("string", {
+        func("string", {
           overloads: [
             overload("cidr_to_string", [CIDRType], StringType, {
               unaryBinding: (value) => value.convertToType(StringType),
@@ -107,7 +107,7 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
             }),
           ],
         }),
-        functionDecl("containsCIDR", {
+        func("containsCIDR", {
           overloads: [
             memberOverload("cidr_contains_cidr", [CIDRType, CIDRType], BoolType, {
               binaryBinding: containsPrefix,
@@ -117,7 +117,7 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
             }),
           ],
         }),
-        functionDecl("containsIP", {
+        func("containsIP", {
           overloads: [
             memberOverload("cidr_contains_ip_ip", [CIDRType, IPType], BoolType, {
               binaryBinding: containsAddress,
@@ -127,14 +127,14 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
             }),
           ],
         }),
-        functionDecl("family", {
+        func("family", {
           overloads: [
             memberOverload("ip_family", [IPType], IntType, {
               unaryBinding: (value) => new Int(BigInt((value as IPValue).address.family)),
             }),
           ],
         }),
-        functionDecl("ip", {
+        func("ip", {
           overloads: [
             overload("string_to_ip", [StringType], IPType, {
               unaryBinding: ipFromString,
@@ -144,7 +144,7 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
             }),
           ],
         }),
-        functionDecl("ip.isCanonical", {
+        func("ip.isCanonical", {
           overloads: [
             overload("ip_is_canonical", [StringType], BoolType, {
               unaryBinding: isCanonical,
@@ -176,7 +176,7 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
           overloadId: "ip_is_unspecified",
           predicate: isUnspecified,
         }),
-        functionDecl("isCIDR", {
+        func("isCIDR", {
           overloads: [
             overload("is_cidr", [StringType], BoolType, {
               unaryBinding: (value) =>
@@ -184,7 +184,7 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
             }),
           ],
         }),
-        functionDecl("isIP", {
+        func("isIP", {
           overloads: [
             overload("is_ip", [StringType], BoolType, {
               unaryBinding: (value) =>
@@ -192,7 +192,7 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
             }),
           ],
         }),
-        functionDecl("isMask", {
+        func("isMask", {
           overloads: [
             memberOverload("cidr_is_mask", [CIDRType], BoolType, {
               unaryBinding: (value) => {
@@ -202,14 +202,14 @@ export function network(options: NetworkOptions = {}): NetworkLibrary {
             }),
           ],
         }),
-        functionDecl("masked", {
+        func("masked", {
           overloads: [
             memberOverload("cidr_masked", [CIDRType], CIDRType, {
               unaryBinding: (value) => maskedPrefix(value as CIDRValue),
             }),
           ],
         }),
-        functionDecl("prefixLength", {
+        func("prefixLength", {
           overloads: [
             memberOverload("cidr_prefix_length", [CIDRType], IntType, {
               unaryBinding: (value) => new Int(BigInt((value as CIDRValue).prefix.length)),
@@ -556,7 +556,7 @@ function unaryIPPredicate(options: {
   overloadId: string;
   predicate: (address: ParsedAddress) => boolean;
 }) {
-  return functionDecl(options.name, {
+  return func(options.name, {
     overloads: [
       memberOverload(options.overloadId, [IPType], BoolType, {
         unaryBinding: (value) => new Bool(options.predicate((value as IPValue).address)),

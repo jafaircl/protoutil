@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { StringType } from "../common/types/types.js";
 import { bindings } from "../ext/index.js";
@@ -250,7 +250,7 @@ describe("policy/compiler_test.go/TestWhitespaceHanlding", () => {
   )) {
     it(testCase.matchID, () => {
       const environment = policyEnvironment().extend({
-        variables: [variableDecl("match_id", StringType)],
+        variables: [variable("match_id", StringType)],
       });
       const result = compile(environment, parsed(whitespacePolicySource));
 
@@ -265,7 +265,7 @@ describe("policy/compiler_test.go/TestWhitespaceHanlding", () => {
 describe("policy/compiler_test.go/TestWhitespaceHandlingErrorPresentation", () => {
   it("associates every block-scalar diagnostic with its policy location", () => {
     const environment = policyEnvironment().extend({
-      variables: [variableDecl("match_id", StringType)],
+      variables: [variable("match_id", StringType)],
     });
     const result = compile(
       environment,

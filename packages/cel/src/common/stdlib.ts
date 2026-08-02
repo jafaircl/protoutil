@@ -1,6 +1,6 @@
 import {
   type FunctionDecl,
-  functionDecl,
+  func,
   memberOverload,
   type OverloadDecl,
   overload,
@@ -114,7 +114,7 @@ export function standardTypes(): VariableDecl[] {
  */
 export function standardFunctions(): FunctionDecl[] {
   return [
-    functionDecl(operators.Conditional, {
+    func(operators.Conditional, {
       doc: [
         "The ternary operator tests a boolean predicate and returns the left-hand side (truthy) expression if true, or the right-hand side (falsy) expression if false",
       ],
@@ -129,7 +129,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { func: noFunctionOverrides },
     }),
-    functionDecl(operators.LogicalAnd, {
+    func(operators.LogicalAnd, {
       doc: [
         "logically AND two boolean values. Errors and unknown values",
         "are valid inputs and will not halt evaluation.",
@@ -147,7 +147,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: noBinaryOverrides },
     }),
-    functionDecl(operators.LogicalOr, {
+    func(operators.LogicalOr, {
       doc: [
         "logically OR two boolean values. Errors and unknown values",
         "are valid inputs and will not halt evaluation.",
@@ -165,7 +165,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: noBinaryOverrides },
     }),
-    functionDecl(operators.LogicalNot, {
+    func(operators.LogicalNot, {
       doc: ["logically negate a boolean value."],
       overloads: [
         overload(overloads.LogicalNot, [BoolType], BoolType, {
@@ -174,7 +174,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { unary: logicalNot },
     }),
-    functionDecl(operators.NotStrictlyFalse, {
+    func(operators.NotStrictlyFalse, {
       overloads: [
         overload(overloads.NotStrictlyFalse, [BoolType], BoolType, {
           nonStrict: true,
@@ -182,7 +182,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(operators.OldNotStrictlyFalse, {
+    func(operators.OldNotStrictlyFalse, {
       disableDeclaration: true,
       overloads: [
         overload(operators.OldNotStrictlyFalse, [BoolType], BoolType, {
@@ -191,7 +191,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(operators.Equals, {
+    func(operators.Equals, {
       doc: ["compare two values of the same type for equality"],
       overloads: [
         overload(overloads.Equals, [paramA, paramA], BoolType, {
@@ -206,7 +206,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: noBinaryOverrides },
     }),
-    functionDecl(operators.NotEquals, {
+    func(operators.NotEquals, {
       doc: ["compare two values of the same type for inequality"],
       overloads: [
         overload(overloads.NotEquals, [paramA, paramA], BoolType, {
@@ -215,7 +215,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: noBinaryOverrides },
     }),
-    functionDecl(operators.Add, {
+    func(operators.Add, {
       doc: ["adds two numeric values or concatenates two strings, bytes,", "or lists."],
       overloads: [
         overload(overloads.AddBytes, [BytesType, BytesType], BytesType, {
@@ -252,7 +252,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: addBinding, trait: AdderType },
     }),
-    functionDecl(operators.Divide, {
+    func(operators.Divide, {
       doc: ["divide two numbers"],
       overloads: [
         overload(overloads.DivideDouble, [DoubleType, DoubleType], DoubleType, {
@@ -267,7 +267,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: divideBinding, trait: DividerType },
     }),
-    functionDecl(operators.Modulo, {
+    func(operators.Modulo, {
       doc: ["compute the modulus of one integer into another"],
       overloads: [
         overload(overloads.ModuloInt64, [IntType, IntType], IntType, {
@@ -279,7 +279,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: moduloBinding, trait: ModderType },
     }),
-    functionDecl(operators.Multiply, {
+    func(operators.Multiply, {
       doc: ["multiply two numbers"],
       overloads: [
         overload(overloads.MultiplyDouble, [DoubleType, DoubleType], DoubleType, {
@@ -294,7 +294,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: multiplyBinding, trait: MultiplierType },
     }),
-    functionDecl(operators.Negate, {
+    func(operators.Negate, {
       doc: ["negate a numeric value"],
       overloads: [
         overload(overloads.NegateDouble, [DoubleType], DoubleType, {
@@ -306,7 +306,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { unary: negateBinding, trait: NegatorType },
     }),
-    functionDecl(operators.Subtract, {
+    func(operators.Subtract, {
       doc: ["subtract two numbers, or two time-related values"],
       overloads: [
         overload(overloads.SubtractDouble, [DoubleType, DoubleType], DoubleType, {
@@ -350,12 +350,12 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: subtractBinding, trait: SubtractorType },
     }),
-    functionDecl(operators.Less, {
+    func(operators.Less, {
       doc: ["compare two values and return true if the first value is", "less than the second"],
       overloads: relationOverloads("less"),
       singletonBinding: { binary: relationBinding("less"), trait: ComparerType },
     }),
-    functionDecl(operators.LessEquals, {
+    func(operators.LessEquals, {
       doc: [
         "compare two values and return true if the first value is",
         "less than or equal to the second",
@@ -363,12 +363,12 @@ export function standardFunctions(): FunctionDecl[] {
       overloads: relationOverloads("less_equals"),
       singletonBinding: { binary: relationBinding("less_equals"), trait: ComparerType },
     }),
-    functionDecl(operators.Greater, {
+    func(operators.Greater, {
       doc: ["compare two values and return true if the first value is", "greater than the second"],
       overloads: relationOverloads("greater"),
       singletonBinding: { binary: relationBinding("greater"), trait: ComparerType },
     }),
-    functionDecl(operators.GreaterEquals, {
+    func(operators.GreaterEquals, {
       doc: [
         "compare two values and return true if the first value is",
         "greater than or equal to the second",
@@ -376,7 +376,7 @@ export function standardFunctions(): FunctionDecl[] {
       overloads: relationOverloads("greater_equals"),
       singletonBinding: { binary: relationBinding("greater_equals"), trait: ComparerType },
     }),
-    functionDecl(operators.Index, {
+    func(operators.Index, {
       doc: ["select a value from a list by index, or value from a map by key"],
       overloads: [
         overload(overloads.IndexList, [listOfA, IntType], paramA, {
@@ -388,7 +388,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: indexBinding, trait: IndexerType },
     }),
-    functionDecl(operators.In, {
+    func(operators.In, {
       doc: ["test whether a value exists in a list, or a key exists in a map"],
       overloads: [
         overload(overloads.InList, [paramA, listOfA], BoolType, {
@@ -403,7 +403,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: inAggregate },
     }),
-    functionDecl(operators.OldIn, {
+    func(operators.OldIn, {
       disableDeclaration: true,
       overloads: [
         overload(overloads.InList, [paramA, listOfA], BoolType),
@@ -411,7 +411,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: inAggregate },
     }),
-    functionDecl(overloads.DeprecatedIn, {
+    func(overloads.DeprecatedIn, {
       disableDeclaration: true,
       overloads: [
         overload(overloads.InList, [paramA, listOfA], BoolType),
@@ -419,7 +419,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { binary: inAggregate },
     }),
-    functionDecl(overloads.Size, {
+    func(overloads.Size, {
       doc: [
         "compute the size of a list or map, the number of characters in a string,",
         "or the number of bytes in a sequence",
@@ -452,7 +452,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { unary: sizeBinding, trait: SizerType },
     }),
-    functionDecl(overloads.TypeConvertType, {
+    func(overloads.TypeConvertType, {
       doc: ["convert a value to its type identifier"],
       overloads: [
         overload(overloads.TypeConvertType, [paramA], typeTypeWithParam(paramA), {
@@ -466,7 +466,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { unary: convertToType(TypeType) },
     }),
-    functionDecl(overloads.TypeConvertBool, {
+    func(overloads.TypeConvertBool, {
       doc: ["convert a value to a boolean"],
       overloads: [
         overload(overloads.BoolToBool, [BoolType], BoolType, {
@@ -479,7 +479,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TypeConvertBytes, {
+    func(overloads.TypeConvertBytes, {
       doc: ["convert a value to bytes"],
       overloads: [
         overload(overloads.BytesToBytes, [BytesType], BytesType, {
@@ -492,7 +492,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TypeConvertDouble, {
+    func(overloads.TypeConvertDouble, {
       doc: ["convert a value to a double"],
       overloads: [
         overload(overloads.DoubleToDouble, [DoubleType], DoubleType, {
@@ -513,7 +513,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TypeConvertDuration, {
+    func(overloads.TypeConvertDuration, {
       doc: ["convert a value to a google.protobuf.Duration"],
       overloads: [
         overload(overloads.DurationToDuration, [DurationType], DurationType, {
@@ -526,7 +526,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TypeConvertDyn, {
+    func(overloads.TypeConvertDyn, {
       doc: ["indicate that the type is dynamic for type-checking purposes"],
       overloads: [
         overload(overloads.ToDyn, [paramA], DynType, {
@@ -535,7 +535,7 @@ export function standardFunctions(): FunctionDecl[] {
       ],
       singletonBinding: { unary: identity },
     }),
-    functionDecl(overloads.TypeConvertInt, {
+    func(overloads.TypeConvertInt, {
       doc: ["convert a value to an int"],
       overloads: [
         overload(overloads.IntToInt, [IntType], IntType, {
@@ -564,7 +564,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TypeConvertString, {
+    func(overloads.TypeConvertString, {
       doc: ["convert a value to a string"],
       overloads: [
         overload(overloads.StringToString, [StringType], StringType, {
@@ -601,7 +601,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TypeConvertTimestamp, {
+    func(overloads.TypeConvertTimestamp, {
       doc: ["convert a value to a google.protobuf.Timestamp"],
       overloads: [
         overload(overloads.TimestampToTimestamp, [TimestampType], TimestampType, {
@@ -620,7 +620,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TypeConvertUint, {
+    func(overloads.TypeConvertUint, {
       doc: ["convert a value to a uint"],
       overloads: [
         overload(overloads.UintToUint, [UintType], UintType, {
@@ -641,7 +641,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.Contains, {
+    func(overloads.Contains, {
       doc: ["test whether a string contains a substring"],
       disableTypeGuards: true,
       overloads: [
@@ -654,7 +654,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.EndsWith, {
+    func(overloads.EndsWith, {
       doc: ["test whether a string ends with a substring suffix"],
       disableTypeGuards: true,
       overloads: [
@@ -667,7 +667,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.StartsWith, {
+    func(overloads.StartsWith, {
       doc: ["test whether a string starts with a substring prefix"],
       disableTypeGuards: true,
       overloads: [
@@ -680,7 +680,7 @@ export function standardFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.Matches, {
+    func(overloads.Matches, {
       doc: ["test whether a string matches an RE2 regular expression"],
       overloads: [
         overload(overloads.Matches, [StringType, StringType], BoolType, {
@@ -892,7 +892,7 @@ function timeFunctions(): FunctionDecl[] {
       "5",
       "6",
     ),
-    functionDecl(overloads.TimeGetHours, {
+    func(overloads.TimeGetHours, {
       doc: ["get the hours portion from a timestamp, or convert a duration to hours"],
       overloads: [
         memberOverload(overloads.TimestampToHours, [TimestampType], IntType, {
@@ -909,7 +909,7 @@ function timeFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TimeGetMinutes, {
+    func(overloads.TimeGetMinutes, {
       doc: ["get the minutes portion from a timestamp, or convert a duration to minutes"],
       overloads: [
         memberOverload(overloads.TimestampToMinutes, [TimestampType], IntType, {
@@ -926,7 +926,7 @@ function timeFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TimeGetSeconds, {
+    func(overloads.TimeGetSeconds, {
       doc: ["get the seconds portion from a timestamp, or convert a duration to seconds"],
       overloads: [
         memberOverload(overloads.TimestampToSeconds, [TimestampType], IntType, {
@@ -943,7 +943,7 @@ function timeFunctions(): FunctionDecl[] {
         }),
       ],
     }),
-    functionDecl(overloads.TimeGetMilliseconds, {
+    func(overloads.TimeGetMilliseconds, {
       doc: ["get the milliseconds portion from a timestamp"],
       overloads: [
         memberOverload(overloads.TimestampToMilliseconds, [TimestampType], IntType, {
@@ -977,7 +977,7 @@ function timeFunction(
   withoutTzResult: string,
   withTzResult: string,
 ): FunctionDecl {
-  return functionDecl(name, {
+  return func(name, {
     doc: [doc],
     overloads: [
       memberOverload(withoutTz, [TimestampType], IntType, {

@@ -1,6 +1,6 @@
 import { RE2JS } from "@bufbuild/re2";
 import type { LibraryAliaser, LibraryVersioner, SingletonLibrary } from "../cel/library.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import { err } from "../common/types/err.js";
 import type { Int } from "../common/types/int.js";
 import { stringList } from "../common/types/list.js";
@@ -40,7 +40,7 @@ export function regex(options: RegexOptions = {}): RegexLibrary {
     requiredLibraries: ["cel.lib.optional"],
     compileOptions: {
       functions: [
-        functionDecl(regexExtract, {
+        func(regexExtract, {
           overloads: [
             overload(
               "regex_extract_string_string",
@@ -50,7 +50,7 @@ export function regex(options: RegexOptions = {}): RegexLibrary {
             ),
           ],
         }),
-        functionDecl(regexExtractAll, {
+        func(regexExtractAll, {
           overloads: [
             overload(
               "regex_extractAll_string_string",
@@ -60,7 +60,7 @@ export function regex(options: RegexOptions = {}): RegexLibrary {
             ),
           ],
         }),
-        functionDecl(regexReplace, {
+        func(regexReplace, {
           overloads: [
             overload(
               "regex_replace_string_string_string",

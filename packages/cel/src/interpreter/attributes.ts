@@ -23,7 +23,7 @@ import {
 } from "../common/types/index.js";
 import type { MapValue } from "../common/types/pb/type.js";
 import type { FieldTester, Indexer } from "../common/types/traits/index.js";
-import { activationNameAbsent, type Activation } from "./activation.js";
+import { type Activation, activationNameAbsent } from "./activation.js";
 import type { ExecutionFrame } from "./frame.js";
 
 /**
@@ -439,11 +439,7 @@ abstract class QualifierBase implements Qualifier {
   /**
    * qualifyIfPresent performs qualification only when the field or index exists on the target.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     try {
       const value = this.qualify(vars, obj);
       if (
@@ -714,11 +710,7 @@ export class IntQualifier extends ConstantQualifierBase {
   /**
    * qualifyIfPresent indexes native lists directly while preserving presence-test behavior.
    */
-  public override qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public override qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     if (Array.isArray(obj)) {
       const index = Number(this.raw());
       if (index >= 0 && index < obj.length) {
@@ -825,11 +817,7 @@ class AttributeQualifierImpl extends QualifierBase {
   /**
    * qualifyIfPresent resolves the nested attribute and preserves cel-go's error propagation.
    */
-  public override qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public override qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     const value = this.attributeValue.resolve(vars);
     if (value instanceof Unknown) {
       return value;
@@ -912,11 +900,7 @@ class AbsoluteAttributeImpl implements NamespacedAttribute {
   /**
    * qualifyIfPresent resolves the current attribute and applies it as a presence-tested qualifier.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     return qualifyAttributeResultIfPresent(this.factoryValue, vars, obj, this, presenceOnly);
   }
 
@@ -1010,11 +994,7 @@ class MaybeAttributeImpl implements Attribute {
   /**
    * qualifyIfPresent resolves the current attribute and applies it as a presence-tested qualifier.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     return qualifyAttributeResultIfPresent(this.factoryValue, vars, obj, this, presenceOnly);
   }
 
@@ -1090,11 +1070,7 @@ export class ConditionalAttributeImpl implements Attribute {
   /**
    * qualifyIfPresent resolves the attribute and applies a presence-tested qualification.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     return qualifyAttributeResultIfPresent(this.factoryValue, vars, obj, this, presenceOnly);
   }
 
@@ -1215,11 +1191,7 @@ class RelativeAttributeImpl implements Attribute {
   /**
    * qualifyIfPresent resolves the attribute and applies a presence-tested qualification.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     return qualifyAttributeResultIfPresent(this.factoryValue, vars, obj, this, presenceOnly);
   }
 
@@ -1398,11 +1370,7 @@ class OptionalAttribute implements Attribute {
   }
 
   /** qualifyIfPresent delegates presence-aware dynamic qualification. */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     return this.attribute.qualifyIfPresent(vars, obj, presenceOnly);
   }
 

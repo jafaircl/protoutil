@@ -18,7 +18,7 @@ import type { Library, SingletonLibrary } from "./cel/library.js";
 import { optionalTypes } from "./cel/library.js";
 import { type Expr, ExprKind } from "./common/ast/index.js";
 import { container } from "./common/containers.js";
-import { type FunctionDecl, VariableDecl, variableDecl } from "./common/decls.js";
+import { type FunctionDecl, VariableDecl, variable } from "./common/decls.js";
 import { Bool } from "./common/types/bool.js";
 import { isError } from "./common/types/err.js";
 import { registry } from "./common/types/provider.js";
@@ -223,7 +223,7 @@ function conformanceBlockLibrary(): SingletonLibrary {
         ],
       },
       variables: Array.from({ length: 30 }, (_unused, index) =>
-        variableDecl(`@index${index}`, DynType),
+        variable(`@index${index}`, DynType),
       ),
     },
     programOptions: {},

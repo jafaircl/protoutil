@@ -1,7 +1,7 @@
 import { astOutputType, type Env, type Issues, issues } from "../cel/env.js";
 import type { AST } from "../common/ast/ast.js";
 import { container } from "../common/containers.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { errorsValue } from "../common/errors.js";
 import type { Type } from "../common/types/types.js";
 import { DynType, ErrorType } from "../common/types/types.js";
@@ -376,7 +376,7 @@ function compileRuleGraph(options: CompileRuleOptions): CompiledRule {
     variables.push(new CompiledVariable(value.name().id, value.name().value, result.ast));
     const variableType = astOutputType(result.ast);
     activeEnv = activeEnv.extend({
-      variables: [variableDecl(`variables.${value.name().value}`, variableType)],
+      variables: [variable(`variables.${value.name().value}`, variableType)],
     });
     incrementNesting(options, value, "variable");
   }

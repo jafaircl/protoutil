@@ -6,7 +6,7 @@ import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
 import { ast, exprFactory } from "../common/ast/index.js";
 import { defaultContainer, container as sourceContainer } from "../common/containers.js";
-import { functionDecl, memberOverload, overload, variableDecl } from "../common/decls.js";
+import { func, memberOverload, overload, variable } from "../common/decls.js";
 import * as operators from "../common/operators.js";
 import { textSource } from "../common/source.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -16,8 +16,8 @@ import {
   Bool,
   BoolType,
   BytesType,
-  DividerType,
   String as CelString,
+  DividerType,
   DynType,
   Err,
   emptyRegistry,
@@ -169,7 +169,7 @@ describe("interpreter/interpreter_test.go/TestInterpreter_RegexProgramSizeLimit"
 
     const dynamicEnvironment = celEnv({
       regexProgramSizeLimit: 5,
-      variables: [variableDecl("pattern", StringType)],
+      variables: [variable("pattern", StringType)],
     });
     const dynamic = dynamicEnvironment
       .program(dynamicEnvironment.compile(`"hello".matches(pattern)`))
@@ -278,7 +278,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
   switch (testCase.name) {
     case "call_no_args":
       return [
-        functionDecl("zero", {
+        func("zero", {
           overloads: [overload("zero", [], IntType)],
           singletonBinding: {
             func: () => IntZero,
@@ -287,7 +287,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
       ];
     case "call_one_arg":
       return [
-        functionDecl("neg", {
+        func("neg", {
           overloads: [
             overload("neg_int", [IntType], IntType, {
               unaryBinding: (arg: any) => arg.negate?.() ?? new Err("no such overload"),
@@ -297,7 +297,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
       ];
     case "call_two_arg":
       return [
-        functionDecl("concat", {
+        func("concat", {
           overloads: [
             memberOverload("bytes_concat_bytes", [BytesType, BytesType], BytesType, {
               binaryBinding: (lhs: any, rhs) => lhs.add(rhs),
@@ -307,7 +307,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
       ];
     case "call_four_args":
       return [
-        functionDecl("addall", {
+        func("addall", {
           disableTypeGuards: true,
           overloads: [overload("addall_four", [IntType, IntType, IntType, IntType], IntType)],
           singletonBinding: {
@@ -320,7 +320,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
     case "call_ns_func_in_pkg":
     case "call_ns_func_unchecked_in_pkg":
       return [
-        functionDecl("base64.encode", {
+        func("base64.encode", {
           overloads: [
             overload("base64_encode_string", [StringType], StringType, {
               unaryBinding: (arg) => new CelString(globalThis.btoa(String(arg.value()))),
@@ -330,7 +330,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
       ];
     case "select_relative":
       return [
-        functionDecl("json", {
+        func("json", {
           overloads: [
             overload("json_string", [StringType], DynType, {
               unaryBinding: (arg) => {
@@ -346,7 +346,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
       ];
     case "call_with_error_unary":
       return [
-        functionDecl("try", {
+        func("try", {
           overloads: [
             overload("try_dyn", [DynType], DynType, {
               nonStrict: true,
@@ -358,7 +358,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
       ];
     case "call_with_error_binary":
       return [
-        functionDecl("try", {
+        func("try", {
           overloads: [
             overload("try_dyn", [DynType, DynType], DynType, {
               nonStrict: true,
@@ -370,7 +370,7 @@ function interpreterFunctions(testCase: SyncedInterpreterCase) {
       ];
     case "call_with_error_function":
       return [
-        functionDecl("try", {
+        func("try", {
           overloads: [
             overload("try_dyn", [DynType, DynType, DynType], DynType, {
               nonStrict: true,
@@ -563,14 +563,14 @@ function runtimeTypeExpr(value: string): string {
  */
 function resolveInterpreterVariables(
   varsValue: Array<{ $expr?: string }> | undefined,
-): Array<ReturnType<typeof variableDecl>> {
+): Array<ReturnType<typeof variable>> {
   return (varsValue ?? []).map((entry) => {
     const expr = entry.$expr?.trim() ?? "";
     const match = /^decls\.NewVariable\("([\s\S]*?)",\s*([\s\S]+)\)$/.exec(expr);
     if (!match) {
       throw new Error(`unsupported interpreter variable expr: ${entry.$expr}`);
     }
-    return variableDecl(
+    return variable(
       resolveSyncedExpr(match[1]!) as string,
       resolveSyncedExpr({ $expr: runtimeTypeExpr(match[2]!) }) as Type,
     );
@@ -1098,7 +1098,7 @@ describe("interpreter/interpreter_test.go", () => {
       ]);
       const checkerEnv = env(defaultContainer, reg, { crossTypeNumericComparisons: true });
       checkerEnv.addFunctions(...standardFunctions());
-      checkerEnv.addIdents(variableDecl("pb3", objectType(Proto3TestAllTypesSchema.typeName)));
+      checkerEnv.addIdents(variable("pb3", objectType(Proto3TestAllTypesSchema.typeName)));
       const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
       const program = interpreter({
         dispatcher: standardDispatcher(),
@@ -1182,7 +1182,7 @@ describe("interpreter/interpreter_test.go", () => {
       const reg = registry();
       const checkerEnv = env(defaultContainer, reg, { crossTypeNumericComparisons: true });
       checkerEnv.addFunctions(...standardFunctions());
-      checkerEnv.addIdents(variableDecl("items", listType(IntType)));
+      checkerEnv.addIdents(variable("items", listType(IntType)));
       const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
       const program = interpreter({
         dispatcher: standardDispatcher(),
@@ -1257,7 +1257,7 @@ describe("interpreter/interpreter_test.go", () => {
       const containerValue = sourceContainer({ name: "google.expr.proto2.test" });
       const checkerEnv = env(containerValue, reg, { crossTypeNumericComparisons: true });
       checkerEnv.addFunctions(...standardFunctions());
-      checkerEnv.addIdents(variableDecl("input", objectType(Proto2TestAllTypesSchema.typeName)));
+      checkerEnv.addIdents(variable("input", objectType(Proto2TestAllTypesSchema.typeName)));
       const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
       const input = reg.newValue(Proto2TestAllTypesSchema.typeName, {
         single_int32: reg.nativeToValue(1),
@@ -1294,7 +1294,7 @@ describe("interpreter/interpreter_test.go", () => {
       const reg = registry();
       const checkerEnv = env(containerValue, reg, { crossTypeNumericComparisons: true });
       checkerEnv.addFunctions(...standardFunctions());
-      checkerEnv.addIdents(variableDecl("a.b", DynType));
+      checkerEnv.addIdents(variable("a.b", DynType));
       const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
       const program = interpreter({
         dispatcher: standardDispatcher(),
@@ -1453,7 +1453,7 @@ describe("interpreter/interpreter_test.go", () => {
       const factory = exprFactory();
       const reg = registry();
       const intStringMapType = mapType(IntType, StringType);
-      const mapInsert = functionDecl("cel.@mapInsert", {
+      const mapInsert = func("cel.@mapInsert", {
         overloads: [
           overload("cel.@mapInsert", [intStringMapType, IntType, StringType], intStringMapType, {
             functionBinding: (...args) => {
@@ -1541,7 +1541,7 @@ describe("interpreter/interpreter_test.go", () => {
   describe("interpreter/interpreter_test.go/BenchmarkInterpreter", () => {
     it("reuses comprehension folder state across sequential evaluations", () => {
       const runtimeEnv = celEnv({
-        variables: [variableDecl("needle", IntType)],
+        variables: [variable("needle", IntType)],
       });
       const expression = runtimeEnv.compile("[1, 2, 3].exists(value, value == needle)");
       const program = runtimeEnv.program(expression);
@@ -1558,7 +1558,7 @@ describe("interpreter/interpreter_test.go", () => {
 
     it("keeps nested evaluations isolated while an outer folder is active", () => {
       const runtimeEnv = celEnv({
-        variables: [variableDecl("reentrant", BoolType)],
+        variables: [variable("reentrant", BoolType)],
       });
       const expression = runtimeEnv.compile("[1].exists(value, reentrant)");
       const program = runtimeEnv.program(expression);

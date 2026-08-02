@@ -9,7 +9,7 @@ import {
 } from "../checker/cost.js";
 import type { AST, ConstantValue, Expr } from "../common/ast/index.js";
 import { ExprKind, matchDescendants, navigateAst } from "../common/ast/index.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import * as operators from "../common/operators.js";
 import { False, True } from "../common/types/bool.js";
 import { Int } from "../common/types/int.js";
@@ -52,21 +52,21 @@ export function sets(options: SetsOptions = {}): SetsLibrary {
     libraryVersion: version,
     compileOptions: {
       functions: [
-        functionDecl("sets.contains", {
+        func("sets.contains", {
           overloads: [
             overload("list_sets_contains_list", [genericList, genericList], BoolType, {
               binaryBinding: setsContains,
             }),
           ],
         }),
-        functionDecl("sets.equivalent", {
+        func("sets.equivalent", {
           overloads: [
             overload("list_sets_equivalent_list", [genericList, genericList], BoolType, {
               binaryBinding: setsEquivalent,
             }),
           ],
         }),
-        functionDecl("sets.intersects", {
+        func("sets.intersects", {
           overloads: [
             overload("list_sets_intersects_list", [genericList, genericList], BoolType, {
               binaryBinding: setsIntersects,

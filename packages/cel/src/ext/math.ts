@@ -9,7 +9,7 @@ import {
   unknownSizeEstimate,
 } from "../checker/cost.js";
 import { type Expr, ExprKind } from "../common/ast/index.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import { Bool } from "../common/types/bool.js";
 import { Double } from "../common/types/double.js";
 import { err, isError } from "../common/types/err.js";
@@ -101,14 +101,14 @@ export function math(options: MathOptions = {}): MathLibrary {
         name: "math.isFinite",
         predicate: Number.isFinite,
       }),
-      functionDecl("math.abs", {
+      func("math.abs", {
         overloads: [
           overload("math_abs_double", [DoubleType], DoubleType, { unaryBinding: absolute }),
           overload("math_abs_int", [IntType], IntType, { unaryBinding: absolute }),
           overload("math_abs_uint", [UintType], UintType, { unaryBinding: identity }),
         ],
       }),
-      functionDecl("math.sign", {
+      func("math.sign", {
         overloads: [
           overload("math_sign_double", [DoubleType], DoubleType, { unaryBinding: sign }),
           overload("math_sign_int", [IntType], IntType, { unaryBinding: sign }),
@@ -130,7 +130,7 @@ export function math(options: MathOptions = {}): MathLibrary {
         name: "math.bitXor",
         operation: (left, right) => left ^ right,
       }),
-      functionDecl("math.bitNot", {
+      func("math.bitNot", {
         overloads: [
           overload("math_bitNot_int_int", [IntType], IntType, {
             unaryBinding: (value) => new Int(~(value as Int).value()),
@@ -154,7 +154,7 @@ export function math(options: MathOptions = {}): MathLibrary {
   }
   if (version >= 2) {
     functions.push(
-      functionDecl("math.sqrt", {
+      func("math.sqrt", {
         overloads: [
           overload("math_sqrt_double", [DoubleType], DoubleType, { unaryBinding: squareRoot }),
           overload("math_sqrt_int", [IntType], DoubleType, { unaryBinding: squareRoot }),
@@ -237,7 +237,7 @@ function estimateMathNodeSize(estimator: CostEstimator, node: AstNode) {
  */
 function extremumDeclaration(name: string, operation: "max" | "min") {
   const pair = (left: Val, right: Val) => extremumPair(left, right, operation);
-  return functionDecl(name, {
+  return func(name, {
     singletonBinding: {
       func: (...args) =>
         args.length === 1 ? extremumSingle(args[0]!, operation) : pair(args[0]!, args[1]!),
@@ -354,7 +354,7 @@ function unaryDoubleDeclaration(options: {
   name: string;
   operation: (value: number) => number;
 }) {
-  return functionDecl(options.name, {
+  return func(options.name, {
     overloads: [
       overload(options.id, [DoubleType], DoubleType, {
         unaryBinding: (value) => new Double(options.operation((value as Double).value())),
@@ -371,7 +371,7 @@ function unaryDoubleBooleanDeclaration(options: {
   name: string;
   predicate: (value: number) => boolean;
 }) {
-  return functionDecl(options.name, {
+  return func(options.name, {
     overloads: [
       overload(options.id, [DoubleType], BoolType, {
         unaryBinding: (value) => new Bool(options.predicate((value as Double).value())),
@@ -430,7 +430,7 @@ function binaryIntegerDeclaration(options: {
   name: string;
   operation: (left: bigint, right: bigint) => bigint;
 }) {
-  return functionDecl(options.name, {
+  return func(options.name, {
     overloads: [
       overload(`math_${options.idName}_int_int`, [IntType, IntType], IntType, {
         binaryBinding: (left, right) =>
@@ -466,7 +466,7 @@ function shiftDeclaration(options: { direction: "left" | "right"; idName: string
     const shifted = BigInt.asUintN(64, input) >> offset;
     return value instanceof Int ? new Int(shifted) : new Uint(shifted);
   };
-  return functionDecl(options.name, {
+  return func(options.name, {
     overloads: [
       overload(`math_${options.idName}_int_int`, [IntType, IntType], IntType, {
         binaryBinding: shift,

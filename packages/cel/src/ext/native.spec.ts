@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { registry } from "../common/types/provider.js";
 import { IndexerType } from "../common/types/traits/traits.js";
@@ -339,7 +339,7 @@ function nativeEnv(withOptional = false) {
   return env({
     libraries: withOptional ? [optionalTypes()] : [],
     registry: typeRegistry,
-    variables: [variableDecl("test", objectType("ext.TestNestedStruct"))],
+    variables: [variable("test", objectType("ext.TestNestedStruct"))],
   });
 }
 

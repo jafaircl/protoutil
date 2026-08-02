@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { variableDeclWithDoc } from "../common/decls.js";
+import { variableWithDoc } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { registry } from "../common/types/provider.js";
 import { objectType } from "../common/types/types.js";
@@ -51,7 +51,7 @@ describe("cel/prompt_test.go/TestPromptTemplateFieldPaths", () => {
     const celEnv = env({
       registry: typeRegistry,
       variables: [
-        variableDeclWithDoc(
+        variableWithDoc(
           "team",
           objectType(NestedTestAllTypesSchema.typeName),
           "A team of gifted youngsters",

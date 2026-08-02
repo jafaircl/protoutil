@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
 import { container, defaultContainer } from "../common/containers.js";
-import { functionDecl, overload, variableDecl } from "../common/decls.js";
+import { func, overload, variable } from "../common/decls.js";
 import * as operators from "../common/operators.js";
 import { textSource } from "../common/source.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -45,8 +45,8 @@ import {
   type Attribute,
   type AttributeFactory,
   attributeFactory,
-  qualifierAbsent,
   type Qualifier,
+  qualifierAbsent,
 } from "./attributes.js";
 import { dispatcher } from "./dispatcher.js";
 import { evalState } from "./eval-state.js";
@@ -141,7 +141,7 @@ interface AttributeStateCase {
   /**
    * vars lists declarations required by the checker.
    */
-  vars: Array<ReturnType<typeof variableDecl>>;
+  vars: Array<ReturnType<typeof variable>>;
 
   /**
    * input is the activation or partial activation used for evaluation.
@@ -300,7 +300,7 @@ function checkerEnv() {
   });
   out.addFunctions(...standardFunctions());
   out.addFunctions(
-    functionDecl(operators.OptIndex, {
+    func(operators.OptIndex, {
       overloads: [
         overload(
           "optional_bool_map_index_string",
@@ -558,9 +558,9 @@ function resolvePartialActivationExpr(expr: string) {
 /**
  * resolveVariableDeclExpr decodes the synced checker declaration literals used by the attribute state tests.
  */
-function resolveVariableDeclExpr(value: { $expr?: string }): ReturnType<typeof variableDecl> {
+function resolveVariableDeclExpr(value: { $expr?: string }): ReturnType<typeof variable> {
   const args = resolveFixtureCallArgs(value.$expr ?? "", "decls.NewVariable");
-  return variableDecl(
+  return variable(
     unquoteFixtureString(args[0]!.slice(1, -1)),
     resolveSyncedExpr({ $expr: args[1]!.replace(/\btypes\./g, "") }) as Type,
   );

@@ -14,7 +14,7 @@ import {
   env,
   excludeOverloads,
   FunctionDecl,
-  functionDecl,
+  func,
   Int,
   IntType,
   includeOverloads,
@@ -22,7 +22,7 @@ import {
   maybeNoSuchOverload,
   memberOverload,
   opaqueType,
-  declOverload as overload,
+  overload,
   StringType,
   standardFunctions,
   True,
@@ -32,14 +32,14 @@ import {
   unknown,
   type Val,
   VariableDecl,
-  variableDecl,
+  variable,
 } from "../index.js";
 
 describe("cel/decls_test.go/TestFunctionMerge", () => {
   it("merges overload extensions while preserving singleton behavior", () => {
     const parameter = typeParamType("V");
     const vectorType = opaqueType("vector", parameter);
-    const size = functionDecl("size", {
+    const size = func("size", {
       overloads: [
         overload("size_list", [listType(parameter)], IntType),
         overload("size_string", [StringType], IntType),
@@ -55,20 +55,20 @@ describe("cel/decls_test.go/TestFunctionMerge", () => {
           ).size(),
       },
     });
-    const sizeExtension = functionDecl("size", {
+    const sizeExtension = func("size", {
       overloads: [
         overload("size_vector", [vectorType], IntType),
         memberOverload("vector_size", [vectorType], IntType),
       ],
     });
-    const vector = functionDecl("vector", {
+    const vector = func("vector", {
       overloads: [
         overload("vector_list", [listType(parameter)], vectorType, {
           unaryBinding: (list) => list,
         }),
       ],
     });
-    const equals = functionDecl(operators.Equals, {
+    const equals = func(operators.Equals, {
       overloads: [
         overload(overloads.Equals, [typeParamType("T"), typeParamType("T")], BoolType, {
           binaryBinding: (left, right) => left.equal(right),
@@ -88,7 +88,7 @@ describe("cel/decls_test.go/TestFunctionMerge", () => {
     const result = celEnv.program(celEnv.compile(expression)).eval({}).value() as Val[];
     expect(result.map((value) => value.value())).toEqual([true, true, true]);
 
-    const incompatibleSingleton = functionDecl("size", {
+    const incompatibleSingleton = func("size", {
       overloads: [
         overload("size_vector", [vectorType], IntType),
         memberOverload("vector_size", [vectorType], IntType),
@@ -104,7 +104,7 @@ describe("cel/decls_test.go/TestFunctionMerge", () => {
       }),
     ).toThrow(/already has a singleton binding/);
 
-    const specialized = functionDecl("size", {
+    const specialized = func("size", {
       overloads: [
         overload("size_int", [IntType], IntType, {
           unaryBinding: () => new Int(2n),
@@ -127,13 +127,13 @@ describe("cel/decls_test.go/TestSingletonFunctionBinding", () => {
       expr: string;
       out: unknown;
     }>("cel/decls_test.go/TestSingletonFunctionBinding");
-    const dynamic = functionDecl("dyn", {
+    const dynamic = func("dyn", {
       overloads: [overload("dyn", [DynType], DynType)],
       singletonBinding: {
         unary: (argument) => argument,
       },
     });
-    const max = functionDecl("max", {
+    const max = func("max", {
       overloads: [
         overload("max_int", [IntType], IntType),
         overload("max_int_int", [IntType, IntType], IntType),
@@ -158,7 +158,7 @@ describe("cel/decls_test.go/TestSingletonFunctionBinding", () => {
     const celEnv = env({
       functions: [dynamic, max],
       standardLibrary: false,
-      variables: [variableDecl("unk", DynType), variableDecl("err", DynType)],
+      variables: [variable("unk", DynType), variable("err", DynType)],
     });
 
     for (const testCase of cases) {
@@ -184,14 +184,14 @@ describe("cel/decls_test.go/TestFunctionBinding", () => {
       expr: string;
       out: unknown;
     }>("cel/decls_test.go/TestFunctionBinding");
-    const dynamic = functionDecl("dyn", {
+    const dynamic = func("dyn", {
       overloads: [
         overload("dyn", [DynType], DynType, {
           unaryBinding: (argument) => argument,
         }),
       ],
     });
-    const max = functionDecl("max", {
+    const max = func("max", {
       overloads: [
         overload("max_int", [IntType], IntType, {
           unaryBinding: (argument) => argument,
@@ -216,7 +216,7 @@ describe("cel/decls_test.go/TestFunctionBinding", () => {
     const celEnv = env({
       functions: [dynamic, max],
       standardLibrary: false,
-      variables: [variableDecl("unk", DynType), variableDecl("err", DynType)],
+      variables: [variable("unk", DynType), variable("err", DynType)],
     });
 
     for (const testCase of cases) {
@@ -238,10 +238,10 @@ describe("cel/decls_test.go/TestFunctionBinding", () => {
 
 describe("cel/decls_test.go/TestSingletonUnaryBinding", () => {
   it("merges a singleton unary definition with an earlier declaration", () => {
-    const declaration = functionDecl("id", {
+    const declaration = func("id", {
       overloads: [overload("id_any", [AnyType], AnyType)],
     });
-    const definition = functionDecl("id", {
+    const definition = func("id", {
       overloads: [overload("id_any", [AnyType], AnyType)],
       singletonBinding: {
         unary: (argument) => argument,
@@ -250,7 +250,7 @@ describe("cel/decls_test.go/TestSingletonUnaryBinding", () => {
     const celEnv = env({
       functions: [declaration, definition],
       standardLibrary: false,
-      variables: [variableDecl("x", AnyType)],
+      variables: [variable("x", AnyType)],
     });
 
     expect(celEnv.program(celEnv.parse("id(x)")).eval({ x: "hello" }).value()).toBe("hello");
@@ -259,10 +259,10 @@ describe("cel/decls_test.go/TestSingletonUnaryBinding", () => {
 
 describe("cel/decls_test.go/TestSingletonUnaryBindingParameterized", () => {
   it("dispatches a merged singleton across parameterized list overloads", () => {
-    const declaration = functionDecl("isSorted", {
+    const declaration = func("isSorted", {
       overloads: [memberOverload("list_int_is_sorted", [listType(IntType)], BoolType)],
     });
-    const definition = functionDecl("isSorted", {
+    const definition = func("isSorted", {
       overloads: [memberOverload("list_uint_is_sorted", [listType(UintType)], BoolType)],
       singletonBinding: {
         unary: () => True,
@@ -271,7 +271,7 @@ describe("cel/decls_test.go/TestSingletonUnaryBindingParameterized", () => {
     const celEnv = env({
       functions: [declaration, definition],
       standardLibrary: false,
-      variables: [variableDecl("x", AnyType)],
+      variables: [variable("x", AnyType)],
     });
 
     expect(
@@ -286,7 +286,7 @@ describe("cel/decls_test.go/TestSingletonUnaryBindingParameterized", () => {
 describe("cel/decls_test.go/TestSingletonBinaryBinding", () => {
   it("accepts a singleton binary implementation for binary overloads", () => {
     expect(() =>
-      functionDecl("right", {
+      func("right", {
         overloads: [
           overload("right_int_int", [IntType, IntType], IntType),
           overload("right_double_double", [DoubleType, DoubleType], DoubleType),
@@ -303,7 +303,7 @@ describe("cel/decls_test.go/TestSingletonBinaryBinding", () => {
 describe("cel/decls_test.go/TestUnaryBinding", () => {
   it("guards unary arity and propagates non-strict unknown values", () => {
     expect(() =>
-      functionDecl("dyn", {
+      func("dyn", {
         overloads: [
           overload("dyn", [], DynType, {
             unaryBinding: (argument) => argument,
@@ -312,7 +312,7 @@ describe("cel/decls_test.go/TestUnaryBinding", () => {
       }),
     ).toThrow(/non-unary overload/);
 
-    const size = functionDecl("size", {
+    const size = func("size", {
       overloads: [
         overload("size_non_strict", [listType(DynType)], IntType, {
           nonStrict: true,
@@ -330,7 +330,7 @@ describe("cel/decls_test.go/TestUnaryBinding", () => {
     const celEnv = env({
       functions: [size],
       standardLibrary: false,
-      variables: [variableDecl("x", listType(DynType))],
+      variables: [variable("x", listType(DynType))],
     });
     const result = celEnv.program(celEnv.compile("size(x)")).eval({ x: unknown(1) });
 
@@ -340,7 +340,7 @@ describe("cel/decls_test.go/TestUnaryBinding", () => {
 
 describe("cel/decls_test.go/TestBinaryBinding", () => {
   it("invokes a non-strict binary binding and rejects invalid arity", () => {
-    const max = functionDecl("max", {
+    const max = func("max", {
       overloads: [
         overload("max_int_int", [IntType, IntType], IntType, {
           nonStrict: true,
@@ -359,7 +359,7 @@ describe("cel/decls_test.go/TestBinaryBinding", () => {
     const celEnv = env({
       functions: [max],
       standardLibrary: false,
-      variables: [variableDecl("x", IntType), variableDecl("y", IntType)],
+      variables: [variable("x", IntType), variable("y", IntType)],
     });
     const program = celEnv.program(celEnv.parse("max(x, y)"));
 
@@ -368,7 +368,7 @@ describe("cel/decls_test.go/TestBinaryBinding", () => {
     expect(program.eval({ x: 2, y: 1 }).value()).toBe(2n);
 
     expect(() =>
-      functionDecl("right", {
+      func("right", {
         overloads: [
           overload("right_int_int", [IntType, IntType, IntType], IntType, {
             binaryBinding: (_left, right) => right,
@@ -381,7 +381,7 @@ describe("cel/decls_test.go/TestBinaryBinding", () => {
 
 describe("cel/decls_test.go/TestFunctionMergeDuplicate", () => {
   it("accepts duplicate equivalent overload declarations", () => {
-    const max = functionDecl("max", {
+    const max = func("max", {
       overloads: [overload("max_int", [IntType], IntType), overload("max_int", [IntType], IntType)],
     });
 
@@ -396,14 +396,14 @@ describe("cel/decls_test.go/TestFunctionMergeDuplicate", () => {
 
 describe("cel/decls_test.go/TestFunctionMergeDeclarationAndDefinition", () => {
   it("merges a declaration with its runtime definition", () => {
-    const declaration = functionDecl("id", {
+    const declaration = func("id", {
       overloads: [
         overload("id", [typeParamType("T")], typeParamType("T"), {
           nonStrict: true,
         }),
       ],
     });
-    const definition = functionDecl("id", {
+    const definition = func("id", {
       overloads: [
         overload("id", [typeParamType("T")], typeParamType("T"), {
           nonStrict: true,
@@ -414,7 +414,7 @@ describe("cel/decls_test.go/TestFunctionMergeDeclarationAndDefinition", () => {
     const celEnv = env({
       functions: [declaration, definition],
       standardLibrary: false,
-      variables: [variableDecl("x", AnyType)],
+      variables: [variable("x", AnyType)],
     });
 
     expect(celEnv.program(celEnv.compile("id(x)")).eval({ x: true }).value()).toBe(true);
@@ -424,7 +424,7 @@ describe("cel/decls_test.go/TestFunctionMergeDeclarationAndDefinition", () => {
 describe("cel/decls_test.go/TestFunctionMergeCollision", () => {
   it("rejects overloads with colliding signatures", () => {
     expect(() =>
-      functionDecl("max", {
+      func("max", {
         overloads: [
           overload("max_int", [IntType], IntType),
           overload("max_int2", [IntType], IntType),
@@ -437,7 +437,7 @@ describe("cel/decls_test.go/TestFunctionMergeCollision", () => {
 describe("cel/decls_test.go/TestFunctionNoOverloads", () => {
   it("rejects a function without overload declarations", () => {
     expect(() =>
-      functionDecl("right", {
+      func("right", {
         singletonBinding: {
           binary: (_left, right) => right,
         },
@@ -448,7 +448,7 @@ describe("cel/decls_test.go/TestFunctionNoOverloads", () => {
 
 describe("cel/decls_test.go/TestFunctionDisableDeclaration", () => {
   it("keeps the runtime binding while hiding the checker declaration", () => {
-    const disabled = functionDecl("disabled", {
+    const disabled = func("disabled", {
       disableDeclaration: true,
       overloads: [
         overload("disabled_any", [BoolType], BoolType, {
@@ -468,10 +468,10 @@ describe("cel/decls_test.go/TestFunctionDisableDeclaration", () => {
 
 describe("cel/decls_test.go/TestFunctionDisableDeclarationMerge", () => {
   it("allows a later definition to disable an earlier declaration", () => {
-    const declaration = functionDecl("disabled", {
+    const declaration = func("disabled", {
       overloads: [overload("disabled_any", [BoolType], BoolType)],
     });
-    const definition = functionDecl("disabled", {
+    const definition = func("disabled", {
       disableDeclaration: true,
       overloads: [
         overload("disabled_any", [BoolType], BoolType, {
@@ -491,11 +491,11 @@ describe("cel/decls_test.go/TestFunctionDisableDeclarationMerge", () => {
 
 describe("cel/decls_test.go/TestFunctionDisableDeclarationMergeReenable", () => {
   it("allows a later definition to re-enable a declaration", () => {
-    const declaration = functionDecl("enabled", {
+    const declaration = func("enabled", {
       disableDeclaration: true,
       overloads: [overload("enabled_any", [BoolType], BoolType)],
     });
-    const definition = functionDecl("enabled", {
+    const definition = func("enabled", {
       disableDeclaration: false,
       overloads: [
         overload("enabled_any", [BoolType], BoolType, {

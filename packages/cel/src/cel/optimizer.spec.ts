@@ -10,7 +10,7 @@ import {
   StringType,
   staticOptimizer,
   textSource,
-  variableDecl,
+  variable,
 } from "../index.js";
 import type { Macro } from "../parser/options.js";
 
@@ -95,9 +95,9 @@ function optimizerEnv(): Env {
     macros: { custom: [BindMacro] },
     parser: { populateMacroCalls: true },
     variables: [
-      variableDecl("a", mapType(StringType, StringType)),
-      variableDecl("x", mapType(StringType, StringType)),
-      variableDecl("y", mapType(StringType, StringType)),
+      variable("a", mapType(StringType, StringType)),
+      variable("x", mapType(StringType, StringType)),
+      variable("y", mapType(StringType, StringType)),
     ],
   });
 }

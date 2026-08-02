@@ -2,7 +2,7 @@ import { astOutputType, type Env } from "../cel/env.js";
 import { type ASTOptimizer, type OptimizerContext, staticOptimizer } from "../cel/optimizer.js";
 import type { AST } from "../common/ast/ast.js";
 import { type Expr, ExprKind, postOrderVisit } from "../common/ast/index.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { DynType, exprTypeToType, type Type } from "../common/types/types.js";
 import type { CompiledRule, CompiledVariable } from "./compiler.js";
 import { RelativeSource } from "./source.js";
@@ -121,7 +121,7 @@ class RuleCompositionOptimizer implements ASTOptimizer {
     // while keeping each compiled variable AST intact.
     for (const variableIndex of this.variableIndices) {
       context.extendEnv({
-        variables: [variableDecl(variableIndex.indexVariable, variableIndex.type)],
+        variables: [variable(variableIndex.indexVariable, variableIndex.type)],
       });
     }
     return context.ast(
@@ -338,7 +338,7 @@ class RuleUnnestOptimizer implements ASTOptimizer {
     for (const value of extracted) {
       variableExpressions.push(value.expression);
       context.extendEnv({
-        variables: [variableDecl(value.indexVariable, value.type)],
+        variables: [variable(value.indexVariable, value.type)],
       });
     }
     return context.ast(

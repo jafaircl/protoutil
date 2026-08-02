@@ -38,13 +38,13 @@ import {
 import { refValList } from "../common/types/list.js";
 import { refValMap } from "../common/types/map.js";
 import type { Constant } from "../gen/cel/expr/syntax_pb.js";
-import { activationNameAbsent, type Activation, type ActivationWrapper } from "./activation.js";
+import { type Activation, type ActivationWrapper, activationNameAbsent } from "./activation.js";
 import {
   type Attribute,
   type ConstantQualifier,
   type NamespacedAttribute,
-  qualifierAbsent,
   type Qualifier,
+  qualifierAbsent,
 } from "./attributes.js";
 import { ExecutionFrame, executionFrame } from "./frame.js";
 
@@ -900,11 +900,7 @@ class TestOnlyQualifier implements ConstantQualifier {
   /**
    * qualifyIfPresent always performs a presence-only qualification.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    _presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, _presenceOnly: boolean): unknown {
     return this.qualifierValue.qualifyIfPresent(vars, obj, true);
   }
 
@@ -1004,11 +1000,7 @@ export class AttrInterpretable implements InterpretableAttribute {
   /**
    * qualifyIfPresent delegates to the underlying attribute.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     return this.attrValue.qualifyIfPresent(vars, obj, presenceOnly);
   }
 
@@ -1099,11 +1091,7 @@ class CheckedIdentifierInterpretable implements InterpretableAttribute {
   }
 
   /** qualifyIfPresent preserves normal presence-test behavior. */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     return this.attrValue.qualifyIfPresent(vars, obj, presenceOnly);
   }
 
@@ -1192,11 +1180,7 @@ class TestOnlyInterpretable implements InterpretableAttribute {
   /**
    * qualifyIfPresent delegates to the wrapped attribute.
    */
-  public qualifyIfPresent(
-    vars: Activation,
-    obj: unknown,
-    presenceOnly: boolean,
-  ): unknown {
+  public qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown {
     return this.optionsValue.attr.qualifyIfPresent(vars, obj, presenceOnly);
   }
 

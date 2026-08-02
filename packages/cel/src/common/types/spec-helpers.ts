@@ -10,7 +10,7 @@ import {
   TestAllTypes_NestedMessageSchema,
   TestAllTypesSchema,
 } from "../../gen/test/proto3pb/test_all_types_pb.js";
-import { constantDecl, type VariableDecl, variableDecl } from "../decls.js";
+import { constant, type VariableDecl, variable } from "../decls.js";
 import {
   AnyType,
   attributeTrail,
@@ -179,14 +179,14 @@ export function resolveSyncedVariableDecl(
   }
   if (expr.startsWith("Variable(") && expr.endsWith(")")) {
     const [name, type] = splitArgs(expr.slice(9, -1));
-    return variableDecl(
+    return variable(
       stripQuoted(name),
       typeAliases[type] ?? (resolveSyncedExpr({ $expr: type }) as Type),
     );
   }
   if (expr.startsWith("Constant(") && expr.endsWith(")")) {
     const [name, type, valueExpr] = splitArgs(expr.slice(9, -1));
-    return constantDecl(
+    return constant(
       stripQuoted(name),
       resolveSyncedExpr({ $expr: type }) as Type,
       resolveSyncedVal({ $expr: valueExpr }),

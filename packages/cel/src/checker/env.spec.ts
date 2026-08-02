@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { container, defaultContainer } from "../common/containers.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import { textSource } from "../common/source.js";
 import { standardFunctions } from "../common/stdlib.js";
 import { BoolType, StringType } from "../common/types/index.js";
@@ -15,7 +15,7 @@ describe("checker/env", () => {
     const e = env(defaultContainer, registry());
     e.addFunctions(...standardFunctions());
     expect(() =>
-      e.addFunctions(functionDecl("has", { overloads: [overload("has", [StringType], BoolType)] })),
+      e.addFunctions(func("has", { overloads: [overload("has", [StringType], BoolType)] })),
     ).toThrow(/overlapping macro/);
   });
 

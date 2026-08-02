@@ -9,32 +9,52 @@ export {
 } from "./containers.js";
 export * from "./cost.js";
 export * from "./debug.js";
-export * from "./decls.js";
-export { overload as declOverload } from "./decls.js";
+export {
+  constant,
+  excludeOverloads,
+  FunctionDecl,
+  type FunctionDeclOptions,
+  type FunctionSubsetter,
+  func,
+  functionDeclToExprDecl,
+  includeOverloads,
+  maybeNoSuchOverload,
+  memberOverload,
+  OverloadDecl,
+  type OverloadDeclOptions,
+  type OverloadSelector,
+  overload,
+  type SingletonBinding,
+  typeVariable,
+  VariableDecl,
+  variable,
+  variableDeclToExprDecl,
+  variableWithDoc,
+} from "./decls.js";
 export * from "./doc.js";
 export * as env from "./env/index.js";
 export {
   type ConfigOptions,
   config,
-  contextVariable,
-  extension,
+  configContextVariable,
+  configExtension,
+  configFeature,
+  configFunc,
+  configImportType,
+  configLibrarySubset,
+  configLimit,
+  configOverload,
+  configTypeDesc,
+  configValidator,
+  configVariable,
   type FuncOptions,
   Function as EnvironmentFunction,
-  feature,
-  func,
-  importType,
   LibrarySubset,
   type LibrarySubsetOptions,
-  librarySubset,
-  limit,
   Overload as EnvironmentOverload,
   type OverloadOptions,
-  overload,
   type TypeDescOptions,
-  typeDesc,
   type VariableOptions,
-  validator,
-  variable,
 } from "./env/index.js";
 export { Error as CommonError, errorValue } from "./error.js";
 export { Errors, errorsValue, noLocation } from "./errors.js";

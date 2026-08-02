@@ -1,10 +1,5 @@
 import type { Container } from "../common/containers.js";
-import {
-  constantDecl,
-  type FunctionDecl,
-  type VariableDecl,
-  variableDecl,
-} from "../common/decls.js";
+import { constant, type FunctionDecl, type VariableDecl, variable } from "../common/decls.js";
 import * as overloads from "../common/overloads.js";
 import { isError } from "../common/types/err.js";
 import { IntType } from "../common/types/index.js";
@@ -155,11 +150,11 @@ export class Env {
     for (const candidate of this.container.resolveCandidateNames(name)) {
       const ident = this.provider.findIdent(candidate);
       if (ident && typeof ident === "object" && "kind" in ident) {
-        return variableDecl(candidate, typeTypeWithParam(ident as Type));
+        return variable(candidate, typeTypeWithParam(ident as Type));
       }
       const structType = this.provider.findStructType(candidate);
       if (structType) {
-        return variableDecl(candidate, structType);
+        return variable(candidate, structType);
       }
     }
     return undefined;
@@ -235,15 +230,15 @@ export class Env {
     }
     const foundIdent = this.provider.findIdent(candidate);
     if (foundIdent && typeof foundIdent === "object" && "kind" in foundIdent) {
-      return variableDecl(candidate, typeTypeWithParam(foundIdent as Type));
+      return variable(candidate, typeTypeWithParam(foundIdent as Type));
     }
     const structType = this.provider.findStructType(candidate);
     if (structType) {
-      return variableDecl(candidate, structType);
+      return variable(candidate, structType);
     }
     const enumValue = this.provider.enumValue(candidate);
     if (!isError(enumValue)) {
-      return constantDecl(
+      return constant(
         candidate,
         "kind" in (enumValue.type() as object) ? (enumValue.type() as Type) : IntType,
         enumValue,

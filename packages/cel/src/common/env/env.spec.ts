@@ -1,12 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import {
-  functionDecl,
-  memberOverload,
-  overload,
-  variableDecl,
-  variableDeclWithDoc,
-} from "../decls.js";
+import { func, memberOverload, overload, variable, variableWithDoc } from "../decls.js";
 import * as operators from "../operators.js";
 import { registry } from "../types/provider.js";
 import {
@@ -28,27 +22,27 @@ import {
   Config,
   ContextVariable,
   config,
+  configContextVariable,
+  configExtension,
+  configFeature,
   configFromYAML,
-  contextVariable,
+  configFunc,
+  configImportType,
+  configLibrarySubset,
+  configLimit,
+  configTypeDesc,
+  configValidator,
+  configVariable,
   Function as EnvFunction,
   Extension,
-  extension,
   Feature,
-  feature,
-  func,
   Import,
-  importType,
   LibrarySubset,
-  librarySubset,
-  limit,
   Overload,
-  overload as serialOverload,
+  configOverload as serialOverload,
   TypeDesc,
-  typeDesc,
   Validator,
   Variable,
-  validator,
-  variable,
 } from "./index.js";
 
 function loadFixture(name: string): string {
@@ -66,7 +60,7 @@ function testRegistry() {
 
 function expectFunctionEquivalent(
   actual: ReturnType<EnvFunction["asCELFunction"]>,
-  expected: ReturnType<typeof functionDecl>,
+  expected: ReturnType<typeof func>,
 ): void {
   expect(actual.name()).toBe(expected.name());
   expect(actual.overloadDecls().length).toBe(expected.overloadDecls().length);
@@ -84,30 +78,30 @@ function expectFunctionEquivalent(
 
 describe("functional environment configuration API", () => {
   it("creates serializable environment values from option objects", () => {
-    const stringType = typeDesc({ typeName: "string" });
+    const stringType = configTypeDesc({ typeName: "string" });
     const sizeOverload = serialOverload({
       id: "size_string",
       args: [stringType],
-      returnType: typeDesc({ typeName: "int" }),
+      returnType: configTypeDesc({ typeName: "int" }),
     });
-    const sizeFunction = func({
+    const sizeFunction = configFunc({
       name: "size",
       overloads: [sizeOverload],
     });
-    const subset = librarySubset({
+    const subset = configLibrarySubset({
       includeFunctions: [sizeFunction],
       includeMacros: ["has"],
     });
     const configured = config({
       name: "functional",
-      imports: [importType("google.protobuf.StringValue")],
+      imports: [configImportType("google.protobuf.StringValue")],
       stdlib: subset,
-      extensions: [extension("optional", "1")],
-      contextVariable: contextVariable("google.protobuf.StringValue"),
+      extensions: [configExtension("optional", "1")],
+      contextVariable: configContextVariable("google.protobuf.StringValue"),
       functions: [sizeFunction],
-      validators: [validator("cel.validator.duration")],
-      features: [feature("cel.feature.macro_call_tracking", true)],
-      limits: [limit("comprehension_nesting", 10)],
+      validators: [configValidator("cel.validator.duration")],
+      features: [configFeature("cel.feature.macro_call_tracking", true)],
+      limits: [configLimit("comprehension_nesting", 10)],
     });
 
     expect(configured.name).toBe("functional");
@@ -122,14 +116,14 @@ describe("functional environment configuration API", () => {
   });
 
   it("creates variables and member overloads from option objects", () => {
-    const stringType = typeDesc({ typeName: "string" });
+    const stringType = configTypeDesc({ typeName: "string" });
     const member = serialOverload({
       id: "string_size",
       target: stringType,
-      returnType: typeDesc({ typeName: "int" }),
+      returnType: configTypeDesc({ typeName: "int" }),
       examples: ["'hello'.size() // 5"],
     });
-    const declaredVariable = variable({
+    const declaredVariable = configVariable({
       name: "message",
       type: stringType,
       description: "A message to inspect.",
@@ -233,15 +227,11 @@ describe("common/env/env_test.go", () => {
   it("common/env/env_test.go/TestConfigAddVariableDecls", () => {
     const config = new Config("vars").addVariableDecls(
       undefined,
-      variableDecl("var", StringType),
-      variableDecl("listVar", listType(typeParamType("T"))),
-      variableDecl("setVar", opaqueType("bitvector")),
-      variableDecl("msg", objectType("google.type.Expr")),
-      variableDeclWithDoc(
-        "docVar",
-        objectType("google.type.Expr"),
-        "API-friendly CEL expression type",
-      ),
+      variable("var", StringType),
+      variable("listVar", listType(typeParamType("T"))),
+      variable("setVar", opaqueType("bitvector")),
+      variable("msg", objectType("google.type.Expr")),
+      variableWithDoc("docVar", objectType("google.type.Expr"), "API-friendly CEL expression type"),
     );
     expect(config.variables.map((entry) => entry.getType()?.specifierFormat())).toEqual([
       "string",
@@ -260,11 +250,11 @@ describe("common/env/env_test.go", () => {
   it("common/env/env_test.go/TestConfigAddFunctionDecls", () => {
     const config = new Config("funcs").addFunctionDecls(
       undefined,
-      functionDecl("size", { overloads: [overload("size_string", [StringType], IntType)] }),
-      functionDecl("size", {
+      func("size", { overloads: [overload("size_string", [StringType], IntType)] }),
+      func("size", {
         overloads: [overload("size_wrapper_string", [nullableType(StringType)], IntType)],
       }),
-      functionDecl("size", {
+      func("size", {
         overloads: [
           memberOverload("list_size", [listType(typeParamType("T"))], IntType),
           memberOverload("string_size", [StringType], IntType),
@@ -304,18 +294,18 @@ describe("common/env/env_test.go", () => {
 
   it("common/env/env_test.go/TestVariableAsCELVariable", () => {
     const tp = testRegistry();
-    const cases: Array<[Variable, ReturnType<typeof variableDecl> | string]> = [
-      [new Variable("t", new TypeDesc("type")), variableDecl("t", TypeType)],
+    const cases: Array<[Variable, ReturnType<typeof variable> | string]> = [
+      [new Variable("t", new TypeDesc("type")), variable("t", TypeType)],
       [
         new Variable("t", new TypeDesc("type", [new TypeDesc("T", [], true)])),
-        variableDecl("t", typeTypeWithParam(typeParamType("T"))),
+        variable("t", typeTypeWithParam(typeParamType("T"))),
       ],
-      [new Variable("int_var", new TypeDesc("int")), variableDecl("int_var", IntType)],
-      [new Variable("uint_var", new TypeDesc("uint")), variableDecl("uint_var", UintType)],
-      [new Variable("dyn_var", new TypeDesc("dyn")), variableDecl("dyn_var", DynType)],
+      [new Variable("int_var", new TypeDesc("int")), variable("int_var", IntType)],
+      [new Variable("uint_var", new TypeDesc("uint")), variable("uint_var", UintType)],
+      [new Variable("dyn_var", new TypeDesc("dyn")), variable("dyn_var", DynType)],
       [
         new Variable("list_var", new TypeDesc("list", [new TypeDesc("T", [], true)])),
-        variableDecl("list_var", listType(typeParamType("T"))),
+        variable("list_var", listType(typeParamType("T"))),
       ],
       [
         new Variable(
@@ -325,15 +315,15 @@ describe("common/env/env_test.go", () => {
             new TypeDesc("optional_type", [new TypeDesc("T", [], true)]),
           ]),
         ),
-        variableDecl("map_var", mapType(StringType, optionalType(typeParamType("T")))),
+        variable("map_var", mapType(StringType, optionalType(typeParamType("T")))),
       ],
       [
         new Variable("set_var", new TypeDesc("set", [new TypeDesc("string")])),
-        variableDecl("set_var", opaqueType("set", StringType)),
+        variable("set_var", opaqueType("set", StringType)),
       ],
       [
         new Variable("msg", new TypeDesc("google.protobuf.StringValue")),
-        variableDecl("msg", nullableType(StringType)),
+        variable("msg", nullableType(StringType)),
       ],
       [new Variable("bad", new TypeDesc("undefined")), "undefined type name"],
     ];
@@ -362,7 +352,7 @@ describe("common/env/env_test.go", () => {
     ]);
     expectFunctionEquivalent(
       simple.asCELFunction(tp),
-      functionDecl("size", { overloads: [overload("size_string", [StringType], IntType)] }),
+      func("size", { overloads: [overload("size_string", [StringType], IntType)] }),
     );
 
     const member = new EnvFunction("size", [
@@ -372,7 +362,7 @@ describe("common/env/env_test.go", () => {
     ]);
     expectFunctionEquivalent(
       member.asCELFunction(tp),
-      functionDecl("size", { overloads: [memberOverload("string_size", [StringType], IntType)] }),
+      func("size", { overloads: [memberOverload("string_size", [StringType], IntType)] }),
     );
 
     expect(() =>
@@ -410,7 +400,7 @@ describe("common/env/env_test.go", () => {
   });
 
   it("common/env/env_test.go/TestSubsetFunction", () => {
-    const orig = functionDecl("size", {
+    const orig = func("size", {
       overloads: [
         overload("size_string", [StringType], IntType),
         overload("size_list", [listType(typeParamType("T"))], IntType),

@@ -15,7 +15,7 @@ import {
 } from "../common/ast/index.js";
 import { toQualifiedName } from "../common/containers.js";
 import type { FunctionDecl } from "../common/decls.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { type Errors, errorsValue } from "../common/errors.js";
 import { SourceLocation } from "../common/location.js";
 import type { Source } from "../common/source.js";
@@ -646,7 +646,7 @@ class checker {
     const accuType = this.getType(comp.accuInit());
 
     this.env = this.env.enterScope();
-    this.env.addIdents(variableDecl(comp.accuVar(), accuType));
+    this.env.addIdents(variable(comp.accuVar(), accuType));
 
     let varType: Type;
     let var2Type: Type | undefined;
@@ -687,9 +687,9 @@ class checker {
     }
 
     this.env = this.env.enterScope();
-    this.env.addIdents(variableDecl(comp.iterVar(), varType));
+    this.env.addIdents(variable(comp.iterVar(), varType));
     if (comp.iterVar2() !== "" && var2Type) {
-      this.env.addIdents(variableDecl(comp.iterVar2(), var2Type));
+      this.env.addIdents(variable(comp.iterVar2(), var2Type));
     }
 
     this.check(comp.loopCondition());

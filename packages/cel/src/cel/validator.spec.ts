@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { Config, Validator as ConfigValidator } from "../common/env/env.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { StringType } from "../common/types/types.js";
@@ -55,7 +55,7 @@ describe("cel/validator_test.go/TestValidateDurationLiterals", () => {
     expectValidationCases({
       cases: syncedCases("cel/validator_test.go/TestValidateDurationLiterals"),
       environment: env({
-        variables: [variableDecl("x", StringType)],
+        variables: [variable("x", StringType)],
         validators: [validateDurationLiterals()],
       }),
     });
@@ -67,7 +67,7 @@ describe("cel/validator_test.go/TestValidateTimestampLiterals", () => {
     expectValidationCases({
       cases: syncedCases("cel/validator_test.go/TestValidateTimestampLiterals"),
       environment: env({
-        variables: [variableDecl("x", StringType)],
+        variables: [variable("x", StringType)],
         validators: [validateTimestampLiterals()],
       }),
     });
@@ -79,7 +79,7 @@ describe("cel/validator_test.go/TestValidateRegexLiterals", () => {
     expectValidationCases({
       cases: syncedCases("cel/validator_test.go/TestValidateRegexLiterals"),
       environment: env({
-        variables: [variableDecl("x", StringType)],
+        variables: [variable("x", StringType)],
         validators: [validateRegexLiterals()],
       }),
     });
@@ -91,7 +91,7 @@ describe("cel/validator_test.go/TestValidateRegexProgramSizeLimit", () => {
     expectValidationCases({
       cases: syncedCases("cel/validator_test.go/TestValidateRegexProgramSizeLimit"),
       environment: env({
-        variables: [variableDecl("x", StringType)],
+        variables: [variable("x", StringType)],
         validators: [validateRegexProgramSizeLimit(5)],
       }),
     });
@@ -103,7 +103,7 @@ describe("cel/validator_test.go/TestValidateHomogeneousAggregateLiterals", () =>
     expectValidationCases({
       cases: syncedCases("cel/validator_test.go/TestValidateHomogeneousAggregateLiterals"),
       environment: env({
-        variables: [variableDecl("name", StringType)],
+        variables: [variable("name", StringType)],
         libraries: [optionalTypes()],
         validators: [validateHomogeneousAggregateLiterals()],
       }),
@@ -127,7 +127,7 @@ describe("cel/validator_test.go/TestExtendedValidations", () => {
     expectValidationCases({
       cases: syncedCases("cel/validator_test.go/TestExtendedValidations"),
       environment: env({
-        variables: [variableDecl("x", StringType)],
+        variables: [variable("x", StringType)],
         validators: extendedValidations(),
       }),
     });

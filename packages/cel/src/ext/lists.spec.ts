@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { container } from "../common/containers.js";
-import { variableDecl } from "../common/decls.js";
+import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { registry } from "../common/types/provider.js";
 import { DynType, IntType, listType, mapType, StringType } from "../common/types/types.js";
@@ -134,7 +134,7 @@ describe("ext/lists_test.go/TestGenRangeMaxSize", () => {
 /** listsEnv creates the shared CEL-Go list extension environment. */
 function listsEnv(
   options: { maxRangeSize?: number; version?: number } = {},
-  variables: ReturnType<typeof variableDecl>[] = [],
+  variables: ReturnType<typeof variable>[] = [],
 ) {
   const typeRegistry = registry();
   typeRegistry.registerDescriptor(file_test_proto2pb_test_all_types);
@@ -155,19 +155,19 @@ function resolveVariable(expression: string) {
   }
   const typeExpression = match[2]!;
   if (typeExpression === "IntType") {
-    return variableDecl(match[1]!, IntType);
+    return variable(match[1]!, IntType);
   }
   if (typeExpression === "ListType(cel.IntType)") {
-    return variableDecl(match[1]!, listType(IntType));
+    return variable(match[1]!, listType(IntType));
   }
   if (typeExpression === "ListType(cel.StringType)") {
-    return variableDecl(match[1]!, listType(StringType));
+    return variable(match[1]!, listType(StringType));
   }
   if (typeExpression === "ListType(cel.DynType)") {
-    return variableDecl(match[1]!, listType(DynType));
+    return variable(match[1]!, listType(DynType));
   }
   if (typeExpression === "ListType(cel.MapType(cel.StringType, cel.StringType))") {
-    return variableDecl(match[1]!, listType(mapType(StringType, StringType)));
+    return variable(match[1]!, listType(mapType(StringType, StringType)));
   }
   throw new Error(`unsupported synchronized variable type: ${typeExpression}`);
 }

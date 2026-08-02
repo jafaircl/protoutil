@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import * as checkerDecls from "../checker/decls.js";
 import {
-  constantDecl,
+  constant,
   excludeOverloads,
   type FunctionDecl,
-  functionDecl,
+  func,
   functionDeclToExprDecl,
   includeOverloads,
   maybeNoSuchOverload,
@@ -12,9 +12,9 @@ import {
   overload,
   typeVariable,
   type VariableDecl,
-  variableDecl,
+  variable,
   variableDeclToExprDecl,
-  variableDeclWithDoc,
+  variableWithDoc,
 } from "./decls.js";
 import { DocKind } from "./doc.js";
 import * as operators from "./operators.js";
@@ -69,12 +69,12 @@ type SyncedFunctionDocumentationRow = {
 
 describe("common/decls/decls_test.go", () => {
   it("common/decls/decls_test.go/TestFunctionBindings", () => {
-    const sizeFunc = functionDecl("size", {
+    const sizeFunc = func("size", {
       overloads: [memberOverload("list_size", [listType(typeParamType("T"))], IntType)],
     });
     expect(sizeFunc.bindings()).toHaveLength(0);
 
-    const sizeFuncDef = functionDecl("size", {
+    const sizeFuncDef = func("size", {
       overloads: [
         memberOverload("list_size", [listType(typeParamType("T"))], IntType, {
           unaryBinding: (list) => (list as unknown as { size: () => Val }).size(),
@@ -99,7 +99,7 @@ describe("common/decls/decls_test.go", () => {
       DefaultTypeAdapter.nativeToValue(
         value.split(delim).slice(0, count < 0n ? undefined : Number(count)),
       );
-    const splitFunc = functionDecl("split", {
+    const splitFunc = func("split", {
       overloads: [
         memberOverload("string_split", [StringType], listType(StringType), {
           unaryBinding: (str) => splitImpl((str as CelString).value(), "", -1n),
@@ -153,7 +153,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestFunctionZeroArityBinding", () => {
     const now = DefaultTypeAdapter.nativeToValue(new Date(1000));
-    const nowFunc = functionDecl("now", {
+    const nowFunc = func("now", {
       overloads: [
         overload("now", [], TimestampType, {
           functionBinding: (..._args: Val[]) => now,
@@ -169,7 +169,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionSingletonBinding", () => {
-    const size = functionDecl("size", {
+    const size = func("size", {
       disableTypeGuards: true,
       overloads: [
         overload("size_map", [mapType(typeParamType("K"), typeParamType("V"))], IntType),
@@ -195,7 +195,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestVariableDocumentation", () => {
-    const variable = variableDeclWithDoc("var", StringType, "string variable");
+    const variable = variableWithDoc("var", StringType, "string variable");
     const doc = variable.documentation();
     expect(doc.description).toBe(variable.description());
     expect(doc.name).toBe(variable.name());
@@ -221,7 +221,7 @@ describe("common/decls/decls_test.go", () => {
   }
 
   it("common/decls/decls_test.go/TestFunctionMerge", () => {
-    const sizeFunc = functionDecl("size", {
+    const sizeFunc = func("size", {
       doc: "compute the number of entries in a list or map",
       overloads: [
         memberOverload("list_size", [listType(typeParamType("T"))], IntType),
@@ -230,7 +230,7 @@ describe("common/decls/decls_test.go", () => {
     });
     expect(sizeFunc.merge(sizeFunc)).toBe(sizeFunc);
 
-    const sizeVecFunc = functionDecl("size", {
+    const sizeVecFunc = func("size", {
       overloads: [
         memberOverload("vector_size", [opaqueType("vector", typeParamType("T"))], IntType),
       ],
@@ -246,10 +246,10 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionMergeWrongName", () => {
-    const sizeFunc = functionDecl("size", {
+    const sizeFunc = func("size", {
       overloads: [memberOverload("list_size", [listType(typeParamType("T"))], IntType)],
     });
-    const sizeVecFunc = functionDecl("sizeN", {
+    const sizeVecFunc = func("sizeN", {
       overloads: [
         memberOverload("vector_size", [opaqueType("vector", typeParamType("T"))], IntType),
       ],
@@ -258,41 +258,41 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionMergeOverloadCollision", () => {
-    const sizeFunc = functionDecl("size", {
+    const sizeFunc = func("size", {
       overloads: [memberOverload("list_size", [listType(typeParamType("T"))], IntType)],
     });
-    const sizeVecFunc = functionDecl("size", {
+    const sizeVecFunc = func("size", {
       overloads: [memberOverload("list_size2", [listType(typeParamType("K"))], IntType)],
     });
     expect(() => sizeFunc.merge(sizeVecFunc)).toThrow(/declaration merge failed/);
   });
 
   it("common/decls/decls_test.go/TestFunctionMergeOverloadArgCountRedefinition", () => {
-    const sizeFunc = functionDecl("size", {
+    const sizeFunc = func("size", {
       overloads: [memberOverload("list_size", [listType(typeParamType("T"))], IntType)],
     });
-    const sizeVecFunc = functionDecl("size", {
+    const sizeVecFunc = func("size", {
       overloads: [memberOverload("list_size", [listType(typeParamType("T")), IntType], IntType)],
     });
     expect(() => sizeFunc.merge(sizeVecFunc)).toThrow(/redefinition/);
   });
 
   it("common/decls/decls_test.go/TestFunctionMergeOverloadArgTypeRedefinition", () => {
-    const sizeFunc = functionDecl("size", {
+    const sizeFunc = func("size", {
       overloads: [memberOverload("arg_size", [listType(typeParamType("T"))], IntType)],
     });
-    const sizeVecFunc = functionDecl("size", {
+    const sizeVecFunc = func("size", {
       overloads: [memberOverload("arg_size", [mapType(IntType, StringType)], IntType)],
     });
     expect(() => sizeFunc.merge(sizeVecFunc)).toThrow(/redefinition/);
   });
 
   it("common/decls/decls_test.go/TestFunctionMergeSingletonRedefinition", () => {
-    const sizeFunc = functionDecl("size", {
+    const sizeFunc = func("size", {
       overloads: [memberOverload("list_size", [listType(typeParamType("T"))], IntType)],
       singletonBinding: { unary: () => IntZero },
     });
-    const sizeVecFunc = functionDecl("size", {
+    const sizeVecFunc = func("size", {
       overloads: [memberOverload("string_size", [StringType], IntType)],
       singletonBinding: { unary: () => IntZero },
     });
@@ -301,7 +301,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestFunctionAddDuplicateOverloads", () => {
     expect(() =>
-      functionDecl("max", {
+      func("max", {
         overloads: [
           overload("max_int", [IntType], IntType),
           overload("max_int", [IntType], IntType),
@@ -311,7 +311,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionAddDuplicateOverloadsPreservesBinding", () => {
-    const fn = functionDecl("max", {
+    const fn = func("max", {
       overloads: [
         overload("max_int", [IntType], IntType),
         overload("max_int", [IntType], IntType, {
@@ -327,7 +327,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestFunctionAddCollidingOverloads", () => {
     expect(() =>
-      functionDecl("max", {
+      func("max", {
         overloads: [
           overload("max_int", [IntType], IntType),
           overload("max_int2", [IntType], IntType),
@@ -338,14 +338,14 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestFunctionNoOverloads", () => {
     expect(() =>
-      functionDecl("right", {
+      func("right", {
         singletonBinding: { binary: (_arg1, arg2) => arg2 },
       }),
     ).toThrow(/must have at least one overload/);
   });
 
   it("common/decls/decls_test.go/TestSingletonOverloadCollision", () => {
-    const fn = functionDecl("id", {
+    const fn = func("id", {
       overloads: [
         overload("id_any", [AnyType], AnyType, {
           unaryBinding: (arg) => arg,
@@ -357,7 +357,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestSingletonOverloadLateBindingCollision", () => {
-    const fn = functionDecl("id", {
+    const fn = func("id", {
       overloads: [overload("id_any", [AnyType], AnyType, { lateBinding: true })],
       singletonBinding: { unary: (arg) => arg },
     });
@@ -366,7 +366,7 @@ describe("common/decls/decls_test.go", () => {
 
   describe("common/decls/decls_test.go/TestAsyncBinding", () => {
     it("creates a late-bound asynchronous overload", async () => {
-      const declaration = functionDecl("async_fn", {
+      const declaration = func("async_fn", {
         overloads: [
           overload("async_fn_int", [IntType], IntType, {
             asyncBinding: async (_signal, argument) => argument!,
@@ -383,7 +383,7 @@ describe("common/decls/decls_test.go", () => {
 
   describe("common/decls/decls_test.go/TestAsyncBindingTypeGuards", () => {
     it("guards asynchronous overload argument types", async () => {
-      const declaration = functionDecl("async_fn", {
+      const declaration = func("async_fn", {
         overloads: [
           overload("async_fn_int", [IntType], IntType, {
             asyncBinding: async (_signal, argument) => argument!,
@@ -400,7 +400,7 @@ describe("common/decls/decls_test.go", () => {
 
   describe("common/decls/decls_test.go/TestSingletonAsyncBinding", () => {
     it("creates one async binding for every declaration", async () => {
-      const declaration = functionDecl("async_fn", {
+      const declaration = func("async_fn", {
         overloads: [
           overload("async_fn_int", [IntType], IntType),
           overload("async_fn_string", [StringType], StringType),
@@ -434,7 +434,7 @@ describe("common/decls/decls_test.go", () => {
   describe("common/decls/decls_test.go/TestSingletonAsyncBindingRedefinition", () => {
     it("rejects mixed singleton implementations", () => {
       expect(() =>
-        functionDecl("async_fn", {
+        func("async_fn", {
           overloads: [overload("async_fn_int", [IntType], IntType)],
           singletonBinding: {
             async: async (_signal, argument) => argument!,
@@ -447,7 +447,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestSingletonUnaryBindingRedefinition", () => {
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [overload("id_any", [AnyType], AnyType)],
         singletonBinding: {
           unary: (arg) => arg,
@@ -459,7 +459,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestSingletonBinaryBindingRedefinition", () => {
     expect(() =>
-      functionDecl("right", {
+      func("right", {
         overloads: [overload("right_double_double", [IntType, IntType], IntType)],
         singletonBinding: {
           binary: (_arg1, arg2) => arg2,
@@ -472,7 +472,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestSingletonFunctionBindingRedefinition", () => {
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [overload("id_any", [AnyType], AnyType)],
         singletonBinding: {
           func: (...args) => args[0]!,
@@ -485,7 +485,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestOverloadUnaryBindingRedefinition", () => {
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [
           overload("id_any", [AnyType], AnyType, {
             unaryBinding: (arg) => arg,
@@ -498,7 +498,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestOverloadUnaryBindingArgCountMismatch", () => {
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [
           overload("id_any", [], AnyType, {
             unaryBinding: (arg) => arg,
@@ -510,7 +510,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestOverloadBinaryBindingArgCountMismatch", () => {
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [
           overload("id_any", [], AnyType, {
             binaryBinding: (lhs) => lhs,
@@ -522,7 +522,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestOverloadBinaryBindingRedefinition", () => {
     expect(() =>
-      functionDecl("right", {
+      func("right", {
         overloads: [
           overload("right_double_double", [IntType, IntType], IntType, {
             binaryBinding: (_arg1, arg2) => arg2,
@@ -535,7 +535,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestOverloadFunctionBindingRedefinition", () => {
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [
           overload("id_any", [AnyType], AnyType, {
             functionBinding: (...args) => args[0]!,
@@ -547,7 +547,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestOverloadFunctionLateBinding", () => {
-    const fn = functionDecl("id", {
+    const fn = func("id", {
       overloads: [
         overload("id_bool", [BoolType], AnyType, {
           lateBinding: true,
@@ -560,7 +560,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestOverloadFunctionMixLateAndNonLateBinding", () => {
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [
           overload("id_bool", [BoolType], AnyType, { lateBinding: true }),
           overload("id_int", [IntType], AnyType),
@@ -580,7 +580,7 @@ describe("common/decls/decls_test.go", () => {
 
   it("common/decls/decls_test.go/TestOverloadFunctionLateBindingWithBinding", () => {
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [
           overload("id_bool", [BoolType], AnyType, {
             lateBinding: true,
@@ -591,7 +591,7 @@ describe("common/decls/decls_test.go", () => {
     ).toThrow(/already has a late binding/);
 
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [
           overload("id_bool", [BoolType], AnyType, {
             lateBinding: true,
@@ -602,7 +602,7 @@ describe("common/decls/decls_test.go", () => {
     ).toThrow(/already has a late binding/);
 
     expect(() =>
-      functionDecl("id", {
+      func("id", {
         overloads: [
           overload("id_bool", [BoolType, BoolType], AnyType, {
             lateBinding: true,
@@ -614,7 +614,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestOverloadIsNonStrict", () => {
-    const fn = functionDecl("getOrDefault", {
+    const fn = func("getOrDefault", {
       overloads: [
         memberOverload(
           "get",
@@ -656,7 +656,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestOverloadOperandTrait", () => {
-    const fn = functionDecl("getOrDefault", {
+    const fn = func("getOrDefault", {
       overloads: [
         memberOverload(
           "get",
@@ -693,7 +693,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionGetTypeParams", () => {
-    const fn = functionDecl("deep_type_params", {
+    const fn = func("deep_type_params", {
       overloads: [
         overload("no_type_params", [], DynType),
         overload("one_type_param", [BoolType], typeParamType("K")),
@@ -711,7 +711,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionDisableDeclaration", () => {
-    const fn = functionDecl("in", {
+    const fn = func("in", {
       disableDeclaration: true,
       overloads: [
         overload("in_list", [listType(typeParamType("K")), typeParamType("K")], BoolType),
@@ -721,14 +721,14 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionEnableDeclaration", () => {
-    const fn = functionDecl("in", {
+    const fn = func("in", {
       disableDeclaration: false,
       overloads: [
         overload("in_list", [listType(typeParamType("K")), typeParamType("K")], BoolType),
       ],
     });
     expect(fn.isDeclarationDisabled()).toBe(false);
-    const fn2 = functionDecl("in", {
+    const fn2 = func("in", {
       disableDeclaration: true,
       overloads: [
         overload("in_list", [listType(typeParamType("K")), typeParamType("K")], BoolType),
@@ -740,7 +740,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionDeclIncludeOverloads", () => {
-    const fn = functionDecl("equals", {
+    const fn = func("equals", {
       overloads: [
         overload("int_equals_uint", [IntType, UintType], BoolType),
         overload("uint_equals_int", [UintType, IntType], BoolType),
@@ -751,7 +751,7 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestFunctionDeclExcludeOverloads", () => {
-    const fn = functionDecl("equals", {
+    const fn = func("equals", {
       overloads: [
         overload("int_equals_uint", [IntType, UintType], BoolType),
         overload("uint_equals_int", [UintType, IntType], BoolType),
@@ -773,29 +773,29 @@ describe("common/decls/decls_test.go", () => {
   }
 
   it("common/decls/decls_test.go/TestNewVariable", () => {
-    const a = variableDecl("a", BoolType);
+    const a = variable("a", BoolType);
     expect(a.declarationIsEquivalent(a)).toBe(true);
-    expect(a.declarationIsEquivalent(variableDecl("a", BoolType))).toBe(true);
-    expect(a.declarationIsEquivalent(variableDecl("a", IntType))).toBe(false);
+    expect(a.declarationIsEquivalent(variable("a", BoolType))).toBe(true);
+    expect(a.declarationIsEquivalent(variable("a", IntType))).toBe(false);
   });
 
   it("common/decls/decls_test.go/TestNewConstant", () => {
-    const a = constantDecl("a", IntType, new Int(42n));
+    const a = constant("a", IntType, new Int(42n));
     expect(a.declarationIsEquivalent(a)).toBe(true);
-    expect(a.declarationIsEquivalent(variableDecl("a", IntType))).toBe(true);
+    expect(a.declarationIsEquivalent(variable("a", IntType))).toBe(true);
   });
 
   it("common/decls/decls_test.go/TestTypeVariable", () => {
     const cases: Array<[Type, VariableDecl]> = [
-      [AnyType, variableDecl("google.protobuf.Any", typeTypeWithParam(AnyType))],
-      [DynType, variableDecl("dyn", typeTypeWithParam(DynType))],
+      [AnyType, variable("google.protobuf.Any", typeTypeWithParam(AnyType))],
+      [DynType, variable("dyn", typeTypeWithParam(DynType))],
       [
         objectType("google.protobuf.Int32Value"),
-        variableDecl("int", typeTypeWithParam(nullableType(IntType))),
+        variable("int", typeTypeWithParam(nullableType(IntType))),
       ],
       [
         objectType("google.protobuf.Int32Value"),
-        variableDecl("int", typeTypeWithParam(nullableType(IntType))),
+        variable("int", typeTypeWithParam(nullableType(IntType))),
       ],
     ];
     for (const [type, expected] of cases) {
@@ -804,16 +804,16 @@ describe("common/decls/decls_test.go", () => {
   });
 
   it("common/decls/decls_test.go/TestVariableDeclToExprDecl", () => {
-    expect(variableDeclToExprDecl(variableDecl("a", BoolType))).toEqual(
+    expect(variableDeclToExprDecl(variable("a", BoolType))).toEqual(
       checkerDecls.varDecl("a", checkerDecls.Bool),
     );
-    expect(variableDeclToExprDecl(variableDeclWithDoc("a", BoolType, "doc"))).toEqual(
+    expect(variableDeclToExprDecl(variableWithDoc("a", BoolType, "doc"))).toEqual(
       checkerDecls.varDeclWithDoc("a", checkerDecls.Bool, "doc"),
     );
   });
 
   it("common/decls/decls_test.go/TestVariableDeclToExprDeclInvalid", () => {
-    expect(() => variableDeclToExprDecl(variableDecl("bad", {} as Type))).toThrow();
+    expect(() => variableDeclToExprDecl(variable("bad", {} as Type))).toThrow();
   });
 
   it("common/decls/decls_test.go/TestMaybeNoSuchOverload", () => {
@@ -835,7 +835,7 @@ describe("common/decls/decls_test.go", () => {
 function functionDocumentationCase(name: string): FunctionDecl {
   switch (name) {
     case "function":
-      return functionDecl("size", {
+      return func("size", {
         doc: "compute the number of entries in a list or map",
         overloads: [
           memberOverload("list_size", [listType(typeParamType("T"))], IntType, {
@@ -847,7 +847,7 @@ function functionDocumentationCase(name: string): FunctionDecl {
         ],
       });
     case "type":
-      return functionDecl(commonOverloads.TypeConvertType, {
+      return func(commonOverloads.TypeConvertType, {
         overloads: [
           overload(
             commonOverloads.TypeConvertType,
@@ -860,7 +860,7 @@ function functionDocumentationCase(name: string): FunctionDecl {
         ],
       });
     case "unary operator":
-      return functionDecl(operators.Negate, {
+      return func(operators.Negate, {
         doc: "negate a numeric value",
         overloads: [
           overload(commonOverloads.NegateInt64, [IntType], IntType, {
@@ -869,7 +869,7 @@ function functionDocumentationCase(name: string): FunctionDecl {
         ],
       });
     case "binary operator":
-      return functionDecl(operators.Add, {
+      return func(operators.Add, {
         doc: "add two numeric values",
         overloads: [
           overload(commonOverloads.AddInt64, [IntType, IntType], IntType, {
@@ -878,7 +878,7 @@ function functionDocumentationCase(name: string): FunctionDecl {
         ],
       });
     case "index operator":
-      return functionDecl(operators.Index, {
+      return func(operators.Index, {
         doc: "access a list by numeric index, zero-based",
         overloads: [
           overload(
@@ -892,7 +892,7 @@ function functionDocumentationCase(name: string): FunctionDecl {
         ],
       });
     case "conditional":
-      return functionDecl(operators.Conditional, {
+      return func(operators.Conditional, {
         doc: "ternary operator",
         overloads: [
           overload(
@@ -913,27 +913,27 @@ function functionDocumentationCase(name: string): FunctionDecl {
 function functionDeclToExprDeclCase(index: number): FunctionDecl {
   switch (index) {
     case 0:
-      return functionDecl("equals", {
+      return func("equals", {
         overloads: [
           overload("equals_value_value", [typeParamType("T"), typeParamType("T")], BoolType),
         ],
       });
     case 1:
-      return functionDecl("equals", {
+      return func("equals", {
         overloads: [
           memberOverload("value_equals_value", [typeParamType("T"), typeParamType("T")], BoolType),
         ],
       });
     case 2:
-      return functionDecl("equals", {
+      return func("equals", {
         overloads: [overload("equals_int_uint", [IntType, UintType], BoolType)],
       });
     case 3:
-      return functionDecl("equals", {
+      return func("equals", {
         overloads: [memberOverload("int_equals_uint", [IntType, UintType], BoolType)],
       });
     case 4:
-      return functionDecl("equals", {
+      return func("equals", {
         overloads: [
           memberOverload(
             "list_optional_value_equals_list_optional_value",
@@ -946,14 +946,14 @@ function functionDeclToExprDeclCase(index: number): FunctionDecl {
         ],
       });
     case 5:
-      return functionDecl("equals", {
+      return func("equals", {
         overloads: [
           memberOverload("int_equals_uint", [IntType, UintType], BoolType),
           memberOverload("uint_equals_int", [UintType, IntType], BoolType),
         ],
       });
     case 6: {
-      const left = functionDecl("equals", {
+      const left = func("equals", {
         doc: "test equality between an int and uint only",
         overloads: [
           overload("int_equals_uint", [IntType, UintType], BoolType, {
@@ -964,7 +964,7 @@ function functionDeclToExprDeclCase(index: number): FunctionDecl {
           }),
         ],
       });
-      const right = functionDecl("equals", {
+      const right = func("equals", {
         doc: "test equality between two int-like values",
         overloads: [
           overload("int_equals_int", [IntType, IntType], BoolType, {

@@ -1,10 +1,10 @@
 import type { LibraryAliaser, LibraryVersioner, SingletonLibrary } from "../cel/library.js";
 import type { Expr } from "../common/ast/index.js";
 import { ExprKind } from "../common/ast/index.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import type { Val } from "../common/types/ref/index.js";
 import { DynType, listType, typeParamType } from "../common/types/types.js";
-import { activationNameAbsent, type Activation } from "../interpreter/activation.js";
+import { type Activation, activationNameAbsent } from "../interpreter/activation.js";
 import { type ExecutionFrame, executionFrame } from "../interpreter/frame.js";
 import type {
   InterpretableCall,
@@ -53,7 +53,7 @@ export function bindings(options: BindingsOptions = {}): BindingsLibrary {
       functions:
         version >= 1
           ? [
-              functionDecl("cel.@block", {
+              func("cel.@block", {
                 overloads: [
                   overload("cel_block_list", [listType(DynType), resultType], resultType),
                 ],

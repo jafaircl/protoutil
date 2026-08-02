@@ -1,7 +1,7 @@
 import type { LibraryAliaser, LibraryVersioner, SingletonLibrary } from "../cel/library.js";
 import type { Expr } from "../common/ast/index.js";
 import { ExprKind } from "../common/ast/index.js";
-import { functionDecl, overload } from "../common/decls.js";
+import { func, overload } from "../common/decls.js";
 import * as operators from "../common/operators.js";
 import { True } from "../common/types/bool.js";
 import { isError } from "../common/types/err.js";
@@ -51,7 +51,7 @@ export function twoVarComprehensions(
     libraryVersion: version,
     compileOptions: {
       functions: [
-        functionDecl(mapInsert, {
+        func(mapInsert, {
           overloads: [
             overload(mapInsertOverloadKeyValue, [genericMap, keyType, valueType], genericMap, {
               functionBinding: insertKeyValue,
