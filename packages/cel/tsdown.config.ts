@@ -9,6 +9,7 @@ export default defineConfig({
     "src/parser/index.ts",
     "src/parser/macro.ts",
     "src/checker/index.ts",
+    "src/interpreter/index.ts",
     "src/ext/index.ts",
     "src/policy/index.ts",
     "src/gen/cel/expr/**/*.ts",

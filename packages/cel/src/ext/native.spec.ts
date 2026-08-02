@@ -202,6 +202,19 @@ describe("ext/native_test.go/TestNativeTypeValue", () => {
   });
 });
 
+describe("TypeScript extension/TestNativeTypeWrapperCache", () => {
+  it("reuses a live wrapper for the same registered native object", () => {
+    const input = { $celTypeName: "ext.TestAllTypes", boolVal: true };
+    const typeRegistry = nativeRegistry();
+    const first = typeRegistry.nativeToValue(input);
+    const second = typeRegistry.nativeToValue(input);
+
+    expect(second).toBe(first);
+    input.boolVal = false;
+    expect(first.value()).toBe(input);
+  });
+});
+
 describe("ext/native_test.go/TestNativeStructWithMultipleSameFieldNames", () => {
   it("keeps identically named fields isolated by native type", () => {
     const celEnv = nativeEnv();

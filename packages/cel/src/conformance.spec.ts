@@ -786,12 +786,15 @@ describe("conformance/conformance_test.go/TestConformance", () => {
     const failures = results
       .filter((result) => result.failure !== undefined)
       .map((result) => `${result.execution.name}: ${result.failure}`);
+    const conformant = results.filter((result) => result.failure === undefined).length;
     const report = markdownReport(results, skipped);
 
     writeFileSync(reportPath, report);
 
     expect(executions.length).toBeGreaterThan(0);
-    expect(Object.keys(skipped).length).toBeGreaterThan(0);
+    expect(conformant).toBe(results.length);
+    expect(skippedConformanceTests.size).toBe(3);
+    expect(Object.keys(skipped).sort()).toEqual([...skippedConformanceTests.keys()].sort());
     expect(readFileSync(reportPath, "utf8")).toBe(report);
     expect(failures).toEqual([]);
   }, 15_000);

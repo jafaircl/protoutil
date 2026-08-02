@@ -1,4 +1,5 @@
 export * from "./activation.js";
+export * from "./attribute-accessor.js";
 export * from "./attribute-patterns.js";
 export * from "./attributes.js";
 export * from "./decorators.js";

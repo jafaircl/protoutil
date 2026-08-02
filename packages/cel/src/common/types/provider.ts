@@ -40,13 +40,7 @@ import { Duration, durationOf } from "./duration.js";
 import { Err, err, unsupportedRefValConversionErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
 import { dynamicList, jsonListValue } from "./list.js";
-import {
-  dynamicMap,
-  jsonStructMap,
-  refValMap,
-  stringInterfaceMap,
-  stringStringMap,
-} from "./map.js";
+import { dynamicMap, jsonStructMap, refValMap, stringInterfaceMap } from "./map.js";
 import { Float32NativeType, Int32NativeType, Uint32NativeType } from "./native.js";
 import { NullValue } from "./null.js";
 import { object } from "./object.js";
@@ -155,6 +149,8 @@ export interface NativeObjectDescriptor {
 export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   private readonly revTypeMap = new Map<string, Type>();
   private readonly nativeTypes = new Map<string, NativeObjectDescriptor>();
+  private readonly objectValueCache = new WeakMap<object, Val>();
+  private readonly arrayValueCache = new WeakMap<unknown[], { length: number; value: Val }>();
   private strongEnumsValue = false;
 
   constructor(private pbdbValue: Db = pbdb()) {
@@ -461,10 +457,31 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
   }
 
   public nativeToValue(value: unknown): Val {
+    if (value == null || typeof value !== "object") {
+      const direct = nativeToValue(this, value);
+      if (direct !== undefined) {
+        return direct;
+      }
+    }
+    if (Array.isArray(value)) {
+      const cached = this.arrayValueCache.get(value);
+      if (cached?.length === value.length) {
+        return cached.value;
+      }
+      const adapted = dynamicList(this, value);
+      this.arrayValueCache.set(value, { length: value.length, value: adapted });
+      return adapted;
+    }
     if (isNativeObject(value)) {
       const descriptor = this.nativeTypes.get(value.$celTypeName);
       if (descriptor) {
-        return new NativeObjectValue(this, descriptor, value);
+        const cached = this.objectValueCache.get(value);
+        if (cached) {
+          return cached;
+        }
+        const adapted = new NativeObjectValue(this, descriptor, value);
+        this.objectValueCache.set(value, adapted);
+        return adapted;
       }
     }
     if (isMessage(value) && value.$typeName === AnySchema.typeName) {
@@ -488,6 +505,12 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       return direct;
     }
     if (isMessage(value)) {
+      if (value.$typeName !== AnySchema.typeName) {
+        const cached = this.objectValueCache.get(value);
+        if (cached) {
+          return cached;
+        }
+      }
       const [td, found] = this.pbdbValue.describeType(value.$typeName);
       if (!found || !td) {
         return err("unknown type: '%s'", value.$typeName);
@@ -503,7 +526,9 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       if (!typeFound || !typeVal) {
         return err("unknown type: '%s'", value.$typeName);
       }
-      return object(this, td.descriptor(), typeVal, value);
+      const adapted = object(this, td.descriptor(), typeVal, value);
+      this.objectValueCache.set(value, adapted);
+      return adapted;
     }
     return unsupportedRefValConversionErr(value);
   }
@@ -961,6 +986,14 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
     case value === null:
     case value === undefined:
       return NullValue;
+    case typeof value === "boolean":
+      return value ? True : False;
+    case typeof value === "bigint":
+      return new Int(value);
+    case typeof value === "number":
+      return Number.isInteger(value) ? new Int(BigInt(value)) : new Double(value);
+    case typeof value === "string":
+      return new CelString(value);
     case value instanceof Bool:
     case value instanceof Bytes:
     case value instanceof Double:
@@ -974,14 +1007,6 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
     case isRefVal(value):
       // CEL-Go's default adapter preserves values which already implement ref.Val.
       return value;
-    case typeof value === "boolean":
-      return value ? True : False;
-    case typeof value === "bigint":
-      return new Int(value);
-    case typeof value === "number":
-      return Number.isInteger(value) ? new Int(BigInt(value)) : new Double(value);
-    case typeof value === "string":
-      return new CelString(value);
     case value instanceof Uint8Array:
       return new Bytes(value);
     case value instanceof Date:
@@ -1048,9 +1073,6 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
     case typeof value === "object":
       if (value && "type" in (value as object) && typeof (value as Val).type === "function") {
         return value as Val;
-      }
-      if (isStringMap(value)) {
-        return stringStringMap(adapter, value);
       }
       if (isRecord(value)) {
         return stringInterfaceMap(adapter, value);
@@ -1219,10 +1241,6 @@ function collectEnumTypes(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value) && !isMessage(value);
-}
-
-function isStringMap(value: unknown): value is Record<string, string> {
-  return isRecord(value) && Object.values(value).every((entry) => typeof entry === "string");
 }
 
 function isMessage(value: unknown): value is Message {

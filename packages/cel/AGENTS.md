@@ -26,9 +26,6 @@ If a requested change would require violating this file, stop and tell the user 
 3. Keep the package isomorphic and browser-safe.
 4. Fix bugs at the layer where they originate.
 5. Preserve or port upstream tests and comments unless a rule below says otherwise.
-6. When a major piece of the public api is ported or modified, the README.md file at `packages/cel/README.md` should be updated to reflect the change
-
-Treat drift from cel-go as a bug unless a TypeScript constraint makes it unavoidable.
 
 ## Required Behavior
 
@@ -114,3 +111,4 @@ Treat drift from cel-go as a bug unless a TypeScript constraint makes it unavoid
 - No reinvention of protobuf message, WKT, or registry behavior when the same behavior can be delegated to `@bufbuild/protobuf` or existing repo helpers (i.e. from `@protoutil/core`).
 - Do not run individual test suites ever. When you do that, you risk breaking things in other modules. Do not ever do that for any reason. The only test command you ever need to run is `pnpm run --filter @protoutil/cel test`
 - You are never allowed to skip a test and claim you are finished.
+- Do not run any git commands unless the user specifically asks you to.

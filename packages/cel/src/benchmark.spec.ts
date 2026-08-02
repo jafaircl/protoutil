@@ -429,9 +429,9 @@ interface PolicyBenchmarkCase {
   readonly scenario: string;
 
   /**
-   * input contains the native activation bindings for the evaluation.
+   * input contains the reusable activation evaluated by the policy program.
    */
-  readonly input: Readonly<Record<string, unknown>>;
+  readonly input: Activation;
 }
 
 /**
@@ -743,6 +743,14 @@ const warmupCount = Number(process.env.CEL_BENCHMARK_WARMUP_COUNT ?? "2");
  * iterationsPerSample controls the operations timed in each sample.
  */
 const iterationsPerSample = Number(process.env.CEL_BENCHMARK_ITERATIONS ?? "250");
+
+/**
+ * policyEvalPrimingIterations warms each policy input before policy-eval samples begin.
+ *
+ * The fixed count avoids making the first fixture case pay for JavaScript runtime tier-up while
+ * keeping the cel-go and TypeScript harnesses equivalent.
+ */
+const policyEvalPrimingIterations = 20_000;
 
 /**
  * goBinaryCandidates lists supported ways to locate a Go toolchain.
@@ -1071,7 +1079,7 @@ function policyBenchmarkCases(environment: CelEnv, fixture: PolicyFixture): Poli
     for (const test of section.tests) {
       cases.push({
         scenario: `${fixture.path} / ${section.name} / ${test.name}`,
-        input: policyCaseInput(environment, test),
+        input: activation({ bindings: policyCaseInput(environment, test) }),
       });
     }
   }
@@ -1128,6 +1136,7 @@ function benchmarkPolicy(context: PolicyBenchmarkContext): BenchmarkResult[] {
       run: () => context.environment.program(context.ast, { optimize: true }),
     }),
   ];
+  primePolicyEvaluations(context);
   for (const benchmarkCase of context.cases) {
     results.push(
       benchmark({
@@ -1139,6 +1148,17 @@ function benchmarkPolicy(context: PolicyBenchmarkContext): BenchmarkResult[] {
     );
   }
   return results;
+}
+
+/**
+ * primePolicyEvaluations warms all policy evaluation paths in round-robin order before sampling.
+ */
+function primePolicyEvaluations(context: PolicyBenchmarkContext): void {
+  for (let iteration = 0; iteration < policyEvalPrimingIterations; iteration += 1) {
+    for (const benchmarkCase of context.cases) {
+      benchmarkSink = context.program.eval(benchmarkCase.input);
+    }
+  }
 }
 
 /**
@@ -1589,7 +1609,7 @@ Generated at: \`${new Date().toISOString()}\`
 
 ## Methodology
 
-These are in-process microbenchmarks for the CEL frontend and public program API plus the \`cel-go\` reference implementation on the same machine. Core planning and evaluation reuse equivalent public programs and activations in both implementations. Diagnostic evaluation rows form a feature ladder from literals through activation lookup, dispatch, dynamic and protobuf attributes, indexing, and folds. Residual rows separately measure state-tracking partial evaluation, residual AST construction, and the combined round trip. Policy measurements use the same synchronized YAML sources and separately cover parsing, compilation and composition, optimized planning, and steady-state evaluation. They are intended to provide a quick regression signal, not a universal cross-machine claim. Cross-runtime ratios are directional; changes in this package's own results over time are the primary regression signal.
+These are in-process microbenchmarks for the CEL frontend and public program API plus the \`cel-go\` reference implementation on the same machine. Core planning and evaluation reuse equivalent public programs and activations in both implementations. Diagnostic evaluation rows form a feature ladder from literals through activation lookup, dispatch, dynamic and protobuf attributes, indexing, and folds. Residual rows separately measure state-tracking partial evaluation, residual AST construction, and the combined round trip. Policy measurements use the same synchronized YAML sources and separately cover parsing, compilation and composition, optimized planning, and steady-state evaluation. Each policy program primes every prepared activation in round-robin order before policy evaluation samples begin. They are intended to provide a quick regression signal, not a universal cross-machine claim. Cross-runtime ratios are directional; changes in this package's own results over time are the primary regression signal.
 
 - Runtime: \`node ${process.version}\`
 - Go: \`${readGoVersion()}\`

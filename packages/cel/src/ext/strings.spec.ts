@@ -105,6 +105,13 @@ describe("ext/strings_test.go/TestFunctionsForVersions", () => {
 });
 
 describe("ext/strings_test.go/TestStringCostTracking", () => {
+  it("does not enable runtime cost tracking when the library is imported", () => {
+    const celEnv = env({ libraries: [strings({ version: 5 })] });
+    const evaluated = celEnv.program(celEnv.compile("'abc'.reverse()")).evalWithDetails({});
+
+    expect(evaluated.details.actualCost()).toBeUndefined();
+  });
+
   it("matches every synchronized static and runtime string cost", () => {
     const celEnv = env({ libraries: [strings({ version: 5 })] });
     for (const testCase of syncedCases<StringCostCase>(

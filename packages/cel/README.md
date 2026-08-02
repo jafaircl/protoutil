@@ -37,6 +37,7 @@ cel-policy conformance results.
     - [Environment Setup](#environment-setup)
     - [Parse and Check](#parse-and-check)
       - [Macros](#macros)
+    - [Export Alpha Protobufs](#export-alpha-protobufs)
     - [Evaluate](#evaluate)
       - [Partial State](#partial-state)
     - [Errors](#errors)
@@ -133,6 +134,35 @@ has(message.field)
 
 Both cases traditionally require special syntax at the language level, but
 these features are exposed via macros in CEL.
+
+### Export Alpha Protobufs
+
+Use the alpha converters when another library accepts legacy
+`google.api.expr.v1alpha1` messages. Use `astToAlphaCheckedExpr` for AIPQL.
+It preserves the expression, source information, type map, and reference map.
+
+```ts
+import {
+  StringType,
+  astToAlphaCheckedExpr,
+  env,
+  variableDecl,
+} from "@protoutil/cel";
+import { postgres } from "@protoutil/aipql";
+
+const celEnv = env({
+  variables: [variableDecl("title", StringType)],
+});
+const checked = astToAlphaCheckedExpr(celEnv.compile('title == "Dune"'));
+const { sql, params } = postgres(checked);
+
+// sql:    '"title" = $1'
+// params: ["Dune"]
+```
+
+Use `astToAlphaExpr` to export only the expression tree. Use
+`astToAlphaParsedExpr` to include source information without checker metadata.
+Use `exprValueAsAlphaProto` only for an evaluated CEL `Val`.
 
 ### Evaluate
 

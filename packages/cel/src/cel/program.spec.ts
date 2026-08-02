@@ -21,6 +21,7 @@ import {
   variableDecl,
 } from "../index.js";
 import {
+  type Activation,
   type AttributePattern,
   attributePattern,
   partialActivation,
@@ -45,6 +46,40 @@ describe("cel/cel_test.go/BenchmarkEvalOptions", () => {
     const program = new DetailsRejectingProgram(constValue({ id: 1, value: True }));
 
     expect(program.eval({})).toBe(True);
+  });
+});
+
+describe("TypeScript extension/TestProgramCachesMapInputAdaptationPerEvaluation", () => {
+  it("adapts a map binding once per evaluation without caching custom activations", () => {
+    const celEnv = env({ variables: [variableDecl("x", IntType)] });
+    const evalProgram = celEnv.program(celEnv.compile("x + x"));
+    let reads = 0;
+    let value = 1;
+    const input = Object.defineProperty({}, "x", {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        return value;
+      },
+    });
+
+    expect(evalProgram.eval(input).value()).toBe(2n);
+    expect(reads).toBe(1);
+
+    value = 3;
+    expect(evalProgram.eval(input).value()).toBe(6n);
+    expect(reads).toBe(2);
+
+    let resolutions = 0;
+    const dynamicActivation: Activation = {
+      resolveName: () => {
+        resolutions += 1;
+        return [resolutions, true];
+      },
+      parent: () => undefined,
+    };
+    expect(evalProgram.eval(dynamicActivation).value()).toBe(3n);
+    expect(resolutions).toBe(2);
   });
 });
 

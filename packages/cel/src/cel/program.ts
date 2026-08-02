@@ -1,3 +1,4 @@
+import type { Adapter } from "../common/types/provider.js";
 import type { Val } from "../common/types/ref/reference.js";
 import { Unknown } from "../common/types/unknown.js";
 import type { Activation } from "../interpreter/activation.js";
@@ -157,6 +158,11 @@ export interface ContextEvalOptions {
  */
 export interface EvalProgramOptions {
   /**
+   * adapter converts native map-backed input bindings for each evaluation.
+   */
+  adapter?: Adapter;
+
+  /**
    * asyncMaxConcurrency limits the number of simultaneously executing asynchronous bindings.
    */
   asyncMaxConcurrency?: number;
@@ -272,7 +278,7 @@ export class EvalProgram implements Program {
     }
     this.options.stateSink?.reset();
     this.options.costTrackerSink?.reset();
-    const frame = executionFrame({ input });
+    const frame = executionFrame({ input, adapter: this.options.adapter });
     if (this.options.globals !== undefined) {
       frame.setActivationHierarchy({
         parent: this.options.globals,
@@ -338,7 +344,7 @@ export class EvalProgram implements Program {
   private execute(options: ProgramEvaluationOptions): Val {
     this.options.stateSink?.reset();
     this.options.costTrackerSink?.reset();
-    const frame = executionFrame({ input: options.input });
+    const frame = executionFrame({ input: options.input, adapter: this.options.adapter });
     if (this.options.globals !== undefined) {
       // Evaluation inputs form the child scope so callers can override program globals.
       frame.setActivationHierarchy({

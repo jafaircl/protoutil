@@ -1,30 +1,45 @@
+import type { DescEnum, DescField, DescMessage } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { syncedCases } from "../common/spec-helpers.js";
 import { resolveSyncedExpr, resolveSyncedVal } from "../common/types/spec-helpers.js";
-import { Type_PrimitiveType } from "../gen/cel/expr/checked_pb.js";
-import type { Expr as ProtoExpr } from "../gen/cel/expr/syntax_pb.js";
+import { CheckedExprSchema, Type_PrimitiveType } from "../gen/cel/expr/checked_pb.js";
+import { ExprValueSchema } from "../gen/cel/expr/eval_pb.js";
+import { ExprSchema, ParsedExprSchema, type Expr as ProtoExpr } from "../gen/cel/expr/syntax_pb.js";
+import { CheckedExprSchema as AlphaCheckedExprSchema } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
+import { ExprValueSchema as AlphaExprValueSchema } from "../gen/google/api/expr/v1alpha1/eval_pb.js";
+import {
+  ExprSchema as AlphaExprSchema,
+  ParsedExprSchema as AlphaParsedExprSchema,
+} from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
 import { TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import {
   ast,
+  astToAlphaCheckedExpr,
+  astToAlphaExpr,
+  astToAlphaParsedExpr,
   astToCheckedExpr,
   astToParsedExpr,
   astToString,
   String as CelString,
+  checkedExprAsAlphaProto,
   checkedExprToAst,
   checkedExprToAstWithSource,
   DynType,
   env,
   err,
+  exprAsAlphaProto,
   exprToString,
   exprValueAsAlphaProto,
   Int,
   Kind,
+  parsedExprAsAlphaProto,
   parsedExprToAst,
   parsedExprToAstWithSource,
   protoToExpr,
   refValToExprValue,
   refValueToValue,
   registry,
+  StringType,
   type Type,
   textSource,
   type Val,
@@ -67,6 +82,76 @@ function deepBoolExpr(depth: number): ProtoExpr {
   return expression;
 }
 
+/**
+ * assertCompatibleMessageSchemas verifies that the CEL and alpha schemas have identical wire
+ * structure. Their fully qualified type names intentionally differ.
+ */
+function assertCompatibleMessageSchemas(
+  canonical: DescMessage,
+  alpha: DescMessage,
+  compared: Set<string> = new Set(),
+): void {
+  const comparisonKey = `${canonical.typeName}:${alpha.typeName}`;
+  if (compared.has(comparisonKey)) {
+    return;
+  }
+  compared.add(comparisonKey);
+
+  expect(alpha.name).toBe(canonical.name);
+  const canonicalFields = [...canonical.fields].sort((left, right) => left.number - right.number);
+  const alphaFields = [...alpha.fields].sort((left, right) => left.number - right.number);
+  expect(alphaFields).toHaveLength(canonicalFields.length);
+
+  for (const [index, canonicalField] of canonicalFields.entries()) {
+    const alphaField = alphaFields[index];
+    expect(fieldSignature(alphaField)).toEqual(fieldSignature(canonicalField));
+    if (canonicalField.message !== undefined && alphaField.message !== undefined) {
+      assertCompatibleMessageSchemas(canonicalField.message, alphaField.message, compared);
+    }
+    if (canonicalField.enum !== undefined && alphaField.enum !== undefined) {
+      expect(enumSignature(alphaField.enum)).toEqual(enumSignature(canonicalField.enum));
+    }
+  }
+}
+
+function fieldSignature(field: DescField): Record<string, unknown> {
+  const base = {
+    fieldKind: field.fieldKind,
+    jsonName: field.jsonName,
+    name: field.name,
+    number: field.number,
+    oneof: field.oneof?.name,
+    presence: field.presence,
+  };
+  switch (field.fieldKind) {
+    case "scalar":
+      return { ...base, longAsString: field.longAsString, scalar: field.scalar };
+    case "enum":
+      return base;
+    case "message":
+      return { ...base, delimitedEncoding: field.delimitedEncoding };
+    case "list":
+      return {
+        ...base,
+        listKind: field.listKind,
+        longAsString: field.listKind === "scalar" ? field.longAsString : undefined,
+        packed: field.packed,
+        scalar: field.listKind === "scalar" ? field.scalar : undefined,
+      };
+    case "map":
+      return {
+        ...base,
+        mapKey: field.mapKey,
+        mapKind: field.mapKind,
+        scalar: field.mapKind === "scalar" ? field.scalar : undefined,
+      };
+  }
+}
+
+function enumSignature(enumDescriptor: DescEnum): Array<{ name: string; number: number }> {
+  return enumDescriptor.values.map((value) => ({ name: value.name, number: value.number }));
+}
+
 describe("cel/io_test.go/TestRefValueToValue_Error", () => {
   it("rejects CEL error values", () => {
     expect(() => refValueToValue(err("test error"))).toThrow();
@@ -82,10 +167,61 @@ describe("cel/io_test.go/TestExprValueAsAlphaProto", () => {
     if (result.kind.case !== "value") {
       throw new Error("expected a wrapped legacy alpha value");
     }
+    expect(result.kind.value.$typeName).toBe("google.api.expr.v1alpha1.Value");
     expect(result.kind.value.kind).toEqual({
       case: "int64Value",
       value: 42n,
     });
+  });
+});
+
+describe("TypeScript extension/TestAlphaProtoSchemaCompatibility", () => {
+  it("preserves the recursive wire structure of CEL expression messages", () => {
+    assertCompatibleMessageSchemas(ExprSchema, AlphaExprSchema);
+    assertCompatibleMessageSchemas(ParsedExprSchema, AlphaParsedExprSchema);
+    assertCompatibleMessageSchemas(CheckedExprSchema, AlphaCheckedExprSchema);
+    assertCompatibleMessageSchemas(ExprValueSchema, AlphaExprValueSchema);
+  });
+});
+
+describe("TypeScript extension/TestAlphaExpressionProtos", () => {
+  it("converts canonical expression protobufs and ASTs to alpha protobufs", () => {
+    const parsedAst = env().parse('title == "Dune"');
+    const expression = parsedAst.expr().toProto();
+
+    const alphaExpr = exprAsAlphaProto(expression);
+    expect(alphaExpr.$typeName).toBe("google.api.expr.v1alpha1.Expr");
+    expect(alphaExpr.id).toBe(expression.id);
+    expect(alphaExpr.exprKind.case).toBe("callExpr");
+    if (alphaExpr.exprKind.case !== "callExpr") {
+      throw new Error("expected a call expression");
+    }
+    expect(alphaExpr.exprKind.value.args.map((arg) => arg.$typeName)).toEqual([
+      "google.api.expr.v1alpha1.Expr",
+      "google.api.expr.v1alpha1.Expr",
+    ]);
+
+    const parsed = astToParsedExpr(parsedAst);
+    const alphaParsed = parsedExprAsAlphaProto(parsed);
+    expect(alphaParsed.$typeName).toBe("google.api.expr.v1alpha1.ParsedExpr");
+    expect(alphaParsed.expr?.id).toBe(expression.id);
+    expect(astToAlphaExpr(parsedAst)).toEqual(alphaExpr);
+    expect(astToAlphaParsedExpr(parsedAst)).toEqual(alphaParsed);
+    expect(astToAlphaParsedExpr().$typeName).toBe("google.api.expr.v1alpha1.ParsedExpr");
+
+    const checkedAst = env({
+      variables: [variableDecl("title", StringType)],
+    }).compile('title == "Dune"');
+    const checked = astToCheckedExpr(checkedAst);
+    const alphaChecked = checkedExprAsAlphaProto(checked);
+    expect(alphaChecked.$typeName).toBe("google.api.expr.v1alpha1.CheckedExpr");
+    expect(alphaChecked.expr?.id).toBe(checked.expr?.id);
+    expect(alphaChecked.typeMap).not.toEqual({});
+    expect(alphaChecked.typeMap[String(checked.expr?.id)].$typeName).toBe(
+      "google.api.expr.v1alpha1.Type",
+    );
+    expect(astToAlphaCheckedExpr(checkedAst)).toEqual(alphaChecked);
+    expect(() => astToAlphaCheckedExpr(parsedAst)).toThrow("cannot convert unchecked ast");
   });
 });
 

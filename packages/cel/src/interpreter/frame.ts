@@ -1,5 +1,6 @@
 import type { Val } from "../common/types/index.js";
 import { Err } from "../common/types/index.js";
+import type { Adapter } from "../common/types/provider.js";
 import {
   type Activation,
   asPartialActivation,
@@ -57,6 +58,11 @@ export interface ExecutionFrameOptions {
    * input contains either an activation or a map of bindings for the frame.
    */
   input: unknown;
+
+  /**
+   * adapter converts map-backed input bindings once for the lifetime of the frame.
+   */
+  adapter?: Adapter;
 }
 
 /**
@@ -144,6 +150,16 @@ class InputActivation implements Activation {
   private readonly lazyVarsValue = new Map<string, unknown>();
 
   /**
+   * adaptedVarsValue stores CEL values resolved from native map bindings in this evaluation.
+   */
+  private readonly adaptedVarsValue = new Map<string, Val>();
+
+  /**
+   * adapterValue adapts native map bindings when the frame was created by a CEL program.
+   */
+  private adapterValue?: Adapter;
+
+  /**
    * varsValue stores the input map while this pooled activation is active.
    */
   private varsValue?: Record<string, unknown>;
@@ -151,8 +167,9 @@ class InputActivation implements Activation {
   /**
    * configure attaches the reusable activation to one input map.
    */
-  public configure(vars: Record<string, unknown>): void {
+  public configure(vars: Record<string, unknown>, adapter?: Adapter): void {
     this.varsValue = vars;
+    this.adapterValue = adapter;
   }
 
   /**
@@ -162,14 +179,23 @@ class InputActivation implements Activation {
     if (this.varsValue === undefined || !Object.hasOwn(this.varsValue, name)) {
       return [undefined, false];
     }
-    const value = this.varsValue[name];
+    const adapted = this.adaptedVarsValue.get(name);
+    if (adapted !== undefined) {
+      return [adapted, true];
+    }
+    let value = this.varsValue[name];
     if (typeof value === "function") {
       if (this.lazyVarsValue.has(name)) {
-        return [this.lazyVarsValue.get(name), true];
+        value = this.lazyVarsValue.get(name);
+      } else {
+        value = (value as () => unknown)();
+        this.lazyVarsValue.set(name, value);
       }
-      const resolved = (value as () => unknown)();
-      this.lazyVarsValue.set(name, resolved);
-      return [resolved, true];
+    }
+    if (this.adapterValue !== undefined) {
+      const adaptedValue = this.adapterValue.nativeToValue(value);
+      this.adaptedVarsValue.set(name, adaptedValue);
+      return [adaptedValue, true];
     }
     return [value, true];
   }
@@ -186,7 +212,9 @@ class InputActivation implements Activation {
    */
   public clear(): void {
     this.lazyVarsValue.clear();
+    this.adaptedVarsValue.clear();
     this.varsValue = undefined;
+    this.adapterValue = undefined;
   }
 }
 
@@ -489,7 +517,7 @@ export function executionFrame(options: ExecutionFrameOptions): ExecutionFrame {
   }
   if (isBindingMap(options.input)) {
     const inputActivation = inputActivationPool.pop() ?? new InputActivation();
-    inputActivation.configure(options.input);
+    inputActivation.configure(options.input, options.adapter);
     return ExecutionFrame.acquire({
       activation: inputActivation,
       inputActivation,

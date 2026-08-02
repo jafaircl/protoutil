@@ -1279,9 +1279,10 @@ export class Env {
       resolvedOptions.trackState || resolvedOptions.exhaustiveEval
         ? new ProgramEvalStateSink()
         : undefined;
+    // Library cost options configure the tracker but do not enable runtime instrumentation.
     const costTrackerSink =
-      resolvedOptions.costTracking === undefined ? undefined : new ProgramCostTrackerSink();
-    if (resolvedOptions.interruptCheckFrequency !== undefined) {
+      options.costTracking === undefined ? undefined : new ProgramCostTrackerSink();
+    if ((resolvedOptions.interruptCheckFrequency ?? 0) > 0) {
       const interruptConfig = interruptableEvalConfig();
       // Interrupt checks are a planner decorator in the lower-level interpreter, so
       // preserve caller decorators and observers while enabling that execution seam.
@@ -1355,6 +1356,7 @@ export class Env {
         plannerConfig,
       }),
       {
+        adapter: this.registryValue,
         asyncMaxConcurrency: resolvedOptions.asyncMaxConcurrency,
         asyncObserver: resolvedOptions.asyncObserver,
         costTrackerSink,

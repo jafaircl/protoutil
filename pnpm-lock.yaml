@@ -237,6 +237,9 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      '@protoutil/cel':
+        specifier: workspace:*
+        version: link:../cel
       '@types/node':
         specifier: ^25.0.3
         version: 25.2.3

@@ -106,6 +106,7 @@ import { emptyActivation } from "../interpreter/activation.js";
 import { adaptLegacyDecorator } from "../interpreter/decorators.js";
 import {
   constValue,
+  FoldInterpretableValue,
   type Interpretable,
   type InterpretableAttribute,
   type InterpretableCall,
@@ -460,6 +461,33 @@ describe("cel/cel_test.go/TestEval", () => {
           .value(),
       ).toBe(true);
     }
+  });
+
+  it("does not make comprehensions interruptible when the check frequency is zero", () => {
+    let interruptible = false;
+    const celEnv = env();
+
+    celEnv.program(celEnv.compile("[1].all(value, value > 0)"), {
+      decorators: [
+        (value) =>
+          value instanceof FoldInterpretableValue
+            ? new Proxy(value, {
+                get(target, property, receiver) {
+                  if (property === "withInterruptableEval") {
+                    return () => {
+                      interruptible = true;
+                      return target.withInterruptableEval();
+                    };
+                  }
+                  return Reflect.get(target, property, receiver);
+                },
+              })
+            : value,
+      ],
+      interruptCheckFrequency: 0,
+    });
+
+    expect(interruptible).toBe(false);
   });
 });
 

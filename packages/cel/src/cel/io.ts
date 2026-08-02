@@ -1,4 +1,4 @@
-import { fromBinary, type MessageShape, toBinary } from "@bufbuild/protobuf";
+import { create, type MessageInitShape, type MessageShape } from "@bufbuild/protobuf";
 import { AnySchema, NullValue as ProtoNullValue } from "@bufbuild/protobuf/wkt";
 import { Code } from "@protoutil/core/google/rpc";
 import type { Expr, SourceInfo } from "../common/ast/index.js";
@@ -39,13 +39,23 @@ import {
 import { Uint } from "../common/types/uint.js";
 import { Unknown } from "../common/types/unknown.js";
 import type { CheckedExpr } from "../gen/cel/expr/checked_pb.js";
-import { type ExprValue, ExprValueSchema } from "../gen/cel/expr/eval_pb.js";
-import type { ParsedExpr } from "../gen/cel/expr/syntax_pb.js";
+import type { ExprValue } from "../gen/cel/expr/eval_pb.js";
+import type { ParsedExpr, Expr as ProtoExpr } from "../gen/cel/expr/syntax_pb.js";
 import type { MapValue_Entry, Value } from "../gen/cel/expr/value_pb.js";
+import {
+  type CheckedExpr as AlphaCheckedExpr,
+  CheckedExprSchema as AlphaCheckedExprSchema,
+} from "../gen/google/api/expr/v1alpha1/checked_pb.js";
 import {
   type ExprValue as AlphaExprValue,
   ExprValueSchema as AlphaExprValueSchema,
 } from "../gen/google/api/expr/v1alpha1/eval_pb.js";
+import {
+  type Expr as AlphaExpr,
+  ExprSchema as AlphaExprSchema,
+  type ParsedExpr as AlphaParsedExpr,
+  ParsedExprSchema as AlphaParsedExprSchema,
+} from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
 import { unparse } from "../parser/unparser.js";
 
 /**
@@ -96,6 +106,22 @@ export function astToCheckedExpr(astValue?: AST): CheckedExpr {
 }
 
 /**
+ * astToAlphaExpr converts an AST expression to the wire-compatible legacy
+ * google.api.expr.v1alpha1.Expr schema.
+ */
+export function astToAlphaExpr(astValue: AST): AlphaExpr {
+  return exprAsAlphaProto(astValue.expr().toProto());
+}
+
+/**
+ * astToAlphaCheckedExpr converts a checked AST to the wire-compatible legacy
+ * google.api.expr.v1alpha1.CheckedExpr schema.
+ */
+export function astToAlphaCheckedExpr(astValue?: AST): AlphaCheckedExpr {
+  return checkedExprAsAlphaProto(astToCheckedExpr(astValue));
+}
+
+/**
  * parsedExprToAst converts a parsed-expression protobuf message to an unchecked AST.
  */
 export function parsedExprToAst(parsedExpr: ParsedExpr): AST {
@@ -141,6 +167,47 @@ export function astToParsedExpr(astValue?: AST): ParsedExpr {
     };
   }
   return astValue.toParsedExpr();
+}
+
+/**
+ * astToAlphaParsedExpr converts an AST to the wire-compatible legacy
+ * google.api.expr.v1alpha1.ParsedExpr schema.
+ */
+export function astToAlphaParsedExpr(astValue?: AST): AlphaParsedExpr {
+  return parsedExprAsAlphaProto(astToParsedExpr(astValue));
+}
+
+/**
+ * exprAsAlphaProto converts a CEL expression to the wire-compatible legacy
+ * google.api.expr.v1alpha1.Expr schema.
+ */
+export function exprAsAlphaProto(expr: ProtoExpr): AlphaExpr {
+  // TestAlphaProtoSchemaCompatibility recursively verifies this cast's schema assumption.
+  return create(AlphaExprSchema, expr as unknown as MessageInitShape<typeof AlphaExprSchema>);
+}
+
+/**
+ * parsedExprAsAlphaProto converts a CEL parsed expression to the wire-compatible legacy
+ * google.api.expr.v1alpha1.ParsedExpr schema.
+ */
+export function parsedExprAsAlphaProto(parsedExpr: ParsedExpr): AlphaParsedExpr {
+  // TestAlphaProtoSchemaCompatibility recursively verifies this cast's schema assumption.
+  return create(
+    AlphaParsedExprSchema,
+    parsedExpr as unknown as MessageInitShape<typeof AlphaParsedExprSchema>,
+  );
+}
+
+/**
+ * checkedExprAsAlphaProto converts a CEL checked expression to the wire-compatible legacy
+ * google.api.expr.v1alpha1.CheckedExpr schema.
+ */
+export function checkedExprAsAlphaProto(checkedExpr: CheckedExpr): AlphaCheckedExpr {
+  // TestAlphaProtoSchemaCompatibility recursively verifies this cast's schema assumption.
+  return create(
+    AlphaCheckedExprSchema,
+    checkedExpr as unknown as MessageInitShape<typeof AlphaCheckedExprSchema>,
+  );
 }
 
 /**
@@ -210,7 +277,11 @@ export function refValToExprValue(value: Val): ExprValue {
  */
 export function exprValueAsAlphaProto(value: Val): AlphaExprValue {
   const canonical = refValToExprValue(value);
-  return fromBinary(AlphaExprValueSchema, toBinary(ExprValueSchema, canonical));
+  // TestAlphaProtoSchemaCompatibility recursively verifies this cast's schema assumption.
+  return create(
+    AlphaExprValueSchema,
+    canonical as unknown as MessageInitShape<typeof AlphaExprValueSchema>,
+  );
 }
 
 /**

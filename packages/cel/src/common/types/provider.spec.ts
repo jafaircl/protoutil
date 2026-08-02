@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import { create } from "@bufbuild/protobuf";
 import {
   AnySchema,
@@ -24,7 +25,7 @@ import { Bool, False, True } from "./bool.js";
 import { Bytes } from "./bytes.js";
 import { Double } from "./double.js";
 import { Err } from "./err.js";
-import { Int } from "./index.js";
+import { Int, type Val } from "./index.js";
 import { dynamicList } from "./list.js";
 import { ProtoEnum } from "./pb/enum.js";
 import { jsonValue } from "./pb/spec-helpers.js";
@@ -36,7 +37,7 @@ import {
   resolveProviderTypeName,
 } from "./spec-helpers.js";
 import { String as CelString } from "./string.js";
-import type { Indexer } from "./traits/index.js";
+import type { Indexer, Sizer } from "./traits/index.js";
 import { ReceiverType } from "./traits/index.js";
 import { objectType, opaqueType, typeParamType, typeTypeWithParam } from "./types.js";
 import { Uint } from "./uint.js";
@@ -301,6 +302,90 @@ describe("provider", () => {
     );
     expect(reg.nativeToValue([1n, 2n, 3n]).equal(dynamicList(reg, [1n, 2n, 3n]))).toBe(True);
     expect(reg.nativeToValue(null).type().typeName()).toBe("null_type");
+  });
+
+  it("TypeScript extension/TestRegistryMapAdaptationIsLazy", () => {
+    let reads = 0;
+    const input = {
+      get key(): string {
+        reads += 1;
+        return "value";
+      },
+    };
+
+    const adapted = registry().nativeToValue(input) as Val & Indexer;
+    expect(reads).toBe(0);
+    expect(adapted.get(new CelString("key"))).toEqual(new CelString("value"));
+    expect(reads).toBe(1);
+  });
+
+  it("TypeScript extension/TestRegistryCachesObjectWrappers", () => {
+    const message = create(Proto3TestAllTypesSchema, { singleString: "before" });
+    const reg = registry([message, Proto3TestAllTypesSchema]);
+
+    const first = reg.nativeToValue(message);
+    const second = reg.nativeToValue(message);
+    expect(second).toBe(first);
+
+    message.singleString = "after";
+    expect(first.value()).toBe(message);
+    expect((first as unknown as Indexer).get(new CelString("single_string"))).toEqual(
+      new CelString("after"),
+    );
+  });
+
+  it("TypeScript extension/TestRegistryCachesArrayWrappersWithoutHidingMutations", () => {
+    const values = [1n, 2n];
+    const reg = registry();
+
+    const first = reg.nativeToValue(values) as Val & Indexer & Sizer;
+    expect(reg.nativeToValue(values)).toBe(first);
+
+    values[0] = 9n;
+    expect(first.get(new Int(0n))).toEqual(new Int(9n));
+    expect(reg.nativeToValue(values)).toBe(first);
+
+    values.push(3n);
+    const grown = reg.nativeToValue(values) as Val & Indexer & Sizer;
+    expect(grown).not.toBe(first);
+    expect(grown.size()).toEqual(new Int(3n));
+    expect(grown.get(new Int(2n))).toEqual(new Int(3n));
+
+    values.length = 1;
+    const shrunk = reg.nativeToValue(values) as Val & Indexer & Sizer;
+    expect(shrunk).not.toBe(grown);
+    expect(shrunk.size()).toEqual(new Int(1n));
+  });
+
+  it("TypeScript extension/TestRegistryDoesNotCacheScalarMessageConversions", () => {
+    const reg = registry();
+    const wrapper = { $typeName: BoolValueSchema.typeName, value: true };
+    expect(reg.nativeToValue(wrapper)).toBe(True);
+    wrapper.value = false;
+    expect(reg.nativeToValue(wrapper)).toBe(False);
+  });
+
+  it("TypeScript extension/TestRegistryPrimitiveAdaptationFastPath", () => {
+    const reg = registry();
+    const inputs = Array.from({ length: 1_024 }, (_, index) => BigInt(index));
+    const iterations = 500_000;
+    const measure = (adapt: (value: bigint) => Int): number => {
+      let sink = new Int(0n);
+      for (let index = 0; index < 20_000; index += 1) {
+        sink = adapt(inputs[index & 1_023]!);
+      }
+      const start = performance.now();
+      for (let index = 0; index < iterations; index += 1) {
+        sink = adapt(inputs[index & 1_023]!);
+      }
+      expect(sink.value()).toBe(inputs[(iterations - 1) & 1_023]);
+      return performance.now() - start;
+    };
+
+    const directDuration = measure((value) => new Int(value));
+    const registryDuration = measure((value) => reg.nativeToValue(value) as Int);
+
+    expect(registryDuration / directDuration).toBeLessThan(2);
   });
 
   it("common/types/provider_test.go/TestUnsupportedConversion", () => {

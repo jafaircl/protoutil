@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
+    "@protoutil/cel": "workspace:*",
     "tsdown": "^0.18.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"

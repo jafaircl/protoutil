@@ -170,6 +170,12 @@ var policyFixtureFiles = []string{
 
 var benchmarkSink any
 
+// policyEvalPrimingIterations warms each policy input before policy-eval samples begin.
+//
+// The fixed count avoids making the first fixture case pay for JavaScript runtime tier-up while
+// keeping the cel-go and TypeScript harnesses equivalent.
+const policyEvalPrimingIterations = 20_000
+
 // main runs the cel-go half of the benchmark matrix and emits JSON for the TypeScript report writer.
 func main() {
 	sampleCount := envInt("CEL_BENCHMARK_SAMPLE_COUNT", 8)
@@ -409,6 +415,7 @@ func runPolicyCase(
 			},
 		}),
 	}
+	primePolicyEvaluations(context)
 	for _, benchmarkCase := range context.cases {
 		currentCase := benchmarkCase
 		results = append(results, benchmark(benchmarkOptions{
@@ -426,6 +433,17 @@ func runPolicyCase(
 		}))
 	}
 	return results
+}
+
+// primePolicyEvaluations warms all policy evaluation paths in round-robin order before sampling.
+func primePolicyEvaluations(context policyBenchmarkContext) {
+	for iteration := 0; iteration < policyEvalPrimingIterations; iteration++ {
+		for _, benchmarkCase := range context.cases {
+			value, _, err := context.program.Eval(benchmarkCase.activation)
+			must(err)
+			benchmarkSink = value
+		}
+	}
 }
 
 // policyContext prepares one environment, policy, AST, optimized program, and evaluation case set.
