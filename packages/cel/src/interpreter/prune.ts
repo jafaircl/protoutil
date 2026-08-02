@@ -564,10 +564,10 @@ class AstPruner {
 
   /** value returns any non-undefined value recorded for an expression id. */
   private value(id: number): ValueResult {
-    const [value, found] = this.state.value(id);
+    const value = this.state.value(id);
     return {
       value,
-      found: found && value !== undefined,
+      found: value !== undefined,
     };
   }
 
@@ -603,7 +603,7 @@ class AstPruner {
 export function pruneAst(options: PruneAstOptions): AST {
   const pruneState = evalState();
   for (const id of options.state.ids()) {
-    const [value] = options.state.value(id);
+    const value = options.state.value(id);
     pruneState.setValue({ exprId: id, value });
   }
   const pruner = new AstPruner({

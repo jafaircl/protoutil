@@ -163,16 +163,16 @@ class FieldPathTraversal {
    */
   private expandStruct(options: FieldPathExpansionOptions): FieldPath[] {
     const { paths, type } = options;
-    const [fields, found] = this.provider.findStructFieldNames(type.toString());
-    if (!found) {
+    const fields = this.provider.findStructFieldNames(type.toString());
+    if (fields === undefined) {
       // The caller added this type to the path, so it must be a leaf.
       paths[paths.length - 1]!.isLeaf = true;
       return paths;
     }
 
     for (const field of fields) {
-      const [fieldType, fieldFound] = this.provider.findStructFieldType(type.toString(), field);
-      if (!fieldFound || fieldType === undefined) {
+      const fieldType = this.provider.findStructFieldType(type.toString(), field);
+      if (fieldType === undefined) {
         // The field was not found because it is hidden or invalid.
         continue;
       }

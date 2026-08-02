@@ -153,12 +153,12 @@ export class Env {
    */
   public resolveTypeIdent(name: string): VariableDecl | undefined {
     for (const candidate of this.container.resolveCandidateNames(name)) {
-      const [ident, found] = this.provider.findIdent(candidate);
-      if (found && ident && typeof ident === "object" && "kind" in ident) {
+      const ident = this.provider.findIdent(candidate);
+      if (ident && typeof ident === "object" && "kind" in ident) {
         return variableDecl(candidate, typeTypeWithParam(ident as Type));
       }
-      const [structType, typeFound] = this.provider.findStructType(candidate);
-      if (typeFound && structType) {
+      const structType = this.provider.findStructType(candidate);
+      if (structType) {
         return variableDecl(candidate, structType);
       }
     }
@@ -233,12 +233,12 @@ export class Env {
     if (ident) {
       return ident;
     }
-    const [foundIdent, found] = this.provider.findIdent(candidate);
-    if (found && foundIdent && typeof foundIdent === "object" && "kind" in foundIdent) {
+    const foundIdent = this.provider.findIdent(candidate);
+    if (foundIdent && typeof foundIdent === "object" && "kind" in foundIdent) {
       return variableDecl(candidate, typeTypeWithParam(foundIdent as Type));
     }
-    const [structType, structFound] = this.provider.findStructType(candidate);
-    if (structFound && structType) {
+    const structType = this.provider.findStructType(candidate);
+    if (structType) {
       return variableDecl(candidate, structType);
     }
     const enumValue = this.provider.enumValue(candidate);

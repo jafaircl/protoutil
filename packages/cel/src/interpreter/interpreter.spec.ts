@@ -16,6 +16,7 @@ import {
   Bool,
   BoolType,
   BytesType,
+  DividerType,
   String as CelString,
   DynType,
   Err,
@@ -1165,7 +1166,7 @@ describe("interpreter/interpreter_test.go", () => {
       });
       try {
         expect(program.exec(frame)).toBe(True);
-        expect(state.value(7)[0]).toBe(True);
+        expect(state.value(7)).toBe(True);
       } finally {
         frame.close();
       }
@@ -1227,7 +1228,7 @@ describe("interpreter/interpreter_test.go", () => {
       const frame = executionFrame({ input: activation({ bindings: { a: true, b: "b" } }) });
       try {
         expect(program.exec(frame)).toBe(True);
-        expect(state.value(3)[0]).toBe(True);
+        expect(state.value(3)).toBe(True);
       } finally {
         frame.close();
       }
@@ -1633,7 +1634,7 @@ describe("interpreter/interpreter_test.go", () => {
       const runtime = interpreter({
         dispatcher: {
           add: () => undefined,
-          findOverload: () => [undefined, false],
+          findOverload: () => undefined,
           overloadIds: () => [],
         },
         provider: registry(),
@@ -1729,6 +1730,27 @@ describe("interpreter/interpreter_test.go", () => {
       expect(call.id()).toBe(10);
       expect(call.functionName()).toBe("f");
       expect(call.overloadId()).toBe("f_overload");
+    });
+  });
+
+  describe("checked call dispatch", () => {
+    it("uses checked runtime types before consulting the receiver trait", () => {
+      const hasTrait = vi.fn(() => true);
+      const value = {
+        type: () => ({ hasTrait, typeName: () => "int" }),
+      } as unknown as Val;
+      const call = callInterpretable({
+        id: 11,
+        functionName: "f",
+        overloadId: "f_int_int",
+        args: [constValue({ id: 12, value }), constValue({ id: 13, value })],
+        binary: () => True,
+        operandTrait: DividerType,
+        checkedArgTypes: [IntType, IntType],
+      });
+
+      expect(call.eval(emptyActivation())).toBe(True);
+      expect(hasTrait).not.toHaveBeenCalled();
     });
   });
 

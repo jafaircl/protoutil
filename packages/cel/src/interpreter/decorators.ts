@@ -21,6 +21,7 @@ import {
   type ConstantQualifier,
   isAttribute,
   isConstantQualifier,
+  qualifierAbsent,
   type Qualifier,
 } from "./attributes.js";
 import { executionFrame } from "./frame.js";
@@ -619,7 +620,9 @@ function observeConstantQualifier(
     },
     qualifyIfPresent: (vars, obj, presenceOnly) => {
       try {
-        const [out, present] = qualifier.qualifyIfPresent(vars, obj, presenceOnly);
+        const result = qualifier.qualifyIfPresent(vars, obj, presenceOnly);
+        const present = result !== qualifierAbsent;
+        const out = present ? result : undefined;
         observeConditionalQualification({
           adapter,
           observer,
@@ -629,7 +632,7 @@ function observeConstantQualifier(
           present,
           presenceOnly,
         });
-        return [out, present];
+        return result;
       } catch (error) {
         observer(vars, qualifier.id(), qualifier, labelErrNode(qualifier.id(), wrapErr(error)));
         throw error;
@@ -667,7 +670,9 @@ function observeAttributeQualifier(
     },
     qualifyIfPresent: (vars, obj, presenceOnly) => {
       try {
-        const [out, present] = qualifier.qualifyIfPresent(vars, obj, presenceOnly);
+        const result = qualifier.qualifyIfPresent(vars, obj, presenceOnly);
+        const present = result !== qualifierAbsent;
+        const out = present ? result : undefined;
         observeConditionalQualification({
           adapter,
           observer,
@@ -677,7 +682,7 @@ function observeAttributeQualifier(
           present,
           presenceOnly,
         });
-        return [out, present];
+        return result;
       } catch (error) {
         observer(vars, qualifier.id(), qualifier, labelErrNode(qualifier.id(), wrapErr(error)));
         throw error;
@@ -710,7 +715,9 @@ function observePlainQualifier(
     },
     qualifyIfPresent: (vars, obj, presenceOnly) => {
       try {
-        const [out, present] = qualifier.qualifyIfPresent(vars, obj, presenceOnly);
+        const result = qualifier.qualifyIfPresent(vars, obj, presenceOnly);
+        const present = result !== qualifierAbsent;
+        const out = present ? result : undefined;
         observeConditionalQualification({
           adapter,
           observer,
@@ -720,7 +727,7 @@ function observePlainQualifier(
           present,
           presenceOnly,
         });
-        return [out, present];
+        return result;
       } catch (error) {
         observer(vars, qualifier.id(), qualifier, labelErrNode(qualifier.id(), wrapErr(error)));
         throw error;

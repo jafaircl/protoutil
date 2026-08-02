@@ -36,11 +36,11 @@ export interface TypeProvider {
   /** EnumValue returns the numeric value of the given enum value name. */
   enumValue(enumName: string): Val;
   /** FindIdent takes a qualified identifier name and returns a Value if one exists. */
-  findIdent(identName: string): [Val | undefined, boolean];
+  findIdent(identName: string): Val | undefined;
   /** FindType looks up the Type given a qualified typeName. Returns false if not found. */
-  findType(typeName: string): [ExprType | undefined, boolean];
+  findType(typeName: string): ExprType | undefined;
   /** FindFieldType returns the field type for a checked type value. */
-  findFieldType(messageType: string, fieldName: string): [FieldType | undefined, boolean];
+  findFieldType(messageType: string, fieldName: string): FieldType | undefined;
   /** Value creates a new type value from a qualified name and map of field name to value. */
   value(typeName: string, fields: Record<string, Val>): Val;
 }

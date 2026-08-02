@@ -8,10 +8,11 @@ import { AttributePattern, attributePattern } from "./attribute-patterns.js";
  */
 export interface Activation {
   /**
-   * ResolveName returns a value from the activation by qualified name, or false if the name
-   * could not be found.
+   * ResolveName returns a value from the activation by qualified name, or activationNameAbsent
+   * when the name could not be found. A sentinel is required because an activation may bind
+   * a name to undefined.
    */
-  resolveName(name: string): [unknown, boolean];
+  resolveName(name: string): unknown | typeof activationNameAbsent;
 
   /**
    * Parent returns the parent of the current activation.
@@ -20,6 +21,11 @@ export interface Activation {
    */
   parent(): Activation | undefined;
 }
+
+/**
+ * activationNameAbsent marks an activation lookup that did not find its name.
+ */
+export const activationNameAbsent = Symbol("activationNameAbsent");
 
 /**
  * ActivationBindings represents the inputs supported by activation construction.
@@ -96,7 +102,7 @@ export interface PartialActivationConverter {
   /**
    * AsPartialActivation converts the current activation to a PartialActivation.
    */
-  asPartialActivation(): [PartialActivation | undefined, boolean];
+  asPartialActivation(): PartialActivation | undefined;
 }
 
 /**
@@ -114,8 +120,8 @@ class EmptyActivationImpl implements Activation {
   /**
    * ResolveName returns no value because the activation is empty.
    */
-  public resolveName(_: string): [unknown, boolean] {
-    return [undefined, false];
+  public resolveName(_: string): typeof activationNameAbsent {
+    return activationNameAbsent;
   }
 
   /**
@@ -158,9 +164,9 @@ class MapActivation implements Activation {
   /**
    * ResolveName looks up the name in the map and memoizes lazy bindings after the first call.
    */
-  public resolveName(name: string): [unknown, boolean] {
+  public resolveName(name: string): unknown | typeof activationNameAbsent {
     if (!Object.hasOwn(this.bindingsValue, name)) {
-      return [undefined, false];
+      return activationNameAbsent;
     }
     let object = this.bindingsValue[name];
     if (typeof object === "function") {
@@ -168,7 +174,7 @@ class MapActivation implements Activation {
       object = (object as LazyBinding)();
       this.bindingsValue[name] = object as Val | unknown;
     }
-    return [object, true];
+    return object;
   }
 }
 
@@ -196,12 +202,9 @@ class HierarchicalActivationImpl
   /**
    * ResolveName checks the child first and then falls back to the parent.
    */
-  public resolveName(name: string): [unknown, boolean] {
-    const [object, found] = this.childValue.resolveName(name);
-    if (found) {
-      return [object, found];
-    }
-    return this.parentValue.resolveName(name);
+  public resolveName(name: string): unknown | typeof activationNameAbsent {
+    const object = this.childValue.resolveName(name);
+    return object === activationNameAbsent ? this.parentValue.resolveName(name) : object;
   }
 
   /**
@@ -218,11 +221,11 @@ class HierarchicalActivationImpl
    *
    * This mirrors the upstream behavior and avoids recursion through future frame-based wrappers.
    */
-  public asPartialActivation(): [PartialActivation | undefined, boolean] {
+  public asPartialActivation(): PartialActivation | undefined {
     if (isPartialActivationConverter(this.childValue)) {
-      const [partial, found] = this.childValue.asPartialActivation();
-      if (found) {
-        return [partial, true];
+      const partial = this.childValue.asPartialActivation();
+      if (partial !== undefined) {
+        return partial;
       }
     }
     return asPartialActivation(this.parentValue);
@@ -254,7 +257,7 @@ class PartActivation implements PartialActivation, PartialActivationConverter {
   /**
    * ResolveName delegates to the wrapped activation.
    */
-  public resolveName(name: string): [unknown, boolean] {
+  public resolveName(name: string): unknown | typeof activationNameAbsent {
     return this.activationValue.resolveName(name);
   }
 
@@ -275,8 +278,8 @@ class PartActivation implements PartialActivation, PartialActivationConverter {
   /**
    * AsPartialActivation returns the current instance as a PartialActivation.
    */
-  public asPartialActivation(): [PartialActivation | undefined, boolean] {
-    return [this, true];
+  public asPartialActivation(): PartialActivation {
+    return this;
   }
 }
 
@@ -337,7 +340,7 @@ export function partialActivation(options: PartialActivationOptions): PartialAct
 /**
  * AsPartialActivation walks the activation hierarchy and returns the first PartialActivation, if found.
  */
-export function asPartialActivation(vars: Activation): [PartialActivation | undefined, boolean] {
+export function asPartialActivation(vars: Activation): PartialActivation | undefined {
   // Only internal activation instances may implement this interface.
   if (isPartialActivationConverter(vars)) {
     return vars.asPartialActivation();
@@ -347,7 +350,7 @@ export function asPartialActivation(vars: Activation): [PartialActivation | unde
   if (parentValue !== undefined) {
     return asPartialActivation(parentValue);
   }
-  return [undefined, false];
+  return undefined;
 }
 
 /**

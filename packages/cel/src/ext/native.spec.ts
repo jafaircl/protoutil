@@ -57,13 +57,12 @@ describe("ext/native_test.go/TestNativeFindStructFieldNames", () => {
     for (const testCase of syncedCases<NativeFieldNamesCase>(
       "ext/native_test.go/TestNativeFindStructFieldNames",
     )) {
-      const [fields, found] = typeRegistry.findStructFieldNames(testCase.typeName);
+      const fields = typeRegistry.findStructFieldNames(testCase.typeName);
       if (testCase.typeName === "ext.TestNestedType") {
-        expect(found).toBe(true);
-        expect(fields.sort()).toEqual(testCase.fields.sort());
+        expect(fields).toBeDefined();
+        expect(fields!.sort()).toEqual(testCase.fields.sort());
       } else if (testCase.typeName === "invalid.TypeName") {
-        expect(found).toBe(false);
-        expect(fields).toEqual([]);
+        expect(fields).toBeUndefined();
       }
     }
   });

@@ -12,7 +12,7 @@ export interface EvalState {
   /**
    * value returns the observed value for the expression id, if one has been recorded.
    */
-  value(exprId: number): [Val | undefined, boolean];
+  value(exprId: number): Val | undefined;
 
   /**
    * setValue records the observed value for the expression id.
@@ -59,9 +59,8 @@ class MutableEvalState implements EvalState {
   /**
    * value returns the observed value for the expression id.
    */
-  public value(exprId: number): [Val | undefined, boolean] {
-    const value = this.valuesValue.get(exprId);
-    return [value, value !== undefined];
+  public value(exprId: number): Val | undefined {
+    return this.valuesValue.get(exprId);
   }
 
   /**

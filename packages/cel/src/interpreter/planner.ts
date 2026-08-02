@@ -2,15 +2,17 @@ import type { AST, Expr } from "../common/ast/index.js";
 import type { Container } from "../common/containers.js";
 import * as operators from "../common/operators.js";
 import type { Provider } from "../common/types/index.js";
-import { type Adapter, Double, exprTypeToType, Int, Uint } from "../common/types/index.js";
+import { type Adapter, Double, exprTypeToType, Int, type RefType, Uint } from "../common/types/index.js";
 import { Type_PrimitiveType } from "../gen/cel/expr/checked_pb.js";
 import { asyncCallInterpretable } from "./async.js";
+import { isPartialAttributeMatcher } from "./attribute-patterns.js";
 import type { AttributeFactory } from "./attributes.js";
 import type { InterpretableDecoratorV2 } from "./decorators.js";
 import type { Dispatcher } from "./dispatcher.js";
 import {
   attrInterpretable,
   callInterpretable,
+  checkedIdentifierInterpretable,
   constantRuntimeValue,
   constValue,
   equalityInterpretable,
@@ -179,13 +181,14 @@ class PlanBuilder {
         value: this.plannerValue.adapter.nativeToValue(identRef.value),
       });
     }
-    return attrInterpretable({
-      adapter: this.plannerValue.adapter,
-      attr: this.plannerValue.attrFactory.absoluteAttribute(
-        id,
-        originalIdent?.startsWith(".") ? originalIdent : identRef.name,
-      ),
-    });
+    const attr = this.plannerValue.attrFactory.absoluteAttribute(
+      id,
+      originalIdent?.startsWith(".") ? originalIdent : identRef.name,
+    );
+    if (originalIdent?.startsWith(".") || isPartialAttributeMatcher(attr)) {
+      return attrInterpretable({ adapter: this.plannerValue.adapter, attr });
+    }
+    return checkedIdentifierInterpretable(attr, this.plannerValue.adapter);
   }
 
   /**
@@ -306,10 +309,10 @@ class PlanBuilder {
     overloadId: string,
     args: InterpretableV2[],
   ): InterpretableV2 {
-    const [resolved] = (overloadId
+    const resolved = overloadId
       ? this.plannerValue.dispatcher.findOverload(overloadId)
-      : [undefined, false]) ?? [undefined, false];
-    const [fallback] = this.plannerValue.dispatcher.findOverload(functionName);
+      : undefined;
+    const fallback = this.plannerValue.dispatcher.findOverload(functionName);
     const overload = resolved ?? fallback;
     if (overload?.async !== undefined) {
       return asyncCallInterpretable({
@@ -330,7 +333,23 @@ class PlanBuilder {
       binary: overload?.binary,
       nonStrict: overload?.nonStrict ?? false,
       operandTrait: overload?.operandTrait ?? 0,
+      checkedArgTypes: overloadId === "" ? undefined : this.checkedArgTypes(args),
     });
+  }
+
+  /**
+   * checkedArgTypes returns the checker-selected types for a fully checked call.
+   */
+  private checkedArgTypes(args: InterpretableV2[]): readonly RefType[] | undefined {
+    const checkedArgTypes: RefType[] = [];
+    for (const arg of args) {
+      const exprType = this.exprAstValue.getType(arg.id());
+      if (exprType === undefined) {
+        return undefined;
+      }
+      checkedArgTypes.push(exprTypeToType(exprType));
+    }
+    return checkedArgTypes;
   }
 
   /**
@@ -371,8 +390,7 @@ class PlanBuilder {
   private planCreateStruct(expr: Expr): InterpretableV2 {
     const struct = expr.asStruct()!;
     const typeName = this.resolveTypeName(struct.typeName()) ?? struct.typeName();
-    const [, found] = this.plannerValue.provider.findStructType(typeName);
-    if (!found) {
+    if (this.plannerValue.provider.findStructType(typeName) === undefined) {
       throw new Error(`unknown type: ${typeName}`);
     }
     return objInterpretable({
@@ -470,7 +488,7 @@ class PlanBuilder {
    */
   private resolveTypeName(typeName: string): string | undefined {
     for (const candidate of this.plannerValue.container.resolveCandidateNames(typeName)) {
-      if (this.plannerValue.provider.findStructType(candidate)[1]) {
+      if (this.plannerValue.provider.findStructType(candidate) !== undefined) {
         return candidate;
       }
     }
@@ -508,7 +526,7 @@ class PlanBuilder {
     let functionName = call.functionName();
     if (!call.isMemberFunction()) {
       for (const candidate of this.plannerValue.container.resolveCandidateNames(functionName)) {
-        if (this.plannerValue.dispatcher.findOverload(candidate)[1]) {
+        if (this.plannerValue.dispatcher.findOverload(candidate) !== undefined) {
           functionName = candidate;
           break;
         }
@@ -523,7 +541,7 @@ class PlanBuilder {
     if (qualified) {
       const combined = `${qualified}.${functionName}`;
       for (const candidate of this.plannerValue.container.resolveCandidateNames(combined)) {
-        if (this.plannerValue.dispatcher.findOverload(candidate)[1]) {
+        if (this.plannerValue.dispatcher.findOverload(candidate) !== undefined) {
           return {
             functionName: candidate,
             overloadId: "",

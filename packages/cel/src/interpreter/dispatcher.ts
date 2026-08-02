@@ -12,7 +12,7 @@ export interface Dispatcher {
   /**
    * findOverload returns the overload registered for the provided operator identifier.
    */
-  findOverload(overload: string): [Overload | undefined, boolean];
+  findOverload(overload: string): Overload | undefined;
 
   /**
    * overloadIds returns the set of all overload identifiers visible through the dispatcher chain.
@@ -72,12 +72,12 @@ class DefaultDispatcher implements Dispatcher {
   /**
    * findOverload resolves the overload locally first, then through the parent dispatcher.
    */
-  public findOverload(overload: string): [Overload | undefined, boolean] {
+  public findOverload(overload: string): Overload | undefined {
     const local = this.overloadsValue.get(overload);
     if (local !== undefined) {
-      return [local, true];
+      return local;
     }
-    return this.parentValue?.findOverload(overload) ?? [undefined, false];
+    return this.parentValue?.findOverload(overload);
   }
 
   /**

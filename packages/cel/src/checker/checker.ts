@@ -839,12 +839,12 @@ class checker {
     fieldName: string,
     locationOverride = this.locationById(id),
   ): [Type | undefined, boolean] {
-    if (!this.env.provider.findStructType(structType)[1]) {
+    if (this.env.provider.findStructType(structType) === undefined) {
       this.errors.unexpectedFailedResolution(id, locationOverride, structType);
       return [undefined, false];
     }
-    const [fieldType, found] = this.env.provider.findStructFieldType(structType, fieldName);
-    if (found && fieldType) {
+    const fieldType = this.env.provider.findStructFieldType(structType, fieldName);
+    if (fieldType) {
       if (this.env.jsonFieldNames && !fieldType.isJSONField) {
         this.errors.undefinedField(id, locationOverride, fieldName);
       }

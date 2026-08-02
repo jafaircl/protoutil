@@ -172,11 +172,11 @@ export function isUnknown(val: Val): boolean {
 /**
  * MaybeMergeUnknowns determines whether an input value and another, possibly nil, unknown will produce an unknown result.
  */
-export function maybeMergeUnknowns(val: Val, unk?: Unknown): [Unknown | undefined, boolean] {
+export function maybeMergeUnknowns(val: Val, unk?: Unknown): Unknown | undefined {
   if (!(val instanceof Unknown)) {
-    return unk ? [unk, true] : [unk, false];
+    return unk;
   }
-  return [mergeUnknowns(val, unk), true];
+  return mergeUnknowns(val, unk);
 }
 
 /**

@@ -333,7 +333,7 @@ class AsyncCallInterpretable implements InterpretableCall {
       if (isError(value)) {
         return value;
       }
-      [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
+      mergedUnknown = maybeMergeUnknowns(value, mergedUnknown);
       values.push(value);
     }
     if (mergedUnknown !== undefined) {

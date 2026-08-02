@@ -800,13 +800,13 @@ export class TypeDesc {
     if (this.isTypeParam) {
       return typeParamType(this.typeName);
     }
-    const [structType, structFound] = tp.findStructType(this.typeName);
-    if (structFound && structType) {
+    const structType = tp.findStructType(this.typeName);
+    if (structType) {
       // FindStructType returns `type(T)`. The first parameter is the type name.
       return structType.parameters()[0] ?? structType;
     }
-    const [ident, found] = tp.findIdent(this.typeName);
-    if (!found || !(ident instanceof Type)) {
+    const ident = tp.findIdent(this.typeName);
+    if (!(ident instanceof Type)) {
       throw new Error(`undefined type name: "${this.typeName}"`);
     }
     if (this.params.length === 0) {

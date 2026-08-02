@@ -95,8 +95,8 @@ describe("map", () => {
 
   it("common/types/map_test.go/TestMapFindAndGet", () => {
     const mapVal = dynamicMap(registry(), { hello: "world" });
-    const [value, found] = mapVal.find(new CelString("hello"));
-    expect(found).toBe(true);
+    const value = mapVal.find(new CelString("hello"));
+    expect(value).toBeDefined();
     expect((value as CelString).value()).toBe("world");
     expect((mapVal.get(new CelString("hello")) as CelString).value()).toBe("world");
     expect(String(mapVal.get(new CelString("missing")))).toContain("no such key");
@@ -368,15 +368,15 @@ describe("map", () => {
     const map = mutableMap(DefaultTypeAdapter);
     expect(map.insert(new CelString("first"), new Int(1n))).toBe(map);
     const immutable = map.toImmutableMap();
-    expect(immutable.find(new CelString("first"))[1]).toBe(true);
+    expect(immutable.find(new CelString("first"))).toBeDefined();
     map.insert(new CelString("second"), new Int(2n));
-    expect(immutable.find(new CelString("second"))[1]).toBe(false);
+    expect(immutable.find(new CelString("second"))).toBeUndefined();
   });
 
   it("common/types/map_test.go/TestInsertMapKeyValue_MutableMapper", () => {
     const map = mutableMap(DefaultTypeAdapter, new Map([[new CelString("first"), new Int(1n)]]));
     expect(insertMapKeyValue({ map, key: new CelString("second"), value: new Int(2n) })).toBe(map);
-    expect(map.find(new CelString("second"))[1]).toBe(true);
+    expect(map.find(new CelString("second"))).toBeDefined();
     expect(
       insertMapKeyValue({ map, key: new CelString("second"), value: new Int(3n) }),
     ).toBeInstanceOf(Err);
@@ -390,8 +390,8 @@ describe("map", () => {
       value: new Int(2n),
     }) as Mapper;
     expect(modified).not.toBe(map);
-    expect(modified.find(new CelString("first"))[1]).toBe(true);
-    expect(modified.find(new CelString("second"))[1]).toBe(true);
+    expect(modified.find(new CelString("first"))).toBeDefined();
+    expect(modified.find(new CelString("second"))).toBeDefined();
     expect(
       insertMapKeyValue({ map: modified, key: new CelString("second"), value: new Int(3n) }),
     ).toBeInstanceOf(Err);

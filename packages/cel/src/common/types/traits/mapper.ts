@@ -11,7 +11,7 @@ export interface Mapper extends Val, Container, Indexer, Iterable, Sizer {
   /**
    * Find returns a value, if one exists, for the input key.
    */
-  find(key: Val): [Val | undefined, boolean];
+  find(key: Val): Val | undefined;
 }
 
 /**

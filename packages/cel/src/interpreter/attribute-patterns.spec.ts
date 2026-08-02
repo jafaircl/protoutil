@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { container, defaultContainer } from "../common/containers.js";
 import { attributeTrail, qualifyAttribute, registry, Unknown } from "../common/types/index.js";
 import type { Activation } from "./activation.js";
-import { emptyActivation, partialActivation } from "./activation.js";
+import { activationNameAbsent, emptyActivation, partialActivation } from "./activation.js";
 import type { Attribute, AttributeFactory } from "./attributes.js";
 import { executionFrame } from "./frame.js";
 import { attributePattern, partialAttributeFactory } from "./index.js";
@@ -19,8 +19,8 @@ class LocalActivation implements Activation {
   }
 
   /** resolveName returns the local x value. */
-  public resolveName(name: string): [unknown, boolean] {
-    return name === "x" ? [1, true] : [undefined, false];
+  public resolveName(name: string): unknown | typeof activationNameAbsent {
+    return name === "x" ? 1 : activationNameAbsent;
   }
 
   /** isLocalVariable reports that x belongs to this local scope. */

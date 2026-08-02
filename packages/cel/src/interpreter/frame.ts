@@ -2,6 +2,7 @@ import type { Val } from "../common/types/index.js";
 import { Err } from "../common/types/index.js";
 import type { Adapter } from "../common/types/provider.js";
 import {
+  activationNameAbsent,
   type Activation,
   asPartialActivation,
   hierarchicalActivation,
@@ -175,13 +176,13 @@ class InputActivation implements Activation {
   /**
    * resolveName looks up the input variable and caches lazy values after the first call.
    */
-  public resolveName(name: string): [unknown, boolean] {
+  public resolveName(name: string): unknown | typeof activationNameAbsent {
     if (this.varsValue === undefined || !Object.hasOwn(this.varsValue, name)) {
-      return [undefined, false];
+      return activationNameAbsent;
     }
     const adapted = this.adaptedVarsValue.get(name);
     if (adapted !== undefined) {
-      return [adapted, true];
+      return adapted;
     }
     let value = this.varsValue[name];
     if (typeof value === "function") {
@@ -195,9 +196,9 @@ class InputActivation implements Activation {
     if (this.adapterValue !== undefined) {
       const adaptedValue = this.adapterValue.nativeToValue(value);
       this.adaptedVarsValue.set(name, adaptedValue);
-      return [adaptedValue, true];
+      return adaptedValue;
     }
-    return [value, true];
+    return value;
   }
 
   /**
@@ -428,7 +429,7 @@ export class ExecutionFrame implements Activation {
   /**
    * resolveName proxies name resolution to the current activation.
    */
-  public resolveName(name: string): [unknown, boolean] {
+  public resolveName(name: string): unknown | typeof activationNameAbsent {
     return this.activationValue!.resolveName(name);
   }
 
@@ -442,7 +443,7 @@ export class ExecutionFrame implements Activation {
   /**
    * asPartialActivation returns the first partial activation visible from the current activation chain.
    */
-  public asPartialActivation(): [PartialActivation | undefined, boolean] {
+  public asPartialActivation(): PartialActivation | undefined {
     return asPartialActivation(this.activationValue!);
   }
 

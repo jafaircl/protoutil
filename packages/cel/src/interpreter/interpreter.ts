@@ -236,13 +236,13 @@ class EvalStateFactoryObserver implements StatefulObserver {
         ? this.stateByActivationValue.get(observerRootActivation(activation))
         : undefined;
     if (state) {
-      state.setValue({ exprId, value: value as ReturnType<EvalState["value"]>[0] });
+      state.setValue({ exprId, value: value as ReturnType<EvalState["value"]> });
       return;
     }
     if (!isEvalState(activation)) {
       return;
     }
-    activation.setValue({ exprId, value: value as ReturnType<EvalState["value"]>[0] });
+    activation.setValue({ exprId, value: value as ReturnType<EvalState["value"]> });
   }
 }
 

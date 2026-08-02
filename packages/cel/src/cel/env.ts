@@ -47,6 +47,7 @@ import {
 } from "../common/types/types.js";
 import {
   type ActivationBindings,
+  activationNameAbsent,
   activation,
   type PartialActivation,
   partialActivation,
@@ -1191,7 +1192,7 @@ export class Env {
   public partialVars(bindings: unknown): PartialActivation {
     const vars = activation({ bindings });
     const unknowns = this.variablesValue
-      .filter((declaration) => !vars.resolveName(declaration.name())[1])
+      .filter((declaration) => vars.resolveName(declaration.name()) === activationNameAbsent)
       .map((declaration) => attributePattern(declaration.name()));
     return partialActivation({
       bindings: vars,
@@ -1406,13 +1407,13 @@ function contextVariableDeclarations(options: ContextVariableDeclarationsOptions
     if (options.typeName === undefined) {
       return [];
     }
-    const [fieldNames, found] = options.provider.findStructFieldNames(options.typeName);
-    if (!found) {
+    const fieldNames = options.provider.findStructFieldNames(options.typeName);
+    if (fieldNames === undefined) {
       throw new Error(`invalid context proto type: "${options.typeName}"`);
     }
     return fieldNames.map((name) => {
-      const [fieldType, fieldFound] = options.provider.findStructFieldType(options.typeName!, name);
-      if (!fieldFound || fieldType === undefined) {
+      const fieldType = options.provider.findStructFieldType(options.typeName!, name);
+      if (fieldType === undefined) {
         throw new Error(`context proto field type not found: ${options.typeName}.${name}`);
       }
       return variableDecl(name, fieldType.type);
@@ -1420,8 +1421,8 @@ function contextVariableDeclarations(options: ContextVariableDeclarationsOptions
   }
   return options.schema.fields.map((field) => {
     const name = options.jsonFieldNames ? field.jsonName : field.name;
-    const [fieldType, found] = options.provider.findStructFieldType(options.schema!.typeName, name);
-    if (!found || fieldType === undefined) {
+    const fieldType = options.provider.findStructFieldType(options.schema!.typeName, name);
+    if (fieldType === undefined) {
       throw new Error(`context proto field type not found: ${options.schema!.typeName}.${name}`);
     }
     return variableDecl(name, fieldType.type);

@@ -2413,12 +2413,12 @@ describe("cel/env_test.go/TestTypeProviderInterop", () => {
       const celEnv = env({ registry: typeRegistry });
       const typeName = Proto3TestAllTypesSchema.typeName;
 
-      expect(celEnv.typeProvider().findStructType(typeName)[1]).toBe(true);
-      expect(typeRegistry.findType(typeName)[1]).toBe(true);
-      expect(celEnv.typeProvider().findStructFieldType(typeName, "single_int32")[1]).toBe(true);
-      expect(typeRegistry.findFieldType(typeName, "single_int32")[1]).toBe(true);
-      expect(celEnv.typeProvider().findStructType("test.BadTypeName")[1]).toBe(false);
-      expect(typeRegistry.findType("test.BadTypeName")[1]).toBe(false);
+      expect(celEnv.typeProvider().findStructType(typeName)).toBeDefined();
+      expect(typeRegistry.findType(typeName)).toBeDefined();
+      expect(celEnv.typeProvider().findStructFieldType(typeName, "single_int32")).toBeDefined();
+      expect(typeRegistry.findFieldType(typeName, "single_int32")).toBeDefined();
+      expect(celEnv.typeProvider().findStructType("test.BadTypeName")).toBeUndefined();
+      expect(typeRegistry.findType("test.BadTypeName")).toBeUndefined();
     });
   }
 });
@@ -2629,7 +2629,7 @@ describe("cel/env_test.go/TestMaybeInteropProvider_LegacyTypeProvider", () => {
     const celEnv = env({ registry: typeRegistry });
 
     expect(celEnv.typeProvider()).toBe(typeRegistry);
-    expect(typeRegistry.findType("google.protobuf.Timestamp")[1]).toBe(true);
+    expect(typeRegistry.findType("google.protobuf.Timestamp")).toBeDefined();
   });
 });
 

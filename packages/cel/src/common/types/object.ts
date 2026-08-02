@@ -294,11 +294,7 @@ function fieldByProvider(
   if (!("findStructFieldType" in adapter) || typeof adapter.findStructFieldType !== "function") {
     return undefined;
   }
-  const [field, found] = adapter.findStructFieldType(messageType, fieldName) as [
-    ProviderResolvedField | undefined,
-    boolean,
-  ];
-  return found ? field : undefined;
+  return adapter.findStructFieldType(messageType, fieldName) as ProviderResolvedField | undefined;
 }
 
 /**

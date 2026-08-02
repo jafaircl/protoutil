@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { IntOne } from "../common/types/index.js";
 import {
   activation,
+  activationNameAbsent,
   asPartialActivation,
   emptyActivation,
   partialActivation,
@@ -94,13 +95,13 @@ describe("interpreter/frame_test.go", () => {
       const childAct = activation({ bindings: { y: 2 } });
 
       const base = executionFrame({ input: baseAct });
-      expect(base.resolveName("x")).toEqual([1, true]);
-      expect(base.resolveName("y")).toEqual([undefined, false]);
+      expect(base.resolveName("x")).toBe(1);
+      expect(base.resolveName("y")).toBe(activationNameAbsent);
 
       const child = base.push(childAct);
-      expect(child.resolveName("y")).toEqual([2, true]);
-      expect(child.resolveName("x")).toEqual([1, true]);
-      expect(child.resolveName("z")).toEqual([undefined, false]);
+      expect(child.resolveName("y")).toBe(2);
+      expect(child.resolveName("x")).toBe(1);
+      expect(child.resolveName("z")).toBe(activationNameAbsent);
 
       child.pop();
       base.close();
@@ -153,16 +154,16 @@ describe("interpreter/frame_test.go", () => {
       const partAct = partialActivation({ bindings: { y: 2 }, unknowns: [] });
 
       const base = executionFrame({ input: baseAct });
-      expect(asPartialActivation(base)[1]).toBe(false);
+      expect(asPartialActivation(base)).toBeUndefined();
       base.close();
 
       const partial = executionFrame({ input: partAct });
-      expect(partial.asPartialActivation()[1]).toBe(true);
+      expect(partial.asPartialActivation()).toBeDefined();
       partial.close();
 
       const wrapped = executionFrame({ input: partAct });
       const child = wrapped.push(baseAct);
-      expect(child.asPartialActivation()[1]).toBe(true);
+      expect(child.asPartialActivation()).toBeDefined();
       child.pop();
       wrapped.close();
     });
@@ -179,7 +180,7 @@ describe("interpreter/frame_test.go", () => {
       expect(child.pop()).toBe(base);
       const reused = base.push(activation({ bindings: { z: 3 } }));
       expect(reused === child).toBe(true);
-      expect(reused.resolveName("z")).toEqual([3, true]);
+      expect(reused.resolveName("z")).toBe(3);
       reused.pop();
       base.close();
     });
@@ -207,20 +208,20 @@ describe("interpreter/frame_test.go", () => {
     it("interpreter/frame_test.go/TestFrameLifecycleAndPooling", () => {
       const frame = executionFrame({ input: { a: 1, b: 2 } });
       const inputActivation = frame.activation();
-      expect(frame.resolveName("a")).toEqual([1, true]);
+      expect(frame.resolveName("a")).toBe(1);
 
       const parentAct = activation({ bindings: { c: 3 } });
       frame.setActivationHierarchy({ parent: parentAct, child: frame.activation() });
-      expect(frame.resolveName("c")).toEqual([3, true]);
-      expect(frame.resolveName("a")).toEqual([1, true]);
+      expect(frame.resolveName("c")).toBe(3);
+      expect(frame.resolveName("a")).toBe(1);
 
       frame.close();
 
       const fresh = executionFrame({ input: { x: 10 } });
       expect(fresh === frame).toBe(true);
       expect(fresh.activation() === inputActivation).toBe(true);
-      expect(fresh.resolveName("x")).toEqual([10, true]);
-      expect(fresh.resolveName("a")).toEqual([undefined, false]);
+      expect(fresh.resolveName("x")).toBe(10);
+      expect(fresh.resolveName("a")).toBe(activationNameAbsent);
       fresh.close();
     });
   });
@@ -319,17 +320,17 @@ describe("interpreter/frame_test.go", () => {
         },
       });
 
-      expect(frame.resolveName("missing")).toEqual([undefined, false]);
-      expect(frame.resolveName("normal")).toEqual([3, true]);
+      expect(frame.resolveName("missing")).toBe(activationNameAbsent);
+      expect(frame.resolveName("normal")).toBe(3);
 
-      expect(frame.resolveName("lazy_ref")).toEqual([IntOne, true]);
+      expect(frame.resolveName("lazy_ref")).toBe(IntOne);
       expect(lazyRefCalls).toBe(1);
-      expect(frame.resolveName("lazy_ref")).toEqual([IntOne, true]);
+      expect(frame.resolveName("lazy_ref")).toBe(IntOne);
       expect(lazyRefCalls).toBe(1);
 
-      expect(frame.resolveName("lazy_any")).toEqual([2, true]);
+      expect(frame.resolveName("lazy_any")).toBe(2);
       expect(lazyAnyCalls).toBe(1);
-      expect(frame.resolveName("lazy_any")).toEqual([2, true]);
+      expect(frame.resolveName("lazy_any")).toBe(2);
       expect(lazyAnyCalls).toBe(1);
 
       frame.close();

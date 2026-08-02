@@ -145,7 +145,7 @@ export function insertMapKeyValue(options: InsertMapKeyValueOptions): Val {
   if (typeof (options.map as { insert?: unknown }).insert === "function") {
     return (options.map as MutableMapper).insert(options.key, options.value);
   }
-  if (options.map.find(options.key)[1]) {
+  if (options.map.find(options.key) !== undefined) {
     return err("insert failed: key %s already exists", formatVal(options.key));
   }
 
@@ -171,8 +171,7 @@ export class BaseMap implements Mapper {
   ) {}
 
   public contains(index: Val): Val {
-    const [, found] = this.find(index);
-    return found ? True : False;
+    return this.find(index) !== undefined ? True : False;
   }
 
   public convertToNative(typeDesc?: unknown): unknown {
@@ -238,11 +237,11 @@ export class BaseMap implements Mapper {
     }
     for (const rawKey of this.keys) {
       const key = this.adapter.nativeToValue(rawKey);
-      const [otherVal, found] = other.find(key);
-      if (!found) {
+      const otherVal = other.find(key);
+      if (otherVal === undefined) {
         return False;
       }
-      const [thisVal] = this.find(key);
+      const thisVal = this.find(key);
       const valuesEqual =
         thisVal !== undefined &&
         otherVal !== undefined &&
@@ -257,14 +256,14 @@ export class BaseMap implements Mapper {
     return True;
   }
 
-  public find(key: Val): [Val | undefined, boolean] {
+  public find(key: Val): Val | undefined {
     const raw = this.valueFor(key);
-    return raw === undefined ? [undefined, false] : [this.adapter.nativeToValue(raw), true];
+    return raw === undefined ? undefined : this.adapter.nativeToValue(raw);
   }
 
   public get(key: Val): Val {
-    const [value, found] = this.find(key);
-    if (!found || !value) {
+    const value = this.find(key);
+    if (value === undefined) {
       return valOrErr(value, "no such key: %v", key);
     }
     return value;
@@ -293,7 +292,7 @@ export class BaseMap implements Mapper {
   public fold(folder: Folder): void {
     for (const rawKey of this.keys) {
       const key = this.adapter.nativeToValue(rawKey);
-      const [value] = this.find(key);
+      const value = this.find(key);
       if (!folder.foldEntry(rawKey, value?.value())) {
         break;
       }
@@ -344,18 +343,18 @@ class ProtoMap extends BaseMap implements Mapper {
     );
   }
 
-  public override find(key: Val): [Val | undefined, boolean] {
+  public override find(key: Val): Val | undefined {
     const raw = this.valueFor(key);
     if (raw === undefined) {
-      return [undefined, false];
+      return undefined;
     }
     if (this.valType?.isMessage() && isRecord(raw)) {
       const [unwrapped, , err] = this.valType.maybeUnwrapDynamic(raw as Message);
       if (!err) {
-        return [this.adapter.nativeToValue(unwrapped), true];
+        return this.adapter.nativeToValue(unwrapped);
       }
     }
-    return [this.adapter.nativeToValue(raw), true];
+    return this.adapter.nativeToValue(raw);
   }
 }
 
@@ -404,8 +403,7 @@ class MutableMap extends BaseMap implements MutableMapper {
   }
 
   public insert(k: Val, v: Val): Val {
-    const [, found] = this.find(k);
-    if (found) {
+    if (this.find(k) !== undefined) {
       return err("insert failed: key %v already exists", k);
     }
     this.mutableValues.set(k, v);

@@ -454,10 +454,10 @@ class AttributeMatcher implements NamespacedAttribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     const value = this.resolve(vars);
     if (value instanceof Unknown) {
-      return [value, true];
+      return value;
     }
     return this.factoryValue
       .qualifier({ id: this.id(), value, optional: this.isOptional() })
@@ -474,8 +474,8 @@ class AttributeMatcher implements NamespacedAttribute {
     ) {
       return this.namespacedAttributeValue.resolve(vars);
     }
-    const [partial, found] = asPartialActivation(vars);
-    if (found && partial) {
+    const partial = asPartialActivation(vars);
+    if (partial !== undefined) {
       const unknownValue = this.factoryValue.matchesUnknownPatterns(
         partial,
         this.id(),
@@ -488,6 +488,13 @@ class AttributeMatcher implements NamespacedAttribute {
     }
     return this.namespacedAttributeValue.resolve(vars);
   }
+}
+
+/**
+ * isPartialAttributeMatcher reports whether an attribute applies partial-activation unknown matching.
+ */
+export function isPartialAttributeMatcher(attr: Attribute): boolean {
+  return attr instanceof AttributeMatcher;
 }
 
 /**
@@ -564,10 +571,10 @@ class MaybeAttributeWithFactory implements Attribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     const value = this.resolve(vars);
     if (value instanceof Unknown) {
-      return [value, true];
+      return value;
     }
     return this.factoryValue
       .qualifier({ id: this.id(), value, optional: this.isOptional() })
@@ -607,10 +614,10 @@ export function partialAttributeFactory(
         enumValue: () => {
           throw new Error("provider not configured");
         },
-        findIdent: () => [undefined, false],
-        findStructType: () => [undefined, false],
-        findStructFieldNames: () => [[], false],
-        findStructFieldType: () => [undefined, false],
+        findIdent: () => undefined,
+        findStructType: () => undefined,
+        findStructFieldNames: () => undefined,
+        findStructFieldType: () => undefined,
         newValue: () => {
           throw new Error("provider not configured");
         },

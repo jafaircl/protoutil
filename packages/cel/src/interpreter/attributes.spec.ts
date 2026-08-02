@@ -45,6 +45,7 @@ import {
   type Attribute,
   type AttributeFactory,
   attributeFactory,
+  qualifierAbsent,
   type Qualifier,
 } from "./attributes.js";
 import { dispatcher } from "./dispatcher.js";
@@ -198,12 +199,12 @@ class NestedMessageQualifier implements Qualifier {
     _: ReturnType<typeof emptyActivation>,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     const value = (obj as { bb: number }).bb;
     if (value === 0) {
-      return [undefined, false];
+      return qualifierAbsent;
     }
-    return [presenceOnly ? undefined : value, true];
+    return presenceOnly ? undefined : value;
   }
 }
 
@@ -1288,8 +1289,8 @@ describe("interpreter/attributes_test.go", () => {
           const out = program.exec(frame);
           compareResolvedValue(out, testCase.out);
           for (const [id, expected] of Object.entries(testCase.state)) {
-            const [observed, found] = state.value(Number(id));
-            expect(found, `${testCase.expr}:${id}`).toBe(true);
+            const observed = state.value(Number(id));
+            expect(observed, `${testCase.expr}:${id}`).toBeDefined();
             try {
               compareResolvedValue(observed, expected);
             } catch (error) {
@@ -1319,8 +1320,8 @@ describe("interpreter/attributes_test.go", () => {
       const vars = activation({ bindings: { a: "key", b: "other" } });
       const obj = { key: 100 };
       expect(cond.qualify(vars, obj)).toBe(100);
-      const [out, found] = cond.qualifyIfPresent(vars, obj, false);
-      expect(found).toBe(true);
+      const out = cond.qualifyIfPresent(vars, obj, false);
+      expect(out).not.toBe(qualifierAbsent);
       expect(out).toBe(100);
     });
   });
@@ -1350,8 +1351,8 @@ describe("interpreter/attributes_test.go", () => {
         out: testCase.out,
       }));
       for (const testCase of cases) {
-        const [out, found] = testCase.qual.qualifyIfPresent(vars, testCase.obj, false);
-        expect(found, testCase.name).toBe(true);
+        const out = testCase.qual.qualifyIfPresent(vars, testCase.obj, false);
+        expect(out, testCase.name).not.toBe(qualifierAbsent);
         expect(out, testCase.name).toEqual(testCase.out);
       }
     });

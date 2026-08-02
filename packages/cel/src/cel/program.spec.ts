@@ -74,7 +74,7 @@ describe("TypeScript extension/TestProgramCachesMapInputAdaptationPerEvaluation"
     const dynamicActivation: Activation = {
       resolveName: () => {
         resolutions += 1;
-        return [resolutions, true];
+        return resolutions;
       },
       parent: () => undefined,
     };
@@ -414,8 +414,8 @@ describe("cel/cel_test.go/TestExhaustiveEval", () => {
     const state = evaluated.details.state();
 
     expect(evaluated.value.value()).toBe(true);
-    expect(state?.value(args[0]!.id())[1]).toBe(true);
-    expect(state?.value(args[1]!.id())[1]).toBe(true);
+    expect(state?.value(args[0]!.id())).toBeDefined();
+    expect(state?.value(args[1]!.id())).toBeDefined();
   });
 });
 

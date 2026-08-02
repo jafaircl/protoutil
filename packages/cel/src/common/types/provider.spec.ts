@@ -47,8 +47,8 @@ describe("provider", () => {
     const reg = registry();
     const copy = reg.copy();
     expect(copy).not.toBe(reg);
-    expect(copy.findStructType("google.expr.proto3.test.TestAllTypes")[1]).toBe(
-      reg.findStructType("google.expr.proto3.test.TestAllTypes")[1],
+    expect(copy.findStructType("google.expr.proto3.test.TestAllTypes")).toEqual(
+      reg.findStructType("google.expr.proto3.test.TestAllTypes"),
     );
   });
 
@@ -84,7 +84,7 @@ describe("provider", () => {
     const reg = registry([create(Proto3TestAllTypesSchema), Proto3TestAllTypesSchema]);
     const enumName = "google.expr.proto3.test.GlobalEnum.GOO";
     expect(reg.enumValue(enumName)).toEqual(new Int(BigInt(GlobalEnum.GOO)));
-    expect(reg.findIdent(enumName)).toEqual([new Int(BigInt(GlobalEnum.GOO)), true]);
+    expect(reg.findIdent(enumName)).toEqual(new Int(BigInt(GlobalEnum.GOO)));
   });
 
   it("TypeScript extension/TestRegistryStrongEnums", () => {
@@ -120,12 +120,11 @@ describe("provider", () => {
 
   it("common/types/provider_test.go/TestRegistryFindStructType", () => {
     const reg = registry([create(Proto3TestAllTypesSchema), Proto3TestAllTypesSchema]);
-    expect(reg.findStructType(".google.expr.proto3.test.TestAllTypes")).toEqual([
+    expect(reg.findStructType(".google.expr.proto3.test.TestAllTypes")).toEqual(
       typeTypeWithParam(objectType("google.expr.proto3.test.TestAllTypes")),
-      true,
-    ]);
-    const [exprType, found] = reg.findType(".google.expr.proto3.test.TestAllTypes");
-    expect(found).toBe(true);
+    );
+    const exprType = reg.findType(".google.expr.proto3.test.TestAllTypes");
+    expect(exprType).toBeDefined();
     const typeValue = exprType as {
       typeKind: { case: string; value: { typeKind: { case: string; value: string } } };
     };
@@ -145,11 +144,9 @@ describe("provider", () => {
         [create(DeclSchema), DeclSchema],
       );
       reg.withJSONFieldNames(Boolean(testCase.jsonFieldNames));
-      const [fields, found] = reg.findStructFieldNames(
-        canonicalProviderTypeName(testCase.typeName),
-      );
-      expect(found).toBe(testCase.typeName !== "invalid.TypeName");
-      expect([...fields].sort()).toEqual([...testCase.fields].sort());
+      const fields = reg.findStructFieldNames(canonicalProviderTypeName(testCase.typeName));
+      expect(fields !== undefined).toBe(testCase.typeName !== "invalid.TypeName");
+      expect([...(fields ?? [])].sort()).toEqual([...testCase.fields].sort());
     }
   });
 
@@ -163,11 +160,11 @@ describe("provider", () => {
     for (const testCase of cases) {
       const reg = registry([create(Proto3TestAllTypesSchema), Proto3TestAllTypesSchema]);
       reg.withJSONFieldNames(Boolean(testCase.jsonFieldNames));
-      const [field, found] = reg.findStructFieldType(
+      const field = reg.findStructFieldType(
         resolveProviderTypeName(testCase.typeName),
         testCase.field,
       );
-      expect(found).toBe(testCase.found);
+      expect(field !== undefined).toBe(testCase.found);
       expect(Boolean(field)).toBe(testCase.found);
     }
   });

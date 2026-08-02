@@ -65,14 +65,13 @@ describe("common/types unknown", () => {
   });
 
   it("common/types/unknown_test.go/TestMaybeMergeUnknowns", () => {
-    expect(maybeMergeUnknowns(new CelString(""), undefined)).toEqual([undefined, false]);
+    expect(maybeMergeUnknowns(new CelString(""), undefined)).toBeUndefined();
     const merged = maybeMergeUnknowns(
       unknown(2, attributeTrail("x")),
       unknown(1, attributeTrail("y")),
     );
-    expect(merged[1]).toBe(true);
     expect(
-      merged[0]?.contains(
+      merged?.contains(
         mergeUnknowns(unknown(2, attributeTrail("x")), unknown(1, attributeTrail("y")))!,
       ),
     ).toBe(true);

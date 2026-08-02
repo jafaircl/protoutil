@@ -91,13 +91,13 @@ import { Uint } from "./uint.js";
  */
 export interface Provider {
   enumValue(enumName: string): Val;
-  findIdent(identName: string): [Val | undefined, boolean];
-  findStructType(structType: string): [Type | undefined, boolean];
-  findStructFieldNames(structType: string): [string[], boolean];
+  findIdent(identName: string): Val | undefined;
+  findStructType(structType: string): Type | undefined;
+  findStructFieldNames(structType: string): string[] | undefined;
   findStructFieldType(
     structType: string,
     fieldName: string,
-  ): [ProviderFieldType | undefined, boolean];
+  ): ProviderFieldType | undefined;
   newValue(structType: string, fields: Record<string, Val>): Val;
 }
 
@@ -207,20 +207,17 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       : err("unknown enum name '%s'", enumName);
   }
 
-  public findIdent(identName: string): [Val | undefined, boolean] {
+  public findIdent(identName: string): Val | undefined {
     const type = this.revTypeMap.get(stripLeadingDot(identName));
     if (type) {
-      return [type, true];
+      return type;
     }
     const [enumVal, found] = this.pbdbValue.describeEnum(identName);
     return found && enumVal
-      ? [
-          this.strongEnumsValue
-            ? new ProtoEnum(enumVal.descriptor().parent, BigInt(enumVal.value()))
-            : new Int(BigInt(enumVal.value())),
-          true,
-        ]
-      : [undefined, false];
+      ? this.strongEnumsValue
+        ? new ProtoEnum(enumVal.descriptor().parent, BigInt(enumVal.value()))
+        : new Int(BigInt(enumVal.value()))
+      : undefined;
   }
 
   /** enumValueOf creates an enum value from its signed number or declared symbolic name. */
@@ -243,99 +240,90 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     return this.strongEnumsValue ? new ProtoEnum(enumType, value) : new Int(value);
   }
 
-  public findType(typeName: string): [ExprType | undefined, boolean] {
-    const [type, found] = this.findStructType(typeName);
-    return found && type ? [typeToExprType(type), true] : [undefined, false];
+  public findType(typeName: string): ExprType | undefined {
+    const type = this.findStructType(typeName);
+    return type ? typeToExprType(type) : undefined;
   }
 
-  public findStructType(structType: string): [Type | undefined, boolean] {
+  public findStructType(structType: string): Type | undefined {
     const nativeType = this.nativeTypes.get(stripLeadingDot(structType));
     if (nativeType) {
-      return [typeTypeWithParam(objectType(nativeType.typeName)), true];
+      return typeTypeWithParam(objectType(nativeType.typeName));
     }
     const [td, found] = this.pbdbValue.describeType(structType);
     if (!found || !td) {
-      return [undefined, false];
+      return undefined;
     }
-    return [typeTypeWithParam(objectType(stripLeadingDot(td.name()))), true];
+    return typeTypeWithParam(objectType(stripLeadingDot(td.name())));
   }
 
-  public findStructFieldNames(structType: string): [string[], boolean] {
+  public findStructFieldNames(structType: string): string[] | undefined {
     const nativeType = this.nativeTypes.get(stripLeadingDot(structType));
     if (nativeType) {
-      return [nativeType.fields.map((field) => field.celName), true];
+      return nativeType.fields.map((field) => field.celName);
     }
     const [td, found] = this.pbdbValue.describeType(structType);
     if (!found || !td) {
-      return [[], false];
+      return undefined;
     }
-    return [[...td.fieldMap().keys()], true];
+    return [...td.fieldMap().keys()];
   }
 
   public findFieldType(
     messageType: string,
     fieldName: string,
-  ): [DeprecatedFieldType | undefined, boolean] {
-    const [field, found] = this.findStructFieldType(messageType, fieldName);
-    return found && field
-      ? [
-          {
-            type: { $typeName: "cel.expr.Type", typeKind: { case: undefined } } as never,
-            isSet: field.isSet,
-            getFrom: field.getFrom,
-            isJSONField: field.isJSONField,
-          },
-          true,
-        ]
-      : [undefined, false];
+  ): DeprecatedFieldType | undefined {
+    const field = this.findStructFieldType(messageType, fieldName);
+    return field
+      ? {
+          type: { $typeName: "cel.expr.Type", typeKind: { case: undefined } } as never,
+          isSet: field.isSet,
+          getFrom: field.getFrom,
+          isJSONField: field.isJSONField,
+        }
+      : undefined;
   }
 
   public findStructFieldType(
     structType: string,
     fieldName: string,
-  ): [ProviderFieldType | undefined, boolean] {
+  ): ProviderFieldType | undefined {
     const nativeType = this.nativeTypes.get(stripLeadingDot(structType));
     if (nativeType) {
       const field = nativeType.fields.find((candidate) => candidate.celName === fieldName);
       if (!field) {
-        return [undefined, false];
+        return undefined;
       }
-      return [
-        new ProviderFieldType(
-          field.type,
-          (target) => !isNativeZeroValue(nativeTarget(target)[field.property]),
-          (target) => nativeTarget(target)[field.property],
-        ),
-        true,
-      ];
+      return new ProviderFieldType(
+        field.type,
+        (target) => !isNativeZeroValue(nativeTarget(target)[field.property]),
+        (target) => nativeTarget(target)[field.property],
+      );
     }
     const [td, found] = this.pbdbValue.describeType(structType);
     if (!found || !td) {
-      return [undefined, false];
+      return undefined;
     }
     const [field, fieldFound] = td.fieldByName(fieldName);
     if (!fieldFound || !field) {
-      return [undefined, false];
+      return undefined;
     }
     const descriptor = field.descriptor();
     const strongEnumType =
       this.strongEnumsValue && descriptor.kind === "field" && descriptor.fieldKind === "enum"
         ? objectType(descriptor.enum.typeName)
         : undefined;
-    return [
-      new ProviderFieldType(
-        strongEnumType ?? fieldDescToCelType(field),
-        (target) => field.isSet(target),
-        (target) => {
-          const value = field.getFrom(target)[0];
-          return strongEnumType && typeof value === "bigint"
-            ? new ProtoEnum(descriptor.enum as DescEnum, value)
-            : value;
-        },
-        this.pbdbValue.jsonFieldNames() && fieldName === field.jsonName(),
-      ),
-      true,
-    ];
+    return new ProviderFieldType(
+      strongEnumType ?? fieldDescToCelType(field),
+      (target) => field.isSet(target),
+      (target) => {
+        const value = field.getFrom(target)[0];
+        return strongEnumType && typeof value === "bigint"
+          ? new ProtoEnum(descriptor.enum as DescEnum, value)
+          : value;
+      },
+      this.pbdbValue.jsonFieldNames() && fieldName === field.jsonName(),
+    );
   }
 
   /** withStrongEnums selects whether protobuf enums retain their declared runtime types. */
@@ -522,8 +510,8 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       if (didUnwrap) {
         return this.nativeToValue(unwrapped);
       }
-      const [typeVal, typeFound] = this.findIdent(value.$typeName);
-      if (!typeFound || !typeVal) {
+      const typeVal = this.findIdent(value.$typeName);
+      if (!typeVal) {
         return err("unknown type: '%s'", value.$typeName);
       }
       const adapted = object(this, td.descriptor(), typeVal, value);

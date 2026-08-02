@@ -954,8 +954,8 @@ function formatLegacyMap(map: Mapper): string | Error {
   const iterator = map.iterator();
   while ((iterator.hasNext() as Bool).value()) {
     const key = iterator.next();
-    const [value, found] = map.find(key);
-    if (!found || !value) {
+    const value = map.find(key);
+    if (value === undefined) {
       return new Error(`key missing from map: '${key}'`);
     }
     const formattedKey = formatLegacyValue(key, true);
@@ -1089,8 +1089,8 @@ function formatMap(map: Mapper): string | Error {
   const iterator = map.iterator();
   while ((iterator.hasNext() as Bool).value()) {
     const key = iterator.next();
-    const [value, found] = map.find(key);
-    if (!found || !value) {
+    const value = map.find(key);
+    if (value === undefined) {
       return new Error(`key missing from map: '${key}'`);
     }
     const formattedKey = formatValue(key);

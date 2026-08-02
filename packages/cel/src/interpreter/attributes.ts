@@ -23,7 +23,7 @@ import {
 } from "../common/types/index.js";
 import type { MapValue } from "../common/types/pb/type.js";
 import type { FieldTester, Indexer } from "../common/types/traits/index.js";
-import type { Activation } from "./activation.js";
+import { activationNameAbsent, type Activation } from "./activation.js";
 import type { ExecutionFrame } from "./frame.js";
 
 /**
@@ -87,8 +87,11 @@ export interface Qualifier {
   /**
    * qualifyIfPresent performs the field or index selection only when the field or index is present.
    */
-  qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): [unknown, boolean];
+  qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown;
 }
+
+/** qualifierAbsent marks a qualification that could not be resolved. */
+export const qualifierAbsent = Symbol("qualifierAbsent");
 
 /**
  * ConstantQualifier embeds the Qualifier interface and exposes its constant value.
@@ -285,11 +288,11 @@ class AttributeFactoryImpl implements AttributeFactory {
     }
     if (typeof options.value === "string") {
       if (options.objectType?.kind() === Kind.Struct) {
-        const [fieldType, found] = this.providerValue.findStructFieldType(
+        const fieldType = this.providerValue.findStructFieldType(
           options.objectType.typeName(),
           options.value,
         );
-        if (found && fieldType && supportsFieldQualifier(fieldType.type)) {
+        if (fieldType && supportsFieldQualifier(fieldType.type)) {
           return new FieldQualifier({
             adapter: this.adapterValue,
             id: options.id,
@@ -440,7 +443,7 @@ abstract class QualifierBase implements Qualifier {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     try {
       const value = this.qualify(vars, obj);
       if (
@@ -449,15 +452,15 @@ abstract class QualifierBase implements Qualifier {
         /out of range|no such key/.test(String(value))
       ) {
         // Optional dynamic indexing treats missing list indices and map keys as absence.
-        return [undefined, false];
+        return qualifierAbsent;
       }
       if (presenceOnly) {
-        return [undefined, true];
+        return undefined;
       }
-      return [value, true];
+      return value;
     } catch (error) {
       if (error instanceof ResolutionError) {
-        return [undefined, false];
+        return qualifierAbsent;
       }
       throw error;
     }
@@ -534,15 +537,15 @@ class FieldQualifier extends QualifierBase implements ConstantQualifier {
     _vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     const target = isValLike(obj) ? obj.value() : obj;
     if (!this.optionsValue.fieldType.isSet(target)) {
-      return [undefined, false];
+      return qualifierAbsent;
     }
     if (presenceOnly) {
-      return [undefined, true];
+      return undefined;
     }
-    return [this.fieldValue(target), true];
+    return this.fieldValue(target);
   }
 
   /**
@@ -630,7 +633,7 @@ abstract class ConstantQualifierBase extends QualifierBase implements ConstantQu
     _vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return qualifyConstantValue({
       adapter: this.adapterValue,
       obj,
@@ -653,7 +656,7 @@ abstract class ConstantQualifierBase extends QualifierBase implements ConstantQu
    * qualifyValue evaluates constant qualification and returns the resolved value.
    */
   protected qualifyValue(obj: unknown): unknown {
-    const [value] = qualifyConstantValue({
+    const value = qualifyConstantValue({
       adapter: this.adapterValue,
       obj,
       rawQualifier: this.raw(),
@@ -715,13 +718,13 @@ export class IntQualifier extends ConstantQualifierBase {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     if (Array.isArray(obj)) {
       const index = Number(this.raw());
       if (index >= 0 && index < obj.length) {
-        return [presenceOnly ? undefined : obj[index], true];
+        return presenceOnly ? undefined : obj[index];
       }
-      return [undefined, false];
+      return qualifierAbsent;
     }
     return super.qualifyIfPresent(vars, obj, presenceOnly);
   }
@@ -826,10 +829,10 @@ class AttributeQualifierImpl extends QualifierBase {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     const value = this.attributeValue.resolve(vars);
     if (value instanceof Unknown) {
-      return [value, true];
+      return value;
     }
     return this.factoryValue
       .qualifier({
@@ -913,7 +916,7 @@ class AbsoluteAttributeImpl implements NamespacedAttribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return qualifyAttributeResultIfPresent(this.factoryValue, vars, obj, this, presenceOnly);
   }
 
@@ -923,8 +926,8 @@ class AbsoluteAttributeImpl implements NamespacedAttribute {
   public resolve(vars: Activation): unknown {
     const lookupVars = this.disambiguateNamesValue ? unwrapActivation(vars) : vars;
     for (const name of this.namespaceNamesValue) {
-      const [value, found] = lookupVars.resolveName(name);
-      if (found) {
+      const value = lookupVars.resolveName(name);
+      if (value !== activationNameAbsent) {
         if (value instanceof Err) {
           throw value;
         }
@@ -934,8 +937,8 @@ class AbsoluteAttributeImpl implements NamespacedAttribute {
         }
         return wrapQualifiedValue(applyQualifiers(vars, value, this.qualifiersValue));
       }
-      const [ident, identFound] = this.providerValue.findIdent(name);
-      if (identFound && ident && this.qualifiersValue.length === 0) {
+      const ident = this.providerValue.findIdent(name);
+      if (ident && this.qualifiersValue.length === 0) {
         return ident;
       }
     }
@@ -1011,7 +1014,7 @@ class MaybeAttributeImpl implements Attribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return qualifyAttributeResultIfPresent(this.factoryValue, vars, obj, this, presenceOnly);
   }
 
@@ -1091,7 +1094,7 @@ export class ConditionalAttributeImpl implements Attribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return qualifyAttributeResultIfPresent(this.factoryValue, vars, obj, this, presenceOnly);
   }
 
@@ -1216,7 +1219,7 @@ class RelativeAttributeImpl implements Attribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return qualifyAttributeResultIfPresent(this.factoryValue, vars, obj, this, presenceOnly);
   }
 
@@ -1247,10 +1250,10 @@ export function attributeFactory(options: AttributeFactoryOptions = {}): Attribu
         enumValue: () => {
           throw new Error("provider not configured");
         },
-        findIdent: () => [undefined, false],
-        findStructType: () => [undefined, false],
-        findStructFieldNames: () => [[], false],
-        findStructFieldType: () => [undefined, false],
+        findIdent: () => undefined,
+        findStructType: () => undefined,
+        findStructFieldNames: () => undefined,
+        findStructFieldType: () => undefined,
         newValue: () => {
           throw new Error("provider not configured");
         },
@@ -1288,8 +1291,8 @@ export function applyQualifiers(
     }
     optional = optional || qualifierValue.isOptional();
     if (optional) {
-      const [qualified, present] = qualifierValue.qualifyIfPresent(vars, current, false);
-      if (!present) {
+      const qualified = qualifierValue.qualifyIfPresent(vars, current, false);
+      if (qualified === qualifierAbsent) {
         return { value: OptionalNone, optional: false };
       }
       current = qualified;
@@ -1331,10 +1334,10 @@ export function qualifyAttributeResultIfPresent(
   obj: unknown,
   qualifierAttribute: Attribute,
   presenceOnly: boolean,
-): [unknown, boolean] {
+): unknown {
   const value = qualifierAttribute.resolve(vars);
   if (value instanceof Unknown) {
-    return [value, true];
+    return value;
   }
   return fac
     .qualifier({
@@ -1399,7 +1402,7 @@ class OptionalAttribute implements Attribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return this.attribute.qualifyIfPresent(vars, obj, presenceOnly);
   }
 
@@ -1481,11 +1484,11 @@ interface QualifyConstantOptions {
  * qualifyConstantValue applies a constant qualifier while preserving cel-go's native fast paths
  * and presence-test behavior.
  */
-function qualifyConstantValue(options: QualifyConstantOptions): [unknown, boolean] {
+function qualifyConstantValue(options: QualifyConstantOptions): unknown {
   const { adapter, obj, rawQualifier, key, presenceOnly, presenceTest, errorOnBadPresenceTest } =
     options;
   if (obj instanceof Unknown) {
-    return [obj, true];
+    return obj;
   }
   if (obj instanceof Err) {
     throw obj;
@@ -1496,59 +1499,59 @@ function qualifyConstantValue(options: QualifyConstantOptions): [unknown, boolea
       throw index;
     }
     if (index >= 0 && index < obj.length) {
-      return [presenceOnly ? undefined : obj[index], true];
+      return presenceOnly ? undefined : obj[index];
     }
     if (presenceTest) {
-      return [undefined, false];
+      return qualifierAbsent;
     }
     throw missingIndex(key);
   }
   if (obj instanceof Map) {
     if (obj.has(rawQualifier)) {
-      return [presenceOnly ? undefined : obj.get(rawQualifier), true];
+      return presenceOnly ? undefined : obj.get(rawQualifier);
     }
     if (presenceTest) {
-      return [undefined, false];
+      return qualifierAbsent;
     }
     throw missingKey(key);
   }
   if (isProtoMapValue(obj)) {
     const propertyKey = String(rawQualifier);
     if (Object.hasOwn(obj.map, propertyKey)) {
-      return [presenceOnly ? undefined : obj.map[propertyKey], true];
+      return presenceOnly ? undefined : obj.map[propertyKey];
     }
     if (presenceTest) {
-      return [undefined, false];
+      return qualifierAbsent;
     }
     throw missingKey(key);
   }
   if (isNativeRecord(obj)) {
     const propertyKey = String(rawQualifier);
     if (Object.hasOwn(obj, propertyKey)) {
-      return [presenceOnly ? undefined : obj[propertyKey], true];
+      return presenceOnly ? undefined : obj[propertyKey];
     }
     if (presenceTest) {
-      return [undefined, false];
+      return qualifierAbsent;
     }
     throw missingKey(key);
   }
   const celValue = isValLike(obj) ? obj : adapter.nativeToValue(obj);
   if (celValue instanceof Unknown) {
-    return [celValue, true];
+    return celValue;
   }
   if (celValue instanceof Err) {
     throw celValue;
   }
   if (isMapperValue(celValue)) {
-    const [value, found] = celValue.find(key);
+    const value = celValue.find(key);
     if (value instanceof Err) {
       throw value;
     }
-    if (found && value !== undefined) {
-      return [presenceOnly ? undefined : value, true];
+    if (value !== undefined) {
+      return presenceOnly ? undefined : value;
     }
     if (presenceTest) {
-      return [undefined, false];
+      return qualifierAbsent;
     }
     throw missingKey(key);
   }
@@ -1562,10 +1565,10 @@ function qualifyConstantValue(options: QualifyConstantOptions): [unknown, boolea
       throw size;
     }
     if (index >= 0 && index < Number(size.value())) {
-      return [presenceOnly ? undefined : celValue.get(key), true];
+      return presenceOnly ? undefined : celValue.get(key);
     }
     if (presenceTest) {
-      return [undefined, false];
+      return qualifierAbsent;
     }
     throw missingIndex(key);
   }
@@ -1580,17 +1583,17 @@ function qualifyConstantValue(options: QualifyConstantOptions): [unknown, boolea
       }
       // Presence-only checks and absent fields return before forcing a value read.
       if (presenceOnly || !fieldSet.value()) {
-        return [undefined, fieldSet.value()];
+        return fieldSet.value() ? undefined : qualifierAbsent;
       }
     }
     const value = celValue.get(key);
     if (value instanceof Err) {
       throw value;
     }
-    return [presenceOnly ? undefined : value, true];
+    return presenceOnly ? undefined : value;
   }
   if (presenceTest && !errorOnBadPresenceTest) {
-    return [undefined, false];
+    return qualifierAbsent;
   }
   throw missingKey(key);
 }

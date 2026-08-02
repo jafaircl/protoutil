@@ -4,7 +4,7 @@ import { ExprKind } from "../common/ast/index.js";
 import { functionDecl, overload } from "../common/decls.js";
 import type { Val } from "../common/types/ref/index.js";
 import { DynType, listType, typeParamType } from "../common/types/types.js";
-import type { Activation } from "../interpreter/activation.js";
+import { activationNameAbsent, type Activation } from "../interpreter/activation.js";
 import { type ExecutionFrame, executionFrame } from "../interpreter/frame.js";
 import type {
   InterpretableCall,
@@ -200,22 +200,22 @@ class SlotActivation implements Activation {
   }
 
   /** resolveName evaluates and caches valid slot identifiers, then delegates other names. */
-  public resolveName(name: string): [unknown, boolean] {
+  public resolveName(name: string): unknown | typeof activationNameAbsent {
     const index = matchSlot(name, this.slots.length);
     if (index === undefined) {
-      return this.parentActivation?.resolveName(name) ?? [undefined, false];
+      return this.parentActivation?.resolveName(name) ?? activationNameAbsent;
     }
     if (this.visited[index]) {
-      return this.values[index] === undefined ? [undefined, false] : [this.values[index], true];
+      return this.values[index] ?? activationNameAbsent;
     }
     // Mark the slot before evaluation so a self-reference resolves as not found.
     this.visited[index] = true;
     if (this.frameValue === undefined) {
-      return [undefined, false];
+      return activationNameAbsent;
     }
     const value = this.slots[index]!.exec(this.frameValue);
     this.values[index] = value;
-    return [value, true];
+    return value;
   }
 }
 

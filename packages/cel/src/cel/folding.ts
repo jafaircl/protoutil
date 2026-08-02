@@ -702,8 +702,8 @@ function adaptLiteral(context: OptimizerContext, value: Val): Expr {
     return context.map(entries);
   }
 
-  const [fieldNames, found] = context.env().typeProvider().findStructFieldNames(type.typeName());
-  if (!found) {
+  const fieldNames = context.env().typeProvider().findStructFieldNames(type.typeName());
+  if (fieldNames === undefined) {
     throw new Error(`failed to adapt ${String(value.value())} to literal`);
   }
   const tester = value as unknown as TraitFieldTester;

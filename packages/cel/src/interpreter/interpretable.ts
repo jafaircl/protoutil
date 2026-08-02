@@ -38,8 +38,14 @@ import {
 import { refValList } from "../common/types/list.js";
 import { refValMap } from "../common/types/map.js";
 import type { Constant } from "../gen/cel/expr/syntax_pb.js";
-import type { Activation, ActivationWrapper } from "./activation.js";
-import type { Attribute, ConstantQualifier, Qualifier } from "./attributes.js";
+import { activationNameAbsent, type Activation, type ActivationWrapper } from "./activation.js";
+import {
+  type Attribute,
+  type ConstantQualifier,
+  type NamespacedAttribute,
+  qualifierAbsent,
+  type Qualifier,
+} from "./attributes.js";
 import { ExecutionFrame, executionFrame } from "./frame.js";
 
 /**
@@ -104,7 +110,7 @@ export interface InterpretableAttribute extends InterpretableV2 {
   /**
    * qualifyIfPresent qualifies the object only when the field or index is present.
    */
-  qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): [unknown, boolean];
+  qualifyIfPresent(vars: Activation, obj: unknown, presenceOnly: boolean): unknown;
 
   /**
    * isOptional reports whether the resulting value is optional.
@@ -389,7 +395,7 @@ class ListInterpretableValue implements InterpretableConstructor {
       if (isError(value)) {
         return value;
       }
-      [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
+      mergedUnknown = maybeMergeUnknowns(value, mergedUnknown);
       if (!this.optionalIndicesValue.has(index)) {
         out.push(value);
         continue;
@@ -702,6 +708,14 @@ export interface CallInterpretableOptions {
    * operandTrait is the runtime trait required on the first argument.
    */
   operandTrait?: number;
+
+  /**
+   * checkedArgTypes are the static CEL argument types selected by the checker.
+   *
+   * When the runtime values match these types, strict calls can invoke their
+   * bound implementation without the generic trait-dispatch path.
+   */
+  checkedArgTypes?: readonly RefType[];
 }
 
 /**
@@ -876,11 +890,11 @@ class TestOnlyQualifier implements ConstantQualifier {
    * qualify reports whether the target field or key is present.
    */
   public qualify(vars: Activation, obj: unknown): unknown {
-    const [value, present] = this.qualifierValue.qualifyIfPresent(vars, obj, true);
+    const value = this.qualifierValue.qualifyIfPresent(vars, obj, true);
     if (value instanceof Unknown) {
       return value;
     }
-    return present;
+    return value !== qualifierAbsent;
   }
 
   /**
@@ -890,7 +904,7 @@ class TestOnlyQualifier implements ConstantQualifier {
     vars: Activation,
     obj: unknown,
     _presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return this.qualifierValue.qualifyIfPresent(vars, obj, true);
   }
 
@@ -994,7 +1008,7 @@ export class AttrInterpretable implements InterpretableAttribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return this.attrValue.qualifyIfPresent(vars, obj, presenceOnly);
   }
 
@@ -1008,6 +1022,97 @@ export class AttrInterpretable implements InterpretableAttribute {
   /**
    * resolve delegates to the underlying attribute.
    */
+  public resolve(vars: Activation): unknown {
+    return this.attrValue.resolve(vars);
+  }
+}
+
+/**
+ * CheckedIdentifierInterpretable evaluates an unqualified checked identifier through its exact
+ * activation names before falling back to normal attribute resolution.
+ */
+class CheckedIdentifierInterpretable implements InterpretableAttribute {
+  private readonly candidateNamesValue: string[];
+
+  constructor(
+    private readonly attrValue: NamespacedAttribute,
+    private readonly adapterValue: Adapter,
+    private readonly fallbackValue: AttrInterpretable,
+  ) {
+    this.candidateNamesValue = attrValue.candidateVariableNames();
+  }
+
+  /** id returns the expression id associated with the identifier. */
+  public id(): number {
+    return this.attrValue.id();
+  }
+
+  /** exec resolves the identifier against the execution frame. */
+  public exec(frame: ExecutionFrame): Val {
+    return this.eval(frame);
+  }
+
+  /** eval resolves an unqualified activation value without general attribute traversal. */
+  public eval(activation: Activation): Val {
+    if (this.attrValue.qualifiers().length !== 0) {
+      return this.fallbackValue.eval(activation);
+    }
+    try {
+      for (const name of this.candidateNamesValue) {
+        const value = activation.resolveName(name);
+        if (value === activationNameAbsent) {
+          continue;
+        }
+        if (value instanceof Err) {
+          return labelErrNode(this.id(), value);
+        }
+        if (value instanceof Unknown) {
+          return value;
+        }
+        return isRuntimeVal(value) ? value : this.adapterValue.nativeToValue(value);
+      }
+    } catch (error) {
+      return labelErrNode(this.id(), wrapErr(error));
+    }
+    // Provider lookup and the precise missing-attribute error remain in the generic path.
+    return this.fallbackValue.eval(activation);
+  }
+
+  /** attr returns the underlying runtime attribute. */
+  public attr(): Attribute {
+    return this.attrValue;
+  }
+
+  /** adapter returns the type adapter used for resolved native values. */
+  public adapter(): Adapter {
+    return this.adapterValue;
+  }
+
+  /** addQualifier appends a qualifier and switches later evaluation to the generic path. */
+  public addQualifier(qualifier: Qualifier): Attribute {
+    return this.attrValue.addQualifier(qualifier);
+  }
+
+  /** qualify resolves the identifier as an attribute qualifier. */
+  public qualify(vars: Activation, obj: unknown): unknown {
+    return this.attrValue.qualify(vars, obj);
+  }
+
+  /** qualifyIfPresent preserves normal presence-test behavior. */
+  public qualifyIfPresent(
+    vars: Activation,
+    obj: unknown,
+    presenceOnly: boolean,
+  ): unknown {
+    return this.attrValue.qualifyIfPresent(vars, obj, presenceOnly);
+  }
+
+  /** isOptional reports whether the underlying attribute is optional. */
+  public isOptional(): boolean {
+    return this.attrValue.isOptional();
+  }
+
+  /** resolve delegates qualified and test-only attribute access to the underlying attribute. */
   public resolve(vars: Activation): unknown {
     return this.attrValue.resolve(vars);
   }
@@ -1091,7 +1196,7 @@ class TestOnlyInterpretable implements InterpretableAttribute {
     vars: Activation,
     obj: unknown,
     presenceOnly: boolean,
-  ): [unknown, boolean] {
+  ): unknown {
     return this.optionsValue.attr.qualifyIfPresent(vars, obj, presenceOnly);
   }
 
@@ -1203,6 +1308,20 @@ class ZeroArityCallInterpretable implements InterpretableCall {
 }
 
 /**
+ * runtimeTypesMatch reports whether values retain the checker-selected CEL type names.
+ *
+ * The name comparison deliberately avoids validating collection element types: generic
+ * runtime dispatch also depends on the receiver's runtime type and trait, not its
+ * statically inferred collection parameters.
+ */
+function runtimeTypesMatch(typeNames: readonly string[], ...values: readonly Val[]): boolean {
+  return (
+    typeNames.length === values.length &&
+    values.every((value, index) => value.type().typeName() === typeNames[index])
+  );
+}
+
+/**
  * UnaryCallInterpretable evaluates a unary runtime call.
  */
 class UnaryCallInterpretable implements InterpretableCall {
@@ -1214,12 +1333,24 @@ class UnaryCallInterpretable implements InterpretableCall {
     private readonly operandTraitValue = 0,
     private readonly implValue?: UnaryOp,
     private readonly nonStrictValue = false,
+    private readonly checkedArgTypeNamesValue?: readonly string[],
   ) {}
   public id(): number {
     return this.idValue;
   }
   public exec(frame: ExecutionFrame): Val {
     const arg = this.argValue.exec(frame);
+    if (
+      !this.nonStrictValue &&
+      this.implValue &&
+      this.checkedArgTypeNamesValue !== undefined &&
+      runtimeTypesMatch(this.checkedArgTypeNamesValue, arg)
+    ) {
+      return labelErrNode(this.idValue, this.implValue(arg));
+    }
+    if (!this.nonStrictValue && isUnknownOrError(arg)) {
+      return arg;
+    }
     if (!this.nonStrictValue && isUnknownOrError(arg)) {
       return arg;
     }
@@ -1266,6 +1397,7 @@ class BinaryCallInterpretable implements InterpretableCall {
     private readonly operandTraitValue = 0,
     private readonly implValue?: BinaryOp,
     private readonly nonStrictValue = false,
+    private readonly checkedArgTypeNamesValue?: readonly string[],
   ) {}
   public id(): number {
     return this.idValue;
@@ -1277,13 +1409,21 @@ class BinaryCallInterpretable implements InterpretableCall {
       return lhs;
     }
     const rhs = this.rhsValue.exec(frame);
-    if (strict && isError(rhs)) {
-      return rhs;
+    if (
+      strict &&
+      this.implValue &&
+      this.checkedArgTypeNamesValue !== undefined &&
+      runtimeTypesMatch(this.checkedArgTypeNamesValue, lhs, rhs)
+    ) {
+      return labelErrNode(this.idValue, this.implValue(lhs, rhs));
     }
     if (strict) {
+      if (isError(rhs)) {
+        return rhs;
+      }
       let mergedUnknown: Unknown | undefined;
-      [mergedUnknown] = maybeMergeUnknowns(lhs, mergedUnknown);
-      [mergedUnknown] = maybeMergeUnknowns(rhs, mergedUnknown);
+      mergedUnknown = maybeMergeUnknowns(lhs, mergedUnknown);
+      mergedUnknown = maybeMergeUnknowns(rhs, mergedUnknown);
       if (mergedUnknown) {
         return mergedUnknown;
       }
@@ -1330,6 +1470,7 @@ class VarArgsCallInterpretable implements InterpretableCall {
     private readonly operandTraitValue = 0,
     private readonly implValue?: FunctionOp,
     private readonly nonStrictValue = false,
+    private readonly checkedArgTypeNamesValue?: readonly string[],
   ) {}
   public id(): number {
     return this.idValue;
@@ -1345,11 +1486,19 @@ class VarArgsCallInterpretable implements InterpretableCall {
         if (isError(value)) {
           return value;
         }
-        [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
+        mergedUnknown = maybeMergeUnknowns(value, mergedUnknown);
       }
     }
     if (strict && mergedUnknown) {
       return mergedUnknown;
+    }
+    if (
+      strict &&
+      this.implValue &&
+      this.checkedArgTypeNamesValue !== undefined &&
+      runtimeTypesMatch(this.checkedArgTypeNamesValue, ...args)
+    ) {
+      return labelErrNode(this.idValue, this.implValue(...args));
     }
     const receiver = args[0];
     if (
@@ -1534,8 +1683,8 @@ class EqualityInterpretable implements InterpretableCall {
       return rhs;
     }
     let mergedUnknown: Unknown | undefined;
-    [mergedUnknown] = maybeMergeUnknowns(lhs, mergedUnknown);
-    [mergedUnknown] = maybeMergeUnknowns(rhs, mergedUnknown);
+    mergedUnknown = maybeMergeUnknowns(lhs, mergedUnknown);
+    mergedUnknown = maybeMergeUnknowns(rhs, mergedUnknown);
     if (mergedUnknown) {
       return mergedUnknown;
     }
@@ -1577,8 +1726,8 @@ class NotEqualityInterpretable implements InterpretableCall {
       return rhs;
     }
     let mergedUnknown: Unknown | undefined;
-    [mergedUnknown] = maybeMergeUnknowns(lhs, mergedUnknown);
-    [mergedUnknown] = maybeMergeUnknowns(rhs, mergedUnknown);
+    mergedUnknown = maybeMergeUnknowns(lhs, mergedUnknown);
+    mergedUnknown = maybeMergeUnknowns(rhs, mergedUnknown);
     if (mergedUnknown) {
       return mergedUnknown;
     }
@@ -1620,13 +1769,13 @@ class MapInterpretableValue implements InterpretableConstructor {
       if (isError(key)) {
         return key;
       }
-      [mergedUnknown] = maybeMergeUnknowns(key, mergedUnknown);
+      mergedUnknown = maybeMergeUnknowns(key, mergedUnknown);
 
       const value = this.valuesValue[index]!.exec(frame);
       if (isError(value)) {
         return value;
       }
-      [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
+      mergedUnknown = maybeMergeUnknowns(value, mergedUnknown);
       if (
         !isUnknown(key) &&
         !(key instanceof Bool) &&
@@ -1701,7 +1850,7 @@ class ObjInterpretableValue implements InterpretableConstructor {
       if (isError(value)) {
         return value;
       }
-      [mergedUnknown] = maybeMergeUnknowns(value, mergedUnknown);
+      mergedUnknown = maybeMergeUnknowns(value, mergedUnknown);
       if (this.optionalFieldsValue[index] === true && !isUnknown(value)) {
         if (!(value instanceof Optional)) {
           return new Err(
@@ -1729,7 +1878,7 @@ class ObjInterpretableValue implements InterpretableConstructor {
     return this.valuesValue;
   }
   public type(): RefType {
-    const [structType] = this.providerValue.findStructType(this.typeNameValue);
+    const structType = this.providerValue.findStructType(this.typeNameValue);
     return structType ?? ListType;
   }
 }
@@ -1811,12 +1960,12 @@ class FoldActivation implements Activation {
   /**
    * resolveName resolves accumulator and active iteration bindings.
    */
-  public resolveName(name: string): [unknown, boolean] {
+  public resolveName(name: string): unknown | typeof activationNameAbsent {
     if (name === this.optionsValue.accuVar) {
-      return [this.accumulatorValue, true];
+      return this.accumulatorValue;
     }
     if (!this.resultOnly && name === this.optionsValue.iterVar) {
-      return [this.firstValue, true];
+      return this.firstValue;
     }
     if (
       !this.resultOnly &&
@@ -1824,9 +1973,9 @@ class FoldActivation implements Activation {
       this.optionsValue.iterVar2.length !== 0 &&
       name === this.optionsValue.iterVar2
     ) {
-      return [this.secondValue, true];
+      return this.secondValue;
     }
-    return [undefined, false];
+    return activationNameAbsent;
   }
 
   /**
@@ -1957,6 +2106,41 @@ export function attrInterpretable(options: AttrInterpretableOptions): Interpreta
 }
 
 /**
+ * checkedIdentifierInterpretable creates an activation-first interpreter for a checked identifier.
+ */
+export function checkedIdentifierInterpretable(
+  attr: NamespacedAttribute,
+  adapter: Adapter,
+): InterpretableAttribute {
+  const fallback = new AttrInterpretable(attr, adapter);
+  return new CheckedIdentifierInterpretable(attr, adapter, fallback);
+}
+
+/**
+ * checkedRuntimeTypeNames returns dispatch-safe runtime type names for a checked strict call.
+ */
+function checkedRuntimeTypeNames(options: CallInterpretableOptions): readonly string[] | undefined {
+  const checkedArgTypes = options.checkedArgTypes;
+  if (
+    options.nonStrict ||
+    checkedArgTypes === undefined ||
+    checkedArgTypes.length !== options.args.length ||
+    (options.operandTrait !== undefined &&
+      options.operandTrait !== 0 &&
+      !checkedArgTypes[0]?.hasTrait(options.operandTrait))
+  ) {
+    return undefined;
+  }
+  const typeNames = checkedArgTypes.map((type) => type.typeName());
+  // A statically unknown or error-typed argument may be represented by the same runtime type.
+  // Keep those calls on the normal propagation path before using the direct implementation.
+  if (typeNames.includes("unknown") || typeNames.includes("error")) {
+    return undefined;
+  }
+  return typeNames;
+}
+
+/**
  * testOnlyInterpretable creates a presence-test interpretable wrapper.
  */
 export function testOnlyInterpretable(
@@ -1969,6 +2153,7 @@ export function testOnlyInterpretable(
  * callInterpretable creates a runtime call interpretable specialized by arity.
  */
 export function callInterpretable(options: CallInterpretableOptions): InterpretableCall {
+  const checkedArgTypeNames = checkedRuntimeTypeNames(options);
   if (options.unary && options.args.length === 1) {
     return new UnaryCallInterpretable(
       options.id,
@@ -1978,6 +2163,7 @@ export function callInterpretable(options: CallInterpretableOptions): Interpreta
       options.operandTrait ?? 0,
       options.unary,
       options.nonStrict ?? false,
+      checkedArgTypeNames,
     );
   }
   if (options.binary && options.args.length === 2) {
@@ -1990,6 +2176,7 @@ export function callInterpretable(options: CallInterpretableOptions): Interpreta
       options.operandTrait ?? 0,
       options.binary,
       options.nonStrict ?? false,
+      checkedArgTypeNames,
     );
   }
   if (options.impl && options.args.length === 0) {
@@ -2008,6 +2195,7 @@ export function callInterpretable(options: CallInterpretableOptions): Interpreta
     options.operandTrait ?? 0,
     options.impl,
     options.nonStrict ?? false,
+    checkedArgTypeNames,
   );
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { String as CelString, Int, True } from "../common/types/index.js";
 import {
   activation,
+  activationNameAbsent,
   asPartialActivation,
   attributePattern,
   hierarchicalActivation,
@@ -32,7 +33,17 @@ describe("interpreter/activation_test.go", () => {
   describe("interpreter/activation_test.go/TestActivation_Resolve", () => {
     it("interpreter/activation_test.go/TestActivation_Resolve", () => {
       const act = activation({ bindings: { a: True } });
-      expect(act.resolveName("a")).toEqual([True, true]);
+      expect(act.resolveName("a")).toBe(True);
+    });
+  });
+
+  describe("sentinel activation resolution", () => {
+    it("preserves map and lazy binding semantics without a result tuple", () => {
+      const value = new Int(42n);
+      const act = activation({ bindings: { value: () => value } });
+
+      expect(act.resolveName("value")).toBe(value);
+      expect(act.resolveName("missing")).toBe(activationNameAbsent);
     });
   });
 
@@ -50,10 +61,8 @@ describe("interpreter/activation_test.go", () => {
           },
         },
       });
-      const [first, firstFound] = act.resolveName("now");
-      const [second, secondFound] = act.resolveName("now");
-      expect(firstFound).toBe(true);
-      expect(secondFound).toBe(true);
+      const first = act.resolveName("now");
+      const second = act.resolveName("now");
       expect(first).toBe(second);
     });
   });
@@ -72,10 +81,8 @@ describe("interpreter/activation_test.go", () => {
           },
         },
       });
-      const [first, firstFound] = act.resolveName("now");
-      const [second, secondFound] = act.resolveName("now");
-      expect(firstFound).toBe(true);
-      expect(secondFound).toBe(true);
+      const first = act.resolveName("now");
+      const second = act.resolveName("now");
       expect(first).toBe(second);
     });
   });
@@ -99,9 +106,9 @@ describe("interpreter/activation_test.go", () => {
       });
       const combined = hierarchicalActivation({ parent, child });
 
-      expect(combined.resolveName("a")).toEqual([True, true]);
-      expect(combined.resolveName("b")).toEqual([new Int(-42n), true]);
-      expect(combined.resolveName("c")).toEqual([new CelString("universe"), true]);
+      expect(combined.resolveName("a")).toBe(True);
+      expect(combined.resolveName("b")).toEqual(new Int(-42n));
+      expect(combined.resolveName("c")).toEqual(new CelString("universe"));
     });
   });
 
@@ -124,7 +131,7 @@ describe("interpreter/activation_test.go", () => {
       });
       const combined = hierarchicalActivation({ parent, child });
 
-      expect(asPartialActivation(combined)).toEqual([parent, true]);
+      expect(asPartialActivation(combined)).toBe(parent);
     });
   });
 
@@ -144,7 +151,7 @@ describe("interpreter/activation_test.go", () => {
 
   describe("interpreter/activation_test.go/TestAsPartialActivation_NonPartialActivation", () => {
     it("reports ordinary activations as non-partial", () => {
-      expect(asPartialActivation(activation({ bindings: { a: 1 } }))).toEqual([undefined, false]);
+      expect(asPartialActivation(activation({ bindings: { a: 1 } }))).toBeUndefined();
     });
   });
 
@@ -153,7 +160,7 @@ describe("interpreter/activation_test.go", () => {
       const localScope = (names: string[]) => ({
         isLocalVariable: (name: string) => names.includes(name),
         parent: () => undefined,
-        resolveName: (): [unknown, boolean] => [undefined, false],
+        resolveName: () => activationNameAbsent,
       });
       const outer = hierarchicalActivation({
         parent: activation({ bindings: {} }),
