@@ -1,7 +1,7 @@
 import { AnySchema, Int32ValueSchema, Int64ValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { anyValueType } from "./any-value.js";
 import { False, True } from "./bool.js";
-import { compareInt, compareIntDouble, compareIntUint } from "./compare.js";
+import { compareIntDouble, compareIntUint } from "./compare.js";
 import { Double } from "./double.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import {
@@ -40,17 +40,36 @@ import type {
 import { DoubleType, IntType, StringType, TimestampType, TypeType, UintType } from "./types.js";
 import { Uint } from "./uint.js";
 
+const MAX_SAFE_INT = 9_007_199_254_740_991n;
+const MIN_SAFE_INT = -9_007_199_254_740_991n;
+
 /**
  * Int implements ref.Val as well as comparison and math operators.
  */
 export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, Negater, Subtractor {
-  constructor(private readonly inner: bigint) {}
+  private readonly inner: number | bigint;
+
+  constructor(value: number | bigint) {
+    if (typeof value === "number") {
+      this.inner = Number.isSafeInteger(value) ? (value === 0 ? 0 : value) : BigInt(value);
+      return;
+    }
+    this.inner =
+      value >= MIN_SAFE_INT && value <= MAX_SAFE_INT ? Number(value) : value;
+  }
+
   public add(other: Val): Val {
     if (!(other instanceof Int)) {
       return maybeNoSuchOverloadErr(other);
     }
+    if (typeof this.inner === "number" && typeof other.inner === "number") {
+      const sum = this.inner + other.inner;
+      if (Number.isSafeInteger(sum)) {
+        return new Int(sum);
+      }
+    }
     try {
-      return new Int(addInt64Checked(this.inner, other.inner));
+      return new Int(addInt64Checked(this.value(), other.value()));
     } catch (error) {
       return wrapErr(error);
     }
@@ -63,7 +82,12 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
       return compareIntDouble(this, other);
     }
     if (other instanceof Int) {
-      return compareInt(this, other);
+      if (typeof this.inner === "number" && typeof other.inner === "number") {
+        return this.inner < other.inner ? IntNegOne : this.inner > other.inner ? IntOne : IntZero;
+      }
+      const lhs = this.value();
+      const rhs = other.value();
+      return lhs < rhs ? IntNegOne : lhs > rhs ? IntOne : IntZero;
     }
     if (other instanceof Uint) {
       return compareIntUint(this, other);
@@ -72,28 +96,28 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
   }
   public convertToNative(typeDesc?: unknown): unknown {
     if (typeDesc === BigInt || typeDesc === undefined) {
-      return this.inner;
+      return this.value();
     }
     if (typeDesc === anyValueType || typeDesc === AnySchema) {
-      return packAnyInt(Int64ValueSchema, this.inner);
+      return packAnyInt(Int64ValueSchema, this.value());
     }
     if (typeDesc === Int32ValueSchema) {
-      return { $typeName: Int32ValueSchema.typeName, value: toInt32Checked(this.inner) };
+      return { $typeName: Int32ValueSchema.typeName, value: toInt32Checked(this.value()) };
     }
     if (typeDesc === Int64ValueSchema) {
-      return { $typeName: Int64ValueSchema.typeName, value: this.inner };
+      return { $typeName: Int64ValueSchema.typeName, value: this.value() };
     }
     if (typeDesc === ValueSchema) {
-      return jsonIntegerValue(this.inner);
+      return jsonIntegerValue(this.value());
     }
     if (isNativeDescriptor(typeDesc)) {
       switch (typeDesc) {
         case Int8NativeType:
-          return toInt8Checked(this.inner);
+          return toInt8Checked(this.value());
         case Int16NativeType:
-          return toInt16Checked(this.inner);
+          return toInt16Checked(this.value());
         case Int32NativeType:
-          return toInt32Checked(this.inner);
+          return toInt32Checked(this.value());
       }
     }
     throw new globalThis.Error(
@@ -106,16 +130,16 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
         return this;
       case UintType:
         try {
-          return new Uint(int64ToUint64Checked(this.inner));
+          return new Uint(int64ToUint64Checked(this.value()));
         } catch (error) {
           return wrapErr(error);
         }
       case DoubleType:
-        return new Double(Number(this.inner));
+        return new Double(Number(this.value()));
       case TimestampType:
-        return timestampOf(this.inner);
+        return timestampOf(this.value());
       case StringType:
-        return new CelString(this.inner.toString());
+        return new CelString(this.value().toString());
       case TypeType:
         return IntType;
       default:
@@ -127,7 +151,7 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
       return maybeNoSuchOverloadErr(other);
     }
     try {
-      return new Int(divideInt64Checked(this.inner, other.inner));
+      return new Int(divideInt64Checked(this.value(), other.value()));
     } catch (error) {
       return wrapErr(error);
     }
@@ -150,14 +174,14 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
 
   /** IsZeroValue returns true if integer is equal to 0. */
   public isZeroValue(): boolean {
-    return this.inner === 0n;
+    return this.inner === 0 || this.inner === 0n;
   }
   public modulo(other: Val): Val {
     if (!(other instanceof Int)) {
       return maybeNoSuchOverloadErr(other);
     }
     try {
-      return new Int(moduloInt64Checked(this.inner, other.inner));
+      return new Int(moduloInt64Checked(this.value(), other.value()));
     } catch (error) {
       return wrapErr(error);
     }
@@ -166,15 +190,24 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
     if (!(other instanceof Int)) {
       return maybeNoSuchOverloadErr(other);
     }
+    if (typeof this.inner === "number" && typeof other.inner === "number") {
+      const product = this.inner * other.inner;
+      if (Number.isSafeInteger(product)) {
+        return new Int(product);
+      }
+    }
     try {
-      return new Int(multiplyInt64Checked(this.inner, other.inner));
+      return new Int(multiplyInt64Checked(this.value(), other.value()));
     } catch (error) {
       return wrapErr(error);
     }
   }
   public negate(): Val {
+    if (typeof this.inner === "number") {
+      return new Int(-this.inner);
+    }
     try {
-      return new Int(negateInt64Checked(this.inner));
+      return new Int(negateInt64Checked(this.value()));
     } catch (error) {
       return wrapErr(error);
     }
@@ -183,8 +216,14 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
     if (!(other instanceof Int)) {
       return maybeNoSuchOverloadErr(other);
     }
+    if (typeof this.inner === "number" && typeof other.inner === "number") {
+      const difference = this.inner - other.inner;
+      if (Number.isSafeInteger(difference)) {
+        return new Int(difference);
+      }
+    }
     try {
-      return new Int(subtractInt64Checked(this.inner, other.inner));
+      return new Int(subtractInt64Checked(this.value(), other.value()));
     } catch (error) {
       return wrapErr(error);
     }
@@ -193,7 +232,7 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
     return IntType;
   }
   public value(): bigint {
-    return this.inner;
+    return typeof this.inner === "number" ? BigInt(this.inner) : this.inner;
   }
 }
 

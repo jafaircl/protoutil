@@ -278,7 +278,7 @@ export class BaseMap implements Mapper {
   }
 
   public size(): Val {
-    return new Int(BigInt(this.keys.length));
+    return new Int(this.keys.length);
   }
 
   public type(): RefType {

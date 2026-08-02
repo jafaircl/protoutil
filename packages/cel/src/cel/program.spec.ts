@@ -81,6 +81,38 @@ describe("TypeScript extension/TestProgramCachesMapInputAdaptationPerEvaluation"
     expect(evalProgram.eval(dynamicActivation).value()).toBe(3n);
     expect(resolutions).toBe(2);
   });
+
+  it("keeps the first binding cached after resolving a second binding", () => {
+    const celEnv = env({
+      variables: [variableDecl("x", IntType), variableDecl("y", IntType)],
+    });
+    const evalProgram = celEnv.program(celEnv.compile("x + y + x"));
+    let xReads = 0;
+    let yReads = 0;
+    const input = Object.defineProperties(
+      {},
+      {
+        x: {
+          enumerable: true,
+          get: () => {
+            xReads += 1;
+            return 1;
+          },
+        },
+        y: {
+          enumerable: true,
+          get: () => {
+            yReads += 1;
+            return 2;
+          },
+        },
+      },
+    );
+
+    expect(evalProgram.eval(input).value()).toBe(4n);
+    expect(xReads).toBe(1);
+    expect(yReads).toBe(1);
+  });
 });
 
 describe("cel/cel_test.go/TestEvalRecover", () => {

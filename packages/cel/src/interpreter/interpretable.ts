@@ -1308,17 +1308,39 @@ class ZeroArityCallInterpretable implements InterpretableCall {
 }
 
 /**
- * runtimeTypesMatch reports whether values retain the checker-selected CEL type names.
+ * runtimeTypeMatchesUnary reports whether one value retains its checker-selected CEL type name.
  *
- * The name comparison deliberately avoids validating collection element types: generic
- * runtime dispatch also depends on the receiver's runtime type and trait, not its
- * statically inferred collection parameters.
+ * The comparison deliberately avoids validating collection element types: generic runtime
+ * dispatch also depends on the receiver's runtime type and trait, not its inferred parameters.
  */
-function runtimeTypesMatch(typeNames: readonly string[], ...values: readonly Val[]): boolean {
+function runtimeTypeMatchesUnary(typeNames: readonly string[], value: Val): boolean {
+  return typeNames.length === 1 && value.type().typeName() === typeNames[0];
+}
+
+/**
+ * runtimeTypesMatchBinary reports whether two values retain their checker-selected CEL type names.
+ */
+function runtimeTypesMatchBinary(typeNames: readonly string[], lhs: Val, rhs: Val): boolean {
   return (
-    typeNames.length === values.length &&
-    values.every((value, index) => value.type().typeName() === typeNames[index])
+    typeNames.length === 2 &&
+    lhs.type().typeName() === typeNames[0] &&
+    rhs.type().typeName() === typeNames[1]
   );
+}
+
+/**
+ * runtimeTypesMatchVarArgs reports whether values retain their checker-selected CEL type names.
+ */
+function runtimeTypesMatchVarArgs(typeNames: readonly string[], values: readonly Val[]): boolean {
+  if (typeNames.length !== values.length) {
+    return false;
+  }
+  for (let index = 0; index < values.length; index += 1) {
+    if (values[index]!.type().typeName() !== typeNames[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -1344,7 +1366,7 @@ class UnaryCallInterpretable implements InterpretableCall {
       !this.nonStrictValue &&
       this.implValue &&
       this.checkedArgTypeNamesValue !== undefined &&
-      runtimeTypesMatch(this.checkedArgTypeNamesValue, arg)
+      runtimeTypeMatchesUnary(this.checkedArgTypeNamesValue, arg)
     ) {
       return labelErrNode(this.idValue, this.implValue(arg));
     }
@@ -1413,7 +1435,7 @@ class BinaryCallInterpretable implements InterpretableCall {
       strict &&
       this.implValue &&
       this.checkedArgTypeNamesValue !== undefined &&
-      runtimeTypesMatch(this.checkedArgTypeNamesValue, lhs, rhs)
+      runtimeTypesMatchBinary(this.checkedArgTypeNamesValue, lhs, rhs)
     ) {
       return labelErrNode(this.idValue, this.implValue(lhs, rhs));
     }
@@ -1496,7 +1518,7 @@ class VarArgsCallInterpretable implements InterpretableCall {
       strict &&
       this.implValue &&
       this.checkedArgTypeNamesValue !== undefined &&
-      runtimeTypesMatch(this.checkedArgTypeNamesValue, ...args)
+      runtimeTypesMatchVarArgs(this.checkedArgTypeNamesValue, args)
     ) {
       return labelErrNode(this.idValue, this.implValue(...args));
     }

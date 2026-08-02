@@ -80,6 +80,13 @@ describe("common/types int", () => {
     expect(new Int(-1n).add(new CelString("-1")).type().typeName()).toBe("error");
   });
 
+  it("preserves native safe integer arithmetic", () => {
+    expect((new Int(4).add(new Int(-3)) as Int).value()).toBe(1n);
+    expect((new Int(Number.MAX_SAFE_INTEGER).add(new Int(1)) as Int).value()).toBe(
+      9_007_199_254_740_992n,
+    );
+  });
+
   it("common/types/int_test.go/TestIntCompare", () => {
     const cases = syncedCases<{ a: unknown; b: unknown; out: unknown }>(
       "common/types/int_test.go/TestIntCompare",

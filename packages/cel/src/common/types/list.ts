@@ -188,7 +188,7 @@ export class BaseList implements Lister {
   }
 
   public size(): Val {
-    return new Int(BigInt(this.sizeValue));
+    return new Int(this.sizeValue);
   }
 
   public type(): RefType {

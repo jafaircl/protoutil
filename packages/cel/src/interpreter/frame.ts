@@ -146,14 +146,19 @@ interface FrameReuseOptions {
  */
 class InputActivation implements Activation {
   /**
-   * lazyVarsValue stores resolved lazy bindings so each one only runs once per frame.
+   * lazyVarsValue stores resolved lazy bindings after the inline cache has seen more than one.
    */
-  private readonly lazyVarsValue = new Map<string, unknown>();
+  private lazyVarsValue?: Map<string, unknown>;
 
   /**
-   * adaptedVarsValue stores CEL values resolved from native map bindings in this evaluation.
+   * adaptedVarsValue stores CEL values after the inline cache has seen more than one binding.
    */
-  private readonly adaptedVarsValue = new Map<string, Val>();
+  private adaptedVarsValue?: Map<string, Val>;
+
+  /** inlineNameValue and inlineValueValue cache the dominant one-binding evaluation case. */
+  private inlineNameValue?: string;
+  private inlineValueValue: unknown;
+  private hasInlineValue = false;
 
   /**
    * adapterValue adapts native map bindings when the frame was created by a CEL program.
@@ -180,25 +185,35 @@ class InputActivation implements Activation {
     if (this.varsValue === undefined || !Object.hasOwn(this.varsValue, name)) {
       return activationNameAbsent;
     }
-    const adapted = this.adaptedVarsValue.get(name);
-    if (adapted !== undefined) {
-      return adapted;
-    }
-    let value = this.varsValue[name];
-    if (typeof value === "function") {
-      if (this.lazyVarsValue.has(name)) {
-        value = this.lazyVarsValue.get(name);
-      } else {
-        value = (value as () => unknown)();
-        this.lazyVarsValue.set(name, value);
-      }
-    }
     if (this.adapterValue !== undefined) {
+      if (this.hasInlineValue && this.inlineNameValue === name) {
+        return this.inlineValueValue;
+      }
+      const adapted = this.adaptedVarsValue?.get(name);
+      if (adapted !== undefined) {
+        return adapted;
+      }
+      let value = this.varsValue[name];
+      if (typeof value === "function") {
+        value = (value as () => unknown)();
+      }
       const adaptedValue = this.adapterValue.nativeToValue(value);
-      this.adaptedVarsValue.set(name, adaptedValue);
+      this.cacheAdaptedValue(name, adaptedValue);
       return adaptedValue;
     }
-    return value;
+    if (this.hasInlineValue && this.inlineNameValue === name) {
+      return this.inlineValueValue;
+    }
+    if (this.lazyVarsValue?.has(name)) {
+      return this.lazyVarsValue.get(name);
+    }
+    const value = this.varsValue[name];
+    if (typeof value !== "function") {
+      return value;
+    }
+    const resolved = (value as () => unknown)();
+    this.cacheLazyValue(name, resolved);
+    return resolved;
   }
 
   /**
@@ -212,12 +227,65 @@ class InputActivation implements Activation {
    * clear removes any cached lazy values when the frame is closed.
    */
   public clear(): void {
-    this.lazyVarsValue.clear();
-    this.adaptedVarsValue.clear();
+    if (this.lazyVarsValue !== undefined) {
+      this.lazyVarsValue.clear();
+      lazyVarsPool.push(this.lazyVarsValue);
+      this.lazyVarsValue = undefined;
+    }
+    if (this.adaptedVarsValue !== undefined) {
+      this.adaptedVarsValue.clear();
+      adaptedVarsPool.push(this.adaptedVarsValue);
+      this.adaptedVarsValue = undefined;
+    }
+    this.inlineNameValue = undefined;
+    this.inlineValueValue = undefined;
+    this.hasInlineValue = false;
     this.varsValue = undefined;
     this.adapterValue = undefined;
   }
+
+  /** cacheAdaptedValue promotes the inline cache only when a second binding is read. */
+  private cacheAdaptedValue(name: string, value: Val): void {
+    if (!this.hasInlineValue) {
+      this.inlineNameValue = name;
+      this.inlineValueValue = value;
+      this.hasInlineValue = true;
+      return;
+    }
+    if (this.inlineNameValue !== name) {
+      const values = this.adaptedVarsValue ?? adaptedVarsPool.pop() ?? new Map<string, Val>();
+      values.set(this.inlineNameValue!, this.inlineValueValue as Val);
+      this.adaptedVarsValue = values;
+    }
+    this.adaptedVarsValue?.set(name, value);
+    this.inlineNameValue = name;
+    this.inlineValueValue = value;
+  }
+
+  /** cacheLazyValue promotes the inline cache only when a second lazy binding is read. */
+  private cacheLazyValue(name: string, value: unknown): void {
+    if (!this.hasInlineValue) {
+      this.inlineNameValue = name;
+      this.inlineValueValue = value;
+      this.hasInlineValue = true;
+      return;
+    }
+    if (this.inlineNameValue !== name) {
+      const values = this.lazyVarsValue ?? lazyVarsPool.pop() ?? new Map<string, unknown>();
+      values.set(this.inlineNameValue!, this.inlineValueValue);
+      this.lazyVarsValue = values;
+    }
+    this.lazyVarsValue?.set(name, value);
+    this.inlineNameValue = name;
+    this.inlineValueValue = value;
+  }
 }
+
+/** lazyVarsPool reuses overflow caches without making the common inline path retain a Map. */
+const lazyVarsPool: Map<string, unknown>[] = [];
+
+/** adaptedVarsPool reuses overflow caches without making the common inline path retain a Map. */
+const adaptedVarsPool: Map<string, Val>[] = [];
 
 /**
  * inputActivationPool stores inactive map-backed activations for root-frame reuse.

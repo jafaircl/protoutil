@@ -79,6 +79,13 @@ describe("common/types uint", () => {
     expect((new Uint(4n).add(new Uint(3n)) as Uint).value()).toBe(7n);
   });
 
+  it("preserves native safe unsigned integer arithmetic", () => {
+    expect((new Uint(4).add(new Uint(3)) as Uint).value()).toBe(7n);
+    expect((new Uint(Number.MAX_SAFE_INTEGER).add(new Uint(1)) as Uint).value()).toBe(
+      9_007_199_254_740_992n,
+    );
+  });
+
   it("common/types/uint_test.go/TestUintCompare", () => {
     const cases = syncedCases<{ a: unknown; b: unknown; out: unknown }>(
       "common/types/uint_test.go/TestUintCompare",

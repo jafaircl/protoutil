@@ -979,7 +979,7 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
     case typeof value === "bigint":
       return new Int(value);
     case typeof value === "number":
-      return Number.isInteger(value) ? new Int(BigInt(value)) : new Double(value);
+      return Number.isInteger(value) ? new Int(value) : new Double(value);
     case typeof value === "string":
       return new CelString(value);
     case value instanceof Bool:
@@ -1024,7 +1024,7 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
     case isMessage(value) && value.$typeName === Int64ValueSchema.typeName:
       return new Int((value as MessageShape<typeof Int64ValueSchema>).value);
     case isMessage(value) && value.$typeName === UInt32ValueSchema.typeName:
-      return new Uint(BigInt((value as MessageShape<typeof UInt32ValueSchema>).value));
+      return new Uint((value as MessageShape<typeof UInt32ValueSchema>).value);
     case isMessage(value) && value.$typeName === UInt64ValueSchema.typeName:
       return new Uint((value as MessageShape<typeof UInt64ValueSchema>).value);
     case isMessage(value) && value.$typeName === StringValueSchema.typeName:
