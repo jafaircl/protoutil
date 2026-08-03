@@ -1,9 +1,9 @@
 import { create } from "@bufbuild/protobuf";
+import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { check } from "../../checker/checker.js";
 import { env } from "../../checker/env.js";
 import { CheckedExprSchema } from "../../gen/cel/expr/checked_pb.js";
-import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "../../gen/test/proto3pb/test_all_types_pb.js";
 import { parse } from "../../parser/parser.js";
 import { defaultContainer } from "../containers.js";
 import {

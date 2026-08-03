@@ -1,7 +1,7 @@
 import { create } from "@bufbuild/protobuf";
-import { Temporal } from "temporal-polyfill";
 import { InvalidValueError } from "../../errors.js";
 import { type TimeZone, TimeZoneSchema } from "../../gen/google/type/datetime_pb.js";
+import { assertIntlTimeZone } from "../../time-zone.js";
 
 /**
  * Creates a validated `google.type.TimeZone` value.
@@ -29,12 +29,7 @@ export function assertValidTimeZone(value: TimeZone): asserts value is TimeZone 
   }
 
   try {
-    Temporal.ZonedDateTime.from({
-      year: 2000,
-      month: 1,
-      day: 1,
-      timeZone: value.id,
-    });
+    assertIntlTimeZone(value.id);
   } catch (error) {
     throw new InvalidValueError(
       `invalid time zone id: ${error instanceof Error ? error.message : String(error)}`,

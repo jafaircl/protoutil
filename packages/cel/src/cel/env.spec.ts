@@ -8,6 +8,12 @@ import {
   type MessageShape,
 } from "@bufbuild/protobuf";
 import { FileDescriptorSetSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
+import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "@protoutil/testing/cel/proto2";
+import {
+  TestAllTypesSchema as Proto3TestAllTypesSchema,
+  TestAllTypes_NestedEnum,
+  TestJsonNamesSchema,
+} from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { formatCELType, formatCheckedType } from "../checker/format.js";
@@ -30,12 +36,6 @@ import { syncedCases } from "../common/spec-helpers.js";
 import type { Bytes } from "../common/types/bytes.js";
 import { resolveSyncedExpr, resolveSyncedVariableDecl } from "../common/types/spec-helpers.js";
 import { type Expr, ExprSchema } from "../gen/cel/expr/syntax_pb.js";
-import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "../gen/test/proto2pb/test_all_types_pb.js";
-import {
-  TestAllTypesSchema as Proto3TestAllTypesSchema,
-  TestAllTypes_NestedEnum,
-  TestJsonNamesSchema,
-} from "../gen/test/proto3pb/test_all_types_pb.js";
 import {
   AnyType,
   type AST,
@@ -1596,9 +1596,7 @@ describe("cel/cel_test.go/TestContextProto", () => {
       && standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.FOO
       && repeated_int32 == [1, 2]
       && map_string_string == {'': ''}`;
-    const result = celEnv
-      .program(celEnv.compile(expression))
-      .eval(input);
+    const result = celEnv.program(celEnv.compile(expression)).eval(input);
 
     expect(result).toBe(True);
   });

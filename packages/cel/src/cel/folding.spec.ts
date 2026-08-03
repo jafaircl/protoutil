@@ -1,9 +1,9 @@
+import { TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
+import { file_test_proto3pb_test_import } from "@protoutil/testing/cel/proto3-import";
 import { describe, expect, it } from "vitest";
 import { syncedCases } from "../common/spec-helpers.js";
 import { resolveSyncedExpr } from "../common/types/spec-helpers.js";
 import { twoVarComprehensions } from "../ext/comprehensions.js";
-import { TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
-import { file_test_proto3pb_test_import } from "../gen/test/proto3pb/test_import_pb.js";
 import {
   type AST,
   astToString,

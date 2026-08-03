@@ -2,6 +2,10 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { MessageShape } from "@bufbuild/protobuf";
 import { getField } from "@protoutil/core";
+import {
+  file_cel_expr_conformance_proto3_test_all_types,
+  TestAllTypesSchema,
+} from "@protoutil/testing/cel/conformance/proto3";
 import { describe, expect, it } from "vitest";
 import { type Env, type EnvOptions, env } from "./cel/env.js";
 import { optionalTypes } from "./cel/library.js";
@@ -14,10 +18,6 @@ import type { Val } from "./common/types/ref/reference.js";
 import { String as CelString } from "./common/types/string.js";
 import { StringType } from "./common/types/types.js";
 import { bindings, lists, sets, strings, twoVarComprehensions } from "./ext/index.js";
-import {
-  file_cel_expr_conformance_proto3_test_all_types,
-  TestAllTypesSchema,
-} from "./gen/cel/expr/conformance/proto3/test_all_types_pb.js";
 import { compile } from "./policy/compiler.js";
 import { fromConfig } from "./policy/config.js";
 import {

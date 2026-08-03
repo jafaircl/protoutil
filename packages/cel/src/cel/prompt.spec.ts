@@ -1,9 +1,9 @@
+import { NestedTestAllTypesSchema } from "@protoutil/testing/cel/conformance/proto3";
 import { describe, expect, it } from "vitest";
 import { variableWithDoc } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { registry } from "../common/types/provider.js";
 import { objectType } from "../common/types/types.js";
-import { NestedTestAllTypesSchema } from "../gen/cel/expr/conformance/proto3/test_all_types_pb.js";
 import { AllMacros } from "../parser/macro.js";
 import { env } from "./env.js";
 import { authoringPrompt, authoringPromptWithFieldPaths } from "./prompt.js";

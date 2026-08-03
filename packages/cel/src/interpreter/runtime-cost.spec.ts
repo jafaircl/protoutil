@@ -1,4 +1,6 @@
 import { TimestampSchema } from "@bufbuild/protobuf/wkt";
+import type { TestAllTypes } from "@protoutil/testing/cel/proto3";
+import { NestedTestAllTypesSchema, TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
@@ -22,11 +24,6 @@ import {
   type Type,
 } from "../common/types/index.js";
 import type { Val } from "../common/types/ref/index.js";
-import type { TestAllTypes } from "../gen/test/proto3pb/test_all_types_pb.js";
-import {
-  NestedTestAllTypesSchema,
-  TestAllTypesSchema,
-} from "../gen/test/proto3pb/test_all_types_pb.js";
 import { parse } from "../parser/parser.js";
 import { activation } from "./activation.js";
 import { attributeFactory } from "./attributes.js";

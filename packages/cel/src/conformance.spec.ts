@@ -10,6 +10,14 @@ import {
   file_google_protobuf_timestamp,
   file_google_protobuf_wrappers,
 } from "@bufbuild/protobuf/wkt";
+import { file_cel_expr_conformance_proto2_test_all_types } from "@protoutil/testing/cel/conformance/proto2";
+import { file_cel_expr_conformance_proto2_test_all_types_extensions } from "@protoutil/testing/cel/conformance/proto2-extensions";
+import { file_cel_expr_conformance_proto3_test_all_types } from "@protoutil/testing/cel/conformance/proto3";
+import {
+  type SimpleTest,
+  type SimpleTestFile,
+  SimpleTestFileSchema,
+} from "@protoutil/testing/cel/conformance/test/simple";
 import { describe, expect, it } from "vitest";
 import { declarationFromProto } from "./cel/decls.js";
 import { astOutputType, type Env, env } from "./cel/env.js";
@@ -34,14 +42,6 @@ import {
   strings,
   twoVarComprehensions,
 } from "./ext/index.js";
-import { file_cel_expr_conformance_proto2_test_all_types_extensions } from "./gen/cel/expr/conformance/proto2/test_all_types_extensions_pb.js";
-import { file_cel_expr_conformance_proto2_test_all_types } from "./gen/cel/expr/conformance/proto2/test_all_types_pb.js";
-import { file_cel_expr_conformance_proto3_test_all_types } from "./gen/cel/expr/conformance/proto3/test_all_types_pb.js";
-import {
-  type SimpleTest,
-  type SimpleTestFile,
-  SimpleTestFileSchema,
-} from "./gen/cel/expr/conformance/test/simple_pb.js";
 import type { MapValue_Entry, Value } from "./gen/cel/expr/value_pb.js";
 import { receiverMacro } from "./parser/macro.js";
 import type { ExprHelper } from "./parser/options.js";

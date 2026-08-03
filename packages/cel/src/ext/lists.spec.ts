@@ -1,3 +1,5 @@
+import { file_test_proto2pb_test_all_types } from "@protoutil/testing/cel/proto2";
+import { file_test_proto2pb_test_extensions } from "@protoutil/testing/cel/proto2-extensions";
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
@@ -6,8 +8,6 @@ import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { registry } from "../common/types/provider.js";
 import { DynType, IntType, listType, mapType, StringType } from "../common/types/types.js";
-import { file_test_proto2pb_test_all_types } from "../gen/test/proto2pb/test_all_types_pb.js";
-import { file_test_proto2pb_test_extensions } from "../gen/test/proto2pb/test_extensions_pb.js";
 import { lists } from "./lists.js";
 
 /** ListsCase describes a synchronized list expression and optional runtime error. */

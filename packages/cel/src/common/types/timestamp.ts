@@ -1,5 +1,5 @@
 import { AnySchema, anyPack, TimestampSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
-import { timestampInstant, timestampToString } from "@protoutil/core/wkt";
+import { timestampToString } from "@protoutil/core/wkt";
 import * as overloads from "../overloads.js";
 import { anyValueType } from "./any-value.js";
 import { Bool } from "./bool.js";
@@ -324,18 +324,10 @@ function timestampZonedValue(
   second: number;
 } {
   if (tz === undefined) {
-    return timestampInstant({
-      $typeName: "google.protobuf.Timestamp",
-      seconds,
-      nanos,
-    }).toZonedDateTimeISO("UTC");
+    return timestampZonedWithIntl(seconds, nanos, "UTC");
   }
   if (!tz.includes(":")) {
-    return timestampInstant({
-      $typeName: "google.protobuf.Timestamp",
-      seconds,
-      nanos,
-    }).toZonedDateTimeISO(tz);
+    return timestampZonedWithIntl(seconds, nanos, tz);
   }
 
   const offsetMinutes = parseTimezoneOffsetMinutes(tz);
@@ -350,6 +342,50 @@ function timestampZonedValue(
     hour: shifted.getUTCHours(),
     minute: shifted.getUTCMinutes(),
     second: shifted.getUTCSeconds(),
+  };
+}
+
+function timestampZonedWithIntl(
+  seconds: bigint,
+  nanos: number,
+  timeZone: string,
+): {
+  year: number;
+  month: number;
+  dayOfYear: number;
+  day: number;
+  dayOfWeek: number;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-US-u-ca-iso8601-nu-latn", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(Number(seconds) * 1000 + Math.trunc(nanos / 1_000_000)));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((value) => value.type === type)?.value);
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  const localDate = new Date(0);
+  localDate.setUTCFullYear(year, month - 1, day);
+  localDate.setUTCHours(0, 0, 0, 0);
+  return {
+    year,
+    month,
+    dayOfYear: dayOfYearUtc(localDate),
+    day,
+    dayOfWeek: localDate.getUTCDay() === 0 ? 7 : localDate.getUTCDay(),
+    hour: part("hour"),
+    minute: part("minute"),
+    second: part("second"),
   };
 }
 

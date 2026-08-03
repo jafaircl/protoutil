@@ -1,3 +1,4 @@
+import { file_test_proto3pb_test_all_types } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
@@ -7,7 +8,6 @@ import { syncedCases } from "../common/spec-helpers.js";
 import { registry } from "../common/types/provider.js";
 import { resolveSyncedExpr } from "../common/types/spec-helpers.js";
 import { IntType, listType, StringType } from "../common/types/types.js";
-import { file_test_proto3pb_test_all_types } from "../gen/test/proto3pb/test_all_types_pb.js";
 import { unparse } from "../parser/unparser.js";
 import { setMembershipOptimizer, sets } from "./sets.js";
 

@@ -3,9 +3,11 @@ syntax = "proto3";
 package protoutil.cel.v1;
 
 import "cel/expr/checked.proto";
+import "cel/expr/eval.proto";
 import "cel/expr/syntax.proto";
 
 message CelTypes {
   .cel.expr.CheckedExpr checked_expr = 1;
   .cel.expr.ParsedExpr parsed_expr = 2;
+  .cel.expr.EvalState eval_state = 3;
 }

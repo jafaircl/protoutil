@@ -1,7 +1,7 @@
 import { create } from "@bufbuild/protobuf";
+import { TestAllTypesSchema } from "@protoutil/testing/unittest";
 import { describe, expect, it } from "vitest";
 import { checksum } from "./checksum.js";
-import { TestAllTypesSchema } from "./gen/google/protobuf/unittest_pb.js";
 
 describe("checksum", () => {
   describe("checksum()", () => {

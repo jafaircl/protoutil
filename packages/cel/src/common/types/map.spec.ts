@@ -1,10 +1,10 @@
 import { create as createMessage } from "@bufbuild/protobuf";
 import { AnySchema, StructSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
-import { describe, expect, it } from "vitest";
 import {
   NestedTestAllTypesSchema,
   TestAllTypesSchema as Proto3TestAllTypesSchema,
-} from "../../gen/test/proto3pb/test_all_types_pb.js";
+} from "@protoutil/testing/cel/proto3";
+import { describe, expect, it } from "vitest";
 import { syncedCases } from "../spec-helpers.js";
 import { False, True } from "./bool.js";
 import { Double } from "./double.js";

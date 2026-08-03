@@ -8,7 +8,6 @@ export default defineConfig({
     "src/google/type/index.ts",
     "src/index.ts",
     "src/wkt/index.ts",
-    "src/unittest/*.ts",
   ],
   exports: true,
   format: ["esm", "cjs"],

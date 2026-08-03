@@ -7,6 +7,10 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
+import {
+  type TestAllTypes as Proto3TestAllTypes,
+  TestAllTypesSchema as Proto3TestAllTypesSchema,
+} from "@protoutil/testing/cel/proto3";
 import { describe, it } from "vitest";
 import {
   type Env as CelEnv,
@@ -31,10 +35,6 @@ import {
   type Type,
 } from "./common/types/index.js";
 import { bindings, lists, sets, strings, twoVarComprehensions } from "./ext/index.js";
-import {
-  type TestAllTypes as Proto3TestAllTypes,
-  TestAllTypesSchema as Proto3TestAllTypesSchema,
-} from "./gen/test/proto3pb/test_all_types_pb.js";
 import { type Activation, activation, partialActivation } from "./interpreter/activation.js";
 import { attributePattern } from "./interpreter/attribute-patterns.js";
 import { matchesRegexOptimization } from "./interpreter/optimizations.js";

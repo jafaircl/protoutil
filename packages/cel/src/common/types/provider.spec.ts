@@ -13,13 +13,13 @@ import {
   UInt64ValueSchema,
   ValueSchema,
 } from "@bufbuild/protobuf/wkt";
-import { describe, expect, it } from "vitest";
-import { DeclSchema, ReferenceSchema } from "../../gen/cel/expr/checked_pb.js";
-import { SourceInfoSchema } from "../../gen/cel/expr/syntax_pb.js";
 import {
   GlobalEnum,
   TestAllTypesSchema as Proto3TestAllTypesSchema,
-} from "../../gen/test/proto3pb/test_all_types_pb.js";
+} from "@protoutil/testing/cel/proto3";
+import { describe, expect, it } from "vitest";
+import { DeclSchema, ReferenceSchema } from "../../gen/cel/expr/checked_pb.js";
+import { SourceInfoSchema } from "../../gen/cel/expr/syntax_pb.js";
 import { syncedCases } from "../spec-helpers.js";
 import { Bool, False, True } from "./bool.js";
 import { Bytes } from "./bytes.js";

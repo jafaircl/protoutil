@@ -1,6 +1,5 @@
 import { create } from "@bufbuild/protobuf";
 import { type Duration, DurationSchema } from "@bufbuild/protobuf/wkt";
-import { Temporal } from "temporal-polyfill";
 import { OutOfRangeError } from "../errors.js";
 import { assertValidInt32 } from "../int32.js";
 import { assertValidInt64 } from "../int64.js";
@@ -186,17 +185,29 @@ export function clampDuration(value: Duration, min = MIN_DURATION, max = MAX_DUR
  * of decimal numbers, each with optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m".
  * Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
  */
-export function durationFromString(
-  text: string,
-  relativeTo:
-    | string
-    | Temporal.PlainDateTime
-    | Temporal.ZonedDateTime
-    | Temporal.PlainDateTimeLike
-    | Temporal.ZonedDateTimeLike = Temporal.Now.plainDateTimeISO(),
-): Duration {
-  const temporal = Temporal.Duration.from(durationStringToISO8601DurationString(text));
-  return durationFromTemporal(temporal, relativeTo);
+export function durationFromString(text: string): Duration {
+  if (!text || typeof text !== "string") {
+    throw new Error(`Invalid input: '${text}'. ${durationStringFormatMessage}`);
+  }
+  const negative = text.startsWith("-");
+  const value = negative ? text.slice(1) : text;
+  const matches = [...value.matchAll(/(\d+)(?:\.(\d+))?(ns|µs|us|ms|s|m|h)/g)];
+  if (matches.length === 0 || matches.map((match) => match[0]).join("") !== value) {
+    throw new Error(`Invalid input: '${text}'. ${durationStringFormatMessage}`);
+  }
+  let nanos = 0n;
+  for (const match of matches) {
+    const fraction = match[2] ?? "";
+    if (fraction.length > 9) {
+      throw new Error(`Invalid input: '${text}'. ${durationStringFormatMessage}`);
+    }
+    const unit = durationUnitNanos(match[3]!);
+    nanos += BigInt(match[1]!) * unit;
+    if (fraction) {
+      nanos += (BigInt(fraction) * unit) / 10n ** BigInt(fraction.length);
+    }
+  }
+  return durationFromNanos(negative ? -nanos : nanos);
 }
 
 const durationStringFormatMessage =
@@ -207,110 +218,22 @@ const durationStringFormatMessage =
     .map((line) => line.trim())
     .join(" ");
 
-function durationStringToISO8601DurationString(durationString: string): string {
-  if (!durationString || typeof durationString !== "string") {
-    throw new Error("Invalid input: expected a non-empty string");
+function durationUnitNanos(unit: string): bigint {
+  switch (unit) {
+    case "h":
+      return 3_600_000_000_000n;
+    case "m":
+      return 60_000_000_000n;
+    case "s":
+      return NANOS_PER_SECOND;
+    case "ms":
+      return 1_000_000n;
+    case "us":
+    case "µs":
+      return 1_000n;
+    case "ns":
+      return 1n;
+    default:
+      throw new Error(`unsupported duration unit: ${unit}`);
   }
-
-  const invalidUnits = /(\d+(?:\.\d+)?)(d|w|mo|y)/g;
-  if (invalidUnits.test(durationString)) {
-    throw new Error(`Invalid input: '${durationString}'. ${durationStringFormatMessage}`);
-  }
-
-  const isNegative = durationString.startsWith("-");
-  const duration = isNegative ? durationString.slice(1) : durationString;
-
-  const regex = /(\d+(?:\.\d+)?)(ns|µs|us|ms|s|m|h)/g;
-  const matches = [...duration.matchAll(regex)];
-
-  if (matches.length === 0) {
-    throw new Error(`Invalid input: '${durationString}'. ${durationStringFormatMessage}`);
-  }
-
-  let totalSeconds = 0;
-  const unitMultipliers: Record<string, number> = {
-    ns: 1e-9,
-    µs: 1e-6,
-    us: 1e-6,
-    ms: 1e-3,
-    s: 1,
-    m: 60,
-    h: 3600,
-  };
-
-  for (const match of matches) {
-    const value = parseFloat(match[1]);
-    const unit = match[2];
-    totalSeconds += value * unitMultipliers[unit];
-  }
-
-  const totalNanoseconds = Math.round(totalSeconds * 1e9);
-  const roundedTotalSeconds = totalNanoseconds / 1e9;
-
-  const hours = Math.floor(roundedTotalSeconds / 3600);
-  const minutes = Math.floor((roundedTotalSeconds % 3600) / 60);
-  const seconds = roundedTotalSeconds % 60;
-
-  let iso8601 = "PT";
-
-  if (hours > 0) {
-    iso8601 += `${hours}H`;
-  }
-
-  if (minutes > 0) {
-    iso8601 += `${minutes}M`;
-  }
-
-  if (seconds > 0) {
-    const formattedSeconds =
-      seconds % 1 === 0 ? seconds.toString() : seconds.toFixed(9).replace(/\.?0+$/, "");
-    iso8601 += `${formattedSeconds}S`;
-  }
-
-  if (iso8601 === "PT") {
-    iso8601 = "PT0S";
-  }
-
-  return isNegative ? `-${iso8601}` : iso8601;
-}
-
-/**
- * Convert a Temporal.Duration to a google.protobuf.Duration message. Optionally accepts a
- * `relativeTo` argument to balance the duration. The `relativeTo` argument can be any value
- * that can be passed to the `relativeTo` parameter for `Temporal.Duration.round()`. The default
- * is the current time.
- */
-export function durationFromTemporal(
-  duration: Temporal.Duration,
-  relativeTo:
-    | string
-    | Temporal.PlainDateTime
-    | Temporal.ZonedDateTime
-    | Temporal.PlainDateTimeLike
-    | Temporal.ZonedDateTimeLike = Temporal.Now.plainDateTimeISO(),
-) {
-  const totalSeconds = duration.total({ unit: "seconds", relativeTo });
-  const seconds = BigInt(totalSeconds < 0 ? Math.ceil(totalSeconds) : Math.floor(totalSeconds));
-  const remainingNanos = Math.round((totalSeconds % 1) * Number(NANOS_PER_SECOND));
-  return create(DurationSchema, {
-    seconds,
-    nanos: ensureNoNegativeZero(remainingNanos),
-  });
-}
-
-function ensureNoNegativeZero(value: number) {
-  if (Object.is(value, -0)) {
-    return 0;
-  }
-  return value;
-}
-
-/**
- * Convert a google.protobuf.Duration message to a Temporal.Duration
- */
-export function durationTemporal(duration: Duration) {
-  return Temporal.Duration.from({
-    seconds: Number(duration.seconds),
-    nanoseconds: Number(duration.nanos),
-  });
 }

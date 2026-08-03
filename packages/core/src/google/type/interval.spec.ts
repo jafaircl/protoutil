@@ -3,13 +3,7 @@ import { type Timestamp, TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import { IntervalSchema } from "../../gen/google/type/interval_pb.js";
 import { timestamp, timestampFromString } from "../../wkt/timestamp.js";
-import {
-  assertValidInterval,
-  interval,
-  intervalFromInstants,
-  intervalInstants,
-  isValidInterval,
-} from "./interval.js";
+import { assertValidInterval, interval, isValidInterval } from "./interval.js";
 
 interface InvalidIntervalCase {
   startTime?: Timestamp;
@@ -79,33 +73,6 @@ describe("google/type interval helpers", () => {
 
     for (const tc of cases) {
       expect(() => interval(tc.startTime, tc.endTime)).toThrow(tc.error);
-    }
-  });
-
-  it("converts to and from Temporal.Instant bounds", () => {
-    const value = intervalFromInstants("2024-03-02T08:48:00Z", "2024-03-02T09:00:00Z");
-    const bounds = intervalInstants(value);
-
-    expect(bounds.start?.toString()).toBe("2024-03-02T08:48:00Z");
-    expect(bounds.end?.toString()).toBe("2024-03-02T09:00:00Z");
-  });
-
-  it("preserves unbounded interval edges through Temporal conversion", () => {
-    const cases = [
-      {
-        value: interval(),
-        expected: { start: undefined, end: undefined },
-      },
-      {
-        value: interval(undefined, timestampFromString("2024-03-02T09:00:00Z")),
-        expected: { start: undefined, end: "2024-03-02T09:00:00Z" },
-      },
-    ];
-
-    for (const tc of cases) {
-      const bounds = intervalInstants(tc.value);
-      expect(bounds.start?.toString()).toBe(tc.expected.start);
-      expect(bounds.end?.toString()).toBe(tc.expected.end);
     }
   });
 

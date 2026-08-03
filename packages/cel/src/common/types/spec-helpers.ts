@@ -1,15 +1,15 @@
 import { create, fromJson, type Message } from "@bufbuild/protobuf";
 import { AnySchema, anyPack, ValueSchema, NullValue as WktNullValue } from "@bufbuild/protobuf/wkt";
-import type { Decl, Type as ExprType } from "../../gen/cel/expr/checked_pb.js";
-import { SourceInfoSchema } from "../../gen/cel/expr/syntax_pb.js";
-import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "../../gen/test/proto2pb/test_all_types_pb.js";
+import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "@protoutil/testing/cel/proto2";
 import {
   GlobalEnum,
   NestedTestAllTypesSchema,
   TestAllTypes_NestedEnum,
   TestAllTypes_NestedMessageSchema,
   TestAllTypesSchema,
-} from "../../gen/test/proto3pb/test_all_types_pb.js";
+} from "@protoutil/testing/cel/proto3";
+import type { Decl, Type as ExprType } from "../../gen/cel/expr/checked_pb.js";
+import { SourceInfoSchema } from "../../gen/cel/expr/syntax_pb.js";
 import { constant, type VariableDecl, variable } from "../decls.js";
 import {
   AnyType,

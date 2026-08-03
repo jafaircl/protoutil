@@ -1,5 +1,12 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: it's a test file nobody cares */
 import { create } from "@bufbuild/protobuf";
+import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "@protoutil/testing/cel/proto2";
+import {
+  NestedTestAllTypesSchema as Proto3NestedTestAllTypesSchema,
+  TestAllTypes_NestedEnum as Proto3TestAllTypesNestedEnum,
+  TestAllTypes_NestedMessageSchema as Proto3TestAllTypesNestedMessageSchema,
+  TestAllTypesSchema as Proto3TestAllTypesSchema,
+} from "@protoutil/testing/cel/proto3";
 import { describe, expect, it, vi } from "vitest";
 import { env as celEnv } from "../cel/env.js";
 import { check } from "../checker/checker.js";
@@ -42,13 +49,6 @@ import {
 } from "../common/types/index.js";
 import { resolveRuntimeAssignableValue, resolveSyncedExpr } from "../common/types/spec-helpers.js";
 import { ExprSchema } from "../gen/cel/expr/syntax_pb.js";
-import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "../gen/test/proto2pb/test_all_types_pb.js";
-import {
-  NestedTestAllTypesSchema as Proto3NestedTestAllTypesSchema,
-  TestAllTypes_NestedEnum as Proto3TestAllTypesNestedEnum,
-  TestAllTypes_NestedMessageSchema as Proto3TestAllTypesNestedMessageSchema,
-  TestAllTypesSchema as Proto3TestAllTypesSchema,
-} from "../gen/test/proto3pb/test_all_types_pb.js";
 import { parse } from "../parser/parser.js";
 import { type Activation, activation, emptyActivation, partialActivation } from "./activation.js";
 import {

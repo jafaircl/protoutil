@@ -215,6 +215,9 @@ importers:
       '@bufbuild/protocompile':
         specifier: ^0.0.1
         version: 0.0.1(@bufbuild/buf@1.65.0)
+      '@protoutil/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@types/node':
         specifier: ^25.0.3
         version: 25.2.3
@@ -296,6 +299,9 @@ importers:
         specifier: ^4.1.1
         version: 4.1.1
     devDependencies:
+      '@protoutil/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@types/node':
         specifier: ^25.0.3
         version: 25.2.3
@@ -342,10 +348,10 @@ importers:
       crc:
         specifier: ^4.3.2
         version: 4.3.2(buffer@6.0.3)
-      temporal-polyfill:
-        specifier: ^0.3.0
-        version: 0.3.0
     devDependencies:
+      '@protoutil/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@types/node':
         specifier: ^25.0.3
         version: 25.2.3
@@ -454,6 +460,25 @@ importers:
       pg:
         specifier: ^8.13.1
         version: 8.20.0
+      tsdown:
+        specifier: ^0.18.1
+        version: 0.18.4(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.16
+        version: 4.0.18(@types/node@25.2.3)(@vitest/browser-playwright@4.0.18)(jiti@2.6.1)(jsdom@27.4.0)(less@4.5.1)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/testing:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.11.0
+        version: 2.11.0
+    devDependencies:
+      '@types/node':
+        specifier: ^25.0.3
+        version: 25.2.3
       tsdown:
         specifier: ^0.18.1
         version: 0.18.4(typescript@5.9.3)
@@ -5474,12 +5499,6 @@ packages:
   tar@7.5.9:
     resolution: {integrity: sha512-BTLcK0xsDh2+PUe9F6c2TlRp4zOOBMTkoQHQIWSIzI0R7KG46uEwq4OPk2W7bZcprBMsuaeFsqwYr7pjh6CuHg==}
     engines: {node: '>=18'}
-
-  temporal-polyfill@0.3.0:
-    resolution: {integrity: sha512-qNsTkX9K8hi+FHDfHmf22e/OGuXmfBm9RqNismxBrnSmZVJKegQ+HYYXT+R7Ha8F/YSm2Y34vmzD4cxMu2u95g==}
-
-  temporal-spec@0.3.0:
-    resolution: {integrity: sha512-n+noVpIqz4hYgFSMOSiINNOUOMFtV5cZQNCmmszA6GiVFVRt3G7AqVyhXjhCSmowvQn+NsGn+jMDMKJYHd3bSQ==}
 
   term-size@2.2.1:
     resolution: {integrity: sha512-wK0Ri4fOGjv/XPy8SBHZChl8CM7uMc5VML7SqiQ0zG7+J5Vr+RMQDoHa2CNT6KHUnTGIXH34UDMkPzAUyapBZg==}
@@ -11855,12 +11874,6 @@ snapshots:
       minipass: 7.1.2
       minizlib: 3.1.0
       yallist: 5.0.0
-
-  temporal-polyfill@0.3.0:
-    dependencies:
-      temporal-spec: 0.3.0
-
-  temporal-spec@0.3.0: {}
 
   term-size@2.2.1: {}
 

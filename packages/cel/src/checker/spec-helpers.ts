@@ -1,4 +1,6 @@
 import { create } from "@bufbuild/protobuf";
+import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "@protoutil/testing/cel/proto2";
+import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { container, defaultContainer } from "../common/containers.js";
 import { StringTraversalCostFactor } from "../common/cost.js";
 import { type FunctionDecl, func, memberOverload, overload, variable } from "../common/decls.js";
@@ -18,8 +20,6 @@ import {
   UintType,
 } from "../common/types/index.js";
 import { resolveSyncedExpr } from "../common/types/spec-helpers.js";
-import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "../gen/test/proto2pb/test_all_types_pb.js";
-import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import type { ParserConfig } from "../parser/options.js";
 import {
   type AstNode,

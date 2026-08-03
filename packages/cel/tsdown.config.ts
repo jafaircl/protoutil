@@ -5,6 +5,7 @@ export default defineConfig({
     "!src/*.spec.ts",
     "!src/**/*.spec.ts",
     "src/index.ts",
+    "src/runtime.ts",
     "src/common/index.ts",
     "src/parser/index.ts",
     "src/parser/macro.ts",

@@ -16,8 +16,8 @@ The package has four entry points:
 |-------------|-------------|----------|
 | Core | `@protoutil/core` | CheckSum, Fields, integer validators, error classes |
 | Google RPC Types | `@protoutil/core/google/rpc` | Generated `google/rpc` exports plus helpers for `Code` and `Status` |
-| Well-Known Types | `@protoutil/core/wkt` | Duration, FieldMask, Timestamp, including Temporal-based parsing and conversion helpers |
-| Google Common Types | `@protoutil/core/google/type` | Generated `google/type` exports plus helpers for CalendarPeriod, Color, Date, DateTime, DayOfWeek, Decimal, Fraction, Interval, LatLng, LocalizedText, Month, Money, PhoneNumber, PostalAddress, Quaternion, and TimeOfDay, including Temporal-based conversions |
+| Well-Known Types | `@protoutil/core/wkt` | Duration, FieldMask, Timestamp, including parsing and conversion helpers |
+| Google Common Types | `@protoutil/core/google/type` | Generated `google/type` exports plus helpers for CalendarPeriod, Color, Date, DateTime, DayOfWeek, Decimal, Fraction, Interval, LatLng, LocalizedText, Month, Money, PhoneNumber, PostalAddress, Quaternion, and TimeOfDay |
 
 ## CheckSum
 
@@ -109,18 +109,14 @@ clampDuration(duration(7n), min, max); // returns original
 
 Without arguments, `clampDuration` clamps to the protobuf spec range (-315,576,000,000s to +315,576,000,000s).
 
-### Temporal API
+### String Parsing
 
 ```ts
 import {
   durationFromString,
-  durationFromTemporal,
-  durationTemporal,
 } from "@protoutil/core/wkt";
 
 durationFromString("2s"); // Duration message representing 2 seconds
-durationFromTemporal(temporalDuration); // Duration message
-durationTemporal(message); // Temporal.Duration
 ```
 
 ## Timestamp
@@ -190,22 +186,16 @@ clampTimestamp(timestamp(15n), min, max); // clamp to range
 
 Without arguments, clamps to the protobuf spec range (0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z).
 
-### Temporal API
+### String Conversion
 
 ```ts
 import {
-  temporalTimestampNow,
-  timestampFromInstant,
   timestampFromString,
-  timestampInstant,
   timestampToString,
 } from "@protoutil/core/wkt";
 
 timestampFromString("1970-01-01T02:07:34.000000321+07:00"); // Timestamp message
 timestampToString(ts); // "1970-01-01T00:00:00.000000000Z"
-temporalTimestampNow(); // Timestamp with nanosecond resolution
-timestampFromInstant(instant); // from Temporal.Instant
-timestampInstant(ts); // to Temporal.Instant
 ```
 
 ## Google RPC Types
@@ -365,22 +355,8 @@ import {
 } from "@protoutil/core/google/type";
 ```
 
-The entry point re-exports the generated `google/type` messages and adds convenience helpers for the most common API-facing types, including Temporal-based conversions:
-
-```ts
-import {
-  dateFromPlainDate,
-  datePlainDate,
-  dateTimeFromPlainDateTime,
-  dateTimeFromZonedDateTime,
-  dateTimePlainDateTime,
-  dateTimeZonedDateTime,
-  intervalFromInstants,
-  intervalInstants,
-  timeOfDayFromPlainTime,
-  timeOfDayPlainTime,
-} from "@protoutil/core/google/type";
-```
+The entry point re-exports the generated `google/type` messages and adds
+convenience helpers for common API-facing types.
 
 ### CalendarPeriod
 
@@ -418,8 +394,6 @@ dateToString(date(2024, 3, 2)); // "2024-03-02"
 
 `Date` helpers support all four protobuf date shapes: full dates, year-only values, year-month values, and month-day values. A yearless date must include both month and day.
 
-Temporal conversions for full dates are available from
-`@protoutil/core/google/type`.
 
 ### Decimal
 
@@ -452,16 +426,14 @@ dateTimeToString(dateTimeFromString("2024-03-02T08:48:00[America/New_York]"));
 `DateTime` helpers support local datetimes, UTC offsets, and
 [IANA Time Zone Database](https://www.iana.org/time-zones) zones.
 
-They intentionally use a strict v1 subset of the protobuf type: hours must be `00` through `23`, seconds must be `00` through `59`, and `utcOffset` must be whole seconds within `±18:00`. Yearless datetimes are supported, but Temporal conversions back to `Temporal.PlainDateTime` or `Temporal.ZonedDateTime` require a non-zero year.
+They intentionally use a strict v1 subset of the protobuf type: hours must be `00` through `23`, seconds must be `00` through `59`, and `utcOffset` must be whole seconds within `±18:00`.
 
 When you use `timeZone`, the helpers rely on
-[Temporal](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal)'s
-default `"compatible"` disambiguation for IANA zones. In practice, ambiguous
+[the host Intl time-zone database](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat)'s
+compatible resolution for IANA zones. In practice, ambiguous
 fall-back times prefer the earlier offset, and skipped spring-forward times
 keep the requested civil fields while resolving with the post-transition
-offset. The named-zone validation is shared with `timeZone()`, and `DateTime`
-adds the extra requirement that the specific civil time must resolve in that
-zone. If you need an exact offset with no timezone database lookup, use
+offset. If you need an exact offset with no timezone database lookup, use
 `utcOffset` instead.
 
 ### DayOfWeek
@@ -494,9 +466,6 @@ interval();
 
 `Interval` helpers model the protobuf contract directly: `startTime` is inclusive, `endTime` is exclusive, and `startTime` must be less than or equal to `endTime`. Equal bounds represent an empty interval, and omitting both bounds represents an interval that matches any time.
 
-Temporal conversions to and from
-[`Temporal.Instant`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Instant)
-are available from `@protoutil/core/google/type`.
 
 ### LatLng
 
@@ -649,8 +618,6 @@ timeOfDayToString(timeOfDay(23, 59, 59, 999_999_999)); // "23:59:59.999999999"
 
 `TimeOfDay` helpers are intentionally strict in v1: they accept `00:00:00` through `23:59:59.999999999`, but do not currently allow `24:00:00` or leap-second `:60` values.
 
-Temporal conversions for `TimeOfDay` are available from
-`@protoutil/core/google/type`.
 
 ## FieldMask
 

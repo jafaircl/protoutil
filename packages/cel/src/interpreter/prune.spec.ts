@@ -1,4 +1,5 @@
 import { create } from "@bufbuild/protobuf";
+import { TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { type AST, ast, ExprKind } from "../common/ast/index.js";
 import { defaultContainer } from "../common/containers.js";
@@ -15,7 +16,6 @@ import {
   registry,
   type Val,
 } from "../common/types/index.js";
-import { TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import { parse } from "../parser/parser.js";
 import { unparse } from "../parser/unparser.js";
 import { type Activation, activation, emptyActivation, partialActivation } from "./activation.js";

@@ -1,0 +1,7 @@
+- The user will handle git staging/committing/stashing. The only git commands you are allowed to run without explicit permission are git diff, git status, or similar commands that do not modify files or git history in any way.
+- You are never allowed to run a `rm -rf` command or similar. If you need a file or folder deleted, ask the user to do it.
+- You should write one file at a time. Agents occasionally run into issues where writing multiple files runs into some patch issue and all the files have to be rewritten. This is inefficient and should not be done.
+- Documentation is a first class citizen in this repository. All functions, methods, classes, propreties, constants, variables, interfaces, enums, etc should have comments.
+- Always use ASD-STE100 when writing any documentation including markdown files, jsdoc (or similar) comments, and inline comments. All forms of documentation should be simple, clear, and succinct.
+- Always add inline comments to function and method bodies where functionality is not plainly obvious.
+- Do not add a new folder or abstraction until a current caller requires it. Before implementation, state the owning model, the caller, and the behavior that cannot use an existing function or model method.

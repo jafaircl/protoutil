@@ -1,6 +1,5 @@
 import { create } from "@bufbuild/protobuf";
 import type { Duration } from "@bufbuild/protobuf/wkt";
-import { Temporal } from "temporal-polyfill";
 import { InvalidValueError, OutOfRangeError } from "../../errors.js";
 import { DateSchema } from "../../gen/google/type/date_pb.js";
 import {
@@ -10,6 +9,7 @@ import {
   TimeZoneSchema,
 } from "../../gen/google/type/datetime_pb.js";
 import { assertValidInt32 } from "../../int32.js";
+import { assertIntlTimeZone, civilTimeZoneOffset } from "../../time-zone.js";
 import { assertValidDuration, duration } from "../../wkt/duration.js";
 import { assertValidDate } from "./date.js";
 import { MAX_NANOS, padNumber, trimTrailingZeros } from "./shared.js";
@@ -136,7 +136,7 @@ export function assertValidDateTime(value: DateTime): asserts value is DateTime 
       }
       return;
     case "timeZone":
-      assertValidDateTimeTimeZone(value.timeOffset.value, value);
+      assertValidDateTimeTimeZone(value.timeOffset.value);
       return;
     default:
       return;
@@ -204,9 +204,7 @@ export function dateTimeFromString(value: string) {
  * Formats a `google.type.DateTime` using its canonical string form.
  *
  * Named time zones format as `...±HH:MM[Area/Location]`, where the numeric
- * offset is resolved via
- * [Temporal](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal)
- * using its default `"compatible"` disambiguation.
+ * offset is resolved through the host Intl time-zone database.
  */
 export function dateTimeToString(value: DateTime) {
   assertValidDateTime(value);
@@ -231,96 +229,6 @@ export function dateTimeToString(value: DateTime) {
   }
 }
 
-/**
- * Converts a
- * [`Temporal.PlainDateTime`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDateTime)
- * input into a `google.type.DateTime`.
- *
- * The result is a local datetime with no `utcOffset` or named `timeZone`.
- */
-export function dateTimeFromPlainDateTime(
-  value: Temporal.PlainDateTime | Temporal.PlainDateTimeLike | string,
-) {
-  const plainDateTime = Temporal.PlainDateTime.from(value);
-  return dateTime({
-    year: plainDateTime.year,
-    month: plainDateTime.month,
-    day: plainDateTime.day,
-    hours: plainDateTime.hour,
-    minutes: plainDateTime.minute,
-    seconds: plainDateTime.second,
-    nanos:
-      plainDateTime.millisecond * 1_000_000 +
-      plainDateTime.microsecond * 1_000 +
-      plainDateTime.nanosecond,
-  });
-}
-
-/**
- * Converts a `google.type.DateTime` into
- * [`Temporal.PlainDateTime`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDateTime).
- *
- * Yearless values cannot be converted and will throw.
- */
-export function dateTimePlainDateTime(value: DateTime) {
-  assertValidDateTime(value);
-  if (value.year === 0) {
-    throw new InvalidValueError(
-      "yearless DateTime values cannot be converted to Temporal.PlainDateTime",
-      value,
-    );
-  }
-
-  const { millisecond, microsecond, nanosecond } = splitNanos(value.nanos);
-  return new Temporal.PlainDateTime(
-    value.year,
-    value.month,
-    value.day,
-    value.hours,
-    value.minutes,
-    value.seconds,
-    millisecond,
-    microsecond,
-    nanosecond,
-  );
-}
-
-/**
- * Converts a
- * [`Temporal.ZonedDateTime`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime)
- * input into a `google.type.DateTime` with a named time zone.
- *
- * The resulting helper value stores the zone ID, not a fixed offset.
- */
-export function dateTimeFromZonedDateTime(
-  value: Temporal.ZonedDateTime | Temporal.ZonedDateTimeLike | string,
-) {
-  const zonedDateTime = Temporal.ZonedDateTime.from(value);
-  return dateTime({
-    year: zonedDateTime.year,
-    month: zonedDateTime.month,
-    day: zonedDateTime.day,
-    hours: zonedDateTime.hour,
-    minutes: zonedDateTime.minute,
-    seconds: zonedDateTime.second,
-    nanos:
-      zonedDateTime.millisecond * 1_000_000 +
-      zonedDateTime.microsecond * 1_000 +
-      zonedDateTime.nanosecond,
-    timeZone: zonedDateTime.timeZoneId,
-  });
-}
-
-/**
- * Converts a `google.type.DateTime` into
- * [`Temporal.ZonedDateTime`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime).
- *
- * The value must include a named time zone and a non-zero year.
- */
-export function dateTimeZonedDateTime(value: DateTime) {
-  return toTemporalZonedDateTime(value);
-}
-
 function createTimeOffset(input: DateTimeValueInput): DateTime["timeOffset"] {
   if (input.utcOffset !== undefined) {
     return {
@@ -343,22 +251,11 @@ function createTimeOffset(input: DateTimeValueInput): DateTime["timeOffset"] {
   return { case: undefined };
 }
 
-function assertValidDateTimeTimeZone(value: TimeZone, dateTimeValue: DateTime) {
+function assertValidDateTimeTimeZone(value: TimeZone) {
   assertValidStandaloneTimeZone(value);
 
   try {
-    Temporal.ZonedDateTime.from({
-      year: dateTimeValue.year || 2000,
-      month: dateTimeValue.month,
-      day: dateTimeValue.day,
-      hour: dateTimeValue.hours,
-      minute: dateTimeValue.minutes,
-      second: dateTimeValue.seconds,
-      millisecond: Math.trunc(dateTimeValue.nanos / 1_000_000),
-      microsecond: Math.trunc((dateTimeValue.nanos % 1_000_000) / 1_000),
-      nanosecond: dateTimeValue.nanos % 1_000,
-      timeZone: value.id,
-    });
+    assertIntlTimeZone(value.id);
   } catch (error) {
     throw new InvalidValueError(
       `invalid time zone or civil time: ${error instanceof Error ? error.message : String(error)}`,
@@ -391,43 +288,18 @@ function formatUtcOffset(value: Duration) {
 }
 
 function resolvedTimeZoneOffset(value: DateTime) {
-  const zoned = toTemporalZonedDateTime(value);
-  return zoned.offset;
-}
-
-function splitNanos(value: number) {
-  return {
-    millisecond: Math.trunc(value / 1_000_000),
-    microsecond: Math.trunc((value % 1_000_000) / 1_000),
-    nanosecond: value % 1_000,
-  };
-}
-
-function toTemporalZonedDateTime(value: DateTime) {
-  if (value.year === 0) {
-    throw new InvalidValueError(
-      "yearless DateTime values cannot be converted to Temporal.ZonedDateTime",
-      value,
-    );
-  }
   if (value.timeOffset.case !== "timeZone") {
-    throw new InvalidValueError(
-      "DateTime must use a named time zone to convert to Temporal.ZonedDateTime",
-      value,
-    );
+    throw new InvalidValueError("DateTime must use a named time zone", value);
   }
-
-  const { millisecond, microsecond, nanosecond } = splitNanos(value.nanos);
-  return Temporal.ZonedDateTime.from({
-    year: value.year,
-    month: value.month,
-    day: value.day,
-    hour: value.hours,
-    minute: value.minutes,
-    second: value.seconds,
-    millisecond,
-    microsecond,
-    nanosecond,
-    timeZone: value.timeOffset.value.id,
-  });
+  return civilTimeZoneOffset(
+    {
+      year: value.year || 2000,
+      month: value.month,
+      day: value.day,
+      hour: value.hours,
+      minute: value.minutes,
+      second: value.seconds,
+    },
+    value.timeOffset.value.id,
+  );
 }

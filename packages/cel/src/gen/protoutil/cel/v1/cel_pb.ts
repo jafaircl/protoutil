@@ -6,6 +6,8 @@ import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { CheckedExpr } from "../../../cel/expr/checked_pb.js";
 import { file_cel_expr_checked } from "../../../cel/expr/checked_pb.js";
+import type { EvalState } from "../../../cel/expr/eval_pb.js";
+import { file_cel_expr_eval } from "../../../cel/expr/eval_pb.js";
 import type { ParsedExpr } from "../../../cel/expr/syntax_pb.js";
 import { file_cel_expr_syntax } from "../../../cel/expr/syntax_pb.js";
 import type { Message } from "@bufbuild/protobuf";
@@ -14,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file protoutil/cel/v1/cel.proto.
  */
 export const file_protoutil_cel_v1_cel: GenFile = /*@__PURE__*/
-  fileDesc("Chpwcm90b3V0aWwvY2VsL3YxL2NlbC5wcm90bxIQcHJvdG91dGlsLmNlbC52MSJiCghDZWxUeXBlcxIrCgxjaGVja2VkX2V4cHIYASABKAsyFS5jZWwuZXhwci5DaGVja2VkRXhwchIpCgtwYXJzZWRfZXhwchgCIAEoCzIULmNlbC5leHByLlBhcnNlZEV4cHJiBnByb3RvMw", [file_cel_expr_checked, file_cel_expr_syntax]);
+  fileDesc("Chpwcm90b3V0aWwvY2VsL3YxL2NlbC5wcm90bxIQcHJvdG91dGlsLmNlbC52MSKLAQoIQ2VsVHlwZXMSKwoMY2hlY2tlZF9leHByGAEgASgLMhUuY2VsLmV4cHIuQ2hlY2tlZEV4cHISKQoLcGFyc2VkX2V4cHIYAiABKAsyFC5jZWwuZXhwci5QYXJzZWRFeHByEicKCmV2YWxfc3RhdGUYAyABKAsyEy5jZWwuZXhwci5FdmFsU3RhdGViBnByb3RvMw", [file_cel_expr_checked, file_cel_expr_eval, file_cel_expr_syntax]);
 
 /**
  * @generated from message protoutil.cel.v1.CelTypes
@@ -29,6 +31,11 @@ export type CelTypes = Message<"protoutil.cel.v1.CelTypes"> & {
    * @generated from field: cel.expr.ParsedExpr parsed_expr = 2;
    */
   parsedExpr?: ParsedExpr;
+
+  /**
+   * @generated from field: cel.expr.EvalState eval_state = 3;
+   */
+  evalState?: EvalState;
 };
 
 /**

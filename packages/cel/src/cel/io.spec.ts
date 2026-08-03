@@ -1,4 +1,5 @@
 import type { DescEnum, DescField, DescMessage } from "@bufbuild/protobuf";
+import { TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { syncedCases } from "../common/spec-helpers.js";
 import { resolveSyncedExpr, resolveSyncedVal } from "../common/types/spec-helpers.js";
@@ -11,7 +12,6 @@ import {
   ExprSchema as AlphaExprSchema,
   ParsedExprSchema as AlphaParsedExprSchema,
 } from "../gen/google/api/expr/v1alpha1/syntax_pb.js";
-import { TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import {
   alphaProtoAsCheckedExpr,
   alphaProtoAsExpr,

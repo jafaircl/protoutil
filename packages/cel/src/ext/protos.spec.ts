@@ -1,4 +1,17 @@
 import { setExtension } from "@bufbuild/protobuf";
+import {
+  type ExampleType,
+  ExtendedExampleType_enum_ext,
+  ExtendedExampleType_extended_examples,
+  file_test_proto2pb_test_all_types,
+  GlobalEnum,
+} from "@protoutil/testing/cel/proto2";
+import {
+  file_test_proto2pb_test_extensions,
+  int32_ext,
+  int32_wrapper_ext,
+  nested_example,
+} from "@protoutil/testing/cel/proto2-extensions";
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { container } from "../common/containers.js";
@@ -8,19 +21,6 @@ import { True } from "../common/types/bool.js";
 import { registry } from "../common/types/provider.js";
 import type { Indexer } from "../common/types/traits/index.js";
 import { BoolType, DynType, objectType, StringType } from "../common/types/types.js";
-import {
-  type ExampleType,
-  ExtendedExampleType_enum_ext,
-  ExtendedExampleType_extended_examples,
-  file_test_proto2pb_test_all_types,
-  GlobalEnum,
-} from "../gen/test/proto2pb/test_all_types_pb.js";
-import {
-  file_test_proto2pb_test_extensions,
-  int32_ext,
-  int32_wrapper_ext,
-  nested_example,
-} from "../gen/test/proto2pb/test_extensions_pb.js";
 import { protos } from "./protos.js";
 
 /** ProtosCase describes a synchronized protobuf extension expression. */

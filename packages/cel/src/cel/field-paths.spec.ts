@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { syncedCases } from "../common/spec-helpers.js";
 import {
   NestedTestAllTypesSchema,
   TestAllTypesSchema,
-} from "../gen/cel/expr/conformance/proto3/test_all_types_pb.js";
+} from "@protoutil/testing/cel/conformance/proto3";
+import { describe, expect, it } from "vitest";
+import { syncedCases } from "../common/spec-helpers.js";
 import { fieldPathsForType, objectType, registry } from "../index.js";
 
 describe("cel/fieldpaths_test.go/TestFieldPathsForTestAllTypes", () => {

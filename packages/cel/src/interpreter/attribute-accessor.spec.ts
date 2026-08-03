@@ -1,4 +1,5 @@
 import { create } from "@bufbuild/protobuf";
+import { TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { variable } from "../common/decls.js";
@@ -14,7 +15,6 @@ import {
   StringType,
   unknown,
 } from "../common/types/index.js";
-import { TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import { activation } from "./activation.js";
 import { attributeAccessor } from "./index.js";
 

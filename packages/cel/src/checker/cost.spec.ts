@@ -1,4 +1,5 @@
 import { create } from "@bufbuild/protobuf";
+import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { defaultContainer } from "../common/containers.js";
 import { func, memberOverload } from "../common/decls.js";
@@ -6,7 +7,6 @@ import { textSource } from "../common/source.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { standardFunctions } from "../common/stdlib.js";
 import { BytesType, listType, registry } from "../common/types/index.js";
-import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "../gen/test/proto3pb/test_all_types_pb.js";
 import { parse } from "../parser/parser.js";
 import { check } from "./checker.js";
 import { CallEstimate, cost, SizeEstimate, sizeEstimate } from "./cost.js";

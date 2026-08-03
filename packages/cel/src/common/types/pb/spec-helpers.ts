@@ -31,22 +31,22 @@ import {
   UInt64ValueSchema,
   ValueSchema,
 } from "@bufbuild/protobuf/wkt";
-import { expect } from "vitest";
 import {
   ExampleTypeSchema,
   ExtendedExampleTypeSchema,
   file_test_proto2pb_test_all_types,
   NestedTestAllTypesSchema as Proto2NestedTestAllTypesSchema,
   TestAllTypesSchema as Proto2TestAllTypesSchema,
-} from "../../../gen/test/proto2pb/test_all_types_pb.js";
+} from "@protoutil/testing/cel/proto2";
 import {
   file_test_proto3pb_test_all_types,
   NestedTestAllTypesSchema as Proto3NestedTestAllTypesSchema,
   TestAllTypesSchema as Proto3TestAllTypesSchema,
   TestAllTypes_NestedEnum,
   TestJsonNamesSchema,
-} from "../../../gen/test/proto3pb/test_all_types_pb.js";
-import { file_test_proto3pb_test_import } from "../../../gen/test/proto3pb/test_import_pb.js";
+} from "@protoutil/testing/cel/proto3";
+import { file_test_proto3pb_test_import } from "@protoutil/testing/cel/proto3-import";
+import { expect } from "vitest";
 import { resolveSyncedExpr, resolveSyncedProtoType } from "../spec-helpers.js";
 
 const registry = createRegistry(

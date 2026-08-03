@@ -1,8 +1,8 @@
 import { create } from "@bufbuild/protobuf";
 import { type Timestamp, TimestampSchema } from "@bufbuild/protobuf/wkt";
-import { Temporal } from "temporal-polyfill";
 import { assertValidInt32 } from "../int32.js";
 import { assertValidInt64 } from "../int64.js";
+import { civilTimeToEpochMilliseconds } from "../time-zone.js";
 
 const NANOS_PER_SECOND = 1_000_000_000n;
 
@@ -34,7 +34,7 @@ export const MAX_UNIX_TIME_MILLIS = MAX_UNIX_TIME_SECONDS * 1_000;
 /**
  * Number of nanoseconds between `9999-12-31T23:59:59.999999999Z` and the Unix epoch.
  */
-export const MAX_UNIX_TIME_NANOS = BigInt(MAX_UNIX_TIME_SECONDS) * NANOS_PER_SECOND;
+export const MAX_UNIX_TIME_NANOS = BigInt(MAX_UNIX_TIME_SECONDS) * NANOS_PER_SECOND + 999_999_999n;
 
 /**
  * Create a google.protobuf.Timestamp message. In addition to being less verbose, this function
@@ -159,66 +159,40 @@ export function clampTimestamp(ts: Timestamp, min = MIN_TIMESTAMP, max = MAX_TIM
 }
 
 /**
- * Create a google.protobuf.Timestamp for the current time using the Temporal API.
- *
- * @returns A google.protobuf.Timestamp representing the current time.
- */
-export function temporalTimestampNow() {
-  const now = Temporal.Now.instant();
-  return create(TimestampSchema, {
-    seconds: now.epochNanoseconds / NANOS_PER_SECOND,
-    nanos: Number(now.epochNanoseconds % NANOS_PER_SECOND),
-  });
-}
-
-/**
- * Create a google.protobuf.Timestamp message from a Temporal Instant.
- */
-export function timestampFromInstant(instant: Temporal.Instant) {
-  const seconds = instant.epochNanoseconds / NANOS_PER_SECOND;
-  let nanos = Number(instant.epochNanoseconds % NANOS_PER_SECOND);
-  if (nanos < 0) {
-    nanos += Number(NANOS_PER_SECOND);
-    return timestamp(seconds - 1n, nanos);
-  }
-  return create(TimestampSchema, {
-    seconds,
-    nanos,
-  });
-}
-
-/**
- * Convert a google.protobuf.Timestamp message to a Temporal Instant.
- */
-export function timestampInstant(timestamp: Timestamp) {
-  const seconds = BigInt(timestamp.seconds);
-  const nanos = BigInt(timestamp.nanos);
-  return Temporal.Instant.fromEpochNanoseconds(seconds * NANOS_PER_SECOND + nanos);
-}
-
-/**
- * Parses a google.protobuf.Timestamp from a string. This function uses the
- * Temporal API to parse the string. As such, any valid
- * [RFC 9557](https://www.rfc-editor.org/rfc/rfc9557),
- * [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339), or
- * [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) string
- * should be accepted. If an offset and a timezone are both present, any
- * ambiguity will be resolved in favor of the offset.
+ * Parses a google.protobuf.Timestamp from an RFC 3339 string with an optional
+ * bracketed IANA time zone. If an offset and a timezone are both present, the
+ * offset determines the instant.
  */
 export function timestampFromString(value: string) {
-  if (!dateStringHasBrackets(value) || dateStringHasOffset(value)) {
-    return timestampFromInstant(Temporal.Instant.from(value));
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):([0-5]\d|60)(?:\.(\d{1,9}))?([Zz]|[+-]\d{2}:\d{2})?(?:\[([^\]]+)\])?$/,
+  );
+  if (!match) {
+    throw new Error("invalid timestamp string");
   }
-  const zoned = Temporal.ZonedDateTime.from(value, { offset: "use" });
-  return timestampFromNanos(zoned.epochNanoseconds - BigInt(zoned.offsetNanoseconds));
-}
-
-function dateStringHasOffset(value: string) {
-  return /([+-]\d{2}:\d{2})/.test(value);
-}
-
-function dateStringHasBrackets(value: string) {
-  return /(\[.*?\])/.test(value);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const nanos = Number((match[7] ?? "").padEnd(9, "0") || "0");
+  const leapSecond = second === 60;
+  const civilTime = { year, month, day, hour, minute, second: leapSecond ? 59 : second };
+  const localMilliseconds = civilUtcMilliseconds(civilTime) + (leapSecond ? 1_000 : 0);
+  if (!isExactCivilTime(localMilliseconds - (leapSecond ? 1_000 : 0), civilTime)) {
+    throw new Error("Invalid isoDay");
+  }
+  const offset = match[8];
+  const timeZone = match[9];
+  if (offset === undefined && timeZone === undefined) {
+    throw new Error("timestamp string requires a UTC offset or time zone");
+  }
+  const epochMilliseconds =
+    timeZone !== undefined && (offset === undefined || offset === "Z" || offset === "z")
+      ? civilTimeToEpochMilliseconds(civilTime, timeZone!) + (leapSecond ? 1_000 : 0)
+      : localMilliseconds - offsetMilliseconds(offset!);
+  return timestampFromNanos(BigInt(epochMilliseconds) * 1_000_000n + BigInt(nanos));
 }
 
 /**
@@ -227,5 +201,56 @@ function dateStringHasBrackets(value: string) {
  * always be in UTC.
  */
 export function timestampToString(ts: Timestamp) {
-  return timestampInstant(ts).toString();
+  assertValidTimestamp(ts);
+  const date = new Date(Number(ts.seconds) * 1_000);
+  const datePart = `${String(date.getUTCFullYear()).padStart(4, "0")}-${String(
+    date.getUTCMonth() + 1,
+  ).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+  const timePart = `${String(date.getUTCHours()).padStart(2, "0")}:${String(
+    date.getUTCMinutes(),
+  ).padStart(2, "0")}:${String(date.getUTCSeconds()).padStart(2, "0")}`;
+  const fraction = ts.nanos === 0 ? "" : `.${String(ts.nanos).padStart(9, "0").replace(/0+$/, "")}`;
+  return `${datePart}T${timePart}${fraction}Z`;
+}
+
+function civilUtcMilliseconds(value: {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+}): number {
+  const date = new Date(0);
+  date.setUTCFullYear(value.year, value.month - 1, value.day);
+  date.setUTCHours(value.hour, value.minute, value.second, 0);
+  return date.getTime();
+}
+
+function isExactCivilTime(
+  epochMilliseconds: number,
+  value: Parameters<typeof civilUtcMilliseconds>[0],
+): boolean {
+  const date = new Date(epochMilliseconds);
+  return (
+    date.getUTCFullYear() === value.year &&
+    date.getUTCMonth() === value.month - 1 &&
+    date.getUTCDate() === value.day &&
+    date.getUTCHours() === value.hour &&
+    date.getUTCMinutes() === value.minute &&
+    date.getUTCSeconds() === value.second
+  );
+}
+
+function offsetMilliseconds(value: string): number {
+  if (value === "Z" || value === "z") {
+    return 0;
+  }
+  const sign = value.startsWith("-") ? -1 : 1;
+  const hours = Number(value.slice(1, 3));
+  const minutes = Number(value.slice(4, 6));
+  if (hours > 23 || minutes > 59) {
+    throw new Error("invalid timestamp offset");
+  }
+  return sign * (hours * 60 + minutes) * 60_000;
 }

@@ -36,6 +36,7 @@ cel-policy conformance results.
   - [Overview](#overview)
     - [Environment Setup](#environment-setup)
     - [Context Protobufs](#context-protobufs)
+    - [Runtime-Only Evaluation](#runtime-only-evaluation)
     - [Parse and Check](#parse-and-check)
       - [Macros](#macros)
     - [Evaluate](#evaluate)
@@ -97,6 +98,46 @@ const result = program.eval(create(RequestSchema, { user: "alice" }));
 
 Set `jsonFieldNames: true` on `env()` to use protobuf JSON field names instead
 of protobuf field names.
+
+### Runtime-Only Evaluation
+
+Use `@protoutil/cel/runtime` when an application receives an expression that
+was parsed elsewhere. This entry point plans and evaluates a parsed AST,
+`ParsedExpr`, or `CheckedExpr`. It does not include the parser or type checker.
+This makes it a smaller import for applications that distribute pre-parsed CEL
+expressions and use an ESM-aware bundler.
+
+Prefer storing a checked expression as a `CheckedExpr` protobuf message. The
+checker rejects invalid expressions before deployment and records type and
+function-resolution metadata that makes evaluation more predictable. A parsed
+expression can still evaluate, but function and field resolution happens at
+evaluation time and an invalid expression can fail there instead.
+
+Load a stored checked expression with the generated schema, then give it to
+`runtime().program()`.
+
+```ts
+import { create, fromBinary } from "@bufbuild/protobuf";
+import { CheckedExprSchema } from "@protoutil/cel/expr/checked";
+import { runtime } from "@protoutil/cel/runtime";
+import { RequestSchema } from "./gen/request_pb.js";
+
+const checked = fromBinary(CheckedExprSchema, checkedExpressionBytes);
+const celRuntime = runtime({ contextProto: RequestSchema });
+const program = celRuntime.program(checked);
+
+const result = program.eval(create(RequestSchema, { user: "alice" }));
+```
+
+The runtime cannot accept CEL source text because it does not import a parser.
+Use the root `@protoutil/cel` entry when an application must parse or compile
+expressions at runtime.
+
+For checked expressions, the compiler and runtime must use compatible
+declarations, protobuf descriptors, and custom function bindings. Pass the
+same `contextProto`, `registry`, and custom `functions` to the runtime that
+the compiler used. The runtime-only entry keeps the full CEL standard library;
+it does not limit CEL functions or syntax.
 
 ### Parse and Check
 

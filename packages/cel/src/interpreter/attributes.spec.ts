@@ -1,5 +1,11 @@
 import { create } from "@bufbuild/protobuf";
 import { AnySchema, anyPack } from "@bufbuild/protobuf/wkt";
+import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "@protoutil/testing/cel/proto2";
+import {
+  NestedTestAllTypesSchema as Proto3NestedTestAllTypesSchema,
+  TestAllTypes_NestedMessageSchema as Proto3TestAllTypesNestedMessageSchema,
+  TestAllTypesSchema as Proto3TestAllTypesSchema,
+} from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
@@ -32,12 +38,6 @@ import {
   type Val,
 } from "../common/types/index.js";
 import { resolveSyncedExpr } from "../common/types/spec-helpers.js";
-import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "../gen/test/proto2pb/test_all_types_pb.js";
-import {
-  NestedTestAllTypesSchema as Proto3NestedTestAllTypesSchema,
-  TestAllTypes_NestedMessageSchema as Proto3TestAllTypesNestedMessageSchema,
-  TestAllTypesSchema as Proto3TestAllTypesSchema,
-} from "../gen/test/proto3pb/test_all_types_pb.js";
 import { parse } from "../parser/parser.js";
 import { activation, emptyActivation, partialActivation } from "./activation.js";
 import { attributePattern, partialAttributeFactory } from "./attribute-patterns.js";

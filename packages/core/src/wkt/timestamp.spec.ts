@@ -1,6 +1,5 @@
 import { create } from "@bufbuild/protobuf";
-import { TimestampSchema, timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt";
-import { Temporal } from "temporal-polyfill";
+import { TimestampSchema, timestampFromMs } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it, test } from "vitest";
 import { MAX_INT32, MIN_INT32 } from "../int32.js";
 import { MAX_INT64, MIN_INT64 } from "../int64.js";
@@ -11,12 +10,9 @@ import {
   MAX_UNIX_TIME_SECONDS,
   MIN_UNIX_TIME_SECONDS,
   roundTimestampNanos,
-  temporalTimestampNow,
   timestamp,
-  timestampFromInstant,
   timestampFromNanos,
   timestampFromString,
-  timestampInstant,
   timestampNanos,
   timestampToString,
 } from "./timestamp.js";
@@ -49,7 +45,14 @@ describe("timestamp", () => {
 
     it("throws an error if after 9999-12-31", () => {
       expect(() => timestamp(BigInt(MAX_UNIX_TIME_SECONDS) + 1n)).toThrow("after 9999-12-31");
-      expect(() => timestamp(BigInt(MAX_UNIX_TIME_SECONDS), 1)).toThrow("after 9999-12-31");
+    });
+
+    it("accepts the final nanosecond in the protobuf timestamp range", () => {
+      expect(timestamp(BigInt(MAX_UNIX_TIME_SECONDS), 999_999_999)).toStrictEqual({
+        $typeName: "google.protobuf.Timestamp",
+        seconds: BigInt(MAX_UNIX_TIME_SECONDS),
+        nanos: 999_999_999,
+      });
     });
 
     it("throws an error if seconds is out of range", () => {
@@ -81,8 +84,8 @@ describe("timestamp", () => {
       expect(
         isValidTimestamp(
           create(TimestampSchema, {
-            seconds: BigInt(MAX_UNIX_TIME_SECONDS),
-            nanos: 1,
+            seconds: BigInt(MAX_UNIX_TIME_SECONDS) + 1n,
+            nanos: 0,
           }),
         ),
       ).toBe(false);
@@ -101,17 +104,6 @@ describe("timestamp", () => {
           }),
         ),
       ).toBe(false);
-    });
-  });
-
-  describe("temporalTimestampNow", () => {
-    it("uses current time", () => {
-      const timestamp = temporalTimestampNow();
-      const wantMs = Date.now();
-      const gotMs = timestampMs(timestamp);
-      const leewayMs = 50;
-      expect(gotMs).toBeGreaterThanOrEqual(wantMs - leewayMs);
-      expect(gotMs).toBeLessThanOrEqual(wantMs + leewayMs);
     });
   });
 
@@ -175,56 +167,6 @@ describe("timestamp", () => {
     });
   });
 
-  describe("timestampFromInstant()", () => {
-    test("converts Temporal.Instant to Timestamp", () => {
-      const timestampZero = timestampFromInstant(new Temporal.Instant(0n));
-      expect(timestampZero.seconds).toBe(0n);
-      expect(timestampZero.nanos).toBe(0);
-      const timestampWithNs = timestampFromInstant(new Temporal.Instant(818035920123456789n));
-      expect(timestampWithNs.seconds).toBe(818035920n);
-      expect(timestampWithNs.nanos).toBe(123456789);
-      const negativeTimestamp = timestampFromInstant(new Temporal.Instant(-1_070_000_000n));
-      expect(negativeTimestamp.seconds).toBe(-2n);
-      expect(negativeTimestamp.nanos).toBe(930 * 1_000_000);
-      const negativeTimestamp2 = timestampFromInstant(new Temporal.Instant(-9_999_999_999n));
-      expect(negativeTimestamp2.seconds).toBe(-10n);
-      expect(negativeTimestamp2.nanos).toBe(1);
-      const negativeTimestamp3 = timestampFromInstant(new Temporal.Instant(-1_000_000_000n));
-      expect(negativeTimestamp3.seconds).toBe(-1n);
-      expect(negativeTimestamp3.nanos).toBe(0);
-    });
-  });
-
-  describe("timestampInstant()", () => {
-    test("converts Timestamp to Temporal.Instant", () => {
-      const timestampZero = create(TimestampSchema, {
-        seconds: 0n,
-        nanos: 0,
-      });
-      expect(timestampInstant(timestampZero).epochNanoseconds).toBe(0n);
-      const timestampWithMs = create(TimestampSchema, {
-        seconds: 818035920n,
-        nanos: 123456789,
-      });
-      expect(timestampInstant(timestampWithMs).epochNanoseconds).toBe(818035920123456789n);
-      const negativeTimestamp = create(TimestampSchema, {
-        seconds: -2n,
-        nanos: 930 * 1_000_000,
-      });
-      expect(timestampInstant(negativeTimestamp).epochNanoseconds).toBe(-1_070_000_000n);
-      const negativeTimestamp2 = create(TimestampSchema, {
-        seconds: -10n,
-        nanos: 1,
-      });
-      expect(timestampInstant(negativeTimestamp2).epochNanoseconds).toBe(-9_999_999_999n);
-      const negativeTimestamp3 = create(TimestampSchema, {
-        seconds: -1n,
-        nanos: 0,
-      });
-      expect(timestampInstant(negativeTimestamp3).epochNanoseconds).toBe(-1_000_000_000n);
-    });
-  });
-
   describe("timestampFromString()", () => {
     it("should parse", () => {
       // RFC9557 with offset
@@ -253,6 +195,10 @@ describe("timestamp", () => {
 
       // RFC3339 without timezone
       expect(timestampFromString("1970-01-01T00:00:00Z")).toStrictEqual(timestamp(0n, 0));
+      expect(timestampFromString("1970-01-01t00:00:00z")).toStrictEqual(timestamp(0n, 0));
+      expect(timestampFromString("1970-01-01T00:00:00z[America/New_York]")).toStrictEqual(
+        timestamp(18000n, 0),
+      );
       expect(timestampToString(timestampFromString("1970-01-01T00:00:00Z"))).toEqual(
         "1970-01-01T00:00:00Z",
       );
@@ -311,6 +257,14 @@ describe("timestamp", () => {
 
       // February 29th, 2021 was not a real date
       expect(() => timestampFromString("2021-02-29T00:00:00.000Z")).toThrow("Invalid isoDay");
+
+      // CEL accepts an RFC 3339 leap second and normalizes it to the following instant.
+      expect(timestampFromString("2025-01-01T23:59:60-08:00")).toStrictEqual(
+        timestamp(1735804800n),
+      );
+      expect(timestampFromString("2025-01-01T23:59:60[America/New_York]")).toStrictEqual(
+        timestamp(1735794000n),
+      );
     });
 
     it("should favor the offset over the timezone", () => {
@@ -359,7 +313,7 @@ describe("timestamp", () => {
       });
       const clamped = clampTimestamp(ts);
       expect(clamped.seconds).toBe(BigInt(MAX_UNIX_TIME_SECONDS));
-      expect(clamped.nanos).toBe(0);
+      expect(clamped.nanos).toBe(999_999_999);
     });
 
     it("clamps timestamp to valid range with negative seconds", () => {

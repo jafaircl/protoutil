@@ -1,3 +1,4 @@
+import { file_test_proto3pb_test_all_types } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { env } from "../cel/env.js";
 import { container } from "../common/containers.js";
@@ -12,7 +13,6 @@ import type { Val } from "../common/types/ref/index.js";
 import { String as CelString } from "../common/types/string.js";
 import { DynType, objectType } from "../common/types/types.js";
 import { Uint } from "../common/types/uint.js";
-import { file_test_proto3pb_test_all_types } from "../gen/test/proto3pb/test_all_types_pb.js";
 import { nativeField, nativeType, nativeTypes } from "./native.js";
 import { strings } from "./strings.js";
 
