@@ -30,6 +30,10 @@
       "require": "./dist/interpreter/index.cjs",
       "import": "./dist/interpreter/index.mjs"
     },
+    "./composition": {
+      "require": "./dist/composition/index.cjs",
+      "import": "./dist/composition/index.mjs"
+    },
     "./ext": {
       "require": "./dist/ext/index.cjs",
       "import": "./dist/ext/index.mjs"

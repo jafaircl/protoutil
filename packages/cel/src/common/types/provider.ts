@@ -182,6 +182,38 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     return next;
   }
 
+  /**
+   * extend returns an independent registry containing this registry's registrations plus those of
+   * `incoming`. Neither input registry is modified, so an extended registry never observes a later
+   * registration made against the registry it grew from.
+   *
+   * extend adds the incoming registrations through the same registration methods a caller uses, so
+   * a duplicate registration is accepted or rejected exactly as it would be on a single registry. A
+   * native type is the one exception: registering one twice is always a conflict on a single
+   * registry, but two registries which describe it identically are combined rather than rejected.
+   *
+   * A protobuf file already registered under the same file name keeps the registration it already
+   * has, so two different definitions of one file name are combined as the first of the two.
+   */
+  public extend(incoming: Registry): Registry {
+    if (this.strongEnumsValue !== incoming.strongEnumsValue) {
+      throw new Error("registries disagree on strong enum values");
+    }
+    const next = this.copy();
+    for (const file of incoming.pbdbValue.fileDescriptions()) {
+      next.registerDescriptor(file.fileDescriptor());
+    }
+    for (const [name, descriptor] of incoming.nativeTypes) {
+      const existing = next.nativeTypes.get(name);
+      if (existing !== undefined && nativeDescriptorsEqual(existing, descriptor)) {
+        continue;
+      }
+      next.registerNativeTypes(descriptor);
+    }
+    next.registerType(...incoming.revTypeMap.values());
+    return next;
+  }
+
   public jsonFieldNames(): boolean {
     return this.pbdbValue.jsonFieldNames();
   }
@@ -677,6 +709,32 @@ class NativeObjectValue implements Val, FieldTester, Indexer {
   public value(): unknown {
     return this.nativeValue;
   }
+}
+
+/**
+ * nativeDescriptorsEqual reports whether two descriptions of one native type expose the same CEL
+ * fields, reading from the same object properties, with the same CEL types. Field order is not part
+ * of the comparison: it does not change how a value of the type behaves.
+ */
+function nativeDescriptorsEqual(
+  base: NativeObjectDescriptor,
+  other: NativeObjectDescriptor,
+): boolean {
+  if (base === other) {
+    return true;
+  }
+  if (base.fields.length !== other.fields.length) {
+    return false;
+  }
+  const otherFields = new Map(other.fields.map((field) => [field.celName, field]));
+  return base.fields.every((field) => {
+    const candidate = otherFields.get(field.celName);
+    return (
+      candidate !== undefined &&
+      field.property === candidate.property &&
+      field.type.isEquivalentType(candidate.type)
+    );
+  });
 }
 
 /**

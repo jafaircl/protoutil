@@ -43,7 +43,7 @@ export interface ASTOptimizer {
 /**
  * StableIdGenerator ensures that fresh ids are only created the first time an id is encountered.
  */
-class StableIdGenerator {
+export class StableIdGenerator {
   /** idMap stores the stable mapping from old expression ids to fresh ids. */
   private readonly idMap = new Map<number, number>();
 

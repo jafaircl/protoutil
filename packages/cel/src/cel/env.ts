@@ -105,7 +105,80 @@ import {
  * envInheritance carries resolved library state between related environments without exposing it
  * as public configuration.
  */
-const envInheritance = Symbol("cel.env.inheritance");
+export const envInheritance = Symbol("cel.env.inheritance");
+
+/**
+ * envState exposes effective environment state to environment composition and comparison without
+ * publishing it as configuration.
+ */
+export const envState = Symbol("cel.env.state");
+
+/**
+ * LibraryKey identifies one applied library: its unique name, or the library value itself when the
+ * library carries no name.
+ */
+export type LibraryKey = string | Library;
+
+/**
+ * EnvState contains the effective environment state used to combine or compare environments.
+ *
+ * The declaration, type, macro, and validator members are the environment's materialized state:
+ * whatever a library contributed at construction is already folded into them, so an environment can
+ * be rebuilt from this state without replaying the libraries that produced it.
+ */
+export interface EnvState {
+  /** checker contains type-checking behavior which governs source admission. */
+  checker: CheckerOptions;
+
+  /** container resolves qualified names while parsing and checking source text. */
+  container: Container;
+
+  /** contextProto identifies the message whose fields are top-level variables, when configured. */
+  contextProto?: DescMessage;
+
+  /** cost contains static checker cost-estimation configuration. */
+  cost: CostOptions;
+
+  /** customFunctions contains function declarations excluding the standard library. */
+  customFunctions: FunctionDecl[];
+
+  /** defaultUTCTimeZone reports whether timestamp functions default to UTC. */
+  defaultUTCTimeZone: boolean;
+
+  /** errorOnBadPresenceTest reports whether invalid presence traversals produce errors. */
+  errorOnBadPresenceTest: boolean;
+
+  /** jsonFieldNames reports whether protobuf JSON field names are enabled. */
+  jsonFieldNames: boolean;
+
+  /** libraryProgramOptions contains program options contributed by libraries, keyed by library. */
+  libraryProgramOptions: ReadonlyMap<LibraryKey, ProgramOptions>;
+
+  /**
+   * macros contains the macros the parser configuration registers by signature. It excludes the
+   * standard macros, which the parser registers on its own, unless a standard-library subset
+   * selected them explicitly.
+   */
+  macros: Map<string, Macro>;
+
+  /** maxAstDepth contains the external AST nesting limit, when one is set. */
+  maxAstDepth?: number;
+
+  /** parser contains the configured parser limits and syntax toggles, before defaults apply. */
+  parser: ParserConfig;
+
+  /** regexProgramSizeLimit contains the regex instruction-count limit, when one is set. */
+  regexProgramSizeLimit?: number;
+
+  /** registry contains the protobuf types and native-value adapter. */
+  registry: Registry;
+
+  /** standardLibrary contains the resolved standard declarations, or false when disabled. */
+  standardLibrary: StandardLibraryOptions | false;
+
+  /** types contains the caller-configured runtime types. */
+  types: Type[];
+}
 
 /**
  * EnvInheritanceOptions contains library state inherited without replaying compile options.
@@ -113,8 +186,12 @@ const envInheritance = Symbol("cel.env.inheritance");
 interface EnvInheritanceOptions {
   /** LibraryNames contains singleton library identifiers already applied to the environment. */
   libraryNames: string[];
-  /** ProgramOptions contains static runtime options contributed by inherited libraries. */
-  programOptions: ProgramOptions;
+  /**
+   * ProgramOptions contains static runtime options contributed by inherited libraries, keyed by
+   * library. Keying them keeps one library's contribution from being applied twice when two
+   * environments that both installed it are combined.
+   */
+  programOptions: ReadonlyMap<LibraryKey, ProgramOptions>;
 }
 
 /**
@@ -580,9 +657,15 @@ export class Env {
   private readonly libraryNamesValue: string[];
 
   /**
-   * libraryProgramOptionsValue stores static program options supplied by libraries.
+   * libraryProgramOptionsValue stores static program options supplied by libraries, keyed by
+   * library, so that combining two environments applies one library's options once.
    */
-  private readonly libraryProgramOptionsValue: ProgramOptions;
+  private readonly libraryProgramOptionsValue: ReadonlyMap<LibraryKey, ProgramOptions>;
+
+  /**
+   * programOptionDefaultsValue stores the library program options merged into planning defaults.
+   */
+  private readonly programOptionDefaultsValue: ProgramOptions;
 
   /**
    * validatorsValue contains singleton AST validators in execution order.
@@ -617,6 +700,14 @@ export class Env {
     this.libraryNamesValue = libraryConfiguration.names;
     this.librariesValue = libraryConfiguration.libraries;
     this.libraryProgramOptionsValue = libraryConfiguration.programOptions;
+    let programOptionDefaults: ProgramOptions = {};
+    for (const libraryOptions of libraryConfiguration.programOptions.values()) {
+      programOptionDefaults = mergeProgramOptions({
+        base: programOptionDefaults,
+        override: libraryOptions,
+      });
+    }
+    this.programOptionDefaultsValue = programOptionDefaults;
     this.regexProgramSizeLimitValue = options.regexProgramSizeLimit;
     this.maxAstDepthValue = options.maxAstDepth;
     this.validatorsValue = uniqueValidators([
@@ -1045,6 +1136,33 @@ export class Env {
   }
 
   /**
+   * envState exposes the effective environment state to other parts of this implementation which
+   * combine or compare environments. The state is keyed by a module-scoped symbol because it is an
+   * implementation seam, not configuration a caller may read or reconstruct: an environment is
+   * described by what it can compile and evaluate, not by the option values that produced it.
+   */
+  public [envState](): EnvState {
+    return {
+      checker: this.checkerOptionsValue,
+      container: this.containerValue,
+      contextProto: this.contextProtoValue,
+      cost: this.costOptionsValue,
+      customFunctions: [...this.customFunctionsValue],
+      defaultUTCTimeZone: this.defaultUTCTimeZoneValue,
+      errorOnBadPresenceTest: this.errorOnBadPresenceTestValue,
+      jsonFieldNames: this.jsonFieldNamesValue,
+      libraryProgramOptions: this.libraryProgramOptionsValue,
+      macros: new Map(this.parserConfigValue.macros ?? []),
+      maxAstDepth: this.maxAstDepthValue,
+      parser: this.parserConfigValue,
+      regexProgramSizeLimit: this.regexProgramSizeLimitValue,
+      registry: this.registryValue,
+      standardLibrary: this.standardLibraryValue,
+      types: [...this.typesValue],
+    };
+  }
+
+  /**
    * hasValidator reports whether the environment contains a validator with the given name.
    */
   public hasValidator(name: string): boolean {
@@ -1210,7 +1328,7 @@ export class Env {
       throw new Error(`unsupported expr: ${String(ast)}`);
     }
     const resolvedOptions = mergeProgramOptions({
-      base: this.libraryProgramOptionsValue,
+      base: this.programOptionDefaultsValue,
       override: options,
     });
     const functions = dispatcher();
@@ -1601,7 +1719,7 @@ export function compile(source: string, options: EnvOptions = {}): Program {
 /**
  * mergeFunctionDeclarations applies cel-go's declaration merge rules by function name.
  */
-function mergeFunctionDeclarations(declarations: FunctionDecl[]): FunctionDecl[] {
+export function mergeFunctionDeclarations(declarations: FunctionDecl[]): FunctionDecl[] {
   const merged = new Map<string, FunctionDecl>();
   for (const declaration of declarations) {
     const existing = merged.get(declaration.name());
@@ -1633,8 +1751,8 @@ interface ResolveLibrariesResult {
   names: string[];
   /** Options contains compile options after applying every library. */
   options: EnvOptions;
-  /** ProgramOptions contains static runtime options contributed by libraries. */
-  programOptions: ProgramOptions;
+  /** ProgramOptions contains static runtime options contributed by libraries, keyed by library. */
+  programOptions: Map<LibraryKey, ProgramOptions>;
 }
 
 /**
@@ -1645,7 +1763,9 @@ function resolveLibraries(options: ResolveLibrariesOptions): ResolveLibrariesRes
     ...options.options,
     libraries: undefined,
   };
-  let programOptions: ProgramOptions = options.inheritance?.programOptions ?? {};
+  const programOptions = new Map<LibraryKey, ProgramOptions>(
+    options.inheritance?.programOptions ?? [],
+  );
   const names = new Set(options.inheritance?.libraryNames ?? []);
   const queue = [...(options.options.libraries ?? [])];
   const libraries: Library[] = [];
@@ -1678,10 +1798,7 @@ function resolveLibraries(options: ResolveLibrariesOptions): ResolveLibrariesRes
       base: resolvedOptions,
       override: compileOptions,
     });
-    programOptions = mergeProgramOptions({
-      base: programOptions,
-      override: library.programOptions,
-    });
+    programOptions.set(name ?? library, library.programOptions);
   }
 
   if (resolvedOptions.standardLibrary !== false) {
