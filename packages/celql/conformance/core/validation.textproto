@@ -1,0 +1,176 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+#
+# Checked-expression validation and root typing. Every case here fails before
+# the selected profile's translatable fragment is consulted, so no case names a
+# profile.
+#
+# Most cases state their input as a checked expression rather than as source,
+# because a parser and checker would never produce the structure under test.
+# That is what makes these cases worth having: they prove the translator
+# validates its input instead of trusting it.
+
+name: "celql-core-validation"
+specification_version: "0.11"
+level: CONFORMANCE_LEVEL_CORE
+
+cases {
+  name: "missing_root_expression"
+  description: "A checked expression without a root expression is unusable."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+  }
+  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION }
+}
+
+cases {
+  name: "missing_root_type"
+  description: "A reachable root without a type entry is unusable. The translator does not infer the missing type."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 const_expr { bool_value: true } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+}
+
+cases {
+  name: "node_without_expression_kind"
+  description: "A reachable node that sets no expression kind is unusable."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 call_expr { function: "_&&_" args { id: 2 const_expr { bool_value: true } } args { id: 3 } } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { primitive: BOOL } }
+    type_map { key: 3 value { primitive: BOOL } }
+    reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+}
+
+cases {
+  name: "duplicate_reachable_node_id"
+  description: "Reachable node identifiers must be unique, because per-node metadata is keyed by identifier and a duplicate makes the type and reference maps ambiguous."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 call_expr { function: "_&&_" args { id: 2 const_expr { bool_value: true } } args { id: 2 const_expr { bool_value: false } } } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { primitive: BOOL } }
+    reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+}
+
+cases {
+  name: "missing_call_reference"
+  description: "A reachable call must carry a resolved reference, because a source function name does not identify an overload."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 call_expr { function: "_&&_" args { id: 2 const_expr { bool_value: true } } args { id: 3 const_expr { bool_value: false } } } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { primitive: BOOL } }
+    type_map { key: 3 value { primitive: BOOL } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+}
+
+cases {
+  name: "missing_ident_reference"
+  description: "A reachable identifier must carry a resolved reference."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 call_expr { function: "_&&_" args { id: 2 ident_expr { name: "flag" } } args { id: 3 const_expr { bool_value: true } } } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { primitive: BOOL } }
+    type_map { key: 3 value { primitive: BOOL } }
+    reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+}
+
+cases {
+  name: "dyn_root_rejected"
+  description: "A dyn root is not exactly CEL bool, so the required result type is not established. A checker resolves this expression to string, so the dyn type is set directly."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 const_expr { string_value: "x" } }
+    type_map { key: 1 value { dyn {} } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+}
+
+cases {
+  name: "optional_bool_root_rejected"
+  description: "An optional Boolean root is not exactly CEL bool."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 const_expr { bool_value: true } }
+    type_map { key: 1 value { abstract_type { name: "optional_type" parameter_types { primitive: BOOL } } } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+}
+
+cases {
+  name: "comprehension_missing_subexpression"
+  description: "A comprehension that omits a required subexpression is structurally unusable, independently of whether any profile translates comprehensions."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 comprehension_expr {
+      iter_var: "x"
+      iter_range { id: 2 list_expr { elements { id: 3 const_expr { string_value: "a" } } } }
+      accu_var: "__result__"
+      loop_condition { id: 4 const_expr { bool_value: true } }
+      loop_step { id: 5 ident_expr { name: "x" } }
+      result { id: 6 ident_expr { name: "__result__" } }
+    } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { list_type { elem_type { primitive: STRING } } } }
+    type_map { key: 3 value { primitive: STRING } }
+    type_map { key: 4 value { primitive: BOOL } }
+    type_map { key: 5 value { primitive: STRING } }
+    type_map { key: 6 value { primitive: BOOL } }
+    reference_map { key: 5 value { name: "x" } }
+    reference_map { key: 6 value { name: "__result__" } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+}
+
+cases {
+  name: "duplicate_node_id_inside_comprehension"
+  description: "Node identifier uniqueness applies to nodes reached through comprehension subexpressions, which a traversal that skips those subexpressions would miss."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 comprehension_expr {
+      iter_var: "x"
+      iter_range { id: 2 list_expr { elements { id: 3 const_expr { string_value: "a" } } } }
+      accu_var: "__result__"
+      accu_init { id: 3 const_expr { bool_value: false } }
+      loop_condition { id: 4 const_expr { bool_value: true } }
+      loop_step { id: 5 ident_expr { name: "x" } }
+      result { id: 6 ident_expr { name: "__result__" } }
+    } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { list_type { elem_type { primitive: STRING } } } }
+    type_map { key: 3 value { primitive: STRING } }
+    type_map { key: 4 value { primitive: BOOL } }
+    type_map { key: 5 value { primitive: STRING } }
+    type_map { key: 6 value { primitive: BOOL } }
+    reference_map { key: 5 value { name: "x" } }
+    reference_map { key: 6 value { name: "__result__" } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+}
+
+cases {
+  name: "string_root_rejected"
+  description: "A non-Boolean root is rejected."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "\"x\""
+  error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT }
+}
+
+cases {
+  name: "validate_reports_same_rejection_as_translate"
+  description: "The validation operation applies the same rules as translation."
+  operation: CONFORMANCE_OPERATION_VALIDATE
+  cel_source: "\"x\""
+  error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT }
+}

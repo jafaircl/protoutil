@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.3.2",
   "description": "Transport-neutral protobuf pub/sub on CloudEvents.",
-  "author": "Author Name <author.name@mail.com>",
+  "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",
   "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/pubsub#readme",
   "repository": {

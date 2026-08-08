@@ -24,7 +24,7 @@ packages/conformance-runner/proto/protoutil/conformance/pubsub/v1/cases.proto
 moon run conformance:generate
 ```
 
-This runs the Go fixture generator in `go/cmd/fixturegen`, which:
+This runs the Go fixture generator in `conformance/scripts/fixturegen`, which:
 
 1. builds descriptors from the conformance runner proto directory with Buf
 2. parses `.textproto` fixtures

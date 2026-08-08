@@ -1,0 +1,49 @@
+// Output schema for the ANSI SQL dialect profile.
+//
+// The profile translates a checked CEL expression into a search condition in
+// the SQL language defined by ISO/IEC 9075. The condition is a fragment: it
+// carries no SELECT list, no FROM clause, and no ordering. A caller places it
+// where a search condition is allowed, most often after WHERE.
+//
+// Values never appear in the text. Each value becomes a dynamic parameter
+// marker in the text and one entry in the parameter list, so a caller binds
+// values through its driver rather than concatenating them into SQL.
+
+syntax = "proto3";
+
+package protoutil.celql.ansisql.v1;
+
+import "cel/expr/checked.proto";
+import "cel/expr/value.proto";
+
+// One value bound to a parameter marker.
+//
+// Entries appear in the same order as the markers they fill. The list index is
+// the binding order; there is no separate position field, because ISO/IEC 9075
+// markers are unnumbered and are bound left to right.
+message AnsiSqlParameter {
+  // The CEL type of the value, so a caller can choose the correct binding call
+  // when the target driver distinguishes them.
+  cel.expr.Type cel_type = 1;
+
+  // The value to bind. Never interpolated into `AnsiSqlPredicate.sql`.
+  cel.expr.Value value = 2;
+}
+
+// A search condition and the values its markers require.
+message AnsiSqlPredicate {
+  // The search condition.
+  //
+  // Identifiers are delimited with double quotes, so a column named with a
+  // reserved word or mixed case survives unchanged. Each value is represented
+  // by a `?` marker.
+  //
+  // The text is a complete condition on its own. A caller that combines it
+  // with other conditions does not need to add parentheses, because the
+  // profile parenthesizes every composite condition it emits.
+  string sql = 1;
+
+  // Values for the markers in `sql`, in binding order. The count always equals
+  // the number of markers.
+  repeated AnsiSqlParameter parameters = 2;
+}

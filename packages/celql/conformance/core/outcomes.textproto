@@ -1,0 +1,70 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+#
+# Outcome kinds. A Boolean literal root has a required outcome under every
+# profile, so those cases name no profile. A record-dependent expression must
+# produce a predicate; those cases select the baseline profile and assert its
+# exact output.
+
+name: "celql-core-outcomes"
+specification_version: "0.11"
+level: CONFORMANCE_LEVEL_CORE
+
+environment {
+  declarations { name: "status" ident { type { primitive: STRING } } }
+}
+
+cases {
+  name: "bool_true_root_matches_all"
+  description: "A Boolean true root is unconditionally true for every supported input domain."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "true"
+  success { match_all {} }
+}
+
+cases {
+  name: "bool_false_root_matches_none"
+  description: "A Boolean false root is unconditionally false, and is distinct from a predicate that selects nothing."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "false"
+  success { match_none {} }
+}
+
+cases {
+  name: "validate_accepts_bool_literal_root"
+  description: "Validation accepts an expression that translation can complete."
+  operation: CONFORMANCE_OPERATION_VALIDATE
+  cel_source: "true"
+  success { valid {} }
+}
+
+cases {
+  name: "record_dependent_expression_produces_predicate"
+  description: "An expression whose value depends on the record cannot reduce to a constant outcome, so translation produces a predicate rather than match_all or match_none."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "status == \"active\""
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"status\" IS NOT DISTINCT FROM ?"
+    parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+  } } }
+}
+
+cases {
+  name: "tautological_comparison_still_produces_predicate"
+  description: "The baseline declares no reduction beyond a Boolean literal root, so an expression a reader can see is always true still produces a predicate."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "status == status"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"status\" IS NOT DISTINCT FROM \"status\""
+  } } }
+}
+
+cases {
+  name: "validate_accepts_translatable_expression"
+  description: "Validation accepts a record-dependent expression inside the fragment and produces no output."
+  operation: CONFORMANCE_OPERATION_VALIDATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "status == \"active\""
+  success { valid {} }
+}

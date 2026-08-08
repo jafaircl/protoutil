@@ -315,6 +315,25 @@ importers:
         specifier: ^4.0.16
         version: 4.0.18(@types/node@25.2.3)(@vitest/browser-playwright@4.0.18)(jiti@2.6.1)(jsdom@27.4.0)(less@4.5.1)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/celql:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.11.0
+        version: 2.11.0
+      '@protoutil/cel':
+        specifier: workspace:*
+        version: link:../cel
+    devDependencies:
+      '@types/node':
+        specifier: ^25.0.3
+        version: 25.2.3
+      tsdown:
+        specifier: ^0.18.1
+        version: 0.18.4(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/conformance-runner:
     dependencies:
       '@bufbuild/protobuf':

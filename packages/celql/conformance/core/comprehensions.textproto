@@ -1,0 +1,124 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+#
+# Comprehension scope, which every implementation must get right regardless of
+# which comprehension forms its profiles declare.
+#
+# These cases build their structure directly. A checker rejects the names they
+# use, so no source produces them, and proving the translator refuses them is
+# the point.
+#
+# Structural validation of a comprehension lives in validation.textproto.
+# Nesting limits live in limits.textproto. What an accepted comprehension emits
+# is profile conformance.
+
+name: "celql-core-comprehensions"
+specification_version: "0.11"
+level: CONFORMANCE_LEVEL_CORE
+
+cases {
+  name: "two_variable_comprehension_refused"
+  description: "A two-variable comprehension binds a name the one-variable forms do not define, so a profile that declares only one-variable forms refuses it rather than translating it as one."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  checked_expression {
+    expr { id: 1 comprehension_expr {
+      iter_var: "i"
+      iter_var2: "x"
+      iter_range { id: 2 list_expr { elements { id: 3 const_expr { string_value: "a" } } } }
+      accu_var: "__result__"
+      accu_init { id: 4 const_expr { bool_value: false } }
+      loop_condition { id: 5 call_expr { function: "@not_strictly_false" args { id: 6 call_expr { function: "!_" args { id: 7 ident_expr { name: "__result__" } } } } } }
+      loop_step { id: 8 call_expr { function: "_||_" args { id: 9 ident_expr { name: "__result__" } } args { id: 10 call_expr { function: "_==_" args { id: 11 ident_expr { name: "x" } } args { id: 12 ident_expr { name: "status" } } } } } }
+      result { id: 13 ident_expr { name: "__result__" } }
+    } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { list_type { elem_type { primitive: STRING } } } }
+    type_map { key: 3 value { primitive: STRING } }
+    type_map { key: 4 value { primitive: BOOL } }
+    type_map { key: 5 value { primitive: BOOL } }
+    type_map { key: 6 value { primitive: BOOL } }
+    type_map { key: 7 value { primitive: BOOL } }
+    type_map { key: 8 value { primitive: BOOL } }
+    type_map { key: 9 value { primitive: BOOL } }
+    type_map { key: 10 value { primitive: BOOL } }
+    type_map { key: 11 value { primitive: STRING } }
+    type_map { key: 12 value { primitive: STRING } }
+    type_map { key: 13 value { primitive: BOOL } }
+    reference_map { key: 5 value { name: "@not_strictly_false" overload_id: "not_strictly_false" } }
+    reference_map { key: 6 value { name: "!_" overload_id: "logical_not" } }
+    reference_map { key: 7 value { name: "__result__" } }
+    reference_map { key: 8 value { name: "_||_" overload_id: "logical_or" } }
+    reference_map { key: 9 value { name: "__result__" } }
+    reference_map { key: 10 value { name: "_==_" overload_id: "equals" } }
+    reference_map { key: 11 value { name: "x" } }
+    reference_map { key: 12 value { name: "status" } }
+    reference_map { key: 13 value { name: "__result__" } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+}
+
+cases {
+  name: "nested_iteration_variables_must_stay_distinct"
+  description: "An inner comprehension whose iteration variable repeats the enclosing one makes an unqualified reference ambiguous, so the expression is refused rather than resolved by precedence."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  limits { max_comprehension_nesting: 2 }
+  checked_expression {
+    expr { id: 1 comprehension_expr {
+      iter_var: "x"
+      iter_range { id: 2 list_expr { elements { id: 3 const_expr { string_value: "a" } } } }
+      accu_var: "__result__"
+      accu_init { id: 4 const_expr { bool_value: false } }
+      loop_condition { id: 5 call_expr { function: "@not_strictly_false" args { id: 6 call_expr { function: "!_" args { id: 7 ident_expr { name: "__result__" } } } } } }
+      loop_step { id: 8 call_expr { function: "_||_" args { id: 9 ident_expr { name: "__result__" } } args { id: 10 comprehension_expr {
+        iter_var: "x"
+        iter_range { id: 11 list_expr { elements { id: 12 const_expr { string_value: "b" } } } }
+        accu_var: "__result2__"
+        accu_init { id: 13 const_expr { bool_value: false } }
+        loop_condition { id: 14 call_expr { function: "@not_strictly_false" args { id: 15 call_expr { function: "!_" args { id: 16 ident_expr { name: "__result2__" } } } } } }
+        loop_step { id: 17 call_expr { function: "_||_" args { id: 18 ident_expr { name: "__result2__" } } args { id: 19 call_expr { function: "_==_" args { id: 20 ident_expr { name: "x" } } args { id: 21 ident_expr { name: "status" } } } } } }
+        result { id: 22 ident_expr { name: "__result2__" } }
+      } } } }
+      result { id: 23 ident_expr { name: "__result__" } }
+    } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { list_type { elem_type { primitive: STRING } } } }
+    type_map { key: 3 value { primitive: STRING } }
+    type_map { key: 4 value { primitive: BOOL } }
+    type_map { key: 5 value { primitive: BOOL } }
+    type_map { key: 6 value { primitive: BOOL } }
+    type_map { key: 7 value { primitive: BOOL } }
+    type_map { key: 8 value { primitive: BOOL } }
+    type_map { key: 9 value { primitive: BOOL } }
+    type_map { key: 10 value { primitive: BOOL } }
+    type_map { key: 11 value { list_type { elem_type { primitive: STRING } } } }
+    type_map { key: 12 value { primitive: STRING } }
+    type_map { key: 13 value { primitive: BOOL } }
+    type_map { key: 14 value { primitive: BOOL } }
+    type_map { key: 15 value { primitive: BOOL } }
+    type_map { key: 16 value { primitive: BOOL } }
+    type_map { key: 17 value { primitive: BOOL } }
+    type_map { key: 18 value { primitive: BOOL } }
+    type_map { key: 19 value { primitive: BOOL } }
+    type_map { key: 20 value { primitive: STRING } }
+    type_map { key: 21 value { primitive: STRING } }
+    type_map { key: 22 value { primitive: BOOL } }
+    type_map { key: 23 value { primitive: BOOL } }
+    reference_map { key: 5 value { name: "@not_strictly_false" overload_id: "not_strictly_false" } }
+    reference_map { key: 6 value { name: "!_" overload_id: "logical_not" } }
+    reference_map { key: 7 value { name: "__result__" } }
+    reference_map { key: 8 value { name: "_||_" overload_id: "logical_or" } }
+    reference_map { key: 9 value { name: "__result__" } }
+    reference_map { key: 14 value { name: "@not_strictly_false" overload_id: "not_strictly_false" } }
+    reference_map { key: 15 value { name: "!_" overload_id: "logical_not" } }
+    reference_map { key: 16 value { name: "__result2__" } }
+    reference_map { key: 17 value { name: "_||_" overload_id: "logical_or" } }
+    reference_map { key: 18 value { name: "__result2__" } }
+    reference_map { key: 19 value { name: "_==_" overload_id: "equals" } }
+    reference_map { key: 20 value { name: "x" } }
+    reference_map { key: 21 value { name: "status" } }
+    reference_map { key: 22 value { name: "__result2__" } }
+    reference_map { key: 23 value { name: "__result__" } }
+  }
+  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 10 }
+}

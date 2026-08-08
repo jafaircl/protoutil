@@ -1,0 +1,480 @@
+// Schema for translating a checked CEL expression into a query predicate.
+//
+// A translator accepts one `cel.expr.CheckedExpr` and one dialect profile. It
+// returns one of three outcomes: the expression matches every record, the
+// expression matches no record, or the expression translates to a predicate of
+// the profile's declared protobuf output type. A predicate is one Boolean
+// condition, never a complete query.
+//
+// This file defines the profile reference, the resource limits, the error
+// model, the portable output envelope, and the machine-readable capability
+// declaration a dialect publishes.
+
+syntax = "proto3";
+
+package protoutil.celql.v1;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+
+// Identifies one dialect profile at one major version.
+//
+// A caller selects a profile explicitly. A translator never infers a profile
+// from the expression, and never substitutes a different profile when the
+// selected profile rejects an expression.
+message ProfileReference {
+  // Stable profile name. Names are opaque and compared exactly.
+  string name = 1;
+
+  // Profile major version. A translator rejects a major version it does not
+  // support rather than translating with a near match.
+  uint32 major_version = 2;
+}
+
+// Finite resource limits applied during translation.
+//
+// Every field is optional. An unset field selects the profile's declared
+// default for that limit. An unset field never means unlimited, and no
+// configured value can disable a limit.
+message TranslationLimits {
+  // Maximum depth of the reachable expression tree. The root node has depth 1.
+  optional uint32 max_depth = 1;
+
+  // Maximum count of expression nodes reachable from the root.
+  optional uint64 max_nodes = 2;
+
+  // Maximum count of parameters the translation may emit.
+  optional uint64 max_parameters = 3;
+
+  // Maximum encoded size in bytes of any single CEL constant.
+  optional uint64 max_constant_bytes = 4;
+
+  // Maximum summed encoded size in bytes of every reachable CEL constant.
+  optional uint64 max_total_constant_bytes = 5;
+
+  // Maximum comprehension nesting depth. One comprehension that contains no
+  // other comprehension has a nesting depth of 1.
+  optional uint32 max_comprehension_nesting = 6;
+
+  // Maximum encoded size in bytes of any single regular-expression pattern.
+  // Applies only to a profile that translates regular expressions.
+  optional uint64 max_regex_pattern_bytes = 7;
+
+  // Maximum size of the generated output, counted in the unit the profile
+  // declares through `DialectCapabilityProfile.output_growth_unit`.
+  optional uint64 max_output_growth = 8;
+}
+
+// Transport envelope for a translation outcome.
+//
+// Use it when the producer and the consumer select profiles at run time and
+// cannot share a compile-time output type. An in-process caller that already
+// knows the selected profile can use the profile's output message directly.
+message PortableTranslationOutcome {
+  // The profile and major version that produced this outcome. Required,
+  // because the envelope can be separated from the call that created it.
+  ProfileReference profile = 1;
+
+  oneof outcome {
+    // The expression is unconditionally true across the profile's supported
+    // input domain. Distinct from a predicate that happens to match every
+    // stored record, and never encoded as an empty predicate.
+    google.protobuf.Empty match_all = 2;
+
+    // The expression is unconditionally false across the profile's supported
+    // input domain. Never encoded as an empty predicate.
+    google.protobuf.Empty match_none = 3;
+
+    // The profile's declared output message. Each profile major version
+    // permits exactly one message type here.
+    google.protobuf.Any predicate = 4;
+  }
+}
+
+// Stable machine-readable reasons a translation failed.
+//
+// Callers branch on these codes. Human-readable message text is informational
+// and can change without a version change.
+enum TranslationErrorCode {
+  // Default. Never returned by a conforming translator.
+  TRANSLATION_ERROR_CODE_UNSPECIFIED = 0;
+
+  // The checked expression is structurally unusable: no root expression, a
+  // missing required type or reference entry, a duplicate reachable node
+  // identifier, or a reachable node with no expression kind.
+  TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION = 1;
+
+  // The root expression type is not exactly CEL `bool`. A `dyn` root and an
+  // optional Boolean root both fail this check.
+  TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT = 2;
+
+  // The input representation exposed an unresolved CEL error value. A standard
+  // `cel.expr.CheckedExpr` cannot express one.
+  TRANSLATION_ERROR_CODE_UNRESOLVED_ERROR_VALUE = 3;
+
+  // The input representation exposed an unresolved CEL unknown value. A
+  // remaining query field path is not an unknown value.
+  TRANSLATION_ERROR_CODE_UNRESOLVED_UNKNOWN_VALUE = 4;
+
+  // A reachable expression form falls outside the profile's translatable
+  // fragment. Use this when the form itself is unsupported rather than a
+  // named overload.
+  TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION = 5;
+
+  // The profile does not declare this resolved overload, or does not declare
+  // it for this combination of operand types and operand shapes.
+  TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD = 6;
+
+  // An identifier or selection does not map to a field path the dialect can
+  // encode directly, safely, and without ambiguity.
+  TRANSLATION_ERROR_CODE_UNRESOLVED_QUERY_FIELD_PATH = 7;
+
+  // The dialect cannot emit this operation without changing CEL semantics, for
+  // example when the target cannot represent the CEL value range or ordering.
+  TRANSLATION_ERROR_CODE_UNSAFE_TRANSLATION = 8;
+
+  // A configured limit or a profile default limit was exceeded.
+  TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED = 9;
+
+  // No profile is registered under the requested name.
+  TRANSLATION_ERROR_CODE_UNSUPPORTED_PROFILE = 10;
+
+  // The profile exists but does not support the requested major version.
+  TRANSLATION_ERROR_CODE_UNSUPPORTED_PROFILE_VERSION = 11;
+
+  // The supplied profile configuration is missing, has the wrong message type,
+  // or carries a value the profile rejects.
+  TRANSLATION_ERROR_CODE_INVALID_PROFILE_CONFIGURATION = 12;
+
+  // The profile produced output that does not match its own declared output
+  // type or output contract. This reports a defect in the profile.
+  TRANSLATION_ERROR_CODE_INVALID_PROFILE_OUTPUT = 13;
+
+  // An implementation defect. No valid input should produce this code.
+  TRANSLATION_ERROR_CODE_INTERNAL_ERROR = 14;
+}
+
+// One translation failure. Translation returns either an outcome or this
+// message, never both, and never a usable partial predicate.
+message TranslationError {
+  // The machine-readable reason. Callers branch on this field.
+  TranslationErrorCode code = 1;
+
+  // The `cel.expr.Expr.id` of the node at fault, set when exactly one
+  // reachable node caused the failure. Unset when more than one node
+  // independently caused it, because traversal order is not fixed.
+  optional int64 expression_node_id = 2;
+
+  // Informational text for a human reader. Not stable, and not suitable for
+  // branching.
+  string message = 3;
+
+  // Structured diagnostic context.
+  //
+  // This map carries no CEL constant value, no bound parameter value, and no
+  // regular-expression pattern text, because diagnostics are frequently logged
+  // where query data must not appear. Safe entries include the offending
+  // overload identifier, the name of the limit that was exceeded, and the
+  // configured and observed magnitudes of that limit.
+  map<string, string> details = 4;
+}
+
+// The role an operand plays at one operand position.
+//
+// A profile declares support per position, so accepting an overload for one
+// combination of shapes does not accept it for another.
+enum OperandShape {
+  // Default. A capability declaration never uses it.
+  OPERAND_SHAPE_UNSPECIFIED = 0;
+
+  // A query field path that survived caller substitution.
+  OPERAND_SHAPE_QUERY_FIELD_PATH = 1;
+
+  // A CEL constant, or a call the profile reduces to a constant.
+  OPERAND_SHAPE_CONSTANT_VALUE = 2;
+
+  // The translated result of a nested supported expression.
+  OPERAND_SHAPE_TRANSLATED_EXPRESSION = 3;
+
+  // A variable introduced by an enclosing comprehension.
+  OPERAND_SHAPE_SCOPED_VARIABLE = 4;
+
+  // An element of a collection literal, such as a member of the list operand
+  // of a membership test.
+  OPERAND_SHAPE_COLLECTION_ELEMENT = 5;
+}
+
+// How the target system represents CEL `null`.
+enum NullSemantics {
+  // Default. A capability declaration never uses it.
+  NULL_SEMANTICS_UNSPECIFIED = 0;
+
+  // The target has a null that is distinct from an absent field, and CEL
+  // `null` maps onto it directly.
+  NULL_SEMANTICS_DISTINCT_NULL = 1;
+
+  // The target has one null that also represents an absent field. The profile
+  // must restrict its supported input domain so the two cannot be
+  // distinguished by any accepted expression.
+  NULL_SEMANTICS_MERGED_WITH_ABSENCE = 2;
+
+  // The profile rejects every expression whose result can observe CEL `null`.
+  NULL_SEMANTICS_REJECTED = 3;
+}
+
+// How the target system represents a field that is absent from a record.
+enum AbsenceSemantics {
+  // Default. A capability declaration never uses it.
+  ABSENCE_SEMANTICS_UNSPECIFIED = 0;
+
+  // Absence is observable and behaves differently from an explicit null.
+  ABSENCE_SEMANTICS_DISTINCT_FROM_NULL = 1;
+
+  // An absent field behaves exactly as an explicit null.
+  ABSENCE_SEMANTICS_EQUIVALENT_TO_NULL = 2;
+
+  // An absent field behaves as the zero value of its declared type.
+  ABSENCE_SEMANTICS_EQUIVALENT_TO_TYPE_DEFAULT = 3;
+
+  // The profile rejects every expression that can observe an absent field.
+  ABSENCE_SEMANTICS_REJECTED = 4;
+}
+
+// How much RE2 syntax a profile can translate with matching semantics.
+enum RegexSupport {
+  // Default. A capability declaration never uses it.
+  REGEX_SUPPORT_UNSPECIFIED = 0;
+
+  // The profile translates no regular-expression operation.
+  REGEX_SUPPORT_NONE = 1;
+
+  // The target preserves RE2 syntax and matching semantics for every pattern
+  // the profile accepts.
+  REGEX_SUPPORT_FULL_RE2 = 2;
+
+  // The profile accepts a documented subset of RE2 and rejects the rest.
+  // `regex_documentation` describes the subset and the rejected constructs.
+  REGEX_SUPPORT_RE2_SUBSET = 3;
+}
+
+// How a profile represents values that must stay data rather than syntax.
+enum ParameterStyle {
+  // Default. A capability declaration never uses it.
+  PARAMETER_STYLE_UNSPECIFIED = 0;
+
+  // The profile emits structured query data and carries values as typed
+  // structured fields, so it emits no textual placeholder.
+  PARAMETER_STYLE_NONE = 1;
+
+  // Numbered placeholders that the caller binds by position.
+  PARAMETER_STYLE_NUMBERED = 2;
+
+  // Named placeholders that the caller binds by name.
+  PARAMETER_STYLE_NAMED = 3;
+
+  // Unnumbered positional placeholders that the caller binds in emission
+  // order.
+  PARAMETER_STYLE_POSITIONAL = 4;
+}
+
+// The unit in which a profile measures the size of its generated output.
+//
+// The unit must be deterministic, so that the same input and the same limit
+// always produce the same accept or reject decision.
+enum OutputGrowthUnit {
+  // Default. A capability declaration never uses it.
+  OUTPUT_GROWTH_UNIT_UNSPECIFIED = 0;
+
+  // Bytes of the encoded output message.
+  OUTPUT_GROWTH_UNIT_ENCODED_BYTES = 1;
+
+  // Unicode code points of the generated query text.
+  OUTPUT_GROWTH_UNIT_CHARACTERS = 2;
+
+  // Nodes of the generated structured query document.
+  OUTPUT_GROWTH_UNIT_STRUCTURED_NODES = 3;
+
+  // Discrete predicate clauses in the generated output.
+  OUTPUT_GROWTH_UNIT_CLAUSES = 4;
+
+  // Operator applications in the generated output.
+  OUTPUT_GROWTH_UNIT_OPERATORS = 5;
+
+  // A measure specific to the profile. `output_growth_documentation` defines
+  // how the profile counts it.
+  OUTPUT_GROWTH_UNIT_PROFILE_DEFINED = 6;
+}
+
+// A canonical lowered comprehension shape.
+//
+// A CEL checker lowers a macro into a `cel.expr.Comprehension`. A profile
+// recognizes a lowered shape by validating its complete structure, never by
+// inspecting a single node.
+enum ComprehensionForm {
+  // Default. A capability declaration never uses it.
+  COMPREHENSION_FORM_UNSPECIFIED = 0;
+
+  // The lowered shape of the `exists` macro.
+  COMPREHENSION_FORM_EXISTS = 1;
+
+  // The lowered shape of the `all` macro.
+  COMPREHENSION_FORM_ALL = 2;
+
+  // The lowered shape of the `exists_one` macro.
+  COMPREHENSION_FORM_EXISTS_ONE = 3;
+
+  // The lowered shape of the `map` macro, including its filtering variant.
+  COMPREHENSION_FORM_MAP = 4;
+
+  // The lowered shape of the `filter` macro.
+  COMPREHENSION_FORM_FILTER = 5;
+
+  // A shape outside this enumeration, named by `custom_form_id`.
+  COMPREHENSION_FORM_CUSTOM = 6;
+}
+
+// One comprehension shape a profile claims to translate.
+message ComprehensionSupport {
+  // The recognized shape.
+  ComprehensionForm form = 1;
+
+  // Names the shape when `form` is `COMPREHENSION_FORM_CUSTOM`. Empty for
+  // every other value.
+  string custom_form_id = 2;
+}
+
+// How generated parameter references coexist with parameters the caller emits
+// around the predicate.
+//
+// A caller usually embeds the predicate in a larger query that already binds
+// parameters. Composition prevents a collision without requiring the caller to
+// rewrite generated output.
+message ParameterComposition {
+  // The profile accepts a caller-supplied starting position, so generated
+  // numbering continues after the caller's own parameters.
+  bool supports_start_position = 1;
+
+  // The profile accepts a caller-supplied name prefix, so generated names
+  // cannot collide with the caller's own named parameters.
+  bool supports_name_prefix = 2;
+
+  // How the caller supplies the values above, and any further composition
+  // rules the profile applies.
+  string documentation = 3;
+}
+
+// The CEL types and operand shapes one operand position accepts.
+message OperandConstraint {
+  // The accepted CEL type in CEL type-name notation, such as `string`, `int`,
+  // or `list(bool)`.
+  string cel_type = 1;
+
+  // The operand shapes accepted at this position.
+  repeated OperandShape allowed_shapes = 2;
+}
+
+// One operation a profile can translate.
+//
+// Operations are keyed by resolved overload rather than by source function
+// name, because one function name can resolve to several overloads with
+// different semantics.
+message OperationCapability {
+  // The resolved CEL overload identifier. Standard overloads and custom
+  // overloads use this same field.
+  string overload_id = 1;
+
+  // One entry per operand position, in operand order.
+  repeated OperandConstraint operands = 2;
+
+  // The CEL result type in CEL type-name notation.
+  string result_type = 3;
+
+  // Conditions that restrict this operation beyond operand types and shapes,
+  // such as a restriction on use under negation.
+  repeated string additional_restrictions = 4;
+}
+
+// The machine-readable contract of one dialect profile major version.
+//
+// A caller inspects this message to decide whether a profile can translate an
+// expression before attempting translation. Every rule that decides acceptance
+// or rejection appears in an enumerated or structured field. The
+// `*_documentation` fields explain behavior that cannot be enumerated and
+// never carry a rule on their own.
+message DialectCapabilityProfile {
+  // The profile and major version this declaration describes.
+  ProfileReference profile = 1;
+
+  // Fully-qualified protobuf message name of the single output type this
+  // profile emits for a predicate outcome.
+  string output_type_name = 2;
+
+  // Every CEL type the profile can handle, in CEL type-name notation.
+  repeated string supported_cel_types = 3;
+
+  // Every operation the profile can translate. An overload that is absent
+  // from this list is rejected.
+  repeated OperationCapability operations = 4;
+
+  // Every comprehension shape the profile can translate. An empty list means
+  // the profile rejects all comprehensions.
+  repeated ComprehensionSupport supported_comprehension_forms = 5;
+
+  // How the profile maps CEL `null` onto the target system.
+  NullSemantics null_semantics = 6;
+
+  // How the profile treats a field that is absent from a record.
+  AbsenceSemantics absence_semantics = 7;
+
+  // How much RE2 syntax the profile can translate.
+  RegexSupport regex_support = 8;
+
+  // How the profile represents values that must stay data.
+  ParameterStyle parameter_style = 9;
+
+  // How generated parameters coexist with caller-supplied parameters. Ignored
+  // when `parameter_style` is `PARAMETER_STYLE_NONE`.
+  ParameterComposition parameter_composition = 10;
+
+  // The unit in which the profile measures generated output size.
+  OutputGrowthUnit output_growth_unit = 11;
+
+  // The default output-size ceiling, counted in `output_growth_unit`. Greater
+  // than zero, and used when the caller sets no override.
+  uint64 default_max_output_growth = 12;
+
+  // The default value of every other limit. Each field is populated, so a
+  // caller can read the effective ceiling without consulting prose.
+  TranslationLimits default_limits = 13;
+
+  // How CEL `null`, an absent field, a target null, and a target default value
+  // relate to each other in this profile.
+  string null_and_absence_documentation = 14;
+
+  // Regular-expression behavior, including any accepted RE2 subset and any
+  // material complexity difference between RE2 and the target engine.
+  string regex_documentation = 15;
+
+  // The target pattern language and its escaping rules, for a profile that
+  // translates any operation through a pattern language.
+  string pattern_language_documentation = 16;
+
+  // How the profile counts `output_growth_unit`, required when the unit is
+  // `OUTPUT_GROWTH_UNIT_PROFILE_DEFINED` and useful otherwise.
+  string output_growth_documentation = 17;
+
+  // Further cost rules and rejection rules, including any limit that applies
+  // to one specific operation.
+  string cost_and_rejection_documentation = 18;
+
+  // The profile this one extends, when it extends one.
+  //
+  // An extending profile accepts everything its base accepts and selects the
+  // same records for those expressions, but may emit different output because
+  // its target differs. It may also accept more than the base.
+  //
+  // Unset means the profile stands alone. A base profile never itself declares
+  // a base, so a caller reads at most two capability profiles to know the full
+  // contract.
+  ProfileReference base_profile = 19;
+}

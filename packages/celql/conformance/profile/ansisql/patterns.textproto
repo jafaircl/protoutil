@@ -1,0 +1,145 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+#
+# Pattern operations. Binding alone is not enough here: LIKE reads its
+# parameter as a pattern, so an unescaped wildcard in data would match text the
+# CEL operation does not match. Each case asserts the escaped bound value.
+#
+# Escaping note: these are protobuf text-format string literals. One backslash
+# is written "\\" here, so a CEL source containing one backslash appears as
+# "\\\\" in `cel_source`.
+
+name: "celql-profile-ansisql-patterns"
+specification_version: "0.11"
+level: CONFORMANCE_LEVEL_PROFILE
+
+environment {
+  declarations { name: "name" ident { type { primitive: STRING } } }
+  declarations { name: "path" ident { type { primitive: STRING } } }
+  declarations { name: "prefix" ident { type { primitive: STRING } } }
+}
+
+cases {
+  name: "starts_with_appends_trailing_wildcard"
+  description: "A prefix test anchors on the left and allows any suffix."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.startsWith(\"ali\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" LIKE ? ESCAPE '\\'"
+    parameters { cel_type { primitive: STRING } value { string_value: "ali%" } }
+  } } }
+}
+
+cases {
+  name: "ends_with_prepends_leading_wildcard"
+  description: "A suffix test anchors on the right and allows any prefix."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.endsWith(\"ice\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" LIKE ? ESCAPE '\\'"
+    parameters { cel_type { primitive: STRING } value { string_value: "%ice" } }
+  } } }
+}
+
+cases {
+  name: "contains_wraps_both_sides"
+  description: "A substring test allows any prefix and any suffix."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.contains(\"lic\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" LIKE ? ESCAPE '\\'"
+    parameters { cel_type { primitive: STRING } value { string_value: "%lic%" } }
+  } } }
+}
+
+cases {
+  name: "percent_in_data_is_escaped"
+  description: "A percent sign in the data must match a literal percent, so it is escaped rather than left as a multi-character wildcard."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.startsWith(\"50%\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" LIKE ? ESCAPE '\\'"
+    parameters { cel_type { primitive: STRING } value { string_value: "50\\%%" } }
+  } } }
+}
+
+cases {
+  name: "underscore_in_data_is_escaped"
+  description: "An underscore in the data must match a literal underscore, not any single character."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.contains(\"a_b\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" LIKE ? ESCAPE '\\'"
+    parameters { cel_type { primitive: STRING } value { string_value: "%a\\_b%" } }
+  } } }
+}
+
+cases {
+  name: "escape_character_in_data_is_escaped"
+  description: "The escape character itself must be escaped, or it would consume the character after it and shift the whole pattern."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "path.startsWith(\"a\\\\b\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"path\" LIKE ? ESCAPE '\\'"
+    parameters { cel_type { primitive: STRING } value { string_value: "a\\\\b%" } }
+  } } }
+}
+
+cases {
+  name: "pattern_wildcards_only_value_escaped"
+  description: "A value of only wildcard characters is fully escaped, so the pattern matches that exact text plus the operation's own anchor rather than every row."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.startsWith(\"%_%\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" LIKE ? ESCAPE '\\'"
+    parameters { cel_type { primitive: STRING } value { string_value: "\\%\\_\\%%" } }
+  } } }
+}
+
+cases {
+  name: "empty_pattern_value_still_anchors"
+  description: "An empty prefix matches every non-null row, and still produces one bound value."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.startsWith(\"\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" LIKE ? ESCAPE '\\'"
+    parameters { cel_type { primitive: STRING } value { string_value: "%" } }
+  } } }
+}
+
+cases {
+  name: "negated_pattern_carries_no_null_guard"
+  description: "A pattern test on a null column is a CEL error, and a SQL unknown propagates the same way, so negation needs no guard."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "!name.startsWith(\"ali\")"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "(NOT \"name\" LIKE ? ESCAPE '\\')"
+    parameters { cel_type { primitive: STRING } value { string_value: "ali%" } }
+  } } }
+}
+
+cases {
+  name: "pattern_operand_must_be_constant"
+  description: "A pattern built from a second column cannot be escaped at translation time, so the operand shape is rejected."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.startsWith(prefix)"
+  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+}
+
+cases {
+  name: "regular_expression_rejected"
+  description: "ISO/IEC 9075 defines no operator with RE2 syntax and RE2 matching semantics, so the profile refuses rather than approximating."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name.matches(\"^a.*z$\")"
+  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+}

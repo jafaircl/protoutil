@@ -41,7 +41,7 @@ Before editing, the agent MUST:
 
 1. Identify the required behavior.
 2. Verify assumptions that affect behavior, architecture, compatibility, or verification.
-3. Identify affected boundaries and compatibility surfaces.
+3. Identify affected boundaries, compatibility surfaces, and required RFCs or ADRs.
 4. Define observable success criteria.
 5. Define the verification method.
 
@@ -155,7 +155,7 @@ The agent MUST NOT add temporary investigation notes to the repository.
 
 WHEN a finding defines durable and non-obvious information, the agent MUST update its owning artifact:
 
-- terminology: `/glossary.md`;
+- terminology: `GLOSSARY.md`;
 - normative behavior: specification;
 - accepted decision or rationale: ADR;
 - architecture boundary or interaction: architecture documentation;
@@ -168,32 +168,25 @@ Secondary artifacts SHOULD link to the authoritative artifact unless a local sum
 
 ## Glossary, writing, and requirements
 
-The agent MUST maintain the canonical project glossary at `/glossary.md`.
+The agent MUST maintain the canonical project glossary at `GLOSSARY.md`.
 
-The glossary, comments, technical documentation, and requirements MUST apply **ASD-STE100**, **Google AIP-190**, and **ISO/IEC/IEEE 29148** terminology principles:
+The agent MUST apply these standards:
 
-- One term MUST identify one concept.
-- Different concepts MUST use different terms.
-- A domain term MUST be defined before a normative requirement uses it.
-- Project artifacts MUST use glossary terms consistently.
-- Sentences MUST use active voice unless passive voice identifies the result more clearly.
-- A sentence MUST name the actor.
-- A condition MUST appear before its required response.
-- A sentence MUST state one primary requirement.
-- Error behavior and exceptions MUST be explicit.
-- Observable criteria MUST replace vague or subjective terms.
+- **ASD-STE100 Simplified Technical English**: use short, direct sentences; use one term for one concept; prefer active voice; avoid unnecessary synonyms, vague references, unnecessary words, and unnecessary complexity.
+- **Google AIP-190 and AIP-140**: use consistent domain terminology and only standard or glossary-defined abbreviations.
+- **ISO/IEC/IEEE 29148**: requirements must be singular, unambiguous, necessary, feasible, and verifiable.
+- **BCP 14 (RFC 2119 and RFC 8174)**: uppercase `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` express normative strength.
+- **EARS**: state an applicable event, state, or condition before the required response.
 
-WHEN a change introduces, changes, disambiguates, abbreviates, or publicly renames a domain concept, the agent MUST update the glossary.
+One term MUST identify one concept. Different concepts MUST use different terms.
 
-Each glossary entry MUST contain the canonical term and definition. It MUST also contain scope, permitted abbreviations, prohibited alternatives, or related concepts when those details prevent ambiguity.
+WHEN a change introduces, changes, disambiguates, abbreviates, or publicly renames a domain concept, the agent MUST update `GLOSSARY.md`.
 
 Other artifacts MUST NOT duplicate glossary definitions.
 
-Normative statements in this file and in `spec/` MUST use **BCP 14**, comprising RFC 2119 and RFC 8174.
+Normative statements in this file and in `spec/` MUST use BCP 14.
 
-Only uppercase BCP 14 keywords have normative meaning.
-
-WHEN a normative requirement depends on an event, state, or condition, the requirement MUST use **EARS** clause structure:
+WHEN a normative requirement depends on an event, state, or condition, the requirement MUST use EARS form:
 
 ```text
 WHEN <event>,
@@ -206,23 +199,25 @@ IF <condition>,
 THEN the <system> MUST <response>.
 ```
 
-Each normative specification requirement MUST:
-
-- have a stable identifier;
-- define one observable behavior;
-- be unambiguous;
-- be verifiable;
-- state failure behavior when applicable.
+Each normative specification requirement MUST have a stable identifier, define one observable and verifiable behavior, and state failure behavior when applicable.
 
 Examples and rationale MUST NOT define normative requirements.
 
+### Comments and documentation
+
+Comments and documentation MUST describe the current system, not the history of how it was implemented.
+
 A source comment or JSDoc comment MUST add information that the code cannot express clearly. It MUST NOT restate the code.
 
-A source comment MAY explain an invariant, precondition, lifecycle, concurrency behavior, compatibility requirement, security boundary, deliberate tradeoff, or why a simpler implementation is invalid.
+A source comment MAY explain a non-obvious invariant, precondition, lifecycle, concurrency behavior, compatibility requirement, security boundary, side effect, tradeoff, or rationale.
 
-A source comment or JSDoc comment MUST NOT reference an internal specification, requirement identifier, ADR, RFC, issue, review finding, or implementation task.
+Public JSDoc MUST describe the public contract rather than implementation details.
 
-WHEN internal repository information is required to understand the code, the comment MUST state the relevant intent or constraint directly in terms that are meaningful to downstream users and maintainers.
+Source comments and JSDoc MUST NOT reference internal specifications, requirement identifiers, ADRs, RFCs, issues, review findings, implementation tasks, or implementation history.
+
+WHEN internal repository information is required to understand the code, the comment MUST state the underlying fact, constraint, or rationale directly in terms meaningful to downstream users and maintainers.
+
+Repository documentation MUST describe durable current behavior, architecture, contracts, procedures, or rationale. It MUST NOT serve as an implementation log or investigation record.
 
 Internal traceability MUST remain in specifications, tests, ADRs, RFCs, review records, or other repository documentation.
 
@@ -230,7 +225,7 @@ Internal traceability MUST remain in specifications, tests, ADRs, RFCs, review r
 
 The agent MUST apply naming authorities in this order:
 
-1. `/glossary.md`
+1. `GLOSSARY.md`
 2. **Google AIP-190: Naming Conventions**
 3. **Google AIP-140: Abbreviations**
 4. The applicable language or schema style guide
@@ -260,13 +255,23 @@ A public rename MUST be treated as a compatibility change.
 
 ## Design and documentation
 
+A design RFC records a proposal. An ADR records an accepted durable design decision.
+
 IF a proposed change contains an unresolved durable design choice that affects public behavior, architecture, compatibility, persistence, security, migration behavior, or a dependency commitment, THEN the agent MUST create or update a design RFC based on the **Rust RFC structure** before implementation.
 
 A design RFC MUST define goals, non-goals, required behavior, compatibility effects, alternatives, testing, and unresolved questions.
 
-WHEN the project accepts a durable design decision, the agent MUST create or update an **Architecture Decision Record** that follows the project **MADR** template.
+A durable design decision requires an ADR only when the decision is not already authoritatively recorded by an applicable specification or existing ADR.
 
-The agent MUST NOT reverse an accepted decision without superseding its ADR.
+IF an applicable specification or existing ADR already determines the durable design decision, THEN the agent MUST NOT create a duplicate ADR only to implement that decision.
+
+WHEN implementation requires a durable design decision that no authoritative specification or ADR resolves, the agent MUST resolve the decision before implementing it.
+
+WHEN the user selects or explicitly approves such a durable design decision, the agent MUST create or update an **Architecture Decision Record** that follows the project **MADR** template before implementing that decision.
+
+IF an existing ADR already records the accepted decision, THEN the agent MUST NOT create a duplicate ADR.
+
+IF the accepted decision replaces an existing ADR, THEN the agent MUST supersede that ADR.
 
 IF a change only implements or clarifies an accepted decision, THEN the agent MUST NOT rewrite the ADR only to describe the implementation.
 

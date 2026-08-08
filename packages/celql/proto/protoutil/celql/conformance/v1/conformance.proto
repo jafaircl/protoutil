@@ -1,0 +1,216 @@
+// Language-independent conformance case model for celql translation.
+//
+// A conformance case is data, not code. A runner in any language reads these
+// messages, performs the requested operation, and compares the result against
+// the expected outcome.
+//
+// There are two levels. A core case tests behavior that holds for every
+// dialect, so it never asserts target query syntax. A profile case tests one
+// concrete dialect and asserts that dialect's real output message.
+//
+// This file defines no query dialect and no predicate representation.
+
+syntax = "proto3";
+
+package protoutil.celql.conformance.v1;
+
+import "cel/expr/checked.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+import "protoutil/celql/v1/celql.proto";
+
+// Which conformance level a suite belongs to. The level determines what a case
+// is permitted to assert.
+enum ConformanceLevel {
+  // Default. A published suite never uses it.
+  CONFORMANCE_LEVEL_UNSPECIFIED = 0;
+
+  // Dialect-independent behavior. Cases assert outcome kinds and error codes,
+  // never predicate contents.
+  CONFORMANCE_LEVEL_CORE = 1;
+
+  // One concrete dialect profile. Cases may assert the profile's real output
+  // message.
+  CONFORMANCE_LEVEL_PROFILE = 2;
+}
+
+// The operation a case exercises.
+enum ConformanceOperation {
+  // Default. A published case never uses it.
+  CONFORMANCE_OPERATION_UNSPECIFIED = 0;
+
+  // Full translation to an outcome.
+  CONFORMANCE_OPERATION_TRANSLATE = 1;
+
+  // The validation phase alone, which decides whether the expression is inside
+  // the selected profile's translatable fragment without producing output.
+  CONFORMANCE_OPERATION_VALIDATE = 2;
+}
+
+// The names and types a case needs in order to be checked.
+//
+// Most cases state their input as CEL source, which cannot be type-checked
+// without knowing what `status` or `created_at` refer to.
+message ConformanceEnvironment {
+  // Variable and function declarations, in the standard CEL form.
+  //
+  // A function declaration carries its overload identifier, so a case can
+  // reference an overload by the identity the profile keys on.
+  repeated cel.expr.Decl declarations = 1;
+}
+
+// One file of conformance cases.
+message ConformanceSuite {
+  // Suite name, unique across the conformance corpus.
+  string name = 1;
+
+  // The specification version this suite targets.
+  string specification_version = 2;
+
+  // The level every case in this file belongs to.
+  ConformanceLevel level = 3;
+
+  // Declarations available to every case in this file that states its input as
+  // CEL source. A case may replace this with its own environment.
+  ConformanceEnvironment environment = 5;
+
+  repeated ConformanceCase cases = 4;
+}
+
+// One conformance case.
+message ConformanceCase {
+  // Case name, unique within the suite.
+  string name = 1;
+
+  // What the case establishes. Informational.
+  string description = 2;
+
+  // The operation to perform.
+  ConformanceOperation operation = 3;
+
+  // The expression under test, stated one of two ways.
+  oneof input {
+    // CEL source, which the runner parses and checks against the applicable
+    // environment before translating. This is the normal form: it is what a
+    // caller actually writes, it is readable, and it exercises the lowering a
+    // real checker produces rather than one written by hand.
+    string cel_source = 4;
+
+    // A checked expression built directly.
+    //
+    // Used only when no parser produces the structure under test: a missing
+    // type entry, a duplicate node identifier, a node with no kind, or a
+    // near-miss macro lowering. Building these by hand is the point, because
+    // the case exists to prove the translator validates them.
+    cel.expr.CheckedExpr checked_expression = 11;
+  }
+
+  // Declarations for `cel_source`, replacing the suite environment when set.
+  // Ignored when the input is a checked expression, which already carries its
+  // own types and references.
+  ConformanceEnvironment environment = 12;
+
+  // The profile to select.
+  //
+  // A profile case always sets this. A core case sets it only when the case is
+  // about profile selection itself, such as an unregistered name or an
+  // unsupported major version. When a core case leaves this unset, the runner
+  // supplies any profile the implementation supports, because translation
+  // always requires some profile. Such a case must not depend on which profile
+  // the runner chose.
+  celql.v1.ProfileReference profile = 5;
+
+  // Limits for this case. An unset field falls back to the profile default.
+  celql.v1.TranslationLimits limits = 6;
+
+  // Configuration of the type the selected profile declares. A core case
+  // leaves this unset, because configuration shapes are profile-specific.
+  google.protobuf.Any profile_configuration = 7;
+
+  oneof expected {
+    ExpectedSuccess success = 8;
+    ExpectedError error = 9;
+  }
+
+  // What the runner-selected profile must be able to do for this case to mean
+  // anything. Used only when `profile` is unset. A profile that does not meet
+  // these requirements skips the case instead of failing it.
+  CaseRequirements requirements = 10;
+}
+
+// Capabilities a runner-selected profile must declare before a core case
+// applies to it.
+//
+// Most core behavior is independent of the translatable fragment and needs no
+// requirements. A case needs them only when it expects a successful predicate,
+// because no profile is obliged to accept any particular expression form.
+message CaseRequirements {
+  // Resolved overload identifiers the profile must declare.
+  repeated string overload_ids = 1;
+
+  // The profile must accept a query field path as an operand.
+  bool query_field_paths = 2;
+
+  // CEL types the profile must support, in CEL type-name notation.
+  repeated string cel_types = 3;
+
+  // Comprehension shapes the profile must declare.
+  repeated celql.v1.ComprehensionForm comprehension_forms = 4;
+}
+
+// The expected successful result.
+//
+// A validate operation may only expect `valid`. A translate operation may
+// expect `match_all`, `match_none`, `predicate_produced`, or
+// `exact_predicate`.
+message ExpectedSuccess {
+  oneof outcome {
+    // Translation determined the expression is unconditionally true.
+    google.protobuf.Empty match_all = 1;
+
+    // Translation determined the expression is unconditionally false.
+    google.protobuf.Empty match_none = 2;
+
+    // Translation returned one complete predicate, and the case asserts
+    // nothing about its contents. The runner still checks that a predicate
+    // exists and that its message type matches the selected profile's declared
+    // output type.
+    //
+    // The payload is empty because there is nothing to compare against, not
+    // because the predicate is empty. A translator never returns an empty
+    // predicate; `match_all` and `match_none` cover the unconditional cases.
+    //
+    // This is the only predicate expectation a core case may use, because a
+    // core case cannot know the selected dialect's representation.
+    google.protobuf.Empty predicate_produced = 3;
+
+    // Translation returned exactly this message. The embedded type must equal
+    // the selected profile's declared output type.
+    //
+    // Only a profile case may use this. `Any` is a transport wrapper here, not
+    // a substitute for the profile's real output type.
+    google.protobuf.Any exact_predicate = 4;
+
+    // Validation accepted the expression. Carries no predicate.
+    google.protobuf.Empty valid = 5;
+  }
+}
+
+// The expected failure.
+//
+// A runner compares the code, and the node identifier when the case sets one.
+// It never compares human-readable message text.
+message ExpectedError {
+  // The required error code.
+  celql.v1.TranslationErrorCode code = 1;
+
+  // The node the error must identify.
+  //
+  // Set only on a case whose input is a checked expression, where the node
+  // identifiers are fixed by the case itself. A case stated as CEL source
+  // leaves this unset, because the identifiers come from whichever parser the
+  // runner uses.
+  //
+  // When unset, the runner ignores the reported node.
+  optional int64 expression_node_id = 2;
+}

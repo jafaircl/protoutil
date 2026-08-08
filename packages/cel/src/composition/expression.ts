@@ -276,7 +276,7 @@ function isStandardLogicalOverload(
   reference: ReferenceInfo | undefined,
   expectedOverloadId: string,
 ): boolean {
-  return reference !== undefined && reference.overloadIds.includes(expectedOverloadId);
+  return reference?.overloadIds.includes(expectedOverloadId) ?? false;
 }
 
 /** literalBooleanValue mirrors the checker's literal-boolean recognition for pre-evaluation folding. */

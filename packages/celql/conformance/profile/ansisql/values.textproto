@@ -1,0 +1,177 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+#
+# Identifier delimiting, null handling, value ranges, and parameter binding for
+# the ANSI SQL profile.
+
+name: "celql-profile-ansisql-values"
+specification_version: "0.11"
+level: CONFORMANCE_LEVEL_PROFILE
+
+environment {
+  declarations { name: "name" ident { type { primitive: STRING } } }
+  declarations { name: "nickname" ident { type { primitive: STRING } } }
+  declarations { name: "count" ident { type { primitive: INT64 } } }
+  declarations { name: "size" ident { type { primitive: UINT64 } } }
+  declarations { name: "payload" ident { type { primitive: BYTES } } }
+  declarations { name: "user" ident { type { message_type: "example.User" } } }
+}
+
+cases {
+  name: "selection_path_is_delimited_per_component"
+  description: "Each path component is delimited separately, so the separator stays a qualifier rather than becoming part of a name."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "user.email == \"a@example.com\""
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"user\".\"email\" IS NOT DISTINCT FROM ?"
+    parameters { cel_type { primitive: STRING } value { string_value: "a@example.com" } }
+  } } }
+}
+
+cases {
+  name: "absence_observation_rejected"
+  description: "SQL cannot distinguish an absent column from a null column, so the lowered has() form is outside the fragment."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "has(user.email)"
+  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+}
+
+cases {
+  name: "null_equality_emits_is_null"
+  description: "SQL equality against NULL yields unknown, so CEL equality against null emits the null test to select the same rows."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name == null"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" IS NULL"
+  } } }
+}
+
+cases {
+  name: "null_inequality_emits_is_not_null"
+  description: "Inequality against null emits the negated null test and binds nothing."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name != null"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" IS NOT NULL"
+  } } }
+}
+
+cases {
+  name: "int64_minimum_binds_exactly"
+  description: "The smallest signed 64-bit value binds without loss."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "count == -9223372036854775808"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"count\" IS NOT DISTINCT FROM ?"
+    parameters { cel_type { primitive: INT64 } value { int64_value: -9223372036854775808 } }
+  } } }
+}
+
+cases {
+  name: "uint64_at_signed_maximum_binds"
+  description: "An unsigned value at the signed maximum is representable and binds as an unsigned value."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "size == 9223372036854775807u"
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"size\" IS NOT DISTINCT FROM ?"
+    parameters { cel_type { primitive: UINT64 } value { uint64_value: 9223372036854775807 } }
+  } } }
+}
+
+cases {
+  name: "uint64_above_signed_maximum_rejected"
+  description: "Exact numeric types in SQL are signed, so a larger unsigned value has no portable representation and is refused rather than narrowed."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "size == 9223372036854775808u"
+  error { code: TRANSLATION_ERROR_CODE_UNSAFE_TRANSLATION }
+}
+
+cases {
+  name: "bytes_bind_without_text_encoding"
+  description: "A bytes value binds as bytes, including a null octet, so no text encoding step can alter or truncate it."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "payload == b\"\\x00\\x01' OR 1=1 --\\xff\""
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"payload\" IS NOT DISTINCT FROM ?"
+    parameters { cel_type { primitive: BYTES } value { bytes_value: "\x00\x01' OR 1=1 --\xff" } }
+  } } }
+}
+
+cases {
+  name: "injection_text_stays_in_the_parameter"
+  description: "A hostile string reaches the parameter list unchanged and never reaches the condition text."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name == \"x' OR 1=1 --\""
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"name\" IS NOT DISTINCT FROM ?"
+    parameters { cel_type { primitive: STRING } value { string_value: "x' OR 1=1 --" } }
+  } } }
+}
+
+cases {
+  name: "repeated_values_bind_once_each"
+  description: "Markers are unnumbered and bound by position, so an equal value repeated twice produces two markers and two entries."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "name == \"x\" && nickname == \"x\""
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "(\"name\" IS NOT DISTINCT FROM ? AND \"nickname\" IS NOT DISTINCT FROM ?)"
+    parameters { cel_type { primitive: STRING } value { string_value: "x" } }
+    parameters { cel_type { primitive: STRING } value { string_value: "x" } }
+  } } }
+}
+
+cases {
+  name: "boolean_literal_root_matches_all"
+  description: "A Boolean literal root reduces to the unconditional outcome rather than to a tautological condition."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  cel_source: "true"
+  success { match_all {} }
+}
+
+cases {
+  name: "reserved_word_column_is_delimited"
+  description: "Delimiting lets a column named with a reserved word survive, because a delimited identifier is never read as a keyword. The structure is built directly, since the name collides with CEL syntax in some positions."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  checked_expression {
+    expr { id: 1 call_expr { function: "_==_" args { id: 2 ident_expr { name: "select" } } args { id: 3 const_expr { string_value: "x" } } } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { primitive: STRING } }
+    type_map { key: 3 value { primitive: STRING } }
+    reference_map { key: 1 value { name: "_==_" overload_id: "equals" } }
+    reference_map { key: 2 value { name: "select" } }
+  }
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"select\" IS NOT DISTINCT FROM ?"
+    parameters { cel_type { primitive: STRING } value { string_value: "x" } }
+  } } }
+}
+
+cases {
+  name: "embedded_quote_in_identifier_is_doubled"
+  description: "A double quote inside a component is doubled, so a hostile column name cannot close the delimiter early. No CEL source produces such an identifier, so the structure is built directly."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  profile { name: "protoutil.celql.ansisql" major_version: 1 }
+  checked_expression {
+    expr { id: 1 call_expr { function: "_==_" args { id: 2 ident_expr { name: "a\"; DROP TABLE t; --" } } args { id: 3 const_expr { string_value: "x" } } } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { primitive: STRING } }
+    type_map { key: 3 value { primitive: STRING } }
+    reference_map { key: 1 value { name: "_==_" overload_id: "equals" } }
+    reference_map { key: 2 value { name: "a\"; DROP TABLE t; --" } }
+  }
+  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+    sql: "\"a\"\"; DROP TABLE t; --\" IS NOT DISTINCT FROM ?"
+    parameters { cel_type { primitive: STRING } value { string_value: "x" } }
+  } } }
+}

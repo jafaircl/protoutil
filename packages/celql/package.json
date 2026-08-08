@@ -1,11 +1,11 @@
 {
-  "name": "@protoutil/aipql",
+  "name": "@protoutil/celql",
   "type": "module",
   "version": "0.3.2",
-  "description": "Translate AIP-160 filter expressions into SQL and MongoDB queries.",
+  "description": "Translate checked CEL expressions into dialect-defined query predicates.",
   "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",
-  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/aipql#readme",
+  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/celql#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jafaircl/protoutil.git"
@@ -24,25 +24,23 @@
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build",
     "protogen": "buf generate"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
-    "@protoutil/cel": "workspace:*",
     "tsdown": "^0.18.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "typescript": "^5.9.3"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "dependencies": {
-    "@protoutil/aip": "workspace:*",
-    "@protoutil/core": "workspace:*"
+    "@bufbuild/protobuf": "^2.11.0",
+    "@protoutil/cel": "workspace:*"
   }
 }
