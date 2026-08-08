@@ -1,4 +1,4 @@
-import type { DescMessage, MessageShape } from "@bufbuild/protobuf";
+import { type DescMessage, isMessage, type MessageShape } from "@bufbuild/protobuf";
 import { getField } from "@protoutil/core";
 import type { Adapter } from "../common/types/provider.js";
 import type { Val } from "../common/types/ref/reference.js";
@@ -411,18 +411,6 @@ export class EvalProgram implements Program {
     }
     return bindings;
   }
-}
-
-/**
- * isMessage reports whether a value has the runtime discriminator used by Protobuf-ES messages.
- */
-function isMessage(value: unknown): value is { $typeName: string } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "$typeName" in value &&
-    typeof (value as { $typeName: unknown }).$typeName === "string"
-  );
 }
 
 /**

@@ -1,4 +1,5 @@
-import { create, type Message, type MessageShape } from "@bufbuild/protobuf";
+import { create, isMessage, type MessageShape } from "@bufbuild/protobuf";
+import type { ReflectList } from "@bufbuild/protobuf/reflect";
 import { AnySchema, anyPack, ListValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { anyValueType } from "./any-value.js";
 import { Bool, False, True } from "./bool.js";
@@ -31,6 +32,13 @@ export function dynamicList(adapter: TypeAdapter, value: unknown): Lister {
     );
   }
   return new BaseList(adapter, value, 0, () => undefined);
+}
+
+/**
+ * reflectedList adapts a Protobuf-ES reflected list without copying its values.
+ */
+export function reflectedList(adapter: TypeAdapter, value: ReflectList): Lister {
+  return new BaseList(adapter, value, value.size, (index) => value.get(index));
 }
 
 /**
@@ -397,8 +405,4 @@ function isLister(value: Val): value is Lister {
     typeof (value as { get?: unknown }).get === "function" &&
     typeof (value as { iterator?: unknown }).iterator === "function"
   );
-}
-
-function isMessage(value: unknown): value is Message {
-  return typeof value === "object" && value !== null && "$typeName" in value;
 }

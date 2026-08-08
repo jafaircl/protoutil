@@ -1,11 +1,12 @@
 import {
+  clone,
+  createRegistry,
   type DescFile,
   type DescMessage,
-  fromBinary,
   type Message,
   type MessageShape,
   merge as mergeMessages,
-  toBinary,
+  type Registry as ProtobufRegistry,
 } from "@bufbuild/protobuf";
 import {
   AnySchema,
@@ -30,6 +31,8 @@ export type DbOption = (db: Db) => Db;
  * Db maps from file / message / enum name to file description.
  */
 export class Db {
+  private protobufRegistryValue: ProtobufRegistry | undefined;
+
   constructor(
     private readonly revFileDescriptorMapValue = new Map<string, FileDescription>(),
     private readonly filesValue: FileDescription[] = [],
@@ -40,6 +43,14 @@ export class Db {
   /** JSONFieldNames indicates whether the database is configured for proto field accesses by JSON names. */
   public jsonFieldNames(): boolean {
     return this.jsonFieldNamesValue;
+  }
+
+  /** protobufRegistry returns the public Protobuf-ES registry for the registered files. */
+  public protobufRegistry(): ProtobufRegistry {
+    this.protobufRegistryValue ??= createRegistry(
+      ...this.filesValue.map((file) => file.fileDescriptor()),
+    );
+    return this.protobufRegistryValue;
   }
 
   /** revFileDescriptorMap returns the reverse descriptor index for the Db. */
@@ -105,6 +116,7 @@ export class Db {
     }
     this.revFileDescriptorMapValue.set(fd.getName(), fd);
     this.filesValue.push(fd);
+    this.protobufRegistryValue = undefined;
     for (const [typeName, extMap] of fileExtMap) {
       const typeExtMap = this.extensionsValue.get(typeName);
       if (!typeExtMap) {
@@ -202,9 +214,7 @@ export function mergeMessagesInto<Desc extends DescMessage>(
       `pb.Merge() arguments must be the same type. got: ${dstPB.$typeName}, ${srcPB.$typeName}`,
     );
   }
-  const srcBytes = toBinary(schema, srcPB as MessageShape<Desc>);
-  const source = fromBinary(schema, srcBytes);
-  mergeMessages(schema, dstPB, source);
+  mergeMessages(schema, dstPB, clone(schema, srcPB as MessageShape<Desc>));
 }
 
 /**

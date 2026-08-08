@@ -1,5 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { create } from "@bufbuild/protobuf";
+import { reflect } from "@bufbuild/protobuf/reflect";
 import {
   AnySchema,
   anyPack,
@@ -395,6 +396,30 @@ describe("provider", () => {
     expect((first as unknown as Indexer).get(new CelString("single_string"))).toEqual(
       new CelString("after"),
     );
+  });
+
+  it("adapts generated and reflected protobuf values equivalently", () => {
+    const message = create(SourceInfoSchema, {
+      lineOffsets: [1, 2],
+      positions: { 1: 3 },
+    });
+    const reg = registry([message, SourceInfoSchema]);
+    const reflected = reflect(SourceInfoSchema, message);
+    const generated = reg.nativeToValue(message) as Val & Indexer;
+    const reflectedValue = reg.nativeToValue(reflected) as Val & Indexer;
+
+    expect(reflectedValue.equal(generated)).toBe(True);
+
+    const lineOffsets = SourceInfoSchema.fields.find((field) => field.name === "line_offsets")!;
+    const positions = SourceInfoSchema.fields.find((field) => field.name === "positions")!;
+    expect(
+      reg
+        .nativeToValue(reflected.get(lineOffsets))
+        .equal(generated.get(new CelString("line_offsets"))),
+    ).toBe(True);
+    expect(
+      reg.nativeToValue(reflected.get(positions)).equal(generated.get(new CelString("positions"))),
+    ).toBe(True);
   });
 
   it("TypeScript extension/TestRegistryCachesArrayWrappersWithoutHidingMutations", () => {

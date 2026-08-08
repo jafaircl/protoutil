@@ -1,4 +1,5 @@
-import { create, type Message, type MessageShape, ScalarType } from "@bufbuild/protobuf";
+import { create, isMessage, type Message, type MessageShape, ScalarType } from "@bufbuild/protobuf";
+import type { ReflectMap } from "@bufbuild/protobuf/reflect";
 import { AnySchema, anyPack, StructSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
 import { anyValueType } from "./any-value.js";
 import { Bool, False, True } from "./bool.js";
@@ -112,6 +113,19 @@ export function protoMap(
   valueType?: FieldDescription,
 ): Mapper {
   return new ProtoMap(adapter, value, keyType, valueType);
+}
+
+/**
+ * reflectedMap adapts a Protobuf-ES reflected map without copying its entries.
+ */
+export function reflectedMap(adapter: TypeAdapter, value: ReflectMap): Mapper {
+  const field = value.field();
+  return new BaseMap(
+    adapter,
+    value,
+    [...value.keys()].map((key) => reflectedMapKey(key, field.mapKey)),
+    (key) => value.get(key.value()),
+  );
 }
 
 /**
@@ -384,6 +398,26 @@ function protoMapKey(key: string, keyType?: FieldDescription): unknown {
   }
 }
 
+/** reflectedMapKey preserves the CEL numeric family for reflected map keys. */
+function reflectedMapKey(key: unknown, scalar: ScalarType): unknown {
+  switch (scalar) {
+    case ScalarType.INT32:
+    case ScalarType.INT64:
+    case ScalarType.SINT32:
+    case ScalarType.SINT64:
+    case ScalarType.SFIXED32:
+    case ScalarType.SFIXED64:
+      return BigInt(key as number | bigint);
+    case ScalarType.UINT32:
+    case ScalarType.UINT64:
+    case ScalarType.FIXED32:
+    case ScalarType.FIXED64:
+      return new Uint(BigInt(key as number | bigint));
+    default:
+      return key;
+  }
+}
+
 /**
  * MutableMap is an intermediate mutable map used while constructing immutable CEL maps.
  */
@@ -459,8 +493,4 @@ function isMapper(value: Val): value is Mapper {
     typeof (value as { size?: unknown }).size === "function" &&
     typeof (value as { iterator?: unknown }).iterator === "function"
   );
-}
-
-function isMessage(value: unknown): value is Message {
-  return typeof value === "object" && value !== null && "$typeName" in value;
 }

@@ -3,11 +3,18 @@ import {
   type DescField,
   type DescFile,
   type DescMessage,
+  isMessage,
   type Message,
   type MessageShape,
   ScalarType,
   toJson,
 } from "@bufbuild/protobuf";
+import {
+  isReflectList,
+  isReflectMap,
+  isReflectMessage,
+  type ReflectMessage,
+} from "@bufbuild/protobuf/reflect";
 import {
   AnySchema,
   anyUnpack,
@@ -39,8 +46,8 @@ import { Double } from "./double.js";
 import { Duration, durationOf } from "./duration.js";
 import { Err, err, unsupportedRefValConversionErr, wrapErr } from "./err.js";
 import { Int } from "./int.js";
-import { dynamicList, jsonListValue } from "./list.js";
-import { dynamicMap, jsonStructMap, refValMap, stringInterfaceMap } from "./map.js";
+import { dynamicList, jsonListValue, reflectedList } from "./list.js";
+import { dynamicMap, jsonStructMap, reflectedMap, refValMap, stringInterfaceMap } from "./map.js";
 import { Float32NativeType, Int32NativeType, Uint32NativeType } from "./native.js";
 import { NullValue } from "./null.js";
 import { object } from "./object.js";
@@ -474,6 +481,15 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
         return direct;
       }
     }
+    if (isReflectList(value)) {
+      return reflectedList(this, value);
+    }
+    if (isReflectMap(value)) {
+      return reflectedMap(this, value);
+    }
+    if (isReflectMessage(value)) {
+      return this.reflectMessageToValue(value);
+    }
     if (Array.isArray(value)) {
       const cached = this.arrayValueCache.get(value);
       if (cached?.length === value.length) {
@@ -497,15 +513,11 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     }
     if (isMessage(value) && value.$typeName === AnySchema.typeName) {
       const anyValue = value as MessageShape<typeof AnySchema>;
-      const typeName = anyValue.typeUrl.slice(anyValue.typeUrl.lastIndexOf("/") + 1);
-      const [description, found] = this.pbdbValue.describeType(typeName);
-      if (found && description) {
-        const unpacked = anyUnpack(anyValue, description.descriptor());
-        if (unpacked) {
-          // Unpack before generic protobuf unwrapping so wrapper and JSON message descriptors
-          // preserve their signedness, floating-point, and null semantics.
-          return this.nativeToValue(unpacked);
-        }
+      const unpacked = anyUnpack(anyValue, this.pbdbValue.protobufRegistry());
+      if (unpacked) {
+        // Unpack before generic protobuf unwrapping so wrapper and JSON message descriptors
+        // preserve their signedness, floating-point, and null semantics.
+        return this.nativeToValue(unpacked);
       }
     }
     const direct =
@@ -542,6 +554,28 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       return adapted;
     }
     return unsupportedRefValConversionErr(value);
+  }
+
+  private reflectMessageToValue(value: ReflectMessage): Val {
+    if (value.message.$typeName === AnySchema.typeName) {
+      return this.nativeToValue(value.message);
+    }
+    const direct = nativeToValue(this, value.message);
+    if (direct !== undefined) {
+      return direct;
+    }
+    this.registerDescriptor(value.desc.file);
+    const cached = this.objectValueCache.get(value);
+    if (cached) {
+      return cached;
+    }
+    const typeVal = this.findIdent(value.desc.typeName);
+    if (!typeVal) {
+      return err("unknown type: '%s'", value.desc.typeName);
+    }
+    const adapted = object(this, value.desc, typeVal, value);
+    this.objectValueCache.set(value, adapted);
+    return adapted;
   }
 
   private registerAllTypes(typeNames: string[]): void {
@@ -1278,10 +1312,6 @@ function collectEnumTypes(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value) && !isMessage(value);
-}
-
-function isMessage(value: unknown): value is Message {
-  return typeof value === "object" && value !== null && "$typeName" in value;
 }
 
 /** wrapWrapperField converts a CEL scalar to Protobuf-ES's wrapper-field representation. */

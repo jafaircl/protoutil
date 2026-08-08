@@ -1,45 +1,33 @@
 import {
+  clone,
   create,
   createRegistry,
   type DescField,
   type DescMessage,
-  fromBinary,
   fromJson,
-  isFieldSet,
-  type JsonValue,
+  isMessage,
   type Message,
   type MessageShape,
   equals as protobufEquals,
   type Registry,
   ScalarType,
-  toBinary,
   toJson,
 } from "@bufbuild/protobuf";
 import {
-  AnySchema,
-  anyPack,
-  BoolValueSchema,
-  BytesValueSchema,
-  DoubleValueSchema,
-  FloatValueSchema,
-  Int32ValueSchema,
-  Int64ValueSchema,
-  StringValueSchema,
-  StructSchema,
-  UInt32ValueSchema,
-  UInt64ValueSchema,
-  ValueSchema,
-} from "@bufbuild/protobuf/wkt";
-import { getField as getProtoField } from "@protoutil/core";
+  isReflectList,
+  isReflectMap,
+  isReflectMessage,
+  type ReflectMessage,
+  reflect,
+} from "@bufbuild/protobuf/reflect";
+import { AnySchema, anyPack } from "@bufbuild/protobuf/wkt";
 import { anyValueType } from "./any-value.js";
-import { Double } from "./double.js";
 import { err, errFromString, maybeNoSuchOverloadErr } from "./err.js";
 import { formatVal } from "./format.js";
-import { Int } from "./int.js";
 import { JSONValueType } from "./json-value.js";
-import { protoMap } from "./map.js";
+import { reflectedList } from "./list.js";
+import { reflectedMap } from "./map.js";
 import { NullValue } from "./null.js";
-import { fieldDescription } from "./pb/type.js";
 import { DefaultTypeAdapter } from "./provider.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
@@ -81,6 +69,7 @@ export class protoObj implements Val, FieldTester, Indexer {
     private readonly typeDesc: DescMessage,
     private readonly typeValue: Val,
     private readonly pbValue: Message,
+    private readonly reflectedValue: ReflectMessage,
   ) {}
   public convertToNative(typeDesc: unknown): unknown {
     const srcPB = this.pbValue;
@@ -109,10 +98,7 @@ export class protoObj implements Val, FieldTester, Indexer {
       }
       default:
         if (isDescMessage(typeDesc) && typeDesc.typeName === this.typeDesc.typeName) {
-          return fromBinary(
-            typeDesc,
-            toBinary(this.typeDesc, srcPB as MessageShape<typeof this.typeDesc>),
-          );
+          return clone(typeDesc, srcPB as MessageShape<typeof typeDesc>);
         }
     }
     throw new globalThis.Error(
@@ -165,9 +151,7 @@ export class protoObj implements Val, FieldTester, Indexer {
         ? this.adapter.nativeToValue(providerField.isSet(this.pbValue))
         : err("no such field '%s'", field.value());
     }
-    return this.adapter.nativeToValue(
-      isFieldSet(this.pbValue as MessageShape<typeof this.typeDesc>, fd),
-    );
+    return this.adapter.nativeToValue(this.reflectedValue.isSet(fd));
   }
 
   /** IsZeroValue returns true if the protobuf object is empty. */
@@ -198,7 +182,7 @@ export class protoObj implements Val, FieldTester, Indexer {
         : err("no such field '%s'", index.value());
     }
     try {
-      return protoFieldToValue(this.adapter, this.pbValue, fd);
+      return protoFieldToValue(this.adapter, this.reflectedValue, fd);
     } catch (cause) {
       return errFromString((cause as Error).message);
     }
@@ -213,7 +197,7 @@ export class protoObj implements Val, FieldTester, Indexer {
   /** format implements formattable. */
   public format(sb: string[]): void {
     const fields = this.typeDesc.fields
-      .filter((field) => isFieldSet(this.pbValue as MessageShape<typeof this.typeDesc>, field))
+      .filter((field) => this.reflectedValue.isSet(field))
       .slice()
       .sort((a, b) => a.number - b.number);
     sb.push(this.type().typeName(), "{");
@@ -245,9 +229,12 @@ export function object(
   adapter: TypeAdapter,
   typeDesc: DescMessage,
   typeValue: Val,
-  pbValue: Message,
+  pbValue: Message | ReflectMessage,
 ): Val {
-  return new protoObj(adapter, typeDesc, typeValue, pbValue);
+  const reflected = isReflectMessage(pbValue)
+    ? pbValue
+    : reflect(typeDesc, pbValue as MessageShape<typeof typeDesc>);
+  return new protoObj(adapter, typeDesc, typeValue, reflected.message, reflected);
 }
 
 function registryForMessage(message: DescMessage): Registry {
@@ -308,93 +295,28 @@ function jsonFieldNamesEnabled(adapter: TypeAdapter): boolean {
   );
 }
 
-function getDefaultFieldValue(pbValue: Message, field: DescField): unknown {
-  const value = getProtoField(pbValue as MessageShape<DescMessage>, field);
-  switch (field.fieldKind) {
-    case "scalar":
-    case "enum":
-      return value ?? field.getDefaultValue();
-    case "message":
-      if (value === undefined && isWrapperField(field)) {
-        return null;
-      }
-      return value ?? create(field.message);
-    case "list":
-      return value ?? [];
-    case "map":
-      return value ?? {};
-  }
-}
-
 /**
  * protoFieldToValue converts a protobuf field into its CEL value while preserving protobuf scalar semantics.
  */
-function protoFieldToValue(adapter: TypeAdapter, pbValue: Message, field: DescField): Val {
-  const value = getDefaultFieldValue(pbValue, field);
+function protoFieldToValue(adapter: TypeAdapter, message: ReflectMessage, field: DescField): Val {
+  const value = message.get(field);
   switch (field.fieldKind) {
     case "enum":
       return adapter.nativeToValue(BigInt((value as number | bigint) ?? 0));
     case "message":
-      if (field.message === ValueSchema) {
-        return jsonFieldValueToValue(adapter, value);
+      if (isWrapperField(field) && !message.isSet(field)) {
+        return NullValue;
       }
-      if (field.message?.typeName === StructSchema.typeName && !isMessage(value)) {
-        return adapter.nativeToValue(fromJson(StructSchema, value as JsonValue));
-      }
-      if (isWrapperField(field)) {
-        return wrapperFieldToValue(adapter, field, value);
-      }
-      return adapter.nativeToValue(value);
-    case "map": {
-      const description = fieldDescription(field, jsonFieldNamesEnabled(adapter));
-      return protoMap(
-        adapter,
-        value as Record<string, unknown>,
-        description.keyType,
-        description.valueType,
-      );
-    }
+      return adapter.nativeToValue(isReflectMessage(value) ? value.message : value);
+    case "map":
+      return isReflectMap(value) ? reflectedMap(adapter, value) : adapter.nativeToValue(value);
+    case "list":
+      return isReflectList(value) ? reflectedList(adapter, value) : adapter.nativeToValue(value);
     case "scalar":
       return scalarFieldToValue(value, field.scalar);
     default:
       return adapter.nativeToValue(value);
   }
-}
-
-/**
- * wrapperFieldToValue preserves the CEL scalar family carried by a protobuf wrapper descriptor.
- */
-function wrapperFieldToValue(adapter: TypeAdapter, field: DescField, value: unknown): Val {
-  if (value === null || value === undefined) {
-    return NullValue;
-  }
-  switch (field.message?.typeName) {
-    case BoolValueSchema.typeName:
-    case BytesValueSchema.typeName:
-    case StringValueSchema.typeName:
-      return adapter.nativeToValue(value);
-    case DoubleValueSchema.typeName:
-    case FloatValueSchema.typeName:
-      return new Double(Number(value));
-    case Int32ValueSchema.typeName:
-    case Int64ValueSchema.typeName:
-      return new Int(BigInt(value as number | bigint));
-    case UInt32ValueSchema.typeName:
-    case UInt64ValueSchema.typeName:
-      return new Uint(BigInt(value as number | bigint));
-    default:
-      return adapter.nativeToValue(value);
-  }
-}
-
-/**
- * jsonFieldValueToValue preserves protobuf Value number semantics when Buf exposes native JSON.
- */
-function jsonFieldValueToValue(adapter: TypeAdapter, value: unknown): Val {
-  if (isMessage(value)) {
-    return adapter.nativeToValue(value);
-  }
-  return adapter.nativeToValue(fromJson(ValueSchema, value as JsonValue));
 }
 
 /**
@@ -438,15 +360,6 @@ function isDescMessage(value: unknown): value is DescMessage {
     value !== null &&
     "kind" in value &&
     (value as { kind: unknown }).kind === "message"
-  );
-}
-
-function isMessage(value: unknown): value is Message {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "$typeName" in value &&
-    typeof (value as { $typeName: unknown }).$typeName === "string"
   );
 }
 

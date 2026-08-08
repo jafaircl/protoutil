@@ -5,16 +5,17 @@ import {
   type DescField,
   type DescFile,
   type DescMessage,
-  fromBinary,
   getExtension,
   hasExtension,
-  isFieldSet,
+  isMessage,
   type Message,
   type MessageShape,
   ScalarType,
 } from "@bufbuild/protobuf";
+import { reflect } from "@bufbuild/protobuf/reflect";
 import {
   AnySchema,
+  anyUnpack,
   BoolValueSchema,
   BytesValueSchema,
   DoubleValueSchema,
@@ -250,10 +251,11 @@ export class FieldDescription implements description {
       }
       return hasExtension(target as Message, this.descValue);
     }
-    if (this.descValue.parent.typeName !== target.$typeName) {
+    const parent = this.descValue.parent;
+    if (!parent || parent.typeName !== target.$typeName) {
       return false;
     }
-    return isFieldSet(target as MessageShape<DescMessage>, this.descValue);
+    return reflect(parent, target as MessageShape<typeof parent>).isSet(this.descValue);
   }
 
   /** GetFrom returns the accessor method associated with the field on the proto generated struct. */
@@ -501,17 +503,7 @@ export function unwrapDynamic(
 }
 
 function unpackAnyValue(message: MessageShape<typeof AnySchema>): Message | undefined | Error {
-  const typeUrl = message.typeUrl;
-  const typeName = typeUrl.includes("/") ? typeUrl.slice(typeUrl.lastIndexOf("/") + 1) : typeUrl;
-  const schema = dynamicTypeRegistry.getMessage(typeName);
-  if (!schema) {
-    return new Error(`unknown type: '${typeName}'`);
-  }
-  try {
-    return fromBinary(schema, message.value);
-  } catch (error) {
-    return error as Error;
-  }
+  return anyUnpack(message, dynamicTypeRegistry) ?? new Error("unable to unpack Any");
 }
 
 function defaultFieldValue(field: DescField | DescExtension): unknown {
@@ -731,12 +723,3 @@ const wrapperTypeNames = new Set<string>([
   UInt32ValueSchema.typeName,
   UInt64ValueSchema.typeName,
 ]);
-
-function isMessage(value: unknown): value is Message {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "$typeName" in value &&
-    typeof (value as { $typeName: unknown }).$typeName === "string"
-  );
-}
