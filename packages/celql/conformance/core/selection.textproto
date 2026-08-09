@@ -11,25 +11,31 @@ cases {
   name: "unregistered_profile_rejected"
   description: "An unregistered profile name is refused. No other profile is substituted, because silently changing dialects would change the meaning of the result."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "celql.reserved.unregistered" major_version: 1 }
   cel_source: "true"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_PROFILE }
+  expected {
+    profile { name: "celql.reserved.unregistered" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_PROFILE }
+  }
 }
 
 cases {
   name: "unregistered_profile_rejected_before_expression_check"
   description: "Profile selection is resolved before the expression is examined, so an unregistered name outranks a non-Boolean root."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "celql.reserved.unregistered" major_version: 1 }
   cel_source: "\"x\""
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_PROFILE }
+  expected {
+    profile { name: "celql.reserved.unregistered" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_PROFILE }
+  }
 }
 
 cases {
   name: "validate_rejects_unregistered_profile"
   description: "Validation resolves the profile the same way translation does."
   operation: CONFORMANCE_OPERATION_VALIDATE
-  profile { name: "celql.reserved.unregistered" major_version: 1 }
   cel_source: "true"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_PROFILE }
+  expected {
+    profile { name: "celql.reserved.unregistered" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_PROFILE }
+  }
 }

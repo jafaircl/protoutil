@@ -19,7 +19,6 @@ cases {
   name: "two_variable_comprehension_refused"
   description: "A two-variable comprehension binds a name the one-variable forms do not define, so a profile that declares only one-variable forms refuses it rather than translating it as one."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   checked_expression {
     expr { id: 1 comprehension_expr {
       iter_var: "i"
@@ -54,15 +53,16 @@ cases {
     reference_map { key: 12 value { name: "status" } }
     reference_map { key: 13 value { name: "__result__" } }
   }
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
 }
 
 cases {
   name: "nested_iteration_variables_must_stay_distinct"
   description: "An inner comprehension whose iteration variable repeats the enclosing one makes an unqualified reference ambiguous, so the expression is refused rather than resolved by precedence."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
-  limits { max_comprehension_nesting: 2 }
   checked_expression {
     expr { id: 1 comprehension_expr {
       iter_var: "x"
@@ -120,5 +120,9 @@ cases {
     reference_map { key: 22 value { name: "__result2__" } }
     reference_map { key: 23 value { name: "__result__" } }
   }
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 10 }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_comprehension_nesting: 2 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 10 }
+  }
 }

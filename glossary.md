@@ -111,6 +111,15 @@ Declaring one profile as the base of another. The extending profile accepts ever
 - Prohibited alternatives: "profile inheritance", "subclassing", "profile override".
 - Related concepts: [Baseline profile](#baseline-profile), [Profile](#profile).
 
+### Dialect implementation inheritance
+
+Reusing a dialect implementation class through subclassing. A subclass keeps
+the base visitor behavior and overrides only target behavior that differs, such
+as parameter markers, calls, comprehensions, or output construction.
+
+- Scope: implementation inheritance does not declare profile compatibility; profile extension owns that contract.
+- Related concepts: [Dialect](#dialect), [Profile extension](#profile-extension).
+
 ### Capability profile
 
 The machine-readable declaration of what one profile major version supports, published as `protoutil.celql.v1.DialectCapabilityProfile`. Every rule that decides acceptance or rejection appears in an enumerated or structured field rather than in prose.

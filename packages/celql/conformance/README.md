@@ -1,6 +1,6 @@
 # celql conformance suite
 
-Conformance cases are data. A runner in any language reads them, performs the requested operation, and compares the result against the expected outcome. The schema is `protoutil.celql.conformance.v1.ConformanceSuite`.
+Conformance cases are data. A runner in any language reads them, performs the requested operation, and compares the result against each profile expectation. One case stores its input once. Its repeated `expected` field contains independent `ProfileExpectation` values, so ANSI SQL and PostgreSQL can require different output or one can require an error. The schema is `protoutil.celql.conformance.v1.ConformanceSuite`.
 
 ## Layout
 
@@ -25,6 +25,8 @@ conformance/
       booleans.textproto             Boolean columns used directly as a condition
       values.textproto               identifiers, null, ranges, parameter binding
       limits.textproto               output growth and parameter count
+    postgresql/                      the PostgreSQL extension profile
+      postgresql.textproto           numbered parameters, arrays, regex, configuration
   templates/
     PROFILE_CASE_REQUIREMENTS.md     required coverage for a dialect profile suite
 ```
@@ -41,7 +43,7 @@ Because every implementation provides the ANSI SQL baseline, a core case that ex
 
 Translation always requires a profile, so a core case still runs against one.
 
-A core case that expects an error before the fragment matters leaves `profile` unset. The runner supplies any registered profile, and the choice cannot change the result.
+A core case that expects an error before the fragment matters leaves `profile` unset. The runner constructs a translator with any available profile, and the choice cannot change the result.
 
 A core case that expects a predicate names the baseline profile and asserts exact SQL.
 
@@ -56,7 +58,7 @@ A case may instead set `requirements`, naming capabilities the selected profile 
 Two prefixes exist so that core cases can force a known outcome without naming a real dialect:
 
 - `celql.reserved.unsupported.` — an overload identifier that no profile may declare. Every translator rejects it with `TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD`. Core uses it to test rejection and atomic failure.
-- `celql.reserved.unregistered` — a profile name that no implementation may register.
+- `celql.reserved.unregistered` — a profile name that no dialect profile may use.
 
 Both are conformance instruments. Neither describes a query dialect.
 
@@ -69,8 +71,8 @@ Some requirements are properties of the whole run rather than of one case. A con
 - requires that no error message or `details` entry contains a constant from the case input, for redaction;
 - requires that every produced predicate has the selected profile's declared output type;
 - requires that no predicate accompanies an error, for atomicity;
-- requests an unsupported major version from each registered profile and requires the version error;
-- requires that no registered profile declares an overload using the reserved unsupported prefix.
+- requests an unsupported major version from each available profile and requires the version error;
+- requires that no available profile declares an overload using the reserved unsupported prefix.
 
 ## What core leaves to profile suites
 
@@ -85,7 +87,7 @@ A core case shows that a rule holds, using the baseline as the vehicle. It does 
 - Values outside a specific target's representable range.
 - Limits measured over the output, such as parameter count and output growth.
 
-An extending profile additionally repeats every baseline expression form, so its promise to select the same records is verified rather than assumed.
+An extending profile additionally supplies an expectation for every baseline expression form, so its promise to select the same records is verified without duplicating the input.
 
 ## The baseline profile
 
@@ -95,10 +97,10 @@ A dialect whose target differs from ISO/IEC 9075 extends the baseline rather tha
 
 ## Current status
 
-142 cases: 50 core across eight files, and 92 in the baseline profile suite. Every declared ANSI SQL overload has at least one accepting case and, where a boundary exists, a rejecting case.
+149 cases: 49 core cases across eight files, 93 ANSI SQL source cases across eight files, and 7 PostgreSQL-specific source cases. The cases contain 252 profile expectations. Every declared ANSI SQL overload has at least one accepting case and, where a boundary exists, a rejecting case. PostgreSQL expectations on the same source cases assert exact protobuf output for inherited forms. The PostgreSQL-specific cases assert both the ANSI SQL result and the PostgreSQL extension result.
 
-Most cases carry a `cel_source` annotation showing the expression they came from. The checked expression is still what runs; the annotation is there so a reader can check a case at a glance. Cases built from malformed or near-miss structures omit it, because no parser would produce those.
+Most cases use `cel_source` as their readable fixture input. The runner parses and checks that source to prepare the `CheckedExpr` passed to the translator. Cases built from malformed or near-miss structures use an encoded checked expression, because no conforming parser would produce those structures.
 
-No translator implementation exists yet, so no runner executes these cases. The fixtures are verified to parse against the schema.
+The TypeScript runner executes all 252 profile expectations and verifies exact output where the expectation supplies it.
 
-The expected SQL was derived from ISO/IEC 9075 and has not been executed against a database. Differential execution is the layer that would confirm it, and it needs the translator.
+The exact SQL was derived from ISO/IEC 9075 and the PostgreSQL documentation. The PostgreSQL spec executes all 80 successful PostgreSQL source expectations against PostgreSQL 14 and compares selected record IDs with CEL evaluation. ANSI SQL output does not yet have an equivalent execution engine.

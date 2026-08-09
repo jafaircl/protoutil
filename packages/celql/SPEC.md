@@ -116,7 +116,9 @@ query translation
 dialect-defined predicate
 ```
 
-The translator accepts one checked expression and one dialect profile.
+The translator is constructed for exactly one dialect profile and one profile major version.
+
+The translator accepts checked expressions only for that bound profile.
 
 The translator returns one complete translation outcome or one error.
 
@@ -204,11 +206,17 @@ The dialect MUST reject a field path that it cannot encode directly, safely, and
 
 ## 7. Translation Contract
 
-The abstract operation is:
+The abstract operations are:
 
 ```text
-TRANSLATE(checked_expression, profile, limits, profile_configuration)
+CREATE_TRANSLATOR(profile)
+    -> translator | translation_error
+
+TRANSLATE(translator, checked_expression, limits, profile_configuration)
     -> match_all | match_none | dialect_predicate | translation_error
+
+VALIDATE(translator, checked_expression, limits, profile_configuration)
+    -> valid | translation_error
 ```
 
 The translator MUST:
@@ -216,7 +224,7 @@ The translator MUST:
 1. validate the reachable checked expression;
 2. verify that the root type is CEL `bool`;
 3. enforce the configured resource limits throughout the operation;
-4. select the requested profile and profile version;
+4. apply the profile and profile version bound at translator construction;
 5. translate each reachable expression part;
 6. reject each expression part that the profile cannot translate correctly;
 7. return `match_all`, `match_none`, or one complete predicate result of the profile's declared output protobuf type.
@@ -250,7 +258,7 @@ Translation MUST be atomic.
 
 If one reachable expression part cannot be translated correctly and safely, the complete translation MUST fail.
 
-For the same checked expression, profile, profile version, profile configuration, and limits, the translator MUST produce an equivalent result or an equivalent error.
+For the same translator, checked expression, profile configuration, and limits, the translator MUST produce an equivalent result or an equivalent error.
 
 State from one translation operation MUST NOT affect another translation operation.
 
@@ -312,13 +320,17 @@ The implementation MUST reject an expression when a required rewrite cannot pres
 
 ### 9.1 Profile selection
 
-The caller MUST select one profile and one profile major version explicitly.
+The caller MUST select one profile and one profile major version explicitly when it constructs a translator.
+
+One translator instance MUST be bound to exactly one profile major version.
+
+A translation or validation operation MUST NOT accept a per-operation profile override.
 
 An implementation MUST NOT infer a profile from the expression.
 
 An implementation MUST NOT silently use a different profile when the selected profile rejects an expression.
 
-This specification defines no default profile. Selection is always explicit, including when only one profile is available.
+This specification defines no default profile. Translator construction always requires an explicit profile, including when only one profile is available.
 
 Beyond the baseline profile in section 9.6, this specification does not prefer any query dialect. An implementation MAY provide any further set of dialect profiles.
 
@@ -447,6 +459,59 @@ An extending profile MUST comply with every core requirement in its own right. E
 A profile MUST NOT declare a base profile that itself declares a base profile. Extension is one level deep, so a caller can determine the full contract from two documents rather than a chain.
 
 An extending profile MUST use a profile name that differs from its base profile name.
+
+### 9.8 Dialect implementation extension
+
+`CELQL-DIALECT-EXT-001`: WHEN an implementation publishes a built-in dialect,
+the implementation MUST expose a reusable dialect implementation type that a
+caller can extend without copying the complete built-in implementation.
+
+`CELQL-DIALECT-EXT-002`: WHEN an implementation uses classes for its public
+dialect API, each built-in dialect class MUST permit subclassing and MUST expose
+overridable visitor methods for calls and comprehensions.
+
+`CELQL-DIALECT-EXT-003`: WHEN an implementation provides dialects whose targets
+use the same representation family, the dialect implementations MUST inherit a
+shared type-safe visitor implementation and MUST override only behavior that
+differs from that implementation.
+
+`CELQL-DIALECT-EXT-004`: WHEN a target uses a representation family that is not
+compatible with an existing dialect implementation, the implementation MUST
+provide a separate extensible base for that representation family.
+
+`CELQL-DIALECT-EXT-005`: WHEN an implementation exposes a common dialect base,
+the implementation MUST NOT expose target-specific operations, such as SQL
+parameter binding, through that base.
+
+`CELQL-DIALECT-EXT-006`: WHEN a caller supplies a custom dialect implementation,
+the implementation MUST accept it through the same translator-creation operation
+that accepts a built-in dialect implementation.
+
+`CELQL-DIALECT-EXT-007`: WHEN a custom dialect visitor delegates an expression to
+its base visitor, the base visitor MUST preserve the custom dialect's translation
+state and recursive dispatch.
+
+`CELQL-DIALECT-EXT-008`: WHEN a custom dialect visitor delegates an expression to
+its base visitor, the base visitor MUST NOT translate the delegated expression
+through a separate base-profile translator.
+
+`CELQL-DIALECT-EXT-009`: WHEN a dialect adds an operation or comprehension form,
+the dialect MUST add the corresponding capability declaration.
+
+`CELQL-DIALECT-EXT-010`: WHEN a dialect replaces translation behavior without
+changing accepted input, the dialect MUST retain the inherited capability
+declaration.
+
+Profile extension and implementation inheritance are different concepts.
+Profile extension specifies observable compatibility under section 9.7.
+Implementation inheritance specifies reuse and customization under this section.
+A non-SQL profile can extend the baseline profile contract without inheriting a
+SQL implementation class.
+
+The shared implementation MAY use composed components for output construction,
+parameter storage, or other responsibilities that do not require recursive
+visitor dispatch. A dialect implementation MUST NOT claim an output type that
+its output-construction method does not return.
 
 ## 10. Translation Outcomes
 
@@ -765,7 +830,7 @@ This keeps section 5's freedom of traversal order intact. Two implementations th
 
 One input MAY violate more than one requirement.
 
-The translator MUST establish the selected profile, profile major version, and profile configuration before it applies profile-dependent translation rules. Therefore, `unsupported profile`, `unsupported profile version`, and `invalid profile configuration` take precedence over profile-dependent errors.
+Translator construction MUST establish the selected profile and profile major version. Translation MUST establish the profile configuration before it applies profile-dependent translation rules. Therefore, `unsupported profile` and `unsupported profile version` are construction errors, and `invalid profile configuration` takes precedence over profile-dependent translation errors.
 
 An implementation MAY return `resource limit exceeded` for an input-measured limit before it performs deeper expression validation or profile-fragment analysis. This rule permits early rejection of oversized untrusted input.
 
@@ -781,7 +846,7 @@ A profile reference MUST contain a stable profile name and a major version.
 
 A portable translation envelope MUST identify the profile name and major version that produced it.
 
-An in-process translation result is not required to carry a profile reference inside its output message. The caller selected the profile explicitly under section 9.1, so the association is already established by the call. A profile MAY include a profile reference in its output type, and MUST do so if its output can be detached from the call that produced it.
+An in-process translation result is not required to carry a profile reference inside its output message. The caller selected the profile explicitly under section 9.1, so the association is established by the translator instance. A profile MAY include a profile reference in its output type, and MUST do so if its output can be detached from the translator that produced it.
 
 A profile major version defines:
 
@@ -820,9 +885,9 @@ The conformance suite has two levels:
 1. core translation conformance;
 2. dialect profile conformance.
 
-Core translation conformance tests requirements that do not depend on target query syntax or profile-specific semantics.
+Core translation conformance tests requirements that every implementation satisfies. A core case MAY use the required baseline profile to verify the complete output of a core translation requirement.
 
-Profile conformance tests one concrete profile major version and its declared translatable fragment.
+Profile conformance tests one or more concrete profile major versions and their declared translatable fragments.
 
 The core conformance suite MUST NOT define or require a test-only query dialect, canonical predicate language, or synthetic rendering syntax. Output-level testing uses a real profile, and the baseline profile in section 9.6 guarantees that one exists.
 
@@ -834,13 +899,34 @@ A dialect profile MUST pass the profile conformance suite for each profile major
 
 An extending profile MUST pass its own profile conformance suite. Passing the base profile suite does not satisfy that requirement, because the extending profile emits different output.
 
-Some core cases require a selected profile because the translation operation requires one. A core case MAY omit a concrete profile reference when the behavior under test is profile-independent. The runner MUST supply an available supported profile for that case. The case MUST NOT depend on that profile's translatable fragment or predicate representation.
+Before it executes a profile expectation, the runner MUST construct a translator for that expectation's profile. A core expectation MAY omit a concrete profile reference when the behavior under test is profile-independent. The runner MUST construct a translator for an available supported profile for that expectation. The expectation MUST NOT depend on that profile's translatable fragment or predicate representation.
 
-A core case that omits a profile reference MAY declare the capabilities a selected profile must have. The runner MUST run the case only against a profile that declares every listed capability. WHEN no available profile declares them, the runner MUST report the case as not applicable. The runner MUST NOT report a not-applicable case as passed.
+A core expectation MAY select the baseline profile when exact predicate output is necessary to verify a core requirement. Such an expectation MUST use the baseline profile's declared output type and emitted output. A core expectation MUST NOT assert the output of another profile.
+
+A core expectation that omits a profile reference MAY use the case requirements to declare the capabilities a selected profile must have. The runner MUST run the expectation only against a profile that declares every listed capability. WHEN no available profile declares them, the runner MUST report the expectation as not applicable. The runner MUST NOT report a not-applicable expectation as passed.
 
 The baseline profile in section 9.6 always exists, so a core case whose requirements the baseline satisfies always runs.
 
-A core case that expects predicate success MUST declare the capabilities that make that success required. No profile is obliged to accept a particular expression form, so an undeclared expectation of predicate success is not profile-independent.
+A core expectation that expects predicate success MUST declare the capabilities that make that success required. No profile is obliged to accept a particular expression form, so an undeclared expectation of predicate success is not profile-independent.
+
+`CELQL-CONF-CASE-001`: A conformance case MUST contain one input and one or more
+profile expectations.
+
+`CELQL-CONF-CASE-002`: Each profile expectation MUST independently identify the
+selected profile, profile configuration, limits, and expected success or error.
+
+`CELQL-CONF-CASE-003`: A conformance case MAY contain profile expectations with
+different outcomes for different profiles.
+
+`CELQL-CONF-CASE-004`: WHEN two profiles apply to the same CEL source, the
+conformance corpus MUST store that source once and MUST attach both profile
+expectations to that case.
+
+`CELQL-CONF-CASE-005`: WHEN a conformance case expects a predicate, the case
+MUST state its input as CEL source text.
+
+The absence of an expectation for a profile makes no assertion about that
+profile. It does not mean that the profile accepts or rejects the case.
 
 #### 21.1.1 Runner obligations
 
@@ -856,23 +942,23 @@ Some requirements are properties of every applicable case rather than the subjec
 
 **Atomicity.** For every case that expects an error, the runner MUST assert that no predicate output is returned with the error. This operationalizes section 7.2.
 
-**Profile version rejection.** For each registered profile, the runner MUST request a major version that the profile does not support and MUST assert the `unsupported profile version` error code. A published case cannot express this, because a registered profile name is implementation-specific.
+**Profile version rejection.** For each available profile, the runner MUST attempt to construct a translator for a major version that the profile does not support and MUST assert the `unsupported profile version` error code. A published case cannot express this for an implementation-specific profile name.
 
-**Capability agreement.** For each registered profile, the runner MUST assert that the profile's published capability profile declares no overload identifier that uses the reserved prefix in section 21.2.2.
+**Capability agreement.** For each available profile, the runner MUST assert that the profile's published capability profile declares no overload identifier that uses the reserved prefix in section 21.2.2.
 
-For a core case that expects predicate success, the runner MUST NOT compare target-specific predicate contents unless that case is also part of a profile conformance suite.
+For a core case that expects exact baseline predicate output, the runner MUST compare the complete output message. For any other core case that expects predicate success, the runner MUST verify the output type and MUST NOT compare target-specific predicate contents.
 
 ### 21.2 Core conformance cases
 
-A core conformance case tests only behavior that is independent of a target query representation.
+A core conformance case tests behavior that every conforming implementation must provide. It MAY use the required baseline profile as the concrete representation for output-level verification.
 
 A core case MAY test translation or preflight validation.
 
 For validation, the expected success is `valid`.
 
-For translation, the expected success is `match_all`, `match_none`, or predicate success. Predicate success means only that translation returned one complete predicate of the selected profile's declared output type.
+For translation, the expected success is `match_all`, `match_none`, predicate success, or an exact baseline predicate. Predicate success means only that translation returned one complete predicate of the selected profile's declared output type.
 
-A core case MUST NOT assert:
+A core case that does not select the baseline profile MUST NOT assert:
 
 - query text;
 - placeholder syntax;
@@ -882,21 +968,27 @@ A core case MUST NOT assert:
 - comprehension rendering;
 - another target-specific representation detail.
 
+A core case that selects the baseline profile MAY assert these details only as the exact `AnsiSqlPredicate` output required by that profile.
+
 Exact human-readable error messages MUST NOT be part of core conformance.
 
-#### 21.2.1 Source annotation
+#### 21.2.1 Source-form input
 
-A case at either level MAY carry the CEL source that its checked expression represents.
+The normative input to the celql translation operation is a cel.expr.CheckedExpr.
 
-The checked expression remains the normative input. A runner MUST translate the checked expression, and MUST NOT parse the source annotation in its place.
+A conformance case MUST provide exactly one fixture input: CEL source text or an encoded checked expression.
 
-Parsing the annotation instead would tie the corpus to one CEL implementation and would change the node identifiers that expected errors refer to.
+A conformance case MAY use CEL source text for readable fixture authoring.
 
-A runner that has a CEL implementation MAY parse and check the annotation and compare the result against the checked expression. It MAY derive the required declarations from the type and reference maps.
+When a conformance case provides CEL source text, the runner MUST parse and check that source with a conforming CEL implementation before it invokes the translator.
 
-A case whose input is a malformed or near-miss structure MUST omit the annotation, because no parser produces that structure.
+The runner MUST invoke the translator with the resulting cel.expr.CheckedExpr.
 
-The annotation exists because a reader verifies a case faster from one line of source than from an expression tree, and an unreadable case hides its own defects.
+Parsing and checking performed by the conformance runner are test-fixture preparation. They are not part of the celql translation operation.
+
+A case whose input is a malformed or near-miss structure MUST use an encoded checked expression, because no conforming parser produces that structure.
+
+An encoded checked expression MUST NOT have a successful predicate expectation.
 
 #### 21.2.2 Reserved rejection identifiers
 
@@ -924,10 +1016,11 @@ A profile conformance case MUST identify:
 
 - a unique case name;
 - the operation under test;
-- the checked expression;
-- the profile name and major version;
+- one CEL source input, except for a malformed or near-miss rejection case;
+- one or more profile expectations;
+- the profile name and major version for each expectation;
 - optional limits and profile configuration;
-- one expected successful outcome or one expected error code;
+- one expected successful outcome or one expected error code for each profile;
 - optional expected node identification;
 - profile-specific expected predicate output when the expected outcome is a predicate.
 
@@ -1016,11 +1109,13 @@ When applicable, it MUST test:
 
 A profile suite MUST use the profile's real declared output type for predicate cases.
 
-An extending profile suite MUST include a case for every expression form its base profile accepts, so that the record-selection agreement required by section 9.7 is verified rather than assumed.
+For each expression form that a base profile accepts, the conformance corpus MUST attach an expectation for the extending profile to the same source-form case. The extending profile expectation verifies the record-selection agreement required by section 9.7 without duplicating the CEL input.
 
 ### 21.6 Differential conformance
 
-Profile conformance SHOULD include differential execution tests against the target query system.
+`CELQL-CONF-DIFF-001`: WHEN the target query system is available for automated
+tests, profile conformance MUST include differential execution tests against
+that target query system.
 
 A differential test SHOULD:
 
@@ -1030,6 +1125,14 @@ A differential test SHOULD:
 4. compare the selected records.
 
 The selected records MUST be equal for all records in the tested supported domain.
+
+`CELQL-CONF-DIFF-002`: WHEN a source-form profile expectation successfully
+produces a predicate for an executable database target, the implementation MUST
+execute that expectation against the target database during differential
+conformance.
+
+`CELQL-CONF-DIFF-003`: A differential runner MUST manage the target database
+lifecycle and MUST release the database resources after success or failure.
 
 ### 21.7 Robustness testing
 

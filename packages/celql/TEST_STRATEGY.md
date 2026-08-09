@@ -14,7 +14,7 @@ Conformance layers are data and stay language-neutral. Implementation layers are
 
 Asserting exact output is what gives these cases force. A case expecting `"name" IS NOT DISTINCT FROM ?` fails if a value leaks into the condition, if an identifier is left undelimited, if a parameter is dropped or merged, or if the translator emits plain `=` and silently loses rows whose column is null. A case that only checked that some predicate came back would catch none of that.
 
-**Gate.** Every core case passes for every registered profile it applies to. A case reported as not applicable is not a pass.
+**Gate.** Every core case passes for every available profile it applies to. A case reported as not applicable is not a pass.
 
 ## Layer 2: profile conformance
 
@@ -34,7 +34,7 @@ Asserting exact output is what gives these cases force. A case expecting `"name"
 
 **Scope.** Agreement between CEL evaluation and target execution for each real profile.
 
-**Method.** For each record in the tested domain: evaluate the checked expression with a conforming CEL evaluator; translate the expression; execute the predicate against the equivalent stored record; compare the selected record sets.
+**Method.** For each successful source-form profile expectation and each record in its generated domain: evaluate the CEL source with a conforming CEL evaluator; translate the checked expression; execute the predicate against the equivalent stored record; compare the selected record sets.
 
 **Rules.** The two sets must be equal. Run against the real target engine, not a simulation of it, because the defects this layer catches are exactly the ones a simulation would reproduce incorrectly. Seed data covers null, absent fields, empty strings, values at each supported numeric boundary, values containing target pattern metacharacters, and values containing target quoting and comment syntax.
 
@@ -51,9 +51,10 @@ Asserting exact output is what gives these cases force. A case expecting `"name"
 - Malformed and truncated protobuf input, unknown fields, and wrong-typed `Any` payloads.
 - Expressions that are extremely deep, extremely wide, or both, including trees that would overflow a recursive traversal.
 - Counter behavior at its bounds: node counts, parameter positions, and output-growth accumulators near their maximum, with no wraparound past a configured limit.
-- State leakage: repeated translations through one translator instance, interleaved translations, and translations that share a profile instance.
-- A profile that returns the wrong output type, returns nothing, or throws, each surfacing as `INVALID_PROFILE_OUTPUT` or `INTERNAL_ERROR` rather than a leaked exception.
-- Profile registration conflicts and unknown major versions.
+- State leakage: repeated and interleaved translations through one translator, with a fresh dialect visitor for each operation.
+- A dialect that returns the wrong output type or returns nothing, each surfacing as `INVALID_PROFILE_OUTPUT`.
+- A dialect that throws unexpectedly, with the original exception propagating unchanged.
+- Missing dialect classes and invalid capability declarations at translator construction.
 - Diagnostic redaction, asserted directly against error contents.
 
 ## Layer 5: fuzz and property tests
@@ -85,15 +86,15 @@ Partial capability is acceptable; undeclared capability is not. A profile that t
 
 ## Current status
 
-142 cases exist: 50 in layer 1 across eight files, and 92 in layer 2 covering the baseline profile. Every declared ANSI SQL overload has an accepting case, and every rejection boundary next to it has one.
+149 cases exist: 49 core cases across eight files, 93 ANSI SQL source cases across eight files, and 7 PostgreSQL-specific source cases. These cases contain 252 profile expectations. One case stores its CEL source once and can attach different ANSI SQL and PostgreSQL success or error expectations. The three forms that PostgreSQL adds—array-column membership, array-column `exists`, and regular expressions—therefore verify ANSI SQL rejection and PostgreSQL output without duplicating the source. Every declared ANSI SQL overload has an accepting case, and every rejection boundary next to it has one.
 
-No translator implementation exists yet, so nothing executes those cases. Layers 3 through 5 need that implementation:
+The TypeScript conformance runner executes all 252 published profile expectations. Focused unit tests cover dialect binding, custom dialect output, subclass dispatch through inherited visitors, validation, output-type enforcement, missing dialects, unexpected dialect failures, PostgreSQL parameter numbering, PostgreSQL array composition, and PostgreSQL regular-expression boundaries.
 
-- Layer 3 additionally needs a live SQL engine to execute generated predicates against.
-- Layers 4 and 5 need translator internals to exercise.
+- Layer 3 executes all 80 successful PostgreSQL source expectations against PostgreSQL 14. It generates records from the checked field types and bound constants, then compares the complete selected-record set with CEL evaluation. ANSI SQL still needs an independent compatible execution engine.
+- Layer 5 needs generators for arbitrary checked expressions and profile inputs.
 
-This package has no test task. There is no implementation to exercise, and a test that only restated the schema would verify nothing.
+Run `pnpm test` with Docker available. The PostgreSQL spec starts the Compose service, waits for readiness, and removes the service after the suite. Set `CELQL_POSTGRES_IMAGE` before the command to test another PostgreSQL image.
 
-Verification available today is `buf lint`, `buf build`, code generation, and `tsc`. The fixtures are separately verified to parse against the schema; the runner that performs that parse as part of the build arrives with the translator, because parsing textproto needs a parser that no current TypeScript dependency provides.
+The package test task parses every textproto fixture, prepares checked expressions, executes each case twice and in reverse order, and compares each observable result with the fixture expectation.
 
-The expected SQL in layers 1 and 2 was derived from ISO/IEC 9075 by reading, not by execution. Until layer 3 runs, a shared misreading of the standard would pass every case. That is the single largest residual risk, and it is why layer 3 is a release gate rather than an optional extra.
+The exact SQL in layers 1 and 2 remains the stable compatibility contract. PostgreSQL layer 3 independently verifies record-selection semantics against the target engine. ANSI SQL output has not received equivalent execution verification, so a shared misreading of that target vocabulary remains a residual risk.

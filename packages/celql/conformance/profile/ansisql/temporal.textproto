@@ -19,157 +19,274 @@ cases {
   name: "timestamp_lower_bound"
   description: "A timestamp conversion over a string constant folds to a timestamp parameter and compares with the plain operator."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at > timestamp(\"2024-01-01T00:00:00Z\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"created_at\" > ?"
-    parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"created_at\" > ?"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"created_at\" > $1"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "timestamp_range_binds_two_values"
   description: "A half-open range is the common filter shape, and binds one value per bound in emission order."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at >= timestamp(\"2024-01-01T00:00:00Z\") && created_at < timestamp(\"2025-01-01T00:00:00Z\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(\"created_at\" >= ? AND \"created_at\" < ?)"
-    parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
-    parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1735689600 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"created_at\" >= ? AND \"created_at\" < ?)"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1735689600 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"created_at\" >= $1 AND \"created_at\" < $2)"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1735689600 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "timestamp_inclusive_upper_bound"
   description: "The inclusive upper-bound overload on timestamps."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at <= timestamp(\"2024-01-01T00:00:00Z\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"created_at\" <= ?"
-    parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"created_at\" <= ?"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"created_at\" <= $1"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "timestamp_equality_is_total"
   description: "Timestamp equality uses the distinct predicate like every other equality, so a null column behaves as CEL requires under negation."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at == timestamp(\"2024-01-01T00:00:00Z\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"created_at\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"created_at\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"created_at\" IS NOT DISTINCT FROM $1"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "timestamp_epoch_boundary"
   description: "The Unix epoch binds as a zero-valued timestamp rather than being mistaken for an unset field."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at > timestamp(\"1970-01-01T00:00:00Z\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"created_at\" > ?"
-    parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"created_at\" > ?"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"created_at\" > $1"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { } } } }
+    } } }
+  }
 }
 
 cases {
   name: "timestamp_with_sub_second_precision"
   description: "Fractional seconds survive the fold, so a bound is not silently truncated to whole seconds."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at > timestamp(\"2024-01-01T00:00:00.123456789Z\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"created_at\" > ?"
-    parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 nanos: 123456789 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"created_at\" > ?"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 nanos: 123456789 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"created_at\" > $1"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 nanos: 123456789 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "timestamp_column_to_column_comparison"
   description: "Two timestamp columns compare directly and bind nothing."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at < updated_at"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"created_at\" < \"updated_at\""
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"created_at\" < \"updated_at\""
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"created_at\" < \"updated_at\""
+    } } }
+  }
 }
 
 cases {
   name: "duration_inclusive_upper_bound"
   description: "A duration conversion folds the same way a timestamp does."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "timeout <= duration(\"3600s\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"timeout\" <= ?"
-    parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 3600 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"timeout\" <= ?"
+      parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 3600 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"timeout\" <= $1"
+      parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 3600 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "duration_strict_lower_bound"
   description: "The strict lower-bound overload on durations."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "timeout > duration(\"60s\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"timeout\" > ?"
-    parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"timeout\" > ?"
+      parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"timeout\" > $1"
+      parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "duration_inclusive_lower_bound"
   description: "The inclusive lower-bound overload on durations."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "timeout >= duration(\"60s\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"timeout\" >= ?"
-    parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"timeout\" >= ?"
+      parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"timeout\" >= $1"
+      parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "duration_strict_upper_bound"
   description: "The strict upper-bound overload on durations."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "timeout < duration(\"60s\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"timeout\" < ?"
-    parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"timeout\" < ?"
+      parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"timeout\" < $1"
+      parameters { cel_type { well_known: DURATION } value { object_value { [type.googleapis.com/google.protobuf.Duration] { seconds: 60 } } } }
+    } } }
+  }
 }
 
 cases {
   name: "malformed_timestamp_argument_rejected"
   description: "An argument that is not a valid RFC 3339 timestamp cannot be folded, so the call is refused rather than passed through as text."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at > timestamp(\"not-a-timestamp\")"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
 }
 
 cases {
   name: "malformed_duration_argument_rejected"
   description: "An argument that is not a valid CEL duration cannot be folded."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "timeout <= duration(\"one hour\")"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
 }
 
 cases {
   name: "conversion_over_a_column_rejected"
   description: "A conversion applied to a column would have to run in the target, where the semantics are target-specific, so the shape is refused."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "created_at > timestamp(raw_created_at)"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
 }

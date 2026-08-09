@@ -19,7 +19,9 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   checked_expression {
   }
-  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION }
+  }
 }
 
 cases {
@@ -29,7 +31,9 @@ cases {
   checked_expression {
     expr { id: 1 const_expr { bool_value: true } }
   }
-  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
 }
 
 cases {
@@ -43,7 +47,9 @@ cases {
     type_map { key: 3 value { primitive: BOOL } }
     reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
   }
-  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
 }
 
 cases {
@@ -56,7 +62,9 @@ cases {
     type_map { key: 2 value { primitive: BOOL } }
     reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
   }
-  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
 }
 
 cases {
@@ -69,7 +77,9 @@ cases {
     type_map { key: 2 value { primitive: BOOL } }
     type_map { key: 3 value { primitive: BOOL } }
   }
-  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
 }
 
 cases {
@@ -83,7 +93,9 @@ cases {
     type_map { key: 3 value { primitive: BOOL } }
     reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
   }
-  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
 }
 
 cases {
@@ -94,7 +106,9 @@ cases {
     expr { id: 1 const_expr { string_value: "x" } }
     type_map { key: 1 value { dyn {} } }
   }
-  error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
 }
 
 cases {
@@ -105,7 +119,9 @@ cases {
     expr { id: 1 const_expr { bool_value: true } }
     type_map { key: 1 value { abstract_type { name: "optional_type" parameter_types { primitive: BOOL } } } }
   }
-  error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
 }
 
 cases {
@@ -130,7 +146,9 @@ cases {
     reference_map { key: 5 value { name: "x" } }
     reference_map { key: 6 value { name: "__result__" } }
   }
-  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
 }
 
 cases {
@@ -156,7 +174,9 @@ cases {
     reference_map { key: 5 value { name: "x" } }
     reference_map { key: 6 value { name: "__result__" } }
   }
-  error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
 }
 
 cases {
@@ -164,7 +184,9 @@ cases {
   description: "A non-Boolean root is rejected."
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "\"x\""
-  error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT }
+  }
 }
 
 cases {
@@ -172,5 +194,7 @@ cases {
   description: "The validation operation applies the same rules as translation."
   operation: CONFORMANCE_OPERATION_VALIDATE
   cel_source: "\"x\""
-  error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT }
+  }
 }

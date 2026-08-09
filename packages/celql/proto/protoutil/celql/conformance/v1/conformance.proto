@@ -4,9 +4,10 @@
 // messages, performs the requested operation, and compares the result against
 // the expected outcome.
 //
-// There are two levels. A core case tests behavior that holds for every
-// dialect, so it never asserts target query syntax. A profile case tests one
-// concrete dialect and asserts that dialect's real output message.
+// There are two levels. A core case tests behavior every implementation must
+// provide and may use the required baseline profile for exact output checks. A
+// profile case can assert independent results for multiple dialects over one
+// shared CEL source string.
 //
 // This file defines no query dialect and no predicate representation.
 
@@ -29,8 +30,8 @@ enum ConformanceLevel {
   // never predicate contents.
   CONFORMANCE_LEVEL_CORE = 1;
 
-  // One concrete dialect profile. Cases may assert the profile's real output
-  // message.
+  // Concrete dialect profiles. Each expectation may assert its profile's real
+  // output message.
   CONFORMANCE_LEVEL_PROFILE = 2;
 }
 
@@ -110,32 +111,41 @@ message ConformanceCase {
   // own types and references.
   ConformanceEnvironment environment = 12;
 
-  // The profile to select.
+  // Independent profile expectations for this one input. Different profiles
+  // can accept or reject the same CEL source independently.
+  repeated ProfileExpectation expected = 8;
+
+  // What a runner-selected profile must be able to do for this case to mean
+  // anything. Used only when an expectation's `profile` is unset. A profile
+  // that does not meet these requirements skips the expectation instead of
+  // failing it.
+  CaseRequirements requirements = 10;
+
+  reserved 5, 6, 7, 9, 13;
+  reserved "profile", "limits", "profile_configuration", "error", "additional_expectations";
+}
+
+// One profile-specific expected outcome for a shared conformance input.
+message ProfileExpectation {
+  // The profile the runner uses to construct the translator.
   //
-  // A profile case always sets this. A core case sets it only when the case is
-  // about profile selection itself, such as an unregistered name or an
-  // unsupported major version. When a core case leaves this unset, the runner
-  // supplies any profile the implementation supports, because translation
-  // always requires some profile. Such a case must not depend on which profile
-  // the runner chose.
-  celql.v1.ProfileReference profile = 5;
+  // A profile expectation sets this. A core expectation sets it when the case
+  // requires a specific profile, including an exact baseline-output check.
+  // When a core expectation leaves it unset, the runner selects any available
+  // profile that meets the case requirements.
+  celql.v1.ProfileReference profile = 1;
 
-  // Limits for this case. An unset field falls back to the profile default.
-  celql.v1.TranslationLimits limits = 6;
-
-  // Configuration of the type the selected profile declares. A core case
-  // leaves this unset, because configuration shapes are profile-specific.
-  google.protobuf.Any profile_configuration = 7;
+  // Configuration of the type the selected profile declares.
+  google.protobuf.Any profile_configuration = 2;
 
   oneof expected {
-    ExpectedSuccess success = 8;
-    ExpectedError error = 9;
+    ExpectedSuccess success = 3;
+    ExpectedError error = 4;
   }
 
-  // What the runner-selected profile must be able to do for this case to mean
-  // anything. Used only when `profile` is unset. A profile that does not meet
-  // these requirements skips the case instead of failing it.
-  CaseRequirements requirements = 10;
+  // Limits for this profile expectation. Unset fields fall back to the
+  // selected profile defaults.
+  celql.v1.TranslationLimits limits = 5;
 }
 
 // Capabilities a runner-selected profile must declare before a core case
@@ -180,15 +190,16 @@ message ExpectedSuccess {
     // because the predicate is empty. A translator never returns an empty
     // predicate; `match_all` and `match_none` cover the unconditional cases.
     //
-    // This is the only predicate expectation a core case may use, because a
-    // core case cannot know the selected dialect's representation.
+    // A core case uses this when it does not select the required baseline
+    // profile and therefore cannot know the selected dialect's representation.
     google.protobuf.Empty predicate_produced = 3;
 
     // Translation returned exactly this message. The embedded type must equal
     // the selected profile's declared output type.
     //
-    // Only a profile case may use this. `Any` is a transport wrapper here, not
-    // a substitute for the profile's real output type.
+    // A profile case or a core case that selects the required baseline profile
+    // may use this. `Any` is a transport wrapper here, not a substitute for the
+    // profile's real output type.
     google.protobuf.Any exact_predicate = 4;
 
     // Validation accepted the expression. Carries no predicate.

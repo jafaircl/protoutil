@@ -31,61 +31,75 @@ cases {
   name: "depth_over_limit_rejected"
   description: "An expression deeper than the configured depth limit is refused before its parts are analyzed."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  limits { max_depth: 3 }
   cel_source: "!(!(!true))"
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    limits { max_depth: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }
 
 cases {
   name: "node_count_over_limit_rejected"
   description: "A reachable node count over the configured limit is refused."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  limits { max_nodes: 4 }
   cel_source: "(true && false) || true"
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    limits { max_nodes: 4 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }
 
 cases {
   name: "per_constant_size_over_limit_rejected"
   description: "A single constant larger than the per-constant limit is refused."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  limits { max_constant_bytes: 3 }
   cel_source: "name == \"abcd\""
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }
 
 cases {
   name: "constant_size_counts_encoded_bytes"
   description: "Constant size counts encoded bytes rather than characters, so a two-character string can exceed a three-byte limit."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  limits { max_constant_bytes: 3 }
   cel_source: "name == \"éé\""
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }
 
 cases {
   name: "aggregate_constant_size_over_limit_rejected"
   description: "The aggregate constant limit applies across the whole expression, so constants that each pass can still fail together."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  limits { max_constant_bytes: 4 max_total_constant_bytes: 5 }
   cel_source: "a == \"abc\" && b == \"def\""
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    limits { max_constant_bytes: 4 max_total_constant_bytes: 5 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }
 
 cases {
   name: "comprehension_nesting_over_limit_rejected"
   description: "Comprehension nesting deeper than the configured limit is refused, whether or not the selected profile translates comprehensions."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  limits { max_comprehension_nesting: 1 }
   cel_source: "[\"a\"].exists(x, [\"b\"].exists(y, y == status))"
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    limits { max_comprehension_nesting: 1 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }
 
 cases {
   name: "input_limit_outranks_fragment_rejection"
   description: "When an input-measured limit and a fragment rejection both apply, the limit is reported, because an oversized input must be refused before it is analyzed in detail."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  limits { max_constant_bytes: 3 }
   cel_source: "name == \"abcd\" && neverSupported(true)"
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }

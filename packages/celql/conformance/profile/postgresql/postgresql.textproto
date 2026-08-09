@@ -1,0 +1,142 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+
+name: "celql-profile-postgresql"
+specification_version: "0.11"
+level: CONFORMANCE_LEVEL_PROFILE
+
+environment {
+  declarations { name: "name" ident { type { primitive: STRING } } }
+  declarations { name: "age" ident { type { primitive: INT64 } } }
+  declarations { name: "active" ident { type { primitive: BOOL } } }
+  declarations { name: "tags" ident { type { list_type { elem_type { primitive: STRING } } } } }
+}
+
+cases {
+  name: "pattern_output_remains_parameterized"
+  description: "LIKE metacharacters are escaped in the bound value."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.contains(\"%_\")"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" LIKE ? ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%\\%\\_%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" LIKE $1 ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%\\%\\_%" } }
+    } } }
+  }
+}
+
+cases {
+  name: "literal_list_membership"
+  description: "The baseline list-literal form uses one numbered parameter per element."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name in [\"alice\", \"bob\"]"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"name\" IS NOT NULL AND \"name\" IN (?, ?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "bob" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"name\" IS NOT NULL AND \"name\" IN ($1, $2))"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "bob" } }
+    } } }
+  }
+}
+
+cases {
+  name: "boolean_column_output"
+  description: "A Boolean column remains a complete PostgreSQL condition."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "active"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"active\" = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"active\" = TRUE"
+    } } }
+  }
+}
+
+cases {
+  name: "regex_subset_output"
+  description: "A compatible RE2 pattern remains bound data for PostgreSQL's regex operator."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"^[a-z]+$\")"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"name\" COLLATE pg_catalog.\"C\") ~ $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "(?p)^[a-z]+$" } }
+    } } }
+  }
+}
+
+cases {
+  name: "regex_lookaround_rejected"
+  description: "A construct outside the shared RE2 and PostgreSQL subset is rejected."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"a(?=b)\")"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "regex_quantifier_above_postgresql_limit_rejected"
+  description: "A quantifier outside PostgreSQL's supported range is rejected before execution."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"a{256}\")"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "extended_and_baseline_forms_compose"
+  description: "PostgreSQL-specific and baseline forms share one parameter sequence."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name == \"alice\" && \"admin\" in tags"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"name\" IS NOT DISTINCT FROM $1 AND CASE WHEN \"tags\" IS NULL THEN NULL ELSE array_position(\"tags\", $2) IS NOT NULL END)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "admin" } }
+    } } }
+  }
+}

@@ -363,6 +363,11 @@ The agent MUST NOT suppress an error, broaden a retry, add a fallback, or weaken
 
 IF a temporary diagnostic does not provide durable observability, THEN the agent MUST remove it before completion.
 
+IF the agent considers adding an `.mjs` file to run or orchestrate tests,
+THEN the agent MUST stop and MUST NOT add the file.
+
+Test setup, execution, and cleanup MUST use the existing test framework, test configuration, or test files.
+
 ## Safe changes and commands
 
 Manual file edits MUST apply **optimistic concurrency control**, **atomicity**, and **failure isolation**.

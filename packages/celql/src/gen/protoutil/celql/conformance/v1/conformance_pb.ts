@@ -4,9 +4,10 @@
 // messages, performs the requested operation, and compares the result against
 // the expected outcome.
 //
-// There are two levels. A core case tests behavior that holds for every
-// dialect, so it never asserts target query syntax. A profile case tests one
-// concrete dialect and asserts that dialect's real output message.
+// There are two levels. A core case tests behavior every implementation must
+// provide and may use the required baseline profile for exact output checks. A
+// profile case can assert independent results for multiple dialects over one
+// shared CEL source string.
 //
 // This file defines no query dialect and no predicate representation.
 
@@ -28,7 +29,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file protoutil/celql/conformance/v1/conformance.proto.
  */
 export const file_protoutil_celql_conformance_v1_conformance: GenFile = /*@__PURE__*/
-  fileDesc("CjBwcm90b3V0aWwvY2VscWwvY29uZm9ybWFuY2UvdjEvY29uZm9ybWFuY2UucHJvdG8SHnByb3RvdXRpbC5jZWxxbC5jb25mb3JtYW5jZS52MSI+ChZDb25mb3JtYW5jZUVudmlyb25tZW50EiQKDGRlY2xhcmF0aW9ucxgBIAMoCzIOLmNlbC5leHByLkRlY2wijQIKEENvbmZvcm1hbmNlU3VpdGUSDAoEbmFtZRgBIAEoCRIdChVzcGVjaWZpY2F0aW9uX3ZlcnNpb24YAiABKAkSPwoFbGV2ZWwYAyABKA4yMC5wcm90b3V0aWwuY2VscWwuY29uZm9ybWFuY2UudjEuQ29uZm9ybWFuY2VMZXZlbBJLCgtlbnZpcm9ubWVudBgFIAEoCzI2LnByb3RvdXRpbC5jZWxxbC5jb25mb3JtYW5jZS52MS5Db25mb3JtYW5jZUVudmlyb25tZW50Ej4KBWNhc2VzGAQgAygLMi8ucHJvdG91dGlsLmNlbHFsLmNvbmZvcm1hbmNlLnYxLkNvbmZvcm1hbmNlQ2FzZSKZBQoPQ29uZm9ybWFuY2VDYXNlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSRwoJb3BlcmF0aW9uGAMgASgOMjQucHJvdG91dGlsLmNlbHFsLmNvbmZvcm1hbmNlLnYxLkNvbmZvcm1hbmNlT3BlcmF0aW9uEhQKCmNlbF9zb3VyY2UYBCABKAlIABIzChJjaGVja2VkX2V4cHJlc3Npb24YCyABKAsyFS5jZWwuZXhwci5DaGVja2VkRXhwckgAEksKC2Vudmlyb25tZW50GAwgASgLMjYucHJvdG91dGlsLmNlbHFsLmNvbmZvcm1hbmNlLnYxLkNvbmZvcm1hbmNlRW52aXJvbm1lbnQSNQoHcHJvZmlsZRgFIAEoCzIkLnByb3RvdXRpbC5jZWxxbC52MS5Qcm9maWxlUmVmZXJlbmNlEjUKBmxpbWl0cxgGIAEoCzIlLnByb3RvdXRpbC5jZWxxbC52MS5UcmFuc2xhdGlvbkxpbWl0cxIzChVwcm9maWxlX2NvbmZpZ3VyYXRpb24YByABKAsyFC5nb29nbGUucHJvdG9idWYuQW55EkIKB3N1Y2Nlc3MYCCABKAsyLy5wcm90b3V0aWwuY2VscWwuY29uZm9ybWFuY2UudjEuRXhwZWN0ZWRTdWNjZXNzSAESPgoFZXJyb3IYCSABKAsyLS5wcm90b3V0aWwuY2VscWwuY29uZm9ybWFuY2UudjEuRXhwZWN0ZWRFcnJvckgBEkYKDHJlcXVpcmVtZW50cxgKIAEoCzIwLnByb3RvdXRpbC5jZWxxbC5jb25mb3JtYW5jZS52MS5DYXNlUmVxdWlyZW1lbnRzQgcKBWlucHV0QgoKCGV4cGVjdGVkIpoBChBDYXNlUmVxdWlyZW1lbnRzEhQKDG92ZXJsb2FkX2lkcxgBIAMoCRIZChFxdWVyeV9maWVsZF9wYXRocxgCIAEoCBIRCgljZWxfdHlwZXMYAyADKAkSQgoTY29tcHJlaGVuc2lvbl9mb3JtcxgEIAMoDjIlLnByb3RvdXRpbC5jZWxxbC52MS5Db21wcmVoZW5zaW9uRm9ybSKHAgoPRXhwZWN0ZWRTdWNjZXNzEisKCW1hdGNoX2FsbBgBIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eUgAEiwKCm1hdGNoX25vbmUYAiABKAsyFi5nb29nbGUucHJvdG9idWYuRW1wdHlIABI0ChJwcmVkaWNhdGVfcHJvZHVjZWQYAyABKAsyFi5nb29nbGUucHJvdG9idWYuRW1wdHlIABIvCg9leGFjdF9wcmVkaWNhdGUYBCABKAsyFC5nb29nbGUucHJvdG9idWYuQW55SAASJwoFdmFsaWQYBSABKAsyFi5nb29nbGUucHJvdG9idWYuRW1wdHlIAEIJCgdvdXRjb21lIn8KDUV4cGVjdGVkRXJyb3ISNgoEY29kZRgBIAEoDjIoLnByb3RvdXRpbC5jZWxxbC52MS5UcmFuc2xhdGlvbkVycm9yQ29kZRIfChJleHByZXNzaW9uX25vZGVfaWQYAiABKANIAIgBAUIVChNfZXhwcmVzc2lvbl9ub2RlX2lkKnAKEENvbmZvcm1hbmNlTGV2ZWwSIQodQ09ORk9STUFOQ0VfTEVWRUxfVU5TUEVDSUZJRUQQABIaChZDT05GT1JNQU5DRV9MRVZFTF9DT1JFEAESHQoZQ09ORk9STUFOQ0VfTEVWRUxfUFJPRklMRRACKoYBChRDb25mb3JtYW5jZU9wZXJhdGlvbhIlCiFDT05GT1JNQU5DRV9PUEVSQVRJT05fVU5TUEVDSUZJRUQQABIjCh9DT05GT1JNQU5DRV9PUEVSQVRJT05fVFJBTlNMQVRFEAESIgoeQ09ORk9STUFOQ0VfT1BFUkFUSU9OX1ZBTElEQVRFEAJiBnByb3RvMw", [file_cel_expr_checked, file_google_protobuf_any, file_google_protobuf_empty, file_protoutil_celql_v1_celql]);
+  fileDesc("CjBwcm90b3V0aWwvY2VscWwvY29uZm9ybWFuY2UvdjEvY29uZm9ybWFuY2UucHJvdG8SHnByb3RvdXRpbC5jZWxxbC5jb25mb3JtYW5jZS52MSI+ChZDb25mb3JtYW5jZUVudmlyb25tZW50EiQKDGRlY2xhcmF0aW9ucxgBIAMoCzIOLmNlbC5leHByLkRlY2wijQIKEENvbmZvcm1hbmNlU3VpdGUSDAoEbmFtZRgBIAEoCRIdChVzcGVjaWZpY2F0aW9uX3ZlcnNpb24YAiABKAkSPwoFbGV2ZWwYAyABKA4yMC5wcm90b3V0aWwuY2VscWwuY29uZm9ybWFuY2UudjEuQ29uZm9ybWFuY2VMZXZlbBJLCgtlbnZpcm9ubWVudBgFIAEoCzI2LnByb3RvdXRpbC5jZWxxbC5jb25mb3JtYW5jZS52MS5Db25mb3JtYW5jZUVudmlyb25tZW50Ej4KBWNhc2VzGAQgAygLMi8ucHJvdG91dGlsLmNlbHFsLmNvbmZvcm1hbmNlLnYxLkNvbmZvcm1hbmNlQ2FzZSKSBAoPQ29uZm9ybWFuY2VDYXNlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSRwoJb3BlcmF0aW9uGAMgASgOMjQucHJvdG91dGlsLmNlbHFsLmNvbmZvcm1hbmNlLnYxLkNvbmZvcm1hbmNlT3BlcmF0aW9uEhQKCmNlbF9zb3VyY2UYBCABKAlIABIzChJjaGVja2VkX2V4cHJlc3Npb24YCyABKAsyFS5jZWwuZXhwci5DaGVja2VkRXhwckgAEksKC2Vudmlyb25tZW50GAwgASgLMjYucHJvdG91dGlsLmNlbHFsLmNvbmZvcm1hbmNlLnYxLkNvbmZvcm1hbmNlRW52aXJvbm1lbnQSRAoIZXhwZWN0ZWQYCCADKAsyMi5wcm90b3V0aWwuY2VscWwuY29uZm9ybWFuY2UudjEuUHJvZmlsZUV4cGVjdGF0aW9uEkYKDHJlcXVpcmVtZW50cxgKIAEoCzIwLnByb3RvdXRpbC5jZWxxbC5jb25mb3JtYW5jZS52MS5DYXNlUmVxdWlyZW1lbnRzQgcKBWlucHV0SgQIBRAGSgQIBhAHSgQIBxAISgQICRAKSgQIDRAOUgdwcm9maWxlUgZsaW1pdHNSFXByb2ZpbGVfY29uZmlndXJhdGlvblIFZXJyb3JSF2FkZGl0aW9uYWxfZXhwZWN0YXRpb25zIscCChJQcm9maWxlRXhwZWN0YXRpb24SNQoHcHJvZmlsZRgBIAEoCzIkLnByb3RvdXRpbC5jZWxxbC52MS5Qcm9maWxlUmVmZXJlbmNlEjMKFXByb2ZpbGVfY29uZmlndXJhdGlvbhgCIAEoCzIULmdvb2dsZS5wcm90b2J1Zi5BbnkSQgoHc3VjY2VzcxgDIAEoCzIvLnByb3RvdXRpbC5jZWxxbC5jb25mb3JtYW5jZS52MS5FeHBlY3RlZFN1Y2Nlc3NIABI+CgVlcnJvchgEIAEoCzItLnByb3RvdXRpbC5jZWxxbC5jb25mb3JtYW5jZS52MS5FeHBlY3RlZEVycm9ySAASNQoGbGltaXRzGAUgASgLMiUucHJvdG91dGlsLmNlbHFsLnYxLlRyYW5zbGF0aW9uTGltaXRzQgoKCGV4cGVjdGVkIpoBChBDYXNlUmVxdWlyZW1lbnRzEhQKDG92ZXJsb2FkX2lkcxgBIAMoCRIZChFxdWVyeV9maWVsZF9wYXRocxgCIAEoCBIRCgljZWxfdHlwZXMYAyADKAkSQgoTY29tcHJlaGVuc2lvbl9mb3JtcxgEIAMoDjIlLnByb3RvdXRpbC5jZWxxbC52MS5Db21wcmVoZW5zaW9uRm9ybSKHAgoPRXhwZWN0ZWRTdWNjZXNzEisKCW1hdGNoX2FsbBgBIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eUgAEiwKCm1hdGNoX25vbmUYAiABKAsyFi5nb29nbGUucHJvdG9idWYuRW1wdHlIABI0ChJwcmVkaWNhdGVfcHJvZHVjZWQYAyABKAsyFi5nb29nbGUucHJvdG9idWYuRW1wdHlIABIvCg9leGFjdF9wcmVkaWNhdGUYBCABKAsyFC5nb29nbGUucHJvdG9idWYuQW55SAASJwoFdmFsaWQYBSABKAsyFi5nb29nbGUucHJvdG9idWYuRW1wdHlIAEIJCgdvdXRjb21lIn8KDUV4cGVjdGVkRXJyb3ISNgoEY29kZRgBIAEoDjIoLnByb3RvdXRpbC5jZWxxbC52MS5UcmFuc2xhdGlvbkVycm9yQ29kZRIfChJleHByZXNzaW9uX25vZGVfaWQYAiABKANIAIgBAUIVChNfZXhwcmVzc2lvbl9ub2RlX2lkKnAKEENvbmZvcm1hbmNlTGV2ZWwSIQodQ09ORk9STUFOQ0VfTEVWRUxfVU5TUEVDSUZJRUQQABIaChZDT05GT1JNQU5DRV9MRVZFTF9DT1JFEAESHQoZQ09ORk9STUFOQ0VfTEVWRUxfUFJPRklMRRACKoYBChRDb25mb3JtYW5jZU9wZXJhdGlvbhIlCiFDT05GT1JNQU5DRV9PUEVSQVRJT05fVU5TUEVDSUZJRUQQABIjCh9DT05GT1JNQU5DRV9PUEVSQVRJT05fVFJBTlNMQVRFEAESIgoeQ09ORk9STUFOQ0VfT1BFUkFUSU9OX1ZBTElEQVRFEAJiBnByb3RvMw", [file_cel_expr_checked, file_google_protobuf_any, file_google_protobuf_empty, file_protoutil_celql_v1_celql]);
 
 /**
  * The names and types a case needs in order to be checked.
@@ -173,55 +174,18 @@ export type ConformanceCase = Message<"protoutil.celql.conformance.v1.Conformanc
   environment?: ConformanceEnvironment;
 
   /**
-   * The profile to select.
+   * Independent profile expectations for this one input. Different profiles
+   * can accept or reject the same CEL source independently.
    *
-   * A profile case always sets this. A core case sets it only when the case is
-   * about profile selection itself, such as an unregistered name or an
-   * unsupported major version. When a core case leaves this unset, the runner
-   * supplies any profile the implementation supports, because translation
-   * always requires some profile. Such a case must not depend on which profile
-   * the runner chose.
-   *
-   * @generated from field: protoutil.celql.v1.ProfileReference profile = 5;
+   * @generated from field: repeated protoutil.celql.conformance.v1.ProfileExpectation expected = 8;
    */
-  profile?: ProfileReference;
+  expected: ProfileExpectation[];
 
   /**
-   * Limits for this case. An unset field falls back to the profile default.
-   *
-   * @generated from field: protoutil.celql.v1.TranslationLimits limits = 6;
-   */
-  limits?: TranslationLimits;
-
-  /**
-   * Configuration of the type the selected profile declares. A core case
-   * leaves this unset, because configuration shapes are profile-specific.
-   *
-   * @generated from field: google.protobuf.Any profile_configuration = 7;
-   */
-  profileConfiguration?: Any;
-
-  /**
-   * @generated from oneof protoutil.celql.conformance.v1.ConformanceCase.expected
-   */
-  expected: {
-    /**
-     * @generated from field: protoutil.celql.conformance.v1.ExpectedSuccess success = 8;
-     */
-    value: ExpectedSuccess;
-    case: "success";
-  } | {
-    /**
-     * @generated from field: protoutil.celql.conformance.v1.ExpectedError error = 9;
-     */
-    value: ExpectedError;
-    case: "error";
-  } | { case: undefined; value?: undefined };
-
-  /**
-   * What the runner-selected profile must be able to do for this case to mean
-   * anything. Used only when `profile` is unset. A profile that does not meet
-   * these requirements skips the case instead of failing it.
+   * What a runner-selected profile must be able to do for this case to mean
+   * anything. Used only when an expectation's `profile` is unset. A profile
+   * that does not meet these requirements skips the expectation instead of
+   * failing it.
    *
    * @generated from field: protoutil.celql.conformance.v1.CaseRequirements requirements = 10;
    */
@@ -234,6 +198,64 @@ export type ConformanceCase = Message<"protoutil.celql.conformance.v1.Conformanc
  */
 export const ConformanceCaseSchema: GenMessage<ConformanceCase> = /*@__PURE__*/
   messageDesc(file_protoutil_celql_conformance_v1_conformance, 2);
+
+/**
+ * One profile-specific expected outcome for a shared conformance input.
+ *
+ * @generated from message protoutil.celql.conformance.v1.ProfileExpectation
+ */
+export type ProfileExpectation = Message<"protoutil.celql.conformance.v1.ProfileExpectation"> & {
+  /**
+   * The profile the runner uses to construct the translator.
+   *
+   * A profile expectation sets this. A core expectation sets it when the case
+   * requires a specific profile, including an exact baseline-output check.
+   * When a core expectation leaves it unset, the runner selects any available
+   * profile that meets the case requirements.
+   *
+   * @generated from field: protoutil.celql.v1.ProfileReference profile = 1;
+   */
+  profile?: ProfileReference;
+
+  /**
+   * Configuration of the type the selected profile declares.
+   *
+   * @generated from field: google.protobuf.Any profile_configuration = 2;
+   */
+  profileConfiguration?: Any;
+
+  /**
+   * @generated from oneof protoutil.celql.conformance.v1.ProfileExpectation.expected
+   */
+  expected: {
+    /**
+     * @generated from field: protoutil.celql.conformance.v1.ExpectedSuccess success = 3;
+     */
+    value: ExpectedSuccess;
+    case: "success";
+  } | {
+    /**
+     * @generated from field: protoutil.celql.conformance.v1.ExpectedError error = 4;
+     */
+    value: ExpectedError;
+    case: "error";
+  } | { case: undefined; value?: undefined };
+
+  /**
+   * Limits for this profile expectation. Unset fields fall back to the
+   * selected profile defaults.
+   *
+   * @generated from field: protoutil.celql.v1.TranslationLimits limits = 5;
+   */
+  limits?: TranslationLimits;
+};
+
+/**
+ * Describes the message protoutil.celql.conformance.v1.ProfileExpectation.
+ * Use `create(ProfileExpectationSchema)` to create a new message.
+ */
+export const ProfileExpectationSchema: GenMessage<ProfileExpectation> = /*@__PURE__*/
+  messageDesc(file_protoutil_celql_conformance_v1_conformance, 3);
 
 /**
  * Capabilities a runner-selected profile must declare before a core case
@@ -280,7 +302,7 @@ export type CaseRequirements = Message<"protoutil.celql.conformance.v1.CaseRequi
  * Use `create(CaseRequirementsSchema)` to create a new message.
  */
 export const CaseRequirementsSchema: GenMessage<CaseRequirements> = /*@__PURE__*/
-  messageDesc(file_protoutil_celql_conformance_v1_conformance, 3);
+  messageDesc(file_protoutil_celql_conformance_v1_conformance, 4);
 
 /**
  * The expected successful result.
@@ -322,8 +344,8 @@ export type ExpectedSuccess = Message<"protoutil.celql.conformance.v1.ExpectedSu
      * because the predicate is empty. A translator never returns an empty
      * predicate; `match_all` and `match_none` cover the unconditional cases.
      *
-     * This is the only predicate expectation a core case may use, because a
-     * core case cannot know the selected dialect's representation.
+     * A core case uses this when it does not select the required baseline
+     * profile and therefore cannot know the selected dialect's representation.
      *
      * @generated from field: google.protobuf.Empty predicate_produced = 3;
      */
@@ -334,8 +356,9 @@ export type ExpectedSuccess = Message<"protoutil.celql.conformance.v1.ExpectedSu
      * Translation returned exactly this message. The embedded type must equal
      * the selected profile's declared output type.
      *
-     * Only a profile case may use this. `Any` is a transport wrapper here, not
-     * a substitute for the profile's real output type.
+     * A profile case or a core case that selects the required baseline profile
+     * may use this. `Any` is a transport wrapper here, not a substitute for the
+     * profile's real output type.
      *
      * @generated from field: google.protobuf.Any exact_predicate = 4;
      */
@@ -357,7 +380,7 @@ export type ExpectedSuccess = Message<"protoutil.celql.conformance.v1.ExpectedSu
  * Use `create(ExpectedSuccessSchema)` to create a new message.
  */
 export const ExpectedSuccessSchema: GenMessage<ExpectedSuccess> = /*@__PURE__*/
-  messageDesc(file_protoutil_celql_conformance_v1_conformance, 4);
+  messageDesc(file_protoutil_celql_conformance_v1_conformance, 5);
 
 /**
  * The expected failure.
@@ -395,7 +418,7 @@ export type ExpectedError = Message<"protoutil.celql.conformance.v1.ExpectedErro
  * Use `create(ExpectedErrorSchema)` to create a new message.
  */
 export const ExpectedErrorSchema: GenMessage<ExpectedError> = /*@__PURE__*/
-  messageDesc(file_protoutil_celql_conformance_v1_conformance, 5);
+  messageDesc(file_protoutil_celql_conformance_v1_conformance, 6);
 
 /**
  * Which conformance level a suite belongs to. The level determines what a case
@@ -420,8 +443,8 @@ export enum ConformanceLevel {
   CORE = 1,
 
   /**
-   * One concrete dialect profile. Cases may assert the profile's real output
-   * message.
+   * Concrete dialect profiles. Each expectation may assert its profile's real
+   * output message.
    *
    * @generated from enum value: CONFORMANCE_LEVEL_PROFILE = 2;
    */

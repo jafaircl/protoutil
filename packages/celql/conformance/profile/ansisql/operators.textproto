@@ -21,128 +21,246 @@ cases {
   name: "equality_against_constant"
   description: "Equality emits the distinct predicate. The value never appears in the condition text."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == \"alice\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    profile_configuration { [type.googleapis.com/google.protobuf.Empty] {} }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_PROFILE_CONFIGURATION }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    profile_configuration { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlConfiguration] {} }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_PROFILE_CONFIGURATION }
+  }
 }
 
 cases {
   name: "inequality_against_constant"
   description: "Inequality emits the distinct predicate. Plain <> would yield unknown for a null column and would exclude a row that CEL selects."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name != \"alice\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS DISTINCT FROM ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" IS DISTINCT FROM $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
 }
 
 cases {
   name: "constant_on_the_left"
   description: "Operand order is preserved, so a constant on the left emits the marker on the left."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "\"alice\" == name"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "? IS NOT DISTINCT FROM \"name\""
-    parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "? IS NOT DISTINCT FROM \"name\""
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "$1 IS NOT DISTINCT FROM \"name\""
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
 }
 
 cases {
   name: "field_to_field_comparison_binds_nothing"
   description: "Both operands may be columns. No parameter is emitted."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == nickname"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NOT DISTINCT FROM \"nickname\""
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM \"nickname\""
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM \"nickname\""
+    } } }
+  }
 }
 
 cases {
   name: "conjunction_is_parenthesized"
   description: "A composite condition is parenthesized, so a caller can combine it with other conditions without adding parentheses."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == \"alice\" && age > 21"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(\"name\" IS NOT DISTINCT FROM ? AND \"age\" > ?)"
-    parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
-    parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"name\" IS NOT DISTINCT FROM ? AND \"age\" > ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"name\" IS NOT DISTINCT FROM $1 AND \"age\" > $2)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    profile_configuration { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlConfiguration] {
+      start_position: 5
+    } }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"name\" IS NOT DISTINCT FROM $5 AND \"age\" > $6)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
+    } } }
+  }
 }
 
 cases {
   name: "disjunction_preserves_grouping"
   description: "Nested Boolean operators keep the grouping of the expression tree, because AND binds tighter than OR in SQL."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == \"alice\" || (name == \"bob\" && age > 21)"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(\"name\" IS NOT DISTINCT FROM ? OR (\"name\" IS NOT DISTINCT FROM ? AND \"age\" > ?))"
-    parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
-    parameters { cel_type { primitive: STRING } value { string_value: "bob" } }
-    parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"name\" IS NOT DISTINCT FROM ? OR (\"name\" IS NOT DISTINCT FROM ? AND \"age\" > ?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "bob" } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"name\" IS NOT DISTINCT FROM $1 OR (\"name\" IS NOT DISTINCT FROM $2 AND \"age\" > $3))"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "bob" } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
+    } } }
+  }
 }
 
 cases {
   name: "negated_equality_stays_total"
   description: "CEL equality is total, so its negation selects a row whose column is null. A plain = under NOT would yield unknown and drop that row."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "!(name == \"alice\")"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(NOT \"name\" IS NOT DISTINCT FROM ?)"
-    parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(NOT \"name\" IS NOT DISTINCT FROM ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(NOT \"name\" IS NOT DISTINCT FROM $1)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
 }
 
 cases {
   name: "negated_ordering_carries_no_null_guard"
   description: "An ordering comparison on a null operand is a CEL error, and a SQL unknown propagates the same way, so the two already agree under negation. A null guard here would break that agreement."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "!(age > 21)"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(NOT \"age\" > ?)"
-    parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(NOT \"age\" > ?)"
+      parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(NOT \"age\" > $1)"
+      parameters { cel_type { primitive: INT64 } value { int64_value: 21 } }
+    } } }
+  }
 }
 
 cases {
   name: "negated_null_test_stays_total"
   description: "A null test is already total, so negating it needs no further guard."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "!(name == null)"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(NOT \"name\" IS NULL)"
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(NOT \"name\" IS NULL)"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(NOT \"name\" IS NULL)"
+    } } }
+  }
 }
 
 cases {
   name: "boolean_column_operand_accepted"
   description: "A Boolean column is a valid logical operand and emits the Boolean column form beside the comparison."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "active && name == \"alice\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(\"active\" = TRUE AND \"name\" IS NOT DISTINCT FROM ?)"
-    parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"active\" = TRUE AND \"name\" IS NOT DISTINCT FROM ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"active\" = TRUE AND \"name\" IS NOT DISTINCT FROM $1)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
 }
 
 cases {
   name: "constant_to_constant_comparison_rejected"
   description: "Two constants form no condition on a record, so the operand-shape combination is outside the fragment."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "\"a\" == \"b\""
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
 }

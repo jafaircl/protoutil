@@ -23,106 +23,124 @@ cases {
   name: "int64_minimum_binds_without_loss"
   description: "The smallest signed 64-bit value reaches the parameter list unchanged."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "count == -9223372036854775808"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"count\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: INT64 } value { int64_value: -9223372036854775808 } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"count\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: INT64 } value { int64_value: -9223372036854775808 } }
+    } } }
+  }
 }
 
 cases {
   name: "int64_maximum_binds_without_loss"
   description: "The largest signed 64-bit value reaches the parameter list unchanged."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "count == 9223372036854775807"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"count\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: INT64 } value { int64_value: 9223372036854775807 } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"count\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: INT64 } value { int64_value: 9223372036854775807 } }
+    } } }
+  }
 }
 
 cases {
   name: "unsigned_zero_binds_as_a_value"
   description: "An unsigned zero is a value rather than an absent operand, so it still produces a marker and an entry."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "size == 0u"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"size\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: UINT64 } value { uint64_value: 0 } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"size\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: UINT64 } value { uint64_value: 0 } }
+    } } }
+  }
 }
 
 cases {
   name: "signed_and_unsigned_keep_distinct_types"
   description: "The bound parameter records the CEL type, so a signed and an unsigned value of equal magnitude remain distinguishable to the caller binding them."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "count == 1 && size == 1u"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(\"count\" IS NOT DISTINCT FROM ? AND \"size\" IS NOT DISTINCT FROM ?)"
-    parameters { cel_type { primitive: INT64 } value { int64_value: 1 } }
-    parameters { cel_type { primitive: UINT64 } value { uint64_value: 1 } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"count\" IS NOT DISTINCT FROM ? AND \"size\" IS NOT DISTINCT FROM ?)"
+      parameters { cel_type { primitive: INT64 } value { int64_value: 1 } }
+      parameters { cel_type { primitive: UINT64 } value { uint64_value: 1 } }
+    } } }
+  }
 }
 
 cases {
   name: "double_maximum_binds_without_loss"
   description: "The largest finite double reaches the parameter list unchanged."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "ratio == 1.7976931348623157e308"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"ratio\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: DOUBLE } value { double_value: 1.7976931348623157e308 } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"ratio\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: DOUBLE } value { double_value: 1.7976931348623157e308 } }
+    } } }
+  }
 }
 
 cases {
   name: "null_comparison_binds_nothing"
   description: "CEL null becomes a null test rather than a bound value, because binding null and comparing with = would yield unknown instead of true."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == null"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NULL"
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NULL"
+    } } }
+  }
 }
 
 cases {
   name: "field_to_field_comparison_binds_nothing"
   description: "Two column operands produce no parameter, so an implementation that binds one of them fails this case."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == nickname"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NOT DISTINCT FROM \"nickname\""
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM \"nickname\""
+    } } }
+  }
 }
 
 cases {
   name: "selection_path_keeps_its_components"
   description: "A selection chain becomes a qualified column reference rather than one flattened name."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "user.email == \"a@example.com\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"user\".\"email\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "a@example.com" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"user\".\"email\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "a@example.com" } }
+    } } }
+  }
 }
 
 cases {
   name: "repeated_equal_values_bind_separately"
   description: "Equal values are not merged into one marker, because markers are bound by position and merging would shift every later binding."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == \"x\" && nickname == \"x\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(\"name\" IS NOT DISTINCT FROM ? AND \"nickname\" IS NOT DISTINCT FROM ?)"
-    parameters { cel_type { primitive: STRING } value { string_value: "x" } }
-    parameters { cel_type { primitive: STRING } value { string_value: "x" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"name\" IS NOT DISTINCT FROM ? AND \"nickname\" IS NOT DISTINCT FROM ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "x" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "x" } }
+    } } }
+  }
 }

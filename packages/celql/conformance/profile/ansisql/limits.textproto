@@ -19,55 +19,97 @@ cases {
   name: "output_growth_at_limit_accepted"
   description: "A condition whose length equals the configured growth limit is accepted. The emitted text is 29 code points."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
-  limits { max_output_growth: 29 }
   cel_source: "name == \"alice\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_output_growth: 29 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_output_growth: 30 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
 }
 
 cases {
   name: "output_growth_over_limit_rejected"
   description: "A condition longer than the configured growth limit is refused while the output is generated, not after it is complete."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
-  limits { max_output_growth: 28 }
   cel_source: "name == \"alice\""
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_output_growth: 28 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_output_growth: 29 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }
 
 cases {
   name: "parameter_count_at_limit_accepted"
   description: "A translation emitting exactly the permitted number of parameters is accepted."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
-  limits { max_parameters: 2 }
   cel_source: "a == \"x\" && b == \"y\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "(\"a\" IS NOT DISTINCT FROM ? AND \"b\" IS NOT DISTINCT FROM ?)"
-    parameters { cel_type { primitive: STRING } value { string_value: "x" } }
-    parameters { cel_type { primitive: STRING } value { string_value: "y" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_parameters: 2 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"a\" IS NOT DISTINCT FROM ? AND \"b\" IS NOT DISTINCT FROM ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "x" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "y" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_parameters: 2 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"a\" IS NOT DISTINCT FROM $1 AND \"b\" IS NOT DISTINCT FROM $2)"
+      parameters { cel_type { primitive: STRING } value { string_value: "x" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "y" } }
+    } } }
+  }
 }
 
 cases {
   name: "parameter_count_over_limit_rejected"
   description: "A translation that would emit more parameters than permitted is refused."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
-  limits { max_parameters: 1 }
   cel_source: "a == \"x\" && b == \"y\""
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_parameters: 1 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_parameters: 1 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }
 
 cases {
   name: "membership_counts_one_parameter_per_element"
   description: "A membership test emits one parameter per element, so a list can exceed the parameter limit on its own."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
-  limits { max_parameters: 2 }
   cel_source: "status in [\"a\", \"b\", \"c\"]"
-  error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_parameters: 2 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_parameters: 2 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
 }

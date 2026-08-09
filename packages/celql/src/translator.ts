@@ -1,0 +1,389 @@
+import { create, type DescMessage, type MessageShape } from "@bufbuild/protobuf";
+import { Type_PrimitiveType } from "./gen/cel/expr/checked_pb.js";
+import type { Expr } from "./gen/cel/expr/syntax_pb.js";
+import {
+  type DialectCapabilityProfile,
+  type TranslationError,
+  TranslationErrorCode,
+  TranslationErrorSchema,
+} from "./gen/protoutil/celql/v1/celql_pb.js";
+import type {
+  DialectConstructor,
+  DialectContext,
+  EffectiveTranslationLimits,
+  TranslationOutcome,
+  TranslationRequest,
+} from "./types.js";
+
+const reservedProfileName = "celql.reserved.unregistered";
+const reservedOverloadPrefix = "celql.reserved.unsupported.";
+
+/** Translator permanently bound to one dialect profile major version. */
+export class CelqlTranslator<Desc extends DescMessage = DescMessage> {
+  private readonly dialectClass: DialectConstructor<Desc>;
+
+  public constructor(dialectClass: DialectConstructor<Desc>) {
+    if (dialectClass === undefined) {
+      throw new Error("a dialect class is required");
+    }
+    const reference = dialectClass.capability.profile;
+    if (reference === undefined || reference.name.length === 0 || reference.majorVersion === 0) {
+      throw new Error("a dialect profile requires a name and major version");
+    }
+    if (reference.name === reservedProfileName) {
+      throw new Error(`${reservedProfileName} is reserved for conformance`);
+    }
+    if (
+      dialectClass.capability.operations.some((operation) =>
+        operation.overloadId.startsWith(reservedOverloadPrefix),
+      )
+    ) {
+      throw new Error(`${reservedOverloadPrefix} is reserved for conformance`);
+    }
+    effectiveLimits(dialectClass.capability);
+    this.dialectClass = dialectClass;
+  }
+
+  /** Returns the capability declaration for the bound dialect. */
+  public capability(): DialectCapabilityProfile {
+    return this.dialectClass.capability;
+  }
+
+  /** Validates an expression with the bound dialect and throws on rejection. */
+  public validate(request: TranslationRequest): void {
+    const limits = mergeLimits(this.dialectClass.capability, request.limits);
+    validateCheckedExpression(request.checkedExpression.expr, request.checkedExpression, limits);
+    if (booleanConstant(request.checkedExpression.expr) !== undefined) return;
+    const context: DialectContext = {
+      checkedExpression: request.checkedExpression,
+      limits,
+      profileConfiguration: request.profileConfiguration,
+    };
+    new this.dialectClass(context).validate();
+  }
+
+  /** Translates an expression with the bound dialect and throws on failure. */
+  public translate(request: TranslationRequest): TranslationOutcome<MessageShape<Desc>> {
+    const limits = mergeLimits(this.dialectClass.capability, request.limits);
+    validateCheckedExpression(request.checkedExpression.expr, request.checkedExpression, limits);
+    const context: DialectContext = {
+      checkedExpression: request.checkedExpression,
+      limits,
+      profileConfiguration: request.profileConfiguration,
+    };
+    const constant = booleanConstant(request.checkedExpression.expr);
+    if (constant !== undefined) {
+      return { case: constant ? "matchAll" : "matchNone" };
+    }
+    const predicate = new this.dialectClass(context).translate();
+    if (
+      predicate === undefined ||
+      predicate.$typeName !== this.dialectClass.capability.outputTypeName
+    ) {
+      throw new CelqlError(TranslationErrorCode.INVALID_PROFILE_OUTPUT, {
+        message: "The dialect returned an output type that differs from its capability profile.",
+      });
+    }
+    return { case: "predicate", value: predicate };
+  }
+}
+
+/** Creates a translator bound to one dialect profile major version. */
+export function createTranslator<Desc extends DescMessage>(
+  dialectClass: DialectConstructor<Desc>,
+): CelqlTranslator<Desc> {
+  return new CelqlTranslator(dialectClass);
+}
+
+/** Options for one machine-readable celql failure. */
+export interface CelqlErrorOptions {
+  /** Expression node that uniquely caused the failure. */
+  expressionNodeId?: bigint;
+  /** Informational message that contains no bound value. */
+  message?: string;
+  /** Non-secret structured diagnostic context. */
+  details?: Record<string, string>;
+}
+
+/** Error thrown for a specified celql rejection or translation failure. */
+export class CelqlError extends Error {
+  /** Stable machine-readable failure code. */
+  public readonly code: TranslationErrorCode;
+
+  /** Expression node that uniquely caused the failure. */
+  public readonly expressionNodeId?: bigint;
+
+  /** Non-secret structured diagnostic context. */
+  public readonly details: Record<string, string>;
+
+  public constructor(code: TranslationErrorCode, options: CelqlErrorOptions = {}) {
+    super(options.message ?? "Translation was rejected.");
+    this.name = "CelqlError";
+    this.code = code;
+    this.expressionNodeId = options.expressionNodeId;
+    this.details = options.details ?? {};
+  }
+
+  /** Returns the language-independent protobuf representation of this error. */
+  public toProto(): TranslationError {
+    return create(TranslationErrorSchema, {
+      code: this.code,
+      expressionNodeId: this.expressionNodeId,
+      message: this.message,
+      details: this.details,
+    });
+  }
+}
+
+function effectiveLimits(capability: DialectCapabilityProfile): EffectiveTranslationLimits {
+  const limits = capability.defaultLimits;
+  if (limits === undefined) {
+    throw new Error("a dialect capability profile requires default limits");
+  }
+  const maxOutputGrowth = limits.maxOutputGrowth ?? capability.defaultMaxOutputGrowth;
+  if (
+    limits.maxDepth === undefined ||
+    limits.maxNodes === undefined ||
+    limits.maxParameters === undefined ||
+    limits.maxConstantBytes === undefined ||
+    limits.maxTotalConstantBytes === undefined ||
+    limits.maxComprehensionNesting === undefined ||
+    limits.maxRegexPatternBytes === undefined ||
+    maxOutputGrowth === undefined
+  ) {
+    throw new Error("a dialect capability profile must define every default limit");
+  }
+  return {
+    maxDepth: limits.maxDepth,
+    maxNodes: limits.maxNodes,
+    maxParameters: limits.maxParameters,
+    maxConstantBytes: limits.maxConstantBytes,
+    maxTotalConstantBytes: limits.maxTotalConstantBytes,
+    maxComprehensionNesting: limits.maxComprehensionNesting,
+    maxRegexPatternBytes: limits.maxRegexPatternBytes,
+    maxOutputGrowth,
+  };
+}
+
+function mergeLimits(
+  capability: DialectCapabilityProfile,
+  configured: TranslationRequest["limits"],
+): EffectiveTranslationLimits {
+  const defaults = effectiveLimits(capability);
+  return {
+    maxDepth: configured?.maxDepth ?? defaults.maxDepth,
+    maxNodes: configured?.maxNodes ?? defaults.maxNodes,
+    maxParameters: configured?.maxParameters ?? defaults.maxParameters,
+    maxConstantBytes: configured?.maxConstantBytes ?? defaults.maxConstantBytes,
+    maxTotalConstantBytes: configured?.maxTotalConstantBytes ?? defaults.maxTotalConstantBytes,
+    maxComprehensionNesting:
+      configured?.maxComprehensionNesting ?? defaults.maxComprehensionNesting,
+    maxRegexPatternBytes: configured?.maxRegexPatternBytes ?? defaults.maxRegexPatternBytes,
+    maxOutputGrowth: configured?.maxOutputGrowth ?? defaults.maxOutputGrowth,
+  };
+}
+
+function validateCheckedExpression(
+  root: Expr | undefined,
+  checkedExpression: TranslationRequest["checkedExpression"],
+  limits: EffectiveTranslationLimits,
+): void {
+  if (root === undefined) {
+    throw new CelqlError(TranslationErrorCode.INVALID_CHECKED_EXPRESSION, {
+      message: "The checked expression has no root expression.",
+    });
+  }
+  const stack: Array<{ expression: Expr; depth: number; comprehensionDepth: number }> = [
+    { expression: root, depth: 1, comprehensionDepth: 0 },
+  ];
+  const identifiers = new Set<bigint>();
+  let nodeCount = 0n;
+  let totalConstantBytes = 0n;
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    const expression = current.expression;
+    nodeCount += 1n;
+    if (nodeCount > limits.maxNodes) {
+      throwLimitError("max_nodes", limits.maxNodes, nodeCount);
+    }
+    if (current.depth > limits.maxDepth) {
+      throwLimitError("max_depth", BigInt(limits.maxDepth), BigInt(current.depth));
+    }
+    if (expression.id <= 0n || identifiers.has(expression.id)) {
+      throw new CelqlError(TranslationErrorCode.INVALID_CHECKED_EXPRESSION, {
+        expressionNodeId: expression.id > 0n ? expression.id : undefined,
+        message: "A reachable expression node identifier is invalid or duplicated.",
+      });
+    }
+    identifiers.add(expression.id);
+    if (expression.exprKind.case === undefined) {
+      throw new CelqlError(TranslationErrorCode.INVALID_CHECKED_EXPRESSION, {
+        expressionNodeId: expression.id,
+        message: "A reachable expression node has no expression kind.",
+      });
+    }
+    if (checkedExpression.typeMap[expression.id.toString()] === undefined) {
+      throw new CelqlError(TranslationErrorCode.INVALID_CHECKED_EXPRESSION, {
+        expressionNodeId: expression.id,
+        message: "A reachable expression node has no resolved type.",
+      });
+    }
+    const reference = checkedExpression.referenceMap[expression.id.toString()];
+    if (
+      (expression.exprKind.case === "identExpr" || expression.exprKind.case === "callExpr") &&
+      reference === undefined
+    ) {
+      throw new CelqlError(TranslationErrorCode.INVALID_CHECKED_EXPRESSION, {
+        expressionNodeId: expression.id,
+        message: "A reachable identifier or call has no resolved reference.",
+      });
+    }
+    if (expression.exprKind.case === "constExpr") {
+      const size = constantSize(expression.exprKind.value);
+      if (size > limits.maxConstantBytes) {
+        throwLimitError("max_constant_bytes", limits.maxConstantBytes, size);
+      }
+      totalConstantBytes += size;
+      if (totalConstantBytes > limits.maxTotalConstantBytes) {
+        throwLimitError(
+          "max_total_constant_bytes",
+          limits.maxTotalConstantBytes,
+          totalConstantBytes,
+        );
+      }
+    }
+    const children = childExpressions(expression);
+    if (!children.ok) {
+      throw new CelqlError(TranslationErrorCode.INVALID_CHECKED_EXPRESSION, {
+        expressionNodeId: expression.id,
+        message: children.message,
+      });
+    }
+    const comprehensionDepth =
+      expression.exprKind.case === "comprehensionExpr"
+        ? current.comprehensionDepth + 1
+        : current.comprehensionDepth;
+    if (comprehensionDepth > limits.maxComprehensionNesting) {
+      throwLimitError(
+        "max_comprehension_nesting",
+        BigInt(limits.maxComprehensionNesting),
+        BigInt(comprehensionDepth),
+      );
+    }
+    for (const child of children.values) {
+      stack.push({
+        expression: child,
+        depth: current.depth + 1,
+        comprehensionDepth,
+      });
+    }
+  }
+  const rootType = checkedExpression.typeMap[root.id.toString()];
+  if (
+    rootType?.typeKind.case !== "primitive" ||
+    rootType.typeKind.value !== Type_PrimitiveType.BOOL
+  ) {
+    throw new CelqlError(TranslationErrorCode.NON_BOOLEAN_ROOT, {
+      expressionNodeId: root.id,
+      message: "The root expression type is not bool.",
+    });
+  }
+}
+
+function childExpressions(
+  expression: Expr,
+): { ok: true; values: Expr[] } | { ok: false; message: string } {
+  switch (expression.exprKind.case) {
+    case "constExpr":
+    case "identExpr":
+      return { ok: true, values: [] };
+    case "selectExpr":
+      return expression.exprKind.value.operand === undefined
+        ? { ok: false, message: "A selection has no operand." }
+        : { ok: true, values: [expression.exprKind.value.operand] };
+    case "callExpr":
+      return {
+        ok: true,
+        values:
+          expression.exprKind.value.target === undefined
+            ? expression.exprKind.value.args
+            : [expression.exprKind.value.target, ...expression.exprKind.value.args],
+      };
+    case "listExpr":
+      return { ok: true, values: expression.exprKind.value.elements };
+    case "structExpr": {
+      const values: Expr[] = [];
+      for (const entry of expression.exprKind.value.entries) {
+        if (entry.value === undefined || entry.keyKind.case === undefined) {
+          return { ok: false, message: "A structure entry is incomplete." };
+        }
+        if (entry.keyKind.case === "mapKey") {
+          values.push(entry.keyKind.value);
+        }
+        values.push(entry.value);
+      }
+      return { ok: true, values };
+    }
+    case "comprehensionExpr": {
+      const value = expression.exprKind.value;
+      if (
+        value.iterRange === undefined ||
+        value.accuInit === undefined ||
+        value.loopCondition === undefined ||
+        value.loopStep === undefined ||
+        value.result === undefined
+      ) {
+        return { ok: false, message: "A comprehension omits a required subexpression." };
+      }
+      return {
+        ok: true,
+        values: [
+          value.iterRange,
+          value.accuInit,
+          value.loopCondition,
+          value.loopStep,
+          value.result,
+        ],
+      };
+    }
+    default:
+      return { ok: false, message: "A reachable expression has no supported kind." };
+  }
+}
+
+function constantSize(constant: Extract<Expr["exprKind"], { case: "constExpr" }>["value"]): bigint {
+  switch (constant.constantKind.case) {
+    case "nullValue":
+    case undefined:
+      return 0n;
+    case "boolValue":
+      return 1n;
+    case "int64Value":
+    case "uint64Value":
+    case "doubleValue":
+    case "durationValue":
+    case "timestampValue":
+      return 8n;
+    case "stringValue":
+      return BigInt(new TextEncoder().encode(constant.constantKind.value).byteLength);
+    case "bytesValue":
+      return BigInt(constant.constantKind.value.byteLength);
+  }
+}
+
+function throwLimitError(name: string, limit: bigint, observed: bigint): never {
+  throw new CelqlError(TranslationErrorCode.RESOURCE_LIMIT_EXCEEDED, {
+    message: "A translation resource limit was exceeded.",
+    details: { limit: name, configured: limit.toString(), observed: observed.toString() },
+  });
+}
+
+function booleanConstant(root: Expr | undefined): boolean | undefined {
+  if (
+    root?.exprKind.case === "constExpr" &&
+    root.exprKind.value.constantKind.case === "boolValue"
+  ) {
+    return root.exprKind.value.constantKind.value;
+  }
+  return undefined;
+}

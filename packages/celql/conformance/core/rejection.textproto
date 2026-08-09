@@ -28,25 +28,31 @@ cases {
   description: "An overload that no profile may declare is refused."
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "neverSupported(true)"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
 }
 
 cases {
   name: "atomic_failure_across_branches"
   description: "One untranslatable branch fails the whole translation. A translator does not return the translatable branch alone, because dropping a conjunct would widen the matched set."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "status == \"active\" && neverSupported(true)"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
 }
 
 cases {
   name: "atomic_failure_under_disjunction"
   description: "One untranslatable disjunct fails the whole translation. Dropping a disjunct would narrow the matched set."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "status == \"active\" || neverSupported(true)"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
 }
 
 cases {
@@ -54,5 +60,7 @@ cases {
   description: "Validation reports fragment rejection without producing output."
   operation: CONFORMANCE_OPERATION_VALIDATE
   cel_source: "neverSupported(true)"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
 }

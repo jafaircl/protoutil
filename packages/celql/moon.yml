@@ -16,11 +16,20 @@ tasks:
     inputs:
     - '@globs(sources)'
     - 'tsconfig.json'
-  build:
-    command: 'pnpm run build'
+  test:
+    command: 'pnpm run test'
     dependsOn:
     - typecheck
     - check
+    inputs:
+    - '@globs(sources)'
+    - '@globs(tests)'
+    - 'conformance/**/*.textproto'
+    - 'compose.yaml'
+  build:
+    command: 'pnpm run build'
+    dependsOn:
+    - test
     inputs:
     - '@globs(sources)'
     - 'tsdown.config.ts'

@@ -27,60 +27,70 @@ cases {
   name: "statement_syntax_in_a_string_stays_a_parameter"
   description: "A string carrying a quote, a disjunction, and a comment introducer reaches the parameter list unchanged and leaves no trace in the condition."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == \"x' OR 1=1 --\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "x' OR 1=1 --" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "x' OR 1=1 --" } }
+    } } }
+  }
 }
 
 cases {
   name: "statement_terminator_in_a_string_stays_a_parameter"
   description: "A string carrying a statement terminator and a block comment opener cannot end the condition or hide the rest of it."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == 'a\"; DROP TABLE t; /*'"
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "a\"; DROP TABLE t; /*" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "a\"; DROP TABLE t; /*" } }
+    } } }
+  }
 }
 
 cases {
   name: "marker_syntax_in_a_string_stays_a_parameter"
   description: "A string that looks like a parameter marker does not become one, so the marker count still matches the parameter count."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == \"? $1 :name\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "? $1 :name" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "? $1 :name" } }
+    } } }
+  }
 }
 
 cases {
   name: "empty_string_binds_as_a_value"
   description: "An empty string is a value rather than an absent operand, so it still produces a marker and an entry."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "name == \"\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"name\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "" } }
+    } } }
+  }
 }
 
 cases {
   name: "non_printable_bytes_stay_a_parameter"
   description: "A bytes value containing a null octet and a high octet binds as bytes, so no text encoding step can alter or truncate it."
   operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
   cel_source: "payload == b\"\\x00\\x01' OR 1=1 --\\xff\""
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"payload\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: BYTES } value { bytes_value: "\x00\x01' OR 1=1 --\xff" } }
-  } } }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"payload\" IS NOT DISTINCT FROM ?"
+      parameters { cel_type { primitive: BYTES } value { bytes_value: "\x00\x01' OR 1=1 --\xff" } }
+    } } }
+  }
 }
 
 cases {
@@ -88,24 +98,7 @@ cases {
   description: "A constant cannot supply query structure. An expression that is otherwise untranslatable stays rejected whatever its constants contain."
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "neverSupported(\"x' OR 1=1 --\") && true"
-  error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
-}
-
-cases {
-  name: "hostile_identifier_is_delimited_not_interpolated"
-  description: "A column name carrying a quote and a statement terminator is delimited with the quote doubled, so it cannot close the delimiter and start a new statement. No CEL source produces such an identifier, so the structure is built directly."
-  operation: CONFORMANCE_OPERATION_TRANSLATE
-  profile { name: "protoutil.celql.ansisql" major_version: 1 }
-  checked_expression {
-    expr { id: 1 call_expr { function: "_==_" args { id: 2 ident_expr { name: "a\"; DROP TABLE t; --" } } args { id: 3 const_expr { string_value: "x" } } } }
-    type_map { key: 1 value { primitive: BOOL } }
-    type_map { key: 2 value { primitive: STRING } }
-    type_map { key: 3 value { primitive: STRING } }
-    reference_map { key: 1 value { name: "_==_" overload_id: "equals" } }
-    reference_map { key: 2 value { name: "a\"; DROP TABLE t; --" } }
+  expected {
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
   }
-  success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-    sql: "\"a\"\"; DROP TABLE t; --\" IS NOT DISTINCT FROM ?"
-    parameters { cel_type { primitive: STRING } value { string_value: "x" } }
-  } } }
 }
