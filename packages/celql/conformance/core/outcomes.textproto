@@ -19,6 +19,23 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "true"
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { match_all {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { match_all {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { match_all {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { match_all {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     success { match_all {} }
   }
 }
@@ -29,6 +46,23 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "false"
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { match_none {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { match_none {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { match_none {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { match_none {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     success { match_none {} }
   }
 }
@@ -39,6 +73,23 @@ cases {
   operation: CONFORMANCE_OPERATION_VALIDATE
   cel_source: "true"
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { valid {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { valid {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { valid {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { valid {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     success { valid {} }
   }
 }
@@ -51,8 +102,35 @@ cases {
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
     success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-      sql: "\"status\" IS NOT DISTINCT FROM ?"
+      sql: "\"status\" = ?"
       parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"status\" = $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`status` <=> ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"status\" IS ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "status" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "active" } } } } } } }
     } } }
   }
 }
@@ -68,6 +146,28 @@ cases {
       sql: "\"status\" IS NOT DISTINCT FROM \"status\""
     } } }
   }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"status\" IS NOT DISTINCT FROM \"status\""
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`status` <=> `status`"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"status\" IS \"status\""
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 2 }
+  }
 }
 
 cases {
@@ -77,6 +177,22 @@ cases {
   cel_source: "status == \"active\""
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { valid {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { valid {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { valid {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { valid {} }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     success { valid {} }
   }
 }

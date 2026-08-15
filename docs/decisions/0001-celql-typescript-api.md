@@ -1,6 +1,6 @@
 # Use a throwing, dialect-bound translator for the celql TypeScript API
 
-- Status: accepted
+- Status: superseded by [ADR 0002](0002-celql-profile-library-composition.md)
 - Date: 2026-08-08
 - Decision makers: project owner
 

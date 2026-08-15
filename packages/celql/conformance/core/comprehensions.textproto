@@ -57,6 +57,22 @@ cases {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
   }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
 }
 
 cases {
@@ -124,5 +140,25 @@ cases {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
     limits { max_comprehension_nesting: 2 }
     error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 10 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_comprehension_nesting: 2 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 10 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    limits { max_comprehension_nesting: 2 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 10 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    limits { max_comprehension_nesting: 2 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 10 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    limits { max_comprehension_nesting: 2 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
   }
 }

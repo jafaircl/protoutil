@@ -146,6 +146,10 @@ message ProfileExpectation {
   // Limits for this profile expectation. Unset fields fall back to the
   // selected profile defaults.
   celql.v1.TranslationLimits limits = 5;
+
+  // Translation libraries selected when the runner constructs this
+  // expectation's translator. Library order is not significant.
+  repeated celql.v1.LibraryReference libraries = 6;
 }
 
 // Capabilities a runner-selected profile must declare before a core case

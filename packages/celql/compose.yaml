@@ -14,3 +14,43 @@ services:
       - "127.0.0.1:${CELQL_POSTGRES_PORT:-55432}:5432"
     tmpfs:
       - /var/lib/postgresql/data
+  mysql:
+    image: ${CELQL_MYSQL_IMAGE:-mysql:8.4}
+    # The full-text library's declared storage contract requires an index that
+    # tokenizes every term and applies no stop-word list.
+    command:
+      - --innodb-ft-min-token-size=1
+      - --innodb-ft-enable-stopword=OFF
+    environment:
+      MYSQL_DATABASE: celql
+      MYSQL_PASSWORD: celql
+      MYSQL_ROOT_PASSWORD: celql-root
+      MYSQL_USER: celql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -pcelql-root"]
+      start_period: 10s
+      interval: 1s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "127.0.0.1:${CELQL_MYSQL_PORT:-53306}:3306"
+    tmpfs:
+      - /var/lib/mysql
+  mongodb:
+    image: ${CELQL_MONGODB_IMAGE:-mongo:8.0}
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: celql
+      MONGO_INITDB_ROOT_PASSWORD: celql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username celql --password celql --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1",
+        ]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "127.0.0.1:${CELQL_MONGODB_PORT:-57017}:27017"
+    tmpfs:
+      - /data/db

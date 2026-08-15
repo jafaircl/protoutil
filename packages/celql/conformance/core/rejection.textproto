@@ -29,7 +29,24 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "neverSupported(true)"
   expected {
-    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
   }
 }
 
@@ -40,7 +57,23 @@ cases {
   cel_source: "status == \"active\" && neverSupported(true)"
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
-    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
   }
 }
 
@@ -51,7 +84,23 @@ cases {
   cel_source: "status == \"active\" || neverSupported(true)"
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
-    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 4 }
   }
 }
 
@@ -61,6 +110,23 @@ cases {
   operation: CONFORMANCE_OPERATION_VALIDATE
   cel_source: "neverSupported(true)"
   expected {
-    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
   }
 }

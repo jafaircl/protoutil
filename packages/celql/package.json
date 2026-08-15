@@ -18,6 +18,26 @@
       "require": "./dist/index.cjs",
       "import": "./dist/index.mjs"
     },
+    "./ansisql": {
+      "require": "./dist/ansisql/index.cjs",
+      "import": "./dist/ansisql/index.mjs"
+    },
+    "./mongodb": {
+      "require": "./dist/mongodb/index.cjs",
+      "import": "./dist/mongodb/index.mjs"
+    },
+    "./mysql": {
+      "require": "./dist/mysql/index.cjs",
+      "import": "./dist/mysql/index.mjs"
+    },
+    "./postgresql": {
+      "require": "./dist/postgresql/index.cjs",
+      "import": "./dist/postgresql/index.mjs"
+    },
+    "./sqlite": {
+      "require": "./dist/sqlite/index.cjs",
+      "import": "./dist/sqlite/index.mjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.cts",
@@ -34,8 +54,12 @@
     "protogen": "buf generate"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.0.3",
     "@types/pg": "^8.18.0",
+    "better-sqlite3": "^12.6.2",
+    "mongodb": "^6.16.0",
+    "mysql2": "^3.14.0",
     "pg": "^8.20.0",
     "tsdown": "^0.18.1",
     "typescript": "^5.9.3",
@@ -45,6 +69,7 @@
   "module": "./dist/index.mjs",
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
-    "@protoutil/cel": "workspace:*"
+    "@protoutil/cel": "workspace:*",
+    "@protoutil/core": "workspace:*"
   }
 }

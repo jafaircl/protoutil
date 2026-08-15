@@ -1,0 +1,288 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+#
+# Boolean columns used directly as a condition. An authorization rule commonly
+# tests a flag this way, as in `resource.public`.
+#
+# The emission is `P = TRUE` rather than `P IS TRUE`. Both look equivalent
+# until the column is null and a negation is above them: `IS TRUE` is false for
+# a null column, so its negation is true and selects a row that CEL does not.
+# `= TRUE` is unknown, which is how a CEL error behaves.
+
+name: "celql-core-sql-booleans"
+specification_version: "0.11"
+level: CONFORMANCE_LEVEL_CORE
+
+environment {
+  declarations { name: "published" ident { type { primitive: BOOL } } }
+  declarations { name: "owner_id" ident { type { primitive: STRING } } }
+  declarations {
+    name: "resource"
+    ident { type { map_type { key_type { primitive: STRING } value_type { dyn {} } } } }
+  }
+}
+cases {
+  name: "boolean_column_as_whole_condition"
+  description: "A Boolean column is a condition on its own."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "published"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"published\" = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"published\" = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`published` = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"published\" = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "published" } value { map_value { entries { key { string_value: "$eq" } value { bool_value: true } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "boolean_column_as_conjunction_operand"
+  description: "A Boolean column combines with other conditions without an explicit comparison in the source."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "published && owner_id == \"user-123\""
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"published\" = TRUE AND \"owner_id\" = ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "user-123" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"published\" = TRUE AND \"owner_id\" = $1)"
+      parameters { cel_type { primitive: STRING } value { string_value: "user-123" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(`published` = TRUE AND `owner_id` <=> ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "user-123" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"published\" = TRUE AND \"owner_id\" IS ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "user-123" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "$and" } value { list_value { values { map_value { entries { key { string_value: "published" } value { map_value { entries { key { string_value: "$eq" } value { bool_value: true } } } } } } } values { map_value { entries { key { string_value: "owner_id" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "user-123" } } } } } } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "authorization_rule_shape"
+  description: "A representative authorization rule after the caller substitutes the request identity: the row is visible when it is public or the caller owns it."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "published || owner_id == \"user-123\""
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"published\" = TRUE OR \"owner_id\" = ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "user-123" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"published\" = TRUE OR \"owner_id\" = $1)"
+      parameters { cel_type { primitive: STRING } value { string_value: "user-123" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(`published` = TRUE OR `owner_id` <=> ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "user-123" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"published\" = TRUE OR \"owner_id\" IS ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "user-123" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "$or" } value { list_value { values { map_value { entries { key { string_value: "published" } value { map_value { entries { key { string_value: "$eq" } value { bool_value: true } } } } } } } values { map_value { entries { key { string_value: "owner_id" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "user-123" } } } } } } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "negated_boolean_column_leaves_null_unselected"
+  description: "A null Boolean column is a CEL error, which selects no row in either direction. The emitted form must stay unknown under negation rather than becoming true."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "!published"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(NOT \"published\" = TRUE)"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(NOT \"published\" = TRUE)"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(NOT `published` = TRUE)"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(NOT \"published\" = TRUE)"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "$nor" } value { list_value { values { map_value { entries { key { string_value: "published" } value { map_value { entries { key { string_value: "$eq" } value { bool_value: true } } } } } } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "boolean_equality_still_uses_distinct_predicate"
+  description: "An explicit comparison against a Boolean constant is an equality, so it follows the equality rule rather than the Boolean column rule."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "published == true"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"published\" = ?"
+      parameters { cel_type { primitive: BOOL } value { bool_value: true } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"published\" = $1"
+      parameters { cel_type { primitive: BOOL } value { bool_value: true } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`published` <=> ?"
+      parameters { cel_type { primitive: BOOL } value { bool_value: true } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"published\" IS ?"
+      parameters { cel_type { primitive: BOOL } value { bool_value: true } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "published" } value { map_value { entries { key { string_value: "$eq" } value { bool_value: true } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "boolean_selection_path_as_condition"
+  description: "A Boolean reached through a selection path behaves the same way, which is the common shape in an authorization rule."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  environment {
+    declarations {
+      name: "resource"
+      ident { type { map_type { key_type { primitive: STRING } value_type { primitive: BOOL } } } }
+    }
+  }
+  cel_source: "resource.public"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"resource\".\"public\" = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"resource\".\"public\" = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`resource`.`public` = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"resource\".\"public\" = TRUE"
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "resource.public" } value { map_value { entries { key { string_value: "$eq" } value { bool_value: true } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "boolean_constant_operand_rejected"
+  description: "A Boolean constant operand carries no reference to the record and would require emitting a literal truth value, so it is refused. A Boolean literal is useful only as the whole expression, where it resolves to an unconditional outcome."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "true && published"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+}

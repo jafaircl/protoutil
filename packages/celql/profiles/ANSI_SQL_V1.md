@@ -132,7 +132,7 @@ A `uint` value at or below 2^63-1 is supported.
 | `logical_and` | `(L AND R)` |
 | `logical_or` | `(L OR R)` |
 | `logical_not` | `(NOT L)` |
-| `equals` | `L IS NOT DISTINCT FROM R` |
+| `equals` | `L = R`, or `L IS NOT DISTINCT FROM R` under section 5.2 |
 | `not_equals` | `L IS DISTINCT FROM R` |
 | `less_int64`, `less_uint64`, `less_double`, `less_string` | `L < R` |
 | `less_equals_int64`, `less_equals_uint64`, `less_equals_double`, `less_equals_string` | `L <= R` |
@@ -170,11 +170,20 @@ A bare Boolean constant in an operand position is rejected with `unsupported exp
 
 ### 5.2 Equality and null
 
-CEL equality is total. SQL `=` and `<>` are not, as section 1.1 explains. The profile MUST therefore emit the distinct predicate rather than `=` or `<>`.
+CEL equality is total. SQL `=` and `<>` are not, as section 1.1 explains.
 
 `L IS NOT DISTINCT FROM R` is true when both operands are null, true when both are non-null and equal, and false otherwise. That is exactly CEL equality. `L IS DISTINCT FROM R` is its complement. Neither yields unknown, so both remain correct under negation.
 
-This uses ISO/IEC 9075 feature T151. A target that lacks T151 requires an extending profile that substitutes an equivalent total form, such as `IS` in SQLite or `<=>` in MySQL. An extending profile MUST NOT substitute plain `=` or `<>`, because those reintroduce the narrowing this rule exists to prevent.
+This uses ISO/IEC 9075 feature T151. A target that lacks T151 requires an extending profile that substitutes an equivalent total form, such as `IS` in SQLite or `<=>` in MySQL.
+
+WHEN the operands are one query field path and one constant that is not `null`, and no negation encloses the comparison, the profile MUST emit `L = R` for `equals`. Both forms select the same records there: they differ only when the compared value is null, which the null rules below already emit separately. Plain equality keeps an ordinary index usable, which the distinct predicate does not.
+
+The profile MUST NOT emit `=` for `equals` under any of the following, because the two forms then select different records:
+
+- a negation encloses the comparison, where `=` yields unknown for a null field and negated unknown stays unknown, while CEL selects that field;
+- both operands are query field paths, where either value may be null.
+
+The profile MUST NOT emit `<>` for `not_equals` in any position, because CEL selects a null field whose value differs from the constant and `<>` yields unknown for that field.
 
 WHEN one operand is a CEL `null` constant and the other is a query field path, the profile MUST emit the shorter equivalent form:
 

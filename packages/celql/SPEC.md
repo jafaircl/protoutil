@@ -1,6 +1,6 @@
 # celql Specification
 
-Status: Draft v0.11
+Status: Draft v0.12
 
 The schema for this specification is `protoutil/celql/v1/celql.proto`. The conformance schema is `protoutil/celql/conformance/v1/conformance.proto`.
 
@@ -23,6 +23,7 @@ This specification defines:
 - the input requirements;
 - the translation contract;
 - the dialect profile contract;
+- the translation library contract;
 - the security requirements;
 - the resource limits;
 - the error model;
@@ -96,7 +97,19 @@ A profile defines:
 - typed operand and operand-shape restrictions;
 - required rejection cases.
 
-### 4.6 Predicate
+### 4.6 Translation library
+
+A translation library is a named and versioned extension to a profile's translatable fragment.
+
+A translation library declares and evaluates the resolved overloads that it adds and supplies target-compatible translations for those overloads. One library object configures both a CEL environment and a translator.
+
+A CEL library is the target-independent part of one library: its type declarations, function declarations, and CEL evaluation. Every translation library that publishes the same library name and major version MUST carry the same CEL library, so one CEL expression has one meaning across every target that binds it. An implementation SHOULD let a caller select a CEL library without a profile binding, because a differential test oracle evaluates CEL without translating it.
+
+### 4.7 Effective capability
+
+An effective capability is the machine-readable capability of one translator after it materializes its selected profile and translation libraries.
+
+### 4.8 Predicate
 
 A predicate is a query fragment that represents one Boolean condition.
 
@@ -116,9 +129,9 @@ query translation
 dialect-defined predicate
 ```
 
-The translator is constructed for exactly one dialect profile and one profile major version.
+The translator is constructed for exactly one dialect profile, one profile major version, and an unordered set of translation libraries.
 
-The translator accepts checked expressions only for that bound profile.
+The translator accepts checked expressions only for that bound profile and library set.
 
 The translator returns one complete translation outcome or one error.
 
@@ -209,7 +222,7 @@ The dialect MUST reject a field path that it cannot encode directly, safely, and
 The abstract operations are:
 
 ```text
-CREATE_TRANSLATOR(profile)
+CREATE_TRANSLATOR(profile, libraries)
     -> translator | translation_error
 
 TRANSLATE(translator, checked_expression, limits, profile_configuration)
@@ -224,7 +237,7 @@ The translator MUST:
 1. validate the reachable checked expression;
 2. verify that the root type is CEL `bool`;
 3. enforce the configured resource limits throughout the operation;
-4. apply the profile and profile version bound at translator construction;
+4. apply the profile, profile version, and translation libraries bound at translator construction;
 5. translate each reachable expression part;
 6. reject each expression part that the profile cannot translate correctly;
 7. return `match_all`, `match_none`, or one complete predicate result of the profile's declared output protobuf type.
@@ -235,7 +248,7 @@ This list enumerates obligations, not an execution order. An implementation MAY 
 
 Translation MUST include a logical validation phase before predicate generation.
 
-The validation phase MUST verify that the complete reachable expression is inside the selected profile's translatable fragment.
+The validation phase MUST verify that the complete reachable expression is inside the translator's effective translatable fragment.
 
 An implementation MAY expose this validation phase as a separate operation.
 
@@ -268,7 +281,7 @@ A dialect MUST reject each expression that it cannot translate with equivalent s
 
 A profile MUST define its supported input domain.
 
-The supported input domain MUST identify:
+The profile and each compatible translation library MUST identify their contribution to the supported input domain. The effective supported input domain MUST identify:
 
 - supported CEL types;
 - supported resolved overloads;
@@ -322,9 +335,11 @@ The implementation MUST reject an expression when a required rewrite cannot pres
 
 The caller MUST select one profile and one profile major version explicitly when it constructs a translator.
 
+The caller MAY select zero or more translation libraries when it constructs a translator.
+
 One translator instance MUST be bound to exactly one profile major version.
 
-A translation or validation operation MUST NOT accept a per-operation profile override.
+A translation or validation operation MUST NOT accept a per-operation profile or translation-library override.
 
 An implementation MUST NOT infer a profile from the expression.
 
@@ -358,9 +373,11 @@ A dialect MUST reject an overload when its semantics are not fully defined for t
 
 ### 9.4 Translatable fragment
 
-Each dialect profile MUST define a translatable CEL fragment.
+Each dialect profile MUST define its base translatable CEL fragment.
 
-The fragment defines the exact expression forms that the profile can translate correctly.
+Each translation library MUST define the additive expression forms that it can translate correctly for the selected profile.
+
+The effective translatable fragment is the union of the profile's base fragment and the fragments of the selected compatible translation libraries.
 
 The fragment MAY restrict an operation by:
 
@@ -375,7 +392,7 @@ The fragment MAY restrict an operation by:
 - null or absence behavior;
 - another semantic condition required by the target query language.
 
-A profile MUST reject an expression outside its translatable fragment.
+A translator MUST reject an expression outside its effective translatable fragment.
 
 Support for an overload identifier alone MUST NOT imply support for all valid uses of that overload.
 
@@ -399,7 +416,7 @@ A profile MUST NOT classify a macro or comprehension from one node, one type, or
 
 ### 9.5 Capability profile
 
-Each dialect profile MUST publish a machine-readable capability profile as a `protoutil.celql.v1.DialectCapabilityProfile` message.
+Each dialect profile MUST publish a machine-readable base capability profile as a `protoutil.celql.v1.DialectCapabilityProfile` message.
 
 The capability profile MUST identify:
 
@@ -423,6 +440,12 @@ Standard and custom overloads are declared through the same `operations` field. 
 Every element of the capability profile that determines whether a given expression is accepted or rejected MUST be expressed in an enumerated or structured field. A profile MUST NOT state such a rule only in a documentation string.
 
 The `*_documentation` fields carry explanatory prose. They MUST NOT be the sole statement of any rule that affects translation behavior. They are the correct place for material that cannot be enumerated, such as the complexity differences required by section 14.
+
+A constructed translator MUST publish its effective capability as a `protoutil.celql.v1.DialectCapabilityProfile` message.
+
+The effective capability MUST contain every selected translation-library reference and every operation that those libraries add.
+
+The effective capability MUST retain the selected profile's identity, output type, target semantics, and resource-limit defaults.
 
 ### 9.6 Baseline profile
 
@@ -460,58 +483,69 @@ A profile MUST NOT declare a base profile that itself declares a base profile. E
 
 An extending profile MUST use a profile name that differs from its base profile name.
 
-### 9.8 Dialect implementation extension
+### 9.8 Translation library composition
 
-`CELQL-DIALECT-EXT-001`: WHEN an implementation publishes a built-in dialect,
-the implementation MUST expose a reusable dialect implementation type that a
-caller can extend without copying the complete built-in implementation.
+`CELQL-LIB-001`: A translation library MUST publish a `LibraryReference` that
+contains a non-empty stable name and a non-zero major version.
 
-`CELQL-DIALECT-EXT-002`: WHEN an implementation uses classes for its public
-dialect API, each built-in dialect class MUST permit subclassing and MUST expose
-overridable visitor methods for calls and comprehensions.
+`CELQL-LIB-002`: A translation library name MUST uniquely identify one semantic
+library definition within an implementation.
 
-`CELQL-DIALECT-EXT-003`: WHEN an implementation provides dialects whose targets
-use the same representation family, the dialect implementations MUST inherit a
-shared type-safe visitor implementation and MUST override only behavior that
-differs from that implementation.
+`CELQL-LIB-003`: WHEN the caller selects the same library name and major version
+more than once, the translator MUST materialize that singleton library once.
 
-`CELQL-DIALECT-EXT-004`: WHEN a target uses a representation family that is not
-compatible with an existing dialect implementation, the implementation MUST
-provide a separate extensible base for that representation family.
+`CELQL-LIB-004`: WHEN the caller selects different major versions under one
+library name, translator construction MUST fail with `invalid library
+configuration`.
 
-`CELQL-DIALECT-EXT-005`: WHEN an implementation exposes a common dialect base,
-the implementation MUST NOT expose target-specific operations, such as SQL
-parameter binding, through that base.
+`CELQL-LIB-005`: WHEN a selected library requires another library that is not
+selected at the required major version, translator construction MUST fail with
+`invalid library configuration`.
 
-`CELQL-DIALECT-EXT-006`: WHEN a caller supplies a custom dialect implementation,
-the implementation MUST accept it through the same translator-creation operation
-that accepts a built-in dialect implementation.
+`CELQL-LIB-006`: WHEN a selected library declares an overload identifier owned
+by the profile or another selected library, translator construction MUST fail
+with `invalid library configuration`.
 
-`CELQL-DIALECT-EXT-007`: WHEN a custom dialect visitor delegates an expression to
-its base visitor, the base visitor MUST preserve the custom dialect's translation
-state and recursive dispatch.
+`CELQL-LIB-007`: A translation library MUST publish one
+`OperationCapability` for each resolved overload that it adds.
 
-`CELQL-DIALECT-EXT-008`: WHEN a custom dialect visitor delegates an expression to
-its base visitor, the base visitor MUST NOT translate the delegated expression
-through a separate base-profile translator.
+`CELQL-LIB-008`: A translation library MUST supply one target-compatible
+translation for each operation that it declares.
 
-`CELQL-DIALECT-EXT-009`: WHEN a dialect adds an operation or comprehension form,
-the dialect MUST add the corresponding capability declaration.
+`CELQL-LIB-009`: A translation library MUST NOT replace the translation of an
+overload declared by the selected profile.
 
-`CELQL-DIALECT-EXT-010`: WHEN a dialect replaces translation behavior without
-changing accepted input, the dialect MUST retain the inherited capability
-declaration.
+`CELQL-LIB-010`: WHEN a checked expression contains an overload owned by a
+library that is not selected, the translator MUST reject the expression with
+`unsupported overload`.
 
-Profile extension and implementation inheritance are different concepts.
-Profile extension specifies observable compatibility under section 9.7.
-Implementation inheritance specifies reuse and customization under this section.
-A non-SQL profile can extend the baseline profile contract without inheriting a
-SQL implementation class.
+`CELQL-LIB-011`: The caller's library order MUST NOT change the effective
+capability, translation output, or error.
 
-The shared implementation MAY use composed components for output construction,
-parameter storage, or other responsibilities that do not require recursive
-visitor dispatch. A dialect implementation MUST NOT claim an output type that
-its output-construction method does not return.
+`CELQL-LIB-012`: The translator MUST use the same materialized operation
+registry for a library overload at every expression depth.
+
+`CELQL-LIB-013`: A translation or validation operation MUST create fresh
+mutable operation state and MUST NOT modify the selected profile, selected
+libraries, or materialized operation registry.
+
+`CELQL-LIB-014`: A translation library MUST preserve the CEL semantics of each
+overload that it declares over its documented supported input domain.
+
+`CELQL-LIB-015`: WHEN a translation library cannot preserve its declared CEL
+semantics for the selected target, the library MUST reject the expression.
+
+`CELQL-LIB-016`: WHEN a selected translation-library binding identifies a
+different profile name or major version from the selected profile, translator
+construction MUST fail with `invalid library configuration`.
+
+`CELQL-LIB-017`: A translation library's CEL singleton name and version MUST
+equal its `LibraryReference` name and major version.
+
+Profile extension and translation-library composition are different concepts.
+Profile extension specifies target compatibility under section 9.7. A
+translation library adds resolved overloads to one constructed translator and
+does not change the selected profile's identity.
 
 ## 10. Translation Outcomes
 
@@ -812,7 +846,8 @@ The core error codes are:
 - unsupported profile version;
 - invalid profile configuration;
 - invalid profile output;
-- internal error.
+- internal error;
+- invalid library configuration.
 
 An error MUST NOT include secret constant or parameter values by default.
 
@@ -830,7 +865,7 @@ This keeps section 5's freedom of traversal order intact. Two implementations th
 
 One input MAY violate more than one requirement.
 
-Translator construction MUST establish the selected profile and profile major version. Translation MUST establish the profile configuration before it applies profile-dependent translation rules. Therefore, `unsupported profile` and `unsupported profile version` are construction errors, and `invalid profile configuration` takes precedence over profile-dependent translation errors.
+Translator construction MUST establish the selected profile, profile major version, and translation libraries. Translation MUST establish the profile configuration before it applies profile-dependent translation rules. Therefore, `unsupported profile`, `unsupported profile version`, and `invalid library configuration` are construction errors, and `invalid profile configuration` takes precedence over profile-dependent translation errors.
 
 An implementation MAY return `resource limit exceeded` for an input-measured limit before it performs deeper expression validation or profile-fragment analysis. This rule permits early rejection of oversized untrusted input.
 
@@ -843,6 +878,8 @@ A conformance case MUST avoid inputs for which more than one error code is valid
 This specification controls core specification versions and dialect profile versioning rules.
 
 A profile reference MUST contain a stable profile name and a major version.
+
+A library reference MUST contain a stable library name and a major version.
 
 A portable translation envelope MUST identify the profile name and major version that produced it.
 
@@ -869,6 +906,12 @@ An incompatible behavior or output-type change requires a new profile major vers
 Compatible additions MAY be published without changing the major version only when protobuf compatibility and observable translation behavior are preserved.
 
 The profile owner is responsible for publishing and maintaining each profile version.
+
+A translation-library major version defines its operation identities, CEL semantics, operand constraints, dependency requirements, and target translation behavior.
+
+A conforming implementation MUST reject incompatible selected library versions.
+
+A published translation-library major version MUST NOT change incompatibly.
 
 ## 21. Conformance
 
@@ -913,7 +956,8 @@ A core expectation that expects predicate success MUST declare the capabilities 
 profile expectations.
 
 `CELQL-CONF-CASE-002`: Each profile expectation MUST independently identify the
-selected profile, profile configuration, limits, and expected success or error.
+selected profile, selected translation libraries, profile configuration,
+limits, and expected success or error.
 
 `CELQL-CONF-CASE-003`: A conformance case MAY contain profile expectations with
 different outcomes for different profiles.
@@ -924,6 +968,13 @@ expectations to that case.
 
 `CELQL-CONF-CASE-005`: WHEN a conformance case expects a predicate, the case
 MUST state its input as CEL source text.
+
+`CELQL-CONF-CASE-006`: WHEN a profile expectation lists a translation library,
+the runner MUST construct the translator with that library.
+
+`CELQL-CONF-CASE-007`: WHEN a runner does not provide a translation library
+listed by a profile expectation, the runner MUST report that expectation as
+unavailable and MUST NOT report it as passed or as a translation rejection.
 
 The absence of an expectation for a profile makes no assertion about that
 profile. It does not mean that the profile accepts or rejects the case.
@@ -945,6 +996,8 @@ Some requirements are properties of every applicable case rather than the subjec
 **Profile version rejection.** For each available profile, the runner MUST attempt to construct a translator for a major version that the profile does not support and MUST assert the `unsupported profile version` error code. A published case cannot express this for an implementation-specific profile name.
 
 **Capability agreement.** For each available profile, the runner MUST assert that the profile's published capability profile declares no overload identifier that uses the reserved prefix in section 21.2.2.
+
+**Library agreement.** For each available translation library, the runner MUST assert that the effective capability contains the library reference and every operation capability that the library declares.
 
 For a core case that expects exact baseline predicate output, the runner MUST compare the complete output message. For any other core case that expects predicate success, the runner MUST verify the output type and MUST NOT compare target-specific predicate contents.
 
@@ -1020,6 +1073,7 @@ A profile conformance case MUST identify:
 - one or more profile expectations;
 - the profile name and major version for each expectation;
 - optional limits and profile configuration;
+- zero or more selected translation-library references;
 - one expected successful outcome or one expected error code for each profile;
 - optional expected node identification;
 - profile-specific expected predicate output when the expected outcome is a predicate.
@@ -1040,6 +1094,8 @@ A profile case MAY compare:
 The profile MUST document which comparison method its cases use.
 
 Exact human-readable error messages MUST NOT be part of profile conformance.
+
+A profile conformance case MAY attach expectations for the same profile with different selected translation libraries.
 
 ### 21.4 Required core cases
 
@@ -1083,6 +1139,8 @@ The published core suite does not require an input case that intentionally cause
 
 A profile conformance suite MUST cover every capability and rejection boundary that the profile declares.
 
+A translation-library conformance suite MUST cover every capability and rejection boundary that the library declares for each compatible profile.
+
 It MUST include accepted and rejected cases for each supported overload and operand-shape combination.
 
 When applicable, it MUST test:
@@ -1109,6 +1167,8 @@ When applicable, it MUST test:
 
 A profile suite MUST use the profile's real declared output type for predicate cases.
 
+For each library operation, the conformance corpus MUST include one expectation that selects the library and one expectation for the same profile that omits it. The selected expectation MUST verify the declared success or profile-specific rejection. The omitted expectation MUST require `unsupported overload`.
+
 For each expression form that a base profile accepts, the conformance corpus MUST attach an expectation for the extending profile to the same source-form case. The extending profile expectation verifies the record-selection agreement required by section 9.7 without duplicating the CEL input.
 
 ### 21.6 Differential conformance
@@ -1133,6 +1193,12 @@ conformance.
 
 `CELQL-CONF-DIFF-003`: A differential runner MUST manage the target database
 lifecycle and MUST release the database resources after success or failure.
+
+`CELQL-CONF-DIFF-004`: A profile that extends another profile MUST attach its
+expectation to the same source-form case whenever both profiles support that
+source form. A profile-local case is reserved for a target-specific capability,
+output distinction, or rejection boundary. The shared fixture is the durable
+matrix of dialect output for one CEL expression.
 
 ### 21.7 Robustness testing
 

@@ -1,5 +1,6 @@
 import { create, type DescMessage, type MessageShape } from "@bufbuild/protobuf";
 import { anyPack, DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { durationFromString } from "@protoutil/core/wkt";
 import type { Type } from "./gen/cel/expr/checked_pb.js";
 import { Type_PrimitiveType, Type_WellKnownType } from "./gen/cel/expr/checked_pb.js";
 import type { Constant, Expr } from "./gen/cel/expr/syntax_pb.js";
@@ -8,7 +9,7 @@ import type { Value } from "./gen/cel/expr/value_pb.js";
 import { ValueSchema } from "./gen/cel/expr/value_pb.js";
 import { TranslationErrorCode } from "./gen/protoutil/celql/v1/celql_pb.js";
 import { CelqlError } from "./translator.js";
-import { Dialect } from "./types.js";
+import type { ProfileContext } from "./types.js";
 
 const signedMaximum = 9_223_372_036_854_775_807n;
 
@@ -52,15 +53,76 @@ type BoundParameter = {
   value: Value;
 };
 
+/** Pattern positions supported by the shared SQL library context. */
+export type SqlPatternKind = "startsWith" | "endsWith" | "contains";
+
+/** How one library shapes the query field path and the bound value of a pattern. */
+export interface SqlPatternOptions {
+  /**
+   * Wraps the emitted query field path, such as with a case-folding function.
+   *
+   * A target that folds the query field this way MUST also supply `constant`,
+   * so that the bound value reaches the target in the same folded form.
+   */
+  path?: (sql: string) => string;
+
+  /** Converts the constant before the profile escapes and binds it. */
+  constant?: (value: string) => string;
+
+  /** Reports whether a constant stays inside the library's documented domain. */
+  supports?: (value: string) => boolean;
+}
+
+/** Safe SQL operations available to one translation-library function. */
+export interface SqlLibraryContext {
+  /** Translates a string-pattern call with a trusted target operator. */
+  stringPattern(
+    expression: Expr,
+    kind: SqlPatternKind,
+    operator: string,
+    options?: SqlPatternOptions,
+  ): string;
+
+  /** Rejects a library expression that violates its documented input domain. */
+  unsupportedExpression(expression: Expr): CelqlError;
+}
+
+/** One SQL translation-library function. */
+export type SqlTranslation<Context extends SqlLibraryContext = SqlLibraryContext> = (
+  context: Context,
+  expression: Expr,
+) => string;
+
 /**
- * Reusable ANSI-compatible visitor for textual SQL dialects.
+ * Reusable ANSI-compatible translation context for textual SQL profiles.
  *
- * Recursive traversal uses protected methods so a dialect subclass can replace
- * one operation while inherited parents continue to dispatch through it.
+ * Concrete profiles create one context for each call, which isolates mutable
+ * parameter and traversal state from the reusable profile instance.
  */
-export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc> {
+export abstract class SqlTranslationContext<
+  Desc extends DescMessage,
+  Context extends SqlLibraryContext = SqlLibraryContext,
+> implements SqlLibraryContext
+{
   /** Parameters in the same order as their markers appear during traversal. */
   protected readonly parameters: BoundParameter[] = [];
+
+  /** Number of enclosing disjunctions and negations at the current visit position. */
+  private conjunctiveDepth = 0;
+
+  /** Number of enclosing negations at the current visit position. */
+  private negationDepth = 0;
+
+  /** Creates isolated SQL translation state for one operation. */
+  public constructor(
+    protected readonly context: ProfileContext,
+    private readonly functions: ReadonlyMap<string, SqlTranslation<Context>>,
+  ) {}
+
+  /** Validates through the same complete traversal used by translation. */
+  public validate(): void {
+    this.translate();
+  }
 
   /** Translates the checked expression into one dialect-specific SQL predicate. */
   public translate(): MessageShape<Desc> {
@@ -75,13 +137,12 @@ export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc>
   /** Creates the dialect-specific output after the shared SQL visit completes. */
   protected abstract createPredicate(sql: string): MessageShape<Desc>;
 
+  /** Supplies the context that this dialect exposes to its translation libraries. */
+  protected abstract libraryContext(): Context;
+
   /** Rejects configuration because a base SQL dialect has no options. */
   protected validateConfiguration(): void {
-    if (this.context.profileConfiguration !== undefined) {
-      throw new CelqlError(TranslationErrorCode.INVALID_PROFILE_CONFIGURATION, {
-        message: "The SQL dialect accepts no configuration.",
-      });
-    }
+    validateNoSqlConfiguration(this.context.profileConfiguration);
   }
 
   /** Returns the marker for a parameter's one-based binding position. */
@@ -129,22 +190,38 @@ export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc>
     }
   }
 
-  /** Visits one resolved call and provides the primary custom-dialect hook. */
+  /** Visits one resolved call, including selected translation-library functions. */
   protected visitCall(expression: Expr, overloadId: string): string {
     if (overloadId.startsWith("celql.reserved.unsupported.")) {
       throw unsupportedOverload(expression, overloadId);
     }
+    const libraryFunction = this.functions.get(overloadId);
+    if (libraryFunction !== undefined) return libraryFunction(this.libraryContext(), expression);
     const operands = this.operands(expression);
     if (overloadId === "logical_and" || overloadId === "logical_or") {
       if (operands.length !== 2) throw unsupportedOverload(expression, overloadId);
       const operator = overloadId === "logical_and" ? "AND" : "OR";
-      return this.checkedSql(
-        `(${this.visitBoolean(operands[0]!)} ${operator} ${this.visitBoolean(operands[1]!)})`,
+      if (overloadId === "logical_and") {
+        return this.checkedSql(
+          `(${this.visitBoolean(operands[0]!)} ${operator} ${this.visitBoolean(operands[1]!)})`,
+        );
+      }
+      return this.outsideConjunction(() =>
+        this.checkedSql(
+          `(${this.visitBoolean(operands[0]!)} ${operator} ${this.visitBoolean(operands[1]!)})`,
+        ),
       );
     }
     if (overloadId === "logical_not") {
       if (operands.length !== 1) throw unsupportedOverload(expression, overloadId);
-      return this.checkedSql(`(NOT ${this.visitBoolean(operands[0]!)})`);
+      this.negationDepth += 1;
+      try {
+        return this.outsideConjunction(() =>
+          this.checkedSql(`(NOT ${this.visitBoolean(operands[0]!)})`),
+        );
+      } finally {
+        this.negationDepth -= 1;
+      }
     }
     if (overloadId === "equals" || overloadId === "not_equals") {
       return this.visitEquality(expression, operands, overloadId);
@@ -154,12 +231,49 @@ export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc>
       return this.visitOrdering(expression, operands, overloadId, ordering);
     }
     if (patternOperations.has(overloadId)) {
-      return this.visitPattern(expression, operands, overloadId);
+      const kind =
+        overloadId === "starts_with_string"
+          ? "startsWith"
+          : overloadId === "ends_with_string"
+            ? "endsWith"
+            : "contains";
+      return this.visitPattern(expression, operands, kind, "LIKE");
     }
     if (overloadId === "in_list") {
       return this.visitMembership(expression, operands);
     }
     throw unsupportedOverload(expression, overloadId);
+  }
+
+  /** Visits a subtree that the emitted condition no longer reaches through conjunction alone. */
+  private outsideConjunction(visit: () => string): string {
+    this.conjunctiveDepth += 1;
+    try {
+      return visit();
+    } finally {
+      this.conjunctiveDepth -= 1;
+    }
+  }
+
+  /**
+   * Reports whether the emitted condition is reached only through conjunction.
+   *
+   * A target operation that its query engine accepts only as a conjunctive
+   * constraint, such as an index-backed match, uses this to reject a
+   * disjunctive or negated position instead of emitting a failing query.
+   */
+  protected inConjunction(): boolean {
+    return this.conjunctiveDepth === 0;
+  }
+
+  /**
+   * Reports whether a negation encloses the condition being emitted.
+   *
+   * A target form that returns unknown rather than false selects different
+   * records under negation, so a dialect uses this to keep a total form there.
+   */
+  protected underNegation(): boolean {
+    return this.negationDepth > 0;
   }
 
   /** Returns a call target followed by its arguments, or only its arguments. */
@@ -184,6 +298,22 @@ export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc>
     }
     if (right.kind === "path" && isNull(left)) {
       return this.checkedSql(`${right.sql} IS ${overloadId === "equals" ? "" : "NOT "}NULL`);
+    }
+    // Equality against a value that is known non-null selects the same records
+    // as distinctness comparison, because the two forms differ only when the
+    // compared value is null, which the branches above already emit. Plain
+    // equality keeps an ordinary index usable.
+    //
+    // The two forms stop agreeing under negation: equality returns unknown for
+    // a null field, and negated unknown stays unknown, while CEL selects that
+    // field. A negated comparison therefore keeps distinctness comparison, as
+    // does inequality, which selects a null field for the same reason.
+    if (
+      overloadId === "equals" &&
+      !this.underNegation() &&
+      (left.kind === "path") !== (right.kind === "path")
+    ) {
+      return this.checkedSql(`${this.visitComparable(left)} = ${this.visitComparable(right)}`);
     }
     const operator = overloadId === "equals" ? "IS NOT DISTINCT FROM" : "IS DISTINCT FROM";
     return this.checkedSql(
@@ -211,9 +341,12 @@ export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc>
   protected visitPattern(
     expression: Expr,
     expressions: readonly Expr[],
-    overloadId: string,
+    kind: SqlPatternKind,
+    operator: string,
+    options: SqlPatternOptions = {},
   ): string {
-    if (expressions.length !== 2) throw unsupportedOverload(expression, overloadId);
+    if (expressions.length !== 2)
+      throw unsupportedOverload(expression, this.overloadId(expression));
     const path = this.visitOperand(expressions[0]!);
     const value = this.visitOperand(expressions[1]!);
     if (
@@ -222,22 +355,41 @@ export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc>
       value.kind !== "constant" ||
       value.constant.constantKind.case !== "stringValue"
     ) {
-      throw unsupportedOverload(expression, overloadId);
+      throw unsupportedOverload(expression, this.overloadId(expression));
     }
-    const escaped = escapeLike(value.constant.constantKind.value);
+    const stringValue = value.constant.constantKind.value;
+    if (options.supports !== undefined && !options.supports(stringValue)) {
+      throw unsupportedExpression(value.expression);
+    }
+    // A target that folds the query field must fold the bound value the same
+    // way, or the emitted pattern matches no folded record.
+    const escaped = escapeLike(options.constant?.(stringValue) ?? stringValue);
     const pattern =
-      overloadId === "starts_with_string"
-        ? `${escaped}%`
-        : overloadId === "ends_with_string"
-          ? `%${escaped}`
-          : `%${escaped}%`;
+      kind === "startsWith" ? `${escaped}%` : kind === "endsWith" ? `%${escaped}` : `%${escaped}%`;
     const marker = this.bindConstant(
       value.expression,
       create(ConstantSchema, {
         constantKind: { case: "stringValue", value: pattern },
       }),
     );
-    return this.checkedSql(`${path.sql} LIKE ${marker} ESCAPE '\\'`);
+    return this.checkedSql(
+      `${options.path?.(path.sql) ?? path.sql} ${operator} ${marker} ${this.likeEscapeClause()}`,
+    );
+  }
+
+  /** Returns the target SQL syntax that declares backslash as the LIKE escape character. */
+  protected likeEscapeClause(): string {
+    return "ESCAPE '\\'";
+  }
+
+  /** Translates one library-defined string-pattern call. */
+  public stringPattern(
+    expression: Expr,
+    kind: SqlPatternKind,
+    operator: string,
+    options?: SqlPatternOptions,
+  ): string {
+    return this.visitPattern(expression, this.operands(expression), kind, operator, options);
   }
 
   /** Emits literal-list membership with an explicit null guard. */
@@ -465,7 +617,12 @@ export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc>
     if (components.some((component) => component.length === 0 || component.includes("\0"))) {
       throw unresolvedPath(expression);
     }
-    return components.map((component) => `"${component.replaceAll('"', '""')}"`).join(".");
+    return components.map((component) => this.quoteIdentifier(component)).join(".");
+  }
+
+  /** Encodes one trusted field-path component as a target-specific SQL identifier. */
+  protected quoteIdentifier(component: string): string {
+    return `"${component.replaceAll('"', '""')}"`;
   }
 
   /** Returns the checked type associated with a reachable expression node. */
@@ -529,7 +686,7 @@ export abstract class SqlDialect<Desc extends DescMessage> extends Dialect<Desc>
   }
 
   /** Creates the standard rejection for an unsupported expression shape. */
-  protected unsupportedExpression(expression: Expr): CelqlError {
+  public unsupportedExpression(expression: Expr): CelqlError {
     return unsupportedExpression(expression);
   }
 
@@ -587,6 +744,8 @@ function typeName(type: Type): string {
           : "unsupported";
     case "listType":
       return `list(${type.typeKind.value.elemType === undefined ? "dyn" : typeName(type.typeKind.value.elemType)})`;
+    case "abstractType":
+      return type.typeKind.value.name;
     default:
       return "unsupported";
   }
@@ -625,15 +784,20 @@ function parseTimestamp(value: string) {
 }
 
 function parseDuration(value: string) {
-  const match = /^(-)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)(?:\.(\d{1,9}))?s)?$/.exec(value);
-  if (match === null || match[0] === "" || match.slice(2).every((part) => part === undefined)) {
+  try {
+    return durationFromString(value);
+  } catch {
     return undefined;
   }
-  const sign = match[1] === undefined ? 1n : -1n;
-  const seconds =
-    sign * (BigInt(match[2] ?? 0) * 3600n + BigInt(match[3] ?? 0) * 60n + BigInt(match[4] ?? 0));
-  const nanos = Number(sign) * Number((match[5] ?? "").padEnd(9, "0"));
-  return create(DurationSchema, { seconds, nanos });
+}
+
+/** Rejects configuration for SQL profiles that do not define any options. */
+export function validateNoSqlConfiguration(profileConfiguration: unknown): void {
+  if (profileConfiguration !== undefined) {
+    throw new CelqlError(TranslationErrorCode.INVALID_PROFILE_CONFIGURATION, {
+      message: "The SQL dialect accepts no configuration.",
+    });
+  }
 }
 
 function children(expression: Expr): Expr[] {

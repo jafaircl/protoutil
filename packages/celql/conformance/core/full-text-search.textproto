@@ -1,0 +1,370 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+
+name: "celql-core-full-text-search"
+specification_version: "0.12"
+level: CONFORMANCE_LEVEL_CORE
+
+environment {
+  declarations { name: "name" ident { type { primitive: STRING } } }
+  declarations {
+    name: "search"
+    ident { type { abstract_type { name: "protoutil.celql.FullTextIndex" } } }
+  }
+  declarations {
+    name: "matchesText"
+    function {
+      overloads {
+        overload_id: "full_text_index_matches_text"
+        params { abstract_type { name: "protoutil.celql.FullTextIndex" } }
+        params { primitive: STRING }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+}
+
+cases {
+  name: "full_text_search_requires_every_query_term"
+  description: "Each target binds one query that selects a record whose index holds every term."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(\"error budget\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.mysql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.mongodb" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"search\" @@ plainto_tsquery('simple', $1)"
+      parameters { cel_type { primitive: STRING } value { string_value: "error budget" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "MATCH (`search`) AGAINST (? IN BOOLEAN MODE)"
+      parameters { cel_type { primitive: STRING } value { string_value: "+error +budget" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"search\" MATCH ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "\"error\" AND \"budget\"" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "$text" } value { map_value {
+        entries { key { string_value: "$search" } value { string_value: "\"error\" \"budget\"" } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "full_text_search_indexes_short_and_common_terms"
+  description: "Each declared index configuration tokenizes a one-letter term and a common word."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(\"a the\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"search\" @@ plainto_tsquery('simple', $1)"
+      parameters { cel_type { primitive: STRING } value { string_value: "a the" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "MATCH (`search`) AGAINST (? IN BOOLEAN MODE)"
+      parameters { cel_type { primitive: STRING } value { string_value: "+a +the" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"search\" MATCH ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "\"a\" AND \"the\"" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "$text" } value { map_value {
+        entries { key { string_value: "$search" } value { string_value: "\"a\" \"the\"" } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "full_text_search_composes_with_a_field_predicate"
+  description: "A full-text match composes with an ordinary field predicate in a conjunction."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(\"error\") && name == \"alice\""
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"search\" @@ plainto_tsquery('simple', $1) AND \"name\" = $2)"
+      parameters { cel_type { primitive: STRING } value { string_value: "error" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(MATCH (`search`) AGAINST (? IN BOOLEAN MODE) AND `name` <=> ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "+error" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"search\" MATCH ? AND \"name\" IS ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "\"error\"" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "$and" } value { list_value {
+        values { map_value { entries { key { string_value: "$text" } value { map_value {
+          entries { key { string_value: "$search" } value { string_value: "\"error\"" } }
+        } } } } }
+        values { map_value { entries { key { string_value: "name" } value { map_value {
+          entries { key { string_value: "$eq" } value { string_value: "alice" } }
+        } } } } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "full_text_search_negation"
+  description: "A negated match is available only where the target evaluates a match outside a conjunction."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "!search.matchesText(\"error\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(NOT \"search\" @@ plainto_tsquery('simple', $1))"
+      parameters { cel_type { primitive: STRING } value { string_value: "error" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(NOT MATCH (`search`) AGAINST (? IN BOOLEAN MODE))"
+      parameters { cel_type { primitive: STRING } value { string_value: "+error" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "full_text_search_disjunction"
+  description: "A disjunctive match is available only where the target evaluates a match outside a conjunction."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(\"error\") || name == \"alice\""
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"search\" @@ plainto_tsquery('simple', $1) OR \"name\" = $2)"
+      parameters { cel_type { primitive: STRING } value { string_value: "error" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(MATCH (`search`) AGAINST (? IN BOOLEAN MODE) OR `name` <=> ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "+error" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "full_text_search_empty_query_rejected"
+  description: "Every binding rejects an empty query."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(\"\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "full_text_search_uppercase_query_rejected"
+  description: "Every binding rejects a query that contains uppercase letters."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(\"Error budget\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "full_text_search_invalid_separator_rejected"
+  description: "Every binding rejects a query with consecutive spaces."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(\"error  budget\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "full_text_search_target_query_syntax_rejected"
+  description: "Every binding rejects a query that contains target query-language syntax."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(\"+error -\\\"budget\\\"\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "full_text_search_query_field_operand_rejected"
+  description: "Every binding rejects a query operand that is not a constant."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "search.matchesText(name)"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.full_text_search" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+}

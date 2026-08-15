@@ -31,6 +31,19 @@ message ProfileReference {
   uint32 major_version = 2;
 }
 
+// Identifies one translation library at one major version.
+//
+// A library name identifies one semantic library definition. Library order is
+// not significant when a caller constructs a translator.
+message LibraryReference {
+  // Stable library name. Names are opaque and compared exactly.
+  string name = 1;
+
+  // Library major version. A translator rejects incompatible selected major
+  // versions rather than choosing one.
+  uint32 major_version = 2;
+}
+
 // Finite resource limits applied during translation.
 //
 // Every field is optional. An unset field selects the profile's declared
@@ -152,6 +165,10 @@ enum TranslationErrorCode {
 
   // An implementation defect. No valid input should produce this code.
   TRANSLATION_ERROR_CODE_INTERNAL_ERROR = 14;
+
+  // The selected translation libraries conflict, have incompatible versions,
+  // or omit a required library.
+  TRANSLATION_ERROR_CODE_INVALID_LIBRARY_CONFIGURATION = 15;
 }
 
 // One translation failure. Translation returns either an outcome or this
@@ -477,4 +494,9 @@ message DialectCapabilityProfile {
   // a base, so a caller reads at most two capability profiles to know the full
   // contract.
   ProfileReference base_profile = 19;
+
+  // Translation libraries materialized into this capability. A profile's base
+  // capability leaves this empty. An effective translator capability lists
+  // each selected singleton library once, sorted by name.
+  repeated LibraryReference libraries = 20;
 }

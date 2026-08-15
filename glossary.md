@@ -90,7 +90,7 @@ The mapping from supported CEL operations to one target query language.
 
 ### Profile
 
-A versioned dialect contract, identified by a stable name and a major version. A profile fixes the accepted input forms, the translatable fragment, the output protobuf type, and the null, absence, regular-expression, comprehension, parameter, and rejection rules for that dialect.
+A versioned dialect contract, identified by a stable name and a major version. A profile fixes the base translatable fragment, the output protobuf type, and the null, absence, regular-expression, comprehension, parameter, and rejection rules for that dialect.
 
 - Scope: a caller always selects a profile explicitly; a translator never infers or substitutes one.
 - Prohibited alternatives: "driver", "backend", "adapter".
@@ -111,25 +111,53 @@ Declaring one profile as the base of another. The extending profile accepts ever
 - Prohibited alternatives: "profile inheritance", "subclassing", "profile override".
 - Related concepts: [Baseline profile](#baseline-profile), [Profile](#profile).
 
-### Dialect implementation inheritance
+### Translation library
 
-Reusing a dialect implementation class through subclassing. A subclass keeps
-the base visitor behavior and overrides only target behavior that differs, such
-as parameter markers, calls, comprehensions, or output construction.
+A named and versioned addition to a profile's translatable fragment. A translation library declares and evaluates the resolved overloads that it adds and supplies target-compatible translations for those overloads.
 
-- Scope: implementation inheritance does not declare profile compatibility; profile extension owns that contract.
-- Related concepts: [Dialect](#dialect), [Profile extension](#profile-extension).
+- Scope: the same library object configures a CEL environment and a translator. A translator materializes zero or more translation libraries when it is constructed. An operation cannot change that selection.
+- Related concepts: [Profile](#profile), [Effective capability](#effective-capability), [Resolved overload](#resolved-overload), [CEL library](#cel-library).
+
+### CEL library
+
+The target-independent part of one named and versioned library: its type declarations, function declarations, and CEL evaluation. One CEL library defines what an expression means; a translation library binds that meaning to one profile's target syntax.
+
+- Scope: a caller that only evaluates CEL, such as a differential test oracle, selects the CEL library alone. Every translation library of the same library name carries the same CEL library.
+- Prohibited alternatives: "shared library", "base library".
+- Related concepts: [Translation library](#translation-library), [Storage contract](#storage-contract).
+
+### Closed containment
+
+Containment of a position in a polygon where a position on the ring is contained. The alternative, interior containment, excludes a position on the ring.
+
+- Scope: a library that publishes closed containment for several targets emits, per target, whichever operator reproduces it. A target operator whose own name suggests containment may implement interior containment instead.
+- Prohibited alternatives: "inside", "covered by".
+- Related concepts: [Storage contract](#storage-contract), [Translation library](#translation-library).
+
+### Storage contract
+
+The target storage, index, and configuration that a caller must map a query field path to before a profile's translation preserves the CEL semantics of an operation over that field.
+
+- Scope: a storage contract is profile-local even when the CEL type and operation are shared. A field whose storage falls outside the contract is outside the profile's supported input domain, and the profile does not detect that at translation time.
+- Prohibited alternatives: "column requirement", "mapping rule".
+- Related concepts: [Supported input domain](#supported-input-domain), [Translation library](#translation-library), [Query field path](#query-field-path).
 
 ### Capability profile
 
-The machine-readable declaration of what one profile major version supports, published as `protoutil.celql.v1.DialectCapabilityProfile`. Every rule that decides acceptance or rejection appears in an enumerated or structured field rather than in prose.
+The machine-readable declaration of what one profile major version supports, published as `protoutil.celql.v1.DialectCapabilityProfile`. A profile publishes a base capability profile. A constructed translator publishes an effective capability in the same message type. Every rule that decides acceptance or rejection appears in an enumerated or structured field rather than in prose.
 
 - Prohibited alternatives: "feature matrix", "capability manifest".
-- Related concepts: [Profile](#profile).
+- Related concepts: [Profile](#profile), [Effective capability](#effective-capability).
+
+### Effective capability
+
+The capability profile of one constructed translator after it materializes its selected profile and translation libraries.
+
+- Related concepts: [Capability profile](#capability-profile), [Translation library](#translation-library).
 
 ### Translatable fragment
 
-The exact set of expression forms one profile can translate correctly. A fragment restricts by resolved overload, operand type, operand shape, and other semantic conditions, so supporting an overload does not imply supporting every use of it.
+The exact set of expression forms one translator can translate correctly. The effective translatable fragment combines the selected profile's base fragment with the additive fragments of its selected translation libraries. A fragment restricts by resolved overload, operand type, operand shape, and other semantic conditions, so supporting an overload does not imply supporting every use of it.
 
 - Related concepts: [Operand shape](#operand-shape), [Resolved overload](#resolved-overload).
 

@@ -1,25 +1,21 @@
-import { AnsiSqlDialect } from "./ansisql.js";
-import { AnsiSqlPredicateSchema } from "./gen/protoutil/celql/ansisql/v1/ansisql_pb.js";
-import { PostgreSqlPredicateSchema } from "./gen/protoutil/celql/postgresql/v1/postgresql_pb.js";
-import { PostgreSqlDialect } from "./postgresql.js";
-import { SqlDialect } from "./sql-dialect.js";
-import { CelqlTranslator, createTranslator as createDialectTranslator } from "./translator.js";
-import type { DialectConstructor, DialectOutput } from "./types.js";
-
-export { AnsiSqlDialect, AnsiSqlPredicateSchema, SqlDialect };
+export {
+  appliesCaseInsensitivePattern,
+  asciiLower,
+  type CaseInsensitivePatternKind,
+  caseInsensitiveStringsLibrary,
+  caseInsensitiveStringsLibraryName,
+  isAscii,
+} from "./case-insensitive-strings.js";
+export {
+  FullTextIndexType,
+  FullTextIndexValue,
+  fullTextIndexMatchesText,
+  fullTextQueryTerms,
+  fullTextSearchLibrary,
+  fullTextSearchLibraryName,
+  isFullTextQuery,
+} from "./full-text-search.js";
 export type { Expr } from "./gen/cel/expr/syntax_pb.js";
-export {
-  type AnsiSqlParameter,
-  AnsiSqlParameterSchema,
-  type AnsiSqlPredicate,
-} from "./gen/protoutil/celql/ansisql/v1/ansisql_pb.js";
-export {
-  type PostgreSqlConfiguration,
-  PostgreSqlConfigurationSchema,
-  type PostgreSqlParameter,
-  PostgreSqlParameterSchema,
-  type PostgreSqlPredicate,
-} from "./gen/protoutil/celql/postgresql/v1/postgresql_pb.js";
 export {
   AbsenceSemantics,
   AbsenceSemanticsSchema,
@@ -29,6 +25,8 @@ export {
   ComprehensionSupportSchema,
   type DialectCapabilityProfile,
   DialectCapabilityProfileSchema,
+  type LibraryReference,
+  LibraryReferenceSchema,
   NullSemantics,
   NullSemanticsSchema,
   type OperandConstraint,
@@ -56,31 +54,45 @@ export {
   type TranslationLimits,
   TranslationLimitsSchema,
 } from "./gen/protoutil/celql/v1/celql_pb.js";
-export { PostgreSqlDialect, PostgreSqlPredicateSchema };
+export {
+  earthRadiusMeters,
+  GeoPointType,
+  GeoPointValue,
+  GeoPolygonType,
+  GeoPolygonValue,
+  geoPointText,
+  geoPolygonText,
+  geospatialLibrary,
+  geospatialLibraryName,
+  isDistanceBound,
+} from "./geospatial.js";
+export {
+  type BoundParameterValue,
+  type ParameterValue,
+  parameterValue,
+  parameterValues,
+} from "./parameters.js";
+export {
+  TimestampRangeType,
+  TimestampRangeValue,
+  timestampRangesLibrary,
+  timestampRangesLibraryName,
+} from "./timestamp-ranges.js";
 export {
   CelqlError,
   type CelqlErrorOptions,
+  CelqlTranslator,
+  createTranslator,
 } from "./translator.js";
-export { CelqlTranslator };
 export type {
-  DialectConstructor,
-  DialectContext,
+  CelLibrary,
+  CreateTranslatorOptions,
   EffectiveTranslationLimits,
+  Profile,
+  ProfileContext,
+  ProfileOutput,
+  TranslationFunction,
+  TranslationLibrary,
   TranslationOutcome,
   TranslationRequest,
 } from "./types.js";
-export { Dialect } from "./types.js";
-
-/** Creates a translator with the concrete output type of a built-in or custom dialect. */
-export function createTranslator(
-  dialectClass: typeof PostgreSqlDialect,
-): CelqlTranslator<typeof PostgreSqlPredicateSchema>;
-export function createTranslator(
-  dialectClass: typeof AnsiSqlDialect,
-): CelqlTranslator<typeof AnsiSqlPredicateSchema>;
-export function createTranslator<Constructor extends DialectConstructor>(
-  dialectClass: Constructor,
-): CelqlTranslator<DialectOutput<Constructor>>;
-export function createTranslator(dialectClass: DialectConstructor): CelqlTranslator {
-  return createDialectTranslator(dialectClass);
-}

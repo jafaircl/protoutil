@@ -20,6 +20,23 @@ cases {
   checked_expression {
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION }
   }
 }
@@ -32,6 +49,23 @@ cases {
     expr { id: 1 const_expr { bool_value: true } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
   }
 }
@@ -48,6 +82,23 @@ cases {
     reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
   }
 }
@@ -63,6 +114,23 @@ cases {
     reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
   }
 }
@@ -78,6 +146,23 @@ cases {
     type_map { key: 3 value { primitive: BOOL } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
   }
 }
@@ -94,6 +179,23 @@ cases {
     reference_map { key: 1 value { name: "_&&_" overload_id: "logical_and" } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 2 }
   }
 }
@@ -107,6 +209,23 @@ cases {
     type_map { key: 1 value { dyn {} } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
   }
 }
@@ -120,6 +239,23 @@ cases {
     type_map { key: 1 value { abstract_type { name: "optional_type" parameter_types { primitive: BOOL } } } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
   }
 }
@@ -147,6 +283,23 @@ cases {
     reference_map { key: 6 value { name: "__result__" } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 1 }
   }
 }
@@ -175,6 +328,23 @@ cases {
     reference_map { key: 6 value { name: "__result__" } }
   }
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     error { code: TRANSLATION_ERROR_CODE_INVALID_CHECKED_EXPRESSION expression_node_id: 3 }
   }
 }
@@ -185,7 +355,24 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "\"x\""
   expected {
-    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT }
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
   }
 }
 
@@ -195,6 +382,23 @@ cases {
   operation: CONFORMANCE_OPERATION_VALIDATE
   cel_source: "\"x\""
   expected {
-    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT }
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_NON_BOOLEAN_ROOT expression_node_id: 1 }
   }
 }

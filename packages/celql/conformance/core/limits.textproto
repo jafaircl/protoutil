@@ -33,6 +33,27 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "!(!(!true))"
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_depth: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_depth: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    limits { max_depth: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    limits { max_depth: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     limits { max_depth: 3 }
     error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
   }
@@ -44,6 +65,27 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "(true && false) || true"
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_nodes: 4 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_nodes: 4 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    limits { max_nodes: 4 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    limits { max_nodes: 4 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     limits { max_nodes: 4 }
     error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
   }
@@ -55,6 +97,27 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "name == \"abcd\""
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     limits { max_constant_bytes: 3 }
     error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
   }
@@ -66,6 +129,27 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "name == \"éé\""
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     limits { max_constant_bytes: 3 }
     error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
   }
@@ -77,6 +161,27 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "a == \"abc\" && b == \"def\""
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_constant_bytes: 4 max_total_constant_bytes: 5 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_constant_bytes: 4 max_total_constant_bytes: 5 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    limits { max_constant_bytes: 4 max_total_constant_bytes: 5 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    limits { max_constant_bytes: 4 max_total_constant_bytes: 5 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     limits { max_constant_bytes: 4 max_total_constant_bytes: 5 }
     error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
   }
@@ -88,6 +193,27 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "[\"a\"].exists(x, [\"b\"].exists(y, y == status))"
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_comprehension_nesting: 1 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_comprehension_nesting: 1 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    limits { max_comprehension_nesting: 1 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    limits { max_comprehension_nesting: 1 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     limits { max_comprehension_nesting: 1 }
     error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
   }
@@ -99,6 +225,27 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "name == \"abcd\" && neverSupported(true)"
   expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    limits { max_constant_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
     limits { max_constant_bytes: 3 }
     error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
   }

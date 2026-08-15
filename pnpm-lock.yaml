@@ -323,13 +323,28 @@ importers:
       '@protoutil/cel':
         specifier: workspace:*
         version: link:../cel
+      '@protoutil/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
       '@types/node':
         specifier: ^25.0.3
         version: 25.2.3
       '@types/pg':
         specifier: ^8.18.0
         version: 8.18.0
+      better-sqlite3:
+        specifier: ^12.6.2
+        version: 12.6.2
+      mongodb:
+        specifier: ^6.16.0
+        version: 6.21.0(socks@2.8.7)
+      mysql2:
+        specifier: ^3.14.0
+        version: 3.20.0(@types/node@25.2.3)
       pg:
         specifier: ^8.20.0
         version: 8.20.0

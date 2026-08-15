@@ -10,7 +10,7 @@ Conformance layers are data and stay language-neutral. Implementation layers are
 
 **Location.** `conformance/core/*.textproto`.
 
-**Rules.** A core case asserts an outcome kind, an error code, or the baseline profile's exact output. It introduces no query dialect: the baseline targets a published standard, and every implementation provides it.
+**Rules.** Each source-form case records one expectation for every built-in profile. A successful expectation contains the target's exact predicate and complete typed parameters. A rejected form records the profile's exact error boundary.
 
 Asserting exact output is what gives these cases force. A case expecting `"name" IS NOT DISTINCT FROM ?` fails if a value leaks into the condition, if an identifier is left undelimited, if a parameter is dropped or merged, or if the translator emits plain `=` and silently loses rows whose column is null. A case that only checked that some predicate came back would catch none of that.
 
@@ -20,11 +20,16 @@ Asserting exact output is what gives these cases force. A case expecting `"name"
 
 **Scope.** One dialect profile at one major version, asserting that profile's real output message.
 
-**Location.** `conformance/profile/<profile-name>/*.textproto`, added with the profile.
+**Location.** Shared source-form cases live in `conformance/core/*.textproto`.
+`conformance/profile/*.textproto` contains only target-specific libraries,
+configuration, or semantic boundaries that have no shared test environment.
 
 **The baseline.** Every implementation provides the ANSI SQL profile, so this layer is never empty. Its suite asserts exact SQL text and exact bound parameters, which is where output-level correctness is actually proven.
 
-**Extending profiles.** A dialect whose target differs from ISO/IEC 9075 extends the baseline. Its suite must cover every expression form the baseline accepts, so the record-selection agreement with the baseline is verified rather than assumed, plus everything it adds.
+**Extending profiles.** A dialect whose target differs from ISO/IEC 9075 attaches
+its expectation or explicit rejection to each shared source form. This makes
+the output and record-selection agreement visible without copying the CEL
+input. Its local suite covers only what the common environment cannot express.
 
 **Rules.** Coverage follows `conformance/templates/PROFILE_CASE_REQUIREMENTS.md`: every declared overload and operand-shape combination, every field-path rule, every parameter rule, null and absence behavior, range boundaries, pattern and regular-expression rules, every comprehension form, output-growth limits, and the rejection boundary beside each. Expected output uses the type named by the profile's `output_type_name`. A synthetic predicate language is never a substitute.
 
@@ -51,10 +56,11 @@ Asserting exact output is what gives these cases force. A case expecting `"name"
 - Malformed and truncated protobuf input, unknown fields, and wrong-typed `Any` payloads.
 - Expressions that are extremely deep, extremely wide, or both, including trees that would overflow a recursive traversal.
 - Counter behavior at its bounds: node counts, parameter positions, and output-growth accumulators near their maximum, with no wraparound past a configured limit.
-- State leakage: repeated and interleaved translations through one translator, with a fresh dialect visitor for each operation.
-- A dialect that returns the wrong output type or returns nothing, each surfacing as `INVALID_PROFILE_OUTPUT`.
-- A dialect that throws unexpectedly, with the original exception propagating unchanged.
-- Missing dialect classes and invalid capability declarations at translator construction.
+- State leakage: repeated and interleaved translations through one translator, with fresh profile state for each call.
+- A profile that returns the wrong output type or returns nothing, each surfacing as `INVALID_PROFILE_OUTPUT`.
+- A profile that throws unexpectedly, with the original exception propagating unchanged.
+- Missing profiles and invalid capability declarations at translator construction.
+- Translation-library singleton resolution, dependencies, profile compatibility, and overload ownership conflicts.
 - Diagnostic redaction, asserted directly against error contents.
 
 ## Layer 5: fuzz and property tests
@@ -86,15 +92,15 @@ Partial capability is acceptable; undeclared capability is not. A profile that t
 
 ## Current status
 
-149 cases exist: 49 core cases across eight files, 93 ANSI SQL source cases across eight files, and 7 PostgreSQL-specific source cases. These cases contain 252 profile expectations. One case stores its CEL source once and can attach different ANSI SQL and PostgreSQL success or error expectations. The three forms that PostgreSQL adds—array-column membership, array-column `exists`, and regular expressions—therefore verify ANSI SQL rejection and PostgreSQL output without duplicating the source. Every declared ANSI SQL overload has an accepting case, and every rejection boundary next to it has one.
+The language-neutral corpus contains 198 cases and 924 profile expectations. It contains 180 shared core cases and 18 target-local cases. Each non-selection core source case stores its CEL source once and attaches an exact output or explicit rejection for ANSI SQL, PostgreSQL, MySQL, SQLite, and MongoDB.
 
-The TypeScript conformance runner executes all 252 published profile expectations. Focused unit tests cover dialect binding, custom dialect output, subclass dispatch through inherited visitors, validation, output-type enforcement, missing dialects, unexpected dialect failures, PostgreSQL parameter numbering, PostgreSQL array composition, and PostgreSQL regular-expression boundaries.
+The TypeScript entry point executes every published profile expectation directly from textproto. Focused unit tests cover profile-class extension, custom profile output, translation-library composition, validation, output-type enforcement, missing profiles, unexpected profile failures, PostgreSQL parameter numbering, PostgreSQL array composition, PostgreSQL timestamp-range operations, full-text search for each target binding, spatial containment and distance bounds, parameter binding for each client, and portable regular-expression boundaries.
 
-- Layer 3 executes all 80 successful PostgreSQL source expectations against PostgreSQL 14. It generates records from the checked field types and bound constants, then compares the complete selected-record set with CEL evaluation. ANSI SQL still needs an independent compatible execution engine.
-- Layer 5 needs generators for arbitrary checked expressions and profile inputs.
+- Layer 3 executes every successful executable expectation against PostgreSQL 14, MySQL 8.4, MongoDB 8.0, or SQLite. It generates records from checked field types and constants, then compares the complete selected-record set with CEL evaluation. Its domain contains hostile strings, nulls where the profile supports them, pattern metacharacters, membership, Boolean fields, and MongoDB reverse-order comparisons.
+- Layer 5 has finite generated properties for half-open timestamp ranges and simple full-text term membership. It still needs generators for arbitrary checked expressions and profile inputs.
 
-Run `pnpm test` with Docker available. The PostgreSQL spec starts the Compose service, waits for readiness, and removes the service after the suite. Set `CELQL_POSTGRES_IMAGE` before the command to test another PostgreSQL image.
+Run `pnpm test` with Docker available. The single conformance entry point starts the Compose services, waits for readiness, and removes them after the suite. Set `CELQL_POSTGRES_IMAGE`, `CELQL_MYSQL_IMAGE`, or `CELQL_MONGODB_IMAGE` before the command to test another target image.
 
 The package test task parses every textproto fixture, prepares checked expressions, executes each case twice and in reverse order, and compares each observable result with the fixture expectation.
 
-The exact SQL in layers 1 and 2 remains the stable compatibility contract. PostgreSQL layer 3 independently verifies record-selection semantics against the target engine. ANSI SQL output has not received equivalent execution verification, so a shared misreading of that target vocabulary remains a residual risk.
+The exact output in layers 1 and 2 remains the stable compatibility contract. Layer 3 independently verifies record-selection semantics for each executable profile. ANSI SQL output has no direct execution engine, so a shared misreading of that target vocabulary remains a residual risk.

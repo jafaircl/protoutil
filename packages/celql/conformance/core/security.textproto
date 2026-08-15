@@ -31,8 +31,35 @@ cases {
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
     success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      sql: "\"name\" = ?"
       parameters { cel_type { primitive: STRING } value { string_value: "x' OR 1=1 --" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" = $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "x' OR 1=1 --" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`name` <=> ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "x' OR 1=1 --" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "x' OR 1=1 --" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "name" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "x' OR 1=1 --" } } } } } } }
     } } }
   }
 }
@@ -45,8 +72,35 @@ cases {
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
     success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      sql: "\"name\" = ?"
       parameters { cel_type { primitive: STRING } value { string_value: "a\"; DROP TABLE t; /*" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" = $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "a\"; DROP TABLE t; /*" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`name` <=> ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "a\"; DROP TABLE t; /*" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "a\"; DROP TABLE t; /*" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "name" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "a\"; DROP TABLE t; /*" } } } } } } }
     } } }
   }
 }
@@ -59,8 +113,35 @@ cases {
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
     success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      sql: "\"name\" = ?"
       parameters { cel_type { primitive: STRING } value { string_value: "? $1 :name" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" = $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "? $1 :name" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`name` <=> ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "? $1 :name" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "? $1 :name" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "name" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "? $1 :name" } } } } } } }
     } } }
   }
 }
@@ -73,8 +154,35 @@ cases {
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
     success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-      sql: "\"name\" IS NOT DISTINCT FROM ?"
+      sql: "\"name\" = ?"
       parameters { cel_type { primitive: STRING } value { string_value: "" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"name\" = $1"
+      parameters { cel_type { primitive: STRING } value { string_value: "" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`name` <=> ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" IS ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "name" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "" } } } } } } }
     } } }
   }
 }
@@ -87,8 +195,35 @@ cases {
   expected {
     profile { name: "protoutil.celql.ansisql" major_version: 1 }
     success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
-      sql: "\"payload\" IS NOT DISTINCT FROM ?"
-      parameters { cel_type { primitive: BYTES } value { bytes_value: "\x00\x01' OR 1=1 --\xff" } }
+      sql: "\"payload\" = ?"
+      parameters { cel_type { primitive: BYTES } value { bytes_value: "\x00\x01\x27\x20\x4f\x52\x20\x31\x3d\x31\x20\x2d\x2d\xff" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"payload\" = $1"
+      parameters { cel_type { primitive: BYTES } value { bytes_value: "\x00\x01\x27\x20\x4f\x52\x20\x31\x3d\x31\x20\x2d\x2d\xff" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "`payload` <=> ?"
+      parameters { cel_type { primitive: BYTES } value { bytes_value: "\x00\x01\x27\x20\x4f\x52\x20\x31\x3d\x31\x20\x2d\x2d\xff" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"payload\" IS ?"
+      parameters { cel_type { primitive: BYTES } value { bytes_value: "\x00\x01\x27\x20\x4f\x52\x20\x31\x3d\x31\x20\x2d\x2d\xff" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "payload" } value { map_value { entries { key { string_value: "$eq" } value { bytes_value: "\x00\x01\x27\x20\x4f\x52\x20\x31\x3d\x31\x20\x2d\x2d\xff" } } } } } } }
     } } }
   }
 }
@@ -99,6 +234,23 @@ cases {
   operation: CONFORMANCE_OPERATION_TRANSLATE
   cel_source: "neverSupported(\"x' OR 1=1 --\") && true"
   expected {
-    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 1 }
   }
 }

@@ -1,8 +1,12 @@
 import type { DescMessage, Message, MessageShape } from "@bufbuild/protobuf";
 import type { Any } from "@bufbuild/protobuf/wkt";
+import type { LibraryVersioner, SingletonLibrary } from "@protoutil/cel";
 import type { CheckedExpr } from "./gen/cel/expr/checked_pb.js";
 import type {
   DialectCapabilityProfile,
+  LibraryReference,
+  OperationCapability,
+  ProfileReference,
   TranslationLimits,
 } from "./gen/protoutil/celql/v1/celql_pb.js";
 
@@ -18,7 +22,7 @@ export interface TranslationRequest {
   profileConfiguration?: Any;
 }
 
-/** Fully resolved finite limits supplied to a dialect profile. */
+/** Fully resolved finite limits supplied to a profile. */
 export interface EffectiveTranslationLimits {
   /** Maximum reachable expression-tree depth, with the root at depth one. */
   maxDepth: number;
@@ -45,69 +49,80 @@ export interface EffectiveTranslationLimits {
   maxOutputGrowth: bigint;
 }
 
-/** Common validated input passed to a dialect profile. */
-export interface DialectContext {
+/** Common validated input passed to a profile. */
+export interface ProfileContext {
   /** Structurally valid checked expression with a Boolean root. */
-  checkedExpression: CheckedExpr;
+  readonly checkedExpression: CheckedExpr;
 
   /** Effective finite limits for this operation. */
-  limits: EffectiveTranslationLimits;
+  readonly limits: EffectiveTranslationLimits;
 
   /** Trusted profile configuration supplied by the caller. */
-  profileConfiguration?: Any;
+  readonly profileConfiguration?: Any;
 }
 
-/** Base visitor for one translation through one dialect. */
-export abstract class Dialect<Desc extends DescMessage = DescMessage> {
-  /** Preserves the concrete output schema through dialect-constructor inference. */
-  protected declare readonly dialectOutput: Desc;
+/**
+ * Target-independent CEL declarations and evaluation bindings of one library.
+ *
+ * A CEL library defines what an expression means. A `TranslationLibrary` adds
+ * the target binding that preserves that meaning for one profile.
+ */
+export type CelLibrary = SingletonLibrary & LibraryVersioner;
 
-  /** Validated input and finite limits for this translation. */
-  protected readonly context: DialectContext;
+/** One profile-specific translation function contributed by a library. */
+export interface TranslationFunction<Translation> {
+  /** Machine-readable declaration for the resolved overload. */
+  readonly capability: OperationCapability;
 
-  /** Creates a fresh dialect visitor for one operation. */
-  public constructor(context: DialectContext) {
-    this.context = context;
-  }
-
-  /**
-   * Verifies dialect-specific input and configuration.
-   *
-   * The default implementation performs a complete translation so validation
-   * and translation apply identical visitor behavior and rejection rules.
-   *
-   * @throws CelqlError when the input is outside the dialect contract.
-   */
-  public validate(): void {
-    this.translate();
-  }
-
-  /**
-   * Produces one complete predicate of the dialect's declared output schema.
-   *
-   * @throws CelqlError when the input cannot be translated.
-   */
-  public abstract translate(): MessageShape<Desc>;
+  /** Target-compatible translation selected for that overload. */
+  readonly translate: Translation;
 }
 
-/** Public constructor and static metadata for one dialect profile major version. */
-export interface DialectConstructor<Desc extends DescMessage = DescMessage> {
-  /** Machine-readable capability declaration for the dialect profile. */
+/** One named singleton addition to a profile's translatable fragment. */
+export interface TranslationLibrary<Translation> extends CelLibrary {
+  /** Stable semantic library identity. */
+  readonly reference: LibraryReference;
+
+  /** Profile name and major version supported by this library binding. */
+  readonly profile: ProfileReference;
+
+  /** Versioned translation libraries that the caller must also select. */
+  readonly requiredTranslationLibraries?: readonly LibraryReference[];
+
+  /** Resolved overload declarations and their target translations. */
+  readonly functions: readonly TranslationFunction<Translation>[];
+}
+
+/** A profile implementation for one profile major version. */
+export interface Profile<Desc extends DescMessage = DescMessage, Translation = unknown> {
+  /** Machine-readable base capability declaration for the profile. */
   readonly capability: DialectCapabilityProfile;
 
-  /** Protobuf schema of the dialect's sole predicate output type. */
+  /** Protobuf schema of the profile's sole predicate output type. */
   readonly outputSchema: Desc;
 
-  /** Creates an isolated visitor for one validation or translation operation. */
-  new (context: DialectContext): Dialect<Desc>;
+  /** Validates trusted profile configuration before any translation outcome is selected. */
+  readonly validateConfiguration?: (profileConfiguration?: Any) => void;
+
+  /** Verifies one expression through this constructed profile and its selected libraries. */
+  readonly validate: (context: ProfileContext, functions: ReadonlyMap<string, Translation>) => void;
+
+  /** Produces one complete predicate through this constructed profile and its selected libraries. */
+  readonly translate: (
+    context: ProfileContext,
+    functions: ReadonlyMap<string, Translation>,
+  ) => MessageShape<Desc>;
 }
 
-/** Predicate schema produced by instances of a dialect constructor. */
-export type DialectOutput<Constructor extends DialectConstructor> = Constructor extends new (
-  context: DialectContext,
-) => Dialect<infer Desc>
-  ? Desc
-  : never;
+/** Options applied once when a translator materializes its profile. */
+export interface CreateTranslatorOptions<Translation> {
+  /** Named translation libraries added to the profile. */
+  readonly libraries?: readonly TranslationLibrary<Translation>[];
+}
+
+/** Protobuf descriptor for the predicate type produced by a selected profile. */
+export type ProfileOutput<SelectedProfile extends { outputSchema: DescMessage }> =
+  SelectedProfile["outputSchema"];
 
 /** Successful translation result. */
 export type TranslationOutcome<T extends Message = Message> =
