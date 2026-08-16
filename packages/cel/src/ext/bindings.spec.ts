@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type EnvOptions, env } from "../cel/env.js";
+import { type EnvOptions, env, unwrapAst } from "../cel/env.js";
 import { validateBindNestingLimit } from "../cel/validator.js";
 import { sizeEstimate } from "../checker/cost.js";
 import { ast, type Expr, exprFactory } from "../common/ast/index.js";
@@ -42,7 +42,7 @@ describe("ext/bindings_test.go/TestBindings", () => {
   for (const testCase of syncedCases<BindingCase>("ext/bindings_test.go/TestBindings")) {
     it(testCase.name, () => {
       const celEnv = bindingEnv(testCase.vars);
-      const expression = celEnv.compile(testCase.expr);
+      const expression = unwrapAst(celEnv.compile(testCase.expr));
       const estimate = celEnv.estimateCost(expression, {
         estimateCallCost: () => undefined,
         estimateSize: (node) => {
@@ -63,7 +63,7 @@ describe("ext/bindings_test.go/TestBindings", () => {
 
 describe("ext/bindings_test.go/TestBindingsNonMatch", () => {
   it("leaves a non-cel namespace receiver call unexpanded", () => {
-    const parsed = bindingEnv().parse("ceel.bind(a, 1, a)");
+    const parsed = unwrapAst(bindingEnv().parse("ceel.bind(a, 1, a)"));
     expect(parsed.sourceInfo().macroCalls().size).toBe(0);
   });
 });
@@ -77,7 +77,7 @@ describe("ext/bindings_test.go/TestValidateBindNestingLimit", () => {
     for (const testCase of syncedCases<{ expr: string; iss?: string }>(
       "ext/bindings_test.go/TestValidateBindNestingLimit",
     )) {
-      const result = celEnv.tryCompile(testCase.expr);
+      const result = celEnv.compile(testCase.expr);
       if (testCase.iss === undefined) {
         expect(result.errors, testCase.expr).toBeUndefined();
       } else {
@@ -91,7 +91,8 @@ describe("ext/bindings_test.go/TestValidateBindNestingLimit", () => {
 
 describe("ext/bindings_test.go/TestBindingsInvalidIdent", () => {
   it("rejects a selector as a binding variable", () => {
-    expect(() => bindingEnv().parse("cel.bind(a.b, 1, a.b)")).toThrow(
+    const parsed = bindingEnv().parse("cel.bind(a.b, 1, a.b)");
+    expect(parsed.errors?.toDisplayString()).toContain(
       "cel.bind() variable names must be simple identifiers",
     );
   });

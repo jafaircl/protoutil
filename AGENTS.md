@@ -4,13 +4,9 @@
 
 This file defines repository-wide control and safety rules.
 
-Process guidance lives in installed skills. The agent MUST apply every skill that is applicable to the current task.
-
-If a project instruction conflicts with a general skill, the higher-authority project or task instruction takes precedence. If project artifacts conflict about required behavior, use the applicable specification or architecture skill to resolve the conflict.
+If a project instruction conflicts with reusable guidance, the higher-authority project or task instruction takes precedence. Conflicting project artifacts MUST NOT be silently reconciled or averaged.
 
 ## Context Discipline
-
-Before searching, opening, reading, or exploring repository working context that is not already established, the agent MUST apply `context-acquisition`.
 
 Ordinary source files MUST NOT be read in full by default. The agent MUST use targeted search and inspect the smallest logical unit that can answer the current context question.
 
@@ -34,7 +30,6 @@ When a change makes existing public or user-facing documentation inaccurate, the
 
 When a change introduces, changes, disambiguates, abbreviates, or publicly renames a domain concept, the agent MUST update `glossary.md` at the repository root.
 
-The `technical-writing` skill MUST govern substantive comments, JSDoc, docstrings, public API comments, test names, glossary entries, and technical documentation that the task creates or materially edits.
 
 ## Git Safety
 

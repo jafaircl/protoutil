@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Env, env } from "../cel/env.js";
+import { type Env, env, unwrapAst } from "../cel/env.js";
 import {
   AST,
   callExpr,
@@ -66,7 +66,7 @@ describe("composition/expression", () => {
 
     it("returns a semantically equivalent expression for one operand", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
+      const a = unwrapAst(target.compile("x == 1"));
       const result = createComposition(target).and(a);
       expect(target.program(result).eval({ x: 1n }).value()).toBe(true);
       expect(target.program(result).eval({ x: 2n }).value()).toBe(false);
@@ -74,9 +74,9 @@ describe("composition/expression", () => {
 
     it("preserves operand order", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
-      const c = target.compile("z == 3");
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
+      const c = unwrapAst(target.compile("z == 3"));
       const result = createComposition(target).and(a, b, c);
       const call = result.expr().asCall()!;
       expect(call.args()).toHaveLength(3);
@@ -87,9 +87,9 @@ describe("composition/expression", () => {
 
     it("flattens nested standard conjunctions", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
-      const c = target.compile("z == 3");
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
+      const c = unwrapAst(target.compile("z == 3"));
       const composition = createComposition(target);
       const bc = composition.and(b, c);
       const result = composition.and(a, bc);
@@ -106,7 +106,7 @@ describe("composition/expression", () => {
           }),
         ],
       });
-      const a = target.compile("x == 1");
+      const a = unwrapAst(target.compile("x == 1"));
       const fake = fakeCall("_&&_", "string_and", [literalExpr(0, "p"), literalExpr(0, "q")]);
       const result = createComposition(target).and(a, fake);
       // fake must survive as a single opaque operand rather than being inlined.
@@ -115,8 +115,8 @@ describe("composition/expression", () => {
 
     it("removes true identity operands", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const t = target.compile("true");
+      const a = unwrapAst(target.compile("x == 1"));
+      const t = unwrapAst(target.compile("true"));
       const result = createComposition(target).and(t, a, t);
       expect(result.expr().kind()).toBe(a.expr().kind());
       expect(target.program(result).eval({ x: 1n }).value()).toBe(true);
@@ -124,44 +124,44 @@ describe("composition/expression", () => {
 
     it("short-circuits to false on an absorbing false operand", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
-      const result = createComposition(target).and(a, target.compile("false"), b);
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
+      const result = createComposition(target).and(a, unwrapAst(target.compile("false")), b);
       expect(target.program(result).eval({}).value()).toBe(false);
     });
 
     it("removes structural duplicates, keeping the first occurrence", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
-      const result = createComposition(target).and(a, b, a, target.compile("z == 3"), b);
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
+      const result = createComposition(target).and(a, b, a, unwrapAst(target.compile("z == 3")), b);
       expect(result.expr().asCall()!.args()).toHaveLength(3);
     });
 
     it("does not mutate its input ASTs", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
+      const a = unwrapAst(target.compile("x == 1"));
       const beforeIds = ids(a);
-      createComposition(target).and(a, target.compile("y == 2"));
+      createComposition(target).and(a, unwrapAst(target.compile("y == 2")));
       expect(ids(a)).toEqual(beforeIds);
     });
 
     it("rejects a non-Boolean operand", () => {
       const target = testEnv();
-      const nonBool = target.compile("x");
+      const nonBool = unwrapAst(target.compile("x"));
       expect(() => createComposition(target).and(nonBool)).toThrow("Boolean root type");
     });
 
     it("rejects a parsed-only operand", () => {
       const target = testEnv();
-      const parsed = target.parse("x == 1");
+      const parsed = unwrapAst(target.parse("x == 1"));
       expect(() => createComposition(target).and(parsed)).toThrow("checked expression");
     });
 
     it("rejects an operand the target cannot evaluate", () => {
       const target = testEnv();
       const other = env({ variables: [variable("w", IntType)] });
-      const foreign = other.compile("w == 1");
+      const foreign = unwrapAst(other.compile("w == 1"));
       expect(() => createComposition(target).and(foreign)).toThrow("not evaluable");
     });
   });
@@ -175,23 +175,23 @@ describe("composition/expression", () => {
 
     it("removes false identity operands", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const f = target.compile("false");
+      const a = unwrapAst(target.compile("x == 1"));
+      const f = unwrapAst(target.compile("false"));
       const result = createComposition(target).or(f, a, f);
       expect(target.program(result).eval({ x: 1n }).value()).toBe(true);
     });
 
     it("short-circuits to true on an absorbing true operand", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const result = createComposition(target).or(a, target.compile("true"));
+      const a = unwrapAst(target.compile("x == 1"));
+      const result = createComposition(target).or(a, unwrapAst(target.compile("true")));
       expect(target.program(result).eval({ x: 99n }).value()).toBe(true);
     });
 
     it("removes structural duplicates", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
       const result = createComposition(target).or(a, b, a);
       expect(result.expr().asCall()!.args()).toHaveLength(2);
     });
@@ -200,24 +200,26 @@ describe("composition/expression", () => {
   describe("not", () => {
     it("negates true to false", () => {
       const target = testEnv();
-      const result = createComposition(target).not(target.compile("true"));
+      const result = createComposition(target).not(unwrapAst(target.compile("true")));
       expect(target.program(result).eval({}).value()).toBe(false);
     });
 
     it("negates false to true", () => {
       const target = testEnv();
-      const result = createComposition(target).not(target.compile("false"));
+      const result = createComposition(target).not(unwrapAst(target.compile("false")));
       expect(target.program(result).eval({}).value()).toBe(true);
     });
 
     it("rejects a checked non-Boolean operand", () => {
       const target = testEnv();
-      expect(() => createComposition(target).not(target.compile("1"))).toThrow("Boolean root type");
+      expect(() => createComposition(target).not(unwrapAst(target.compile("1")))).toThrow(
+        "Boolean root type",
+      );
     });
 
     it("simplifies double negation of the standard operator", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
+      const a = unwrapAst(target.compile("x == 1"));
       const composition = createComposition(target);
       const result = composition.not(composition.not(a));
       expect(result.expr().kind()).toBe(a.expr().kind());
@@ -248,8 +250,8 @@ describe("composition/expression", () => {
   describe("metadata", () => {
     it("produces unique result expression ids", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
       const result = createComposition(target).and(a, b);
       const collected = ids(result);
       expect(new Set(collected).size).toBe(collected.length);
@@ -257,8 +259,8 @@ describe("composition/expression", () => {
 
     it("uses the standard logical overload reference on the constructed root", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
       const result = createComposition(target).and(a, b);
       const rootId = result.expr().id();
       expect(result.referenceMap().get(rootId)?.overloadIds).toContain("logical_and");
@@ -269,8 +271,8 @@ describe("composition/expression", () => {
       // Composed results carry no source location at all, so no source-position or macro-call id
       // can survive expression-id remapping pointing at a node that is no longer there.
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
       const result = createComposition(target).and(a, b);
       expect(result.sourceInfo().offsetRanges().size).toBe(0);
       expect(result.sourceInfo().macroCalls().size).toBe(0);
@@ -280,10 +282,10 @@ describe("composition/expression", () => {
   describe("evaluation equivalence", () => {
     it("evaluates equivalently to a normally checked && expression", () => {
       const target = testEnv();
-      const a = target.compile("x == 1");
-      const b = target.compile("y == 2");
+      const a = unwrapAst(target.compile("x == 1"));
+      const b = unwrapAst(target.compile("y == 2"));
       const composed = createComposition(target).and(a, b);
-      const normal = target.compile("x == 1 && y == 2");
+      const normal = unwrapAst(target.compile("x == 1 && y == 2"));
       for (const bindings of [
         { x: 1n, y: 2n },
         { x: 1n, y: 3n },
@@ -309,8 +311,8 @@ describe("composition/expression", () => {
           }),
         ],
       });
-      const a = target.compile("x == 1");
-      const errorsOut = target.compile("boom()");
+      const a = unwrapAst(target.compile("x == 1"));
+      const errorsOut = unwrapAst(target.compile("boom()"));
       const composed = createComposition(target).and(a, errorsOut);
       const result = target.program(composed).eval({ x: 0n });
       expect(result.value()).toBe(false);
@@ -318,7 +320,7 @@ describe("composition/expression", () => {
 
     it("propagates a CEL error from a composed operand", () => {
       const errorEnv = env({ variables: [variable("x", IntType)] });
-      const divByZero = errorEnv.compile("(1 / 0) == 1");
+      const divByZero = unwrapAst(errorEnv.compile("(1 / 0) == 1"));
       const composed = createComposition(errorEnv).and(divByZero);
       const result = errorEnv.program(composed).eval({ x: 1n });
       expect(isError(result)).toBe(true);

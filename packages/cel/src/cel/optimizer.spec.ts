@@ -13,6 +13,7 @@ import {
   variable,
 } from "../index.js";
 import type { Macro } from "../parser/options.js";
+import { unwrapAst } from "./env.js";
 
 /** BindMacro expands `cel.bind(var, init, result)` into a single-evaluation comprehension. */
 const BindMacro: Macro = {
@@ -105,8 +106,8 @@ function optimizerEnv(): Env {
 describe("cel/optimizer_test.go/TestStaticOptimizerUpdateExpr", () => {
   it("updates an expression while keeping macro metadata consistent", () => {
     const celEnv = optimizerEnv();
-    const input = celEnv.compile("has(a.b)");
-    const inlineExpression = celEnv.compile("[x, y].filter(i, i.size() > 0)[0].z");
+    const input = unwrapAst(celEnv.compile("has(a.b)"));
+    const inlineExpression = unwrapAst(celEnv.compile("[x, y].filter(i, i.size() > 0)[0].z"));
     const optimizer = staticOptimizer({
       optimizers: [new UpdateOptimizer(inlineExpression)],
     });
@@ -128,7 +129,9 @@ describe("cel/optimizer_test.go/TestStaticOptimizerNewAST", () => {
       "[1, 2, 3].all(i, i != 0)",
       'cel.bind(m, {"a": 1, "b": 2}, m.filter(k, m[k] > 1))',
     ]) {
-      expect(astToString(optimizer.optimize(celEnv, celEnv.compile(expression)))).toBe(expression);
+      expect(astToString(optimizer.optimize(celEnv, unwrapAst(celEnv.compile(expression))))).toBe(
+        expression,
+      );
     }
   });
 });
@@ -137,13 +140,13 @@ describe("cel/optimizer_test.go/TestOptimizeWithSource", () => {
   it("uses the option-object source override for replacement metadata", () => {
     const celEnv = optimizerEnv();
     const replacement = 'x["a"]';
-    const replacementAst = celEnv.compile(replacement);
+    const replacementAst = unwrapAst(celEnv.compile(replacement));
     const optimizer = staticOptimizer({
       optimizers: [new ReplaceOptimizer(replacementAst)],
       source: textSource(replacement),
     });
 
-    const optimized = optimizer.optimize(celEnv, celEnv.compile("has(a.b)"));
+    const optimized = optimizer.optimize(celEnv, unwrapAst(celEnv.compile("has(a.b)")));
 
     expect(astToString(optimized)).toBe(replacement);
     expect(optimized.source().content()).toBe(replacement);

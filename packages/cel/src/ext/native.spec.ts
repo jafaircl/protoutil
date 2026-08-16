@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
 import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -38,13 +38,15 @@ describe("ext/native_test.go/TestNativeTypes", () => {
     }`;
     const result = celEnv
       .program(
-        celEnv.compile(`
+        unwrapAst(
+          celEnv.compile(`
       ${expression}.BoolVal &&
       ${expression}.StringVal == 'hello' &&
       ${expression}.NestedVal.custom_name == 'nested' &&
       ${expression}.ListVal[0].custom_name == 'listed' &&
       ${expression}.MapVal.key.custom_name == 'mapped'
     `),
+        ),
       )
       .eval({});
     expect(result.value()).toBe(true);
@@ -71,19 +73,21 @@ describe("ext/native_test.go/TestNativeFindStructFieldNames", () => {
 describe("ext/native_test.go/TestNativeTypesStaticErrors", () => {
   it("reports unknown native types and fields while checking", () => {
     const celEnv = nativeEnv();
-    expect(celEnv.tryCompile("TestAllTypos{}").errors?.toDisplayString()).toContain(
+    expect(celEnv.compile("TestAllTypos{}").errors?.toDisplayString()).toContain(
       "undeclared reference",
     );
-    expect(
-      celEnv.tryCompile("ext.TestAllTypes{bool_val: false}").errors?.toDisplayString(),
-    ).toContain("undefined field");
+    expect(celEnv.compile("ext.TestAllTypes{bool_val: false}").errors?.toDisplayString()).toContain(
+      "undefined field",
+    );
   });
 });
 
 describe("ext/native_test.go/TestNativeTypesJsonSerialization", () => {
   it("exposes native values as plain TypeScript objects", () => {
     const value = nativeEnv()
-      .program(nativeEnv().compile("ext.TestAllTypes{BoolVal: true, StringVal: 'value'}"))
+      .program(
+        unwrapAst(nativeEnv().compile("ext.TestAllTypes{BoolVal: true, StringVal: 'value'}")),
+      )
       .eval({})
       .value();
     expect(JSON.stringify(value)).toContain('"boolVal":true');
@@ -94,7 +98,7 @@ describe("ext/native_test.go/TestNativeTypesJsonSerialization", () => {
 describe("ext/native_test.go/TestNativeTypesRuntimeErrors", () => {
   it("reports unknown fields when unchecked native construction is evaluated", () => {
     const celEnv = nativeEnv();
-    const parsed = celEnv.parse("ext.TestAllTypes{bool_val: false}");
+    const parsed = unwrapAst(celEnv.parse("ext.TestAllTypes{bool_val: false}"));
     expect(String(celEnv.program(parsed).eval({}))).toContain("no such field");
   });
 });
@@ -114,7 +118,7 @@ describe("ext/native_test.go/TestNativeTypesErrors", () => {
 describe("ext/native_test.go/TestNativeTypesConvertToNative", () => {
   it("returns constructed native object values", () => {
     const value = nativeEnv()
-      .program(nativeEnv().compile("ext.TestAllTypes{BoolVal: true}"))
+      .program(unwrapAst(nativeEnv().compile("ext.TestAllTypes{BoolVal: true}")))
       .eval({});
     expect(value.convertToNative(Object)).toMatchObject({
       $celTypeName: "ext.TestAllTypes",
@@ -139,8 +143,10 @@ describe("ext/native_test.go/TestNativeTypesWithOptional", () => {
     expect(
       celEnv
         .program(
-          celEnv.compile(
-            "!ext.TestAllTypes{}.?BoolVal.hasValue() && ext.TestAllTypes{BoolVal: true}.?BoolVal.orValue(false)",
+          unwrapAst(
+            celEnv.compile(
+              "!ext.TestAllTypes{}.?BoolVal.hasValue() && ext.TestAllTypes{BoolVal: true}.?BoolVal.orValue(false)",
+            ),
           ),
         )
         .eval({})
@@ -155,8 +161,10 @@ describe("ext/native_test.go/TestNativeTypesWithCELTypedFields", () => {
     expect(
       celEnv
         .program(
-          celEnv.compile(
-            "ext.TestRefValFieldType{optional_name: optional.of('name')}.optional_name.orValue('') == 'name'",
+          unwrapAst(
+            celEnv.compile(
+              "ext.TestRefValFieldType{optional_name: optional.of('name')}.optional_name.orValue('') == 'name'",
+            ),
           ),
         )
         .eval({})
@@ -220,8 +228,10 @@ describe("ext/native_test.go/TestNativeStructWithMultipleSameFieldNames", () => 
     expect(
       celEnv
         .program(
-          celEnv.compile(
-            "ext.TestNestedType{custom_name: 'nested'}.custom_name == 'nested' && ext.TestAllTypes{CustomName: 'all'}.CustomName == 'all'",
+          unwrapAst(
+            celEnv.compile(
+              "ext.TestNestedType{custom_name: 'nested'}.custom_name == 'nested' && ext.TestAllTypes{CustomName: 'all'}.CustomName == 'all'",
+            ),
           ),
         )
         .eval({})
@@ -236,8 +246,10 @@ describe("ext/native_test.go/TestNativeStructEmbedded", () => {
     expect(
       celEnv
         .program(
-          celEnv.compile(
-            "ext.TestEmbeddedTypes{embedded: ext.TestNestedType{custom_name: 'name'}}.embedded.custom_name == 'name'",
+          unwrapAst(
+            celEnv.compile(
+              "ext.TestEmbeddedTypes{embedded: ext.TestNestedType{custom_name: 'name'}}.embedded.custom_name == 'name'",
+            ),
           ),
         )
         .eval({})
@@ -250,19 +262,21 @@ describe("ext/native_test.go/TestNativeStructEmbeddedPointer", () => {
   it("handles absent and populated optional embedded-object equivalents", () => {
     const celEnv = nativeEnv();
     const absent = celEnv
-      .program(celEnv.compile("!has(test.ListVal)"))
+      .program(unwrapAst(celEnv.compile("!has(test.ListVal)")))
       .eval({ test: { $celTypeName: "ext.TestNestedStruct" } });
-    const populated = celEnv.program(celEnv.compile("test.ListVal[0].custom_name == 'name'")).eval({
-      test: nativeRegistry().nativeToValue({
-        $celTypeName: "ext.TestNestedStruct",
-        listVal: [
-          nativeRegistry().nativeToValue({
-            $celTypeName: "ext.TestNestedType",
-            nestedCustomName: "name",
-          }),
-        ],
-      }),
-    });
+    const populated = celEnv
+      .program(unwrapAst(celEnv.compile("test.ListVal[0].custom_name == 'name'")))
+      .eval({
+        test: nativeRegistry().nativeToValue({
+          $celTypeName: "ext.TestNestedStruct",
+          listVal: [
+            nativeRegistry().nativeToValue({
+              $celTypeName: "ext.TestNestedType",
+              nestedCustomName: "name",
+            }),
+          ],
+        }),
+      });
 
     expect(absent.value()).toBe(true);
     expect(populated.value()).toBe(true);
@@ -272,7 +286,7 @@ describe("ext/native_test.go/TestNativeStructEmbeddedPointer", () => {
 describe("ext/native_test.go/TestNativeStructHiddenField", () => {
   it("does not expose object properties omitted from the explicit TypeScript descriptor", () => {
     const celEnv = nativeEnv();
-    expect(celEnv.tryCompile("test.hidden").errors?.toDisplayString()).toContain("undefined field");
+    expect(celEnv.compile("test.hidden").errors?.toDisplayString()).toContain("undefined field");
   });
 });
 
@@ -293,7 +307,7 @@ describe("ext/native_test.go/TestNativeNestedStruct", () => {
     )) {
       expect(
         celEnv
-          .program(celEnv.compile(testCase.expr))
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
           .eval({
             test: nativeRegistry().nativeToValue({
               $celTypeName: "ext.TestNestedStruct",
@@ -323,7 +337,7 @@ describe("ext/native_test.go/TestTypeResolutionRace", () => {
     for (let index = 0; index < 20; index += 1) {
       expect(
         celEnv
-          .program(celEnv.compile(`ext.TestNestedType{custom_name: 'name${index}'}`))
+          .program(unwrapAst(celEnv.compile(`ext.TestNestedType{custom_name: 'name${index}'}`)))
           .eval({})
           .value(),
       ).toMatchObject({ nestedCustomName: `name${index}` });

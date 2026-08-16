@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { func, memberOverload, variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -51,7 +51,9 @@ describe("ext/math_test.go/TestMath", () => {
   it("evaluates every synchronized math expression", () => {
     const celEnv = mathEnv();
     for (const testCase of syncedCases<MathCase>("ext/math_test.go/TestMath")) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval(testCase.in ?? {});
+      const result = celEnv
+        .program(unwrapAst(celEnv.compile(testCase.expr)))
+        .eval(testCase.in ?? {});
       expect(result.value(), testCase.expr).toBe(true);
     }
   });
@@ -61,7 +63,7 @@ describe("ext/math_test.go/TestMathStaticErrors", () => {
   it("reports every synchronized macro error", () => {
     const celEnv = mathEnv();
     for (const testCase of syncedCases<MathErrorCase>("ext/math_test.go/TestMathStaticErrors")) {
-      expect(celEnv.tryCompile(testCase.expr).errors?.toDisplayString(), testCase.expr).toContain(
+      expect(celEnv.compile(testCase.expr).errors?.toDisplayString(), testCase.expr).toContain(
         testCase.err,
       );
     }
@@ -72,7 +74,9 @@ describe("ext/math_test.go/TestMathRuntimeErrors", () => {
   it("reports every synchronized runtime error", () => {
     const celEnv = mathEnv();
     for (const testCase of syncedCases<MathErrorCase>("ext/math_test.go/TestMathRuntimeErrors")) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval(testCase.in ?? {});
+      const result = celEnv
+        .program(unwrapAst(celEnv.compile(testCase.expr)))
+        .eval(testCase.in ?? {});
       expect(String(result), testCase.expr).toContain(testCase.err);
     }
   });
@@ -96,7 +100,12 @@ describe("ext/math_test.go/TestMathNonMatch", () => {
     });
     const celEnv = env({ functions: [greatest, least], libraries: [math()] });
     for (const testCase of syncedCases<MathCase>("ext/math_test.go/TestMathNonMatch")) {
-      expect(celEnv.program(celEnv.compile(testCase.expr)).eval({}).value()).toBe(true);
+      expect(
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({})
+          .value(),
+      ).toBe(true);
     }
   });
 });
@@ -104,7 +113,12 @@ describe("ext/math_test.go/TestMathNonMatch", () => {
 describe("ext/math_test.go/TestMathWithExtension", () => {
   it("applies the singleton library only once when extending an environment", () => {
     const celEnv = env({ libraries: [math()] }).extend({ libraries: [math()] });
-    expect(celEnv.program(celEnv.compile("math.least(0, 1, 2) == 0")).eval({}).value()).toBe(true);
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.compile("math.least(0, 1, 2) == 0")))
+        .eval({})
+        .value(),
+    ).toBe(true);
   });
 });
 
@@ -115,7 +129,7 @@ describe("ext/math_test.go/TestMathVersions", () => {
       const celEnv = env({ libraries: [math({ version: selected.version })] });
       for (const introduced of cases) {
         for (const expression of Object.values(introduced.supportedFunctions)) {
-          const result = celEnv.tryCompile(expression);
+          const result = celEnv.compile(expression);
           if (selected.version < introduced.version) {
             expect(result.errors?.toDisplayString(), expression).toContain("undeclared reference");
           } else {
@@ -143,7 +157,7 @@ describe("ext/math_test.go/TestMathCosts", () => {
           ),
         ),
       });
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const estimator: CostEstimator = {
         estimateCallCost: () => undefined,
         estimateSize: (node) => {

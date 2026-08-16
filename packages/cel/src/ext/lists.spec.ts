@@ -1,7 +1,7 @@
 import { file_test_proto2pb_test_all_types } from "@protoutil/testing/cel/proto2";
 import { file_test_proto2pb_test_extensions } from "@protoutil/testing/cel/proto2-extensions";
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { container } from "../common/containers.js";
 import { variable } from "../common/decls.js";
@@ -46,7 +46,7 @@ describe("ext/lists_test.go/TestLists", () => {
   it("evaluates every synchronized list expression", () => {
     const celEnv = listsEnv();
     for (const testCase of syncedCases<ListsCase>("ext/lists_test.go/TestLists")) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({});
       if (testCase.err) {
         expect(String(result), testCase.expr).toContain(testCase.err);
       } else {
@@ -60,7 +60,7 @@ describe("ext/lists_test.go/TestListsRuntimeErrors", () => {
   it("reports every synchronized runtime failure", () => {
     const celEnv = listsEnv({ version: 1 });
     for (const testCase of syncedCases<ListsCase>("ext/lists_test.go/TestListsRuntimeErrors")) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({});
       expect(String(result), testCase.expr).toContain(testCase.err);
     }
   });
@@ -73,7 +73,7 @@ describe("ext/lists_test.go/TestListsVersion", () => {
       const celEnv = listsEnv({ version: selected.version });
       for (const introduced of cases) {
         for (const expression of Object.values(introduced.supportedFunctions)) {
-          const result = celEnv.tryCompile(expression);
+          const result = celEnv.compile(expression);
           if (selected.version < introduced.version) {
             expect(result.errors?.toDisplayString(), expression).toContain("undeclared reference");
           } else {
@@ -93,7 +93,7 @@ describe("ext/lists_test.go/TestListsCosts", () => {
         { version: testCase.version ?? Number.MAX_SAFE_INTEGER },
         (testCase.vars ?? []).map((variable) => resolveVariable(variable.$expr)),
       );
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const estimator: CostEstimator = {
         estimateSize: (node) => {
           const path = node.path()?.join(".");
@@ -118,15 +118,18 @@ describe("ext/lists_test.go/TestListsCosts", () => {
 describe("ext/lists_test.go/TestGenRangeMaxSize", () => {
   it("enforces negative, default, custom, and disabled range limits", () => {
     const defaultEnv = listsEnv();
-    expect(String(defaultEnv.program(defaultEnv.compile("lists.range(-1)")).eval({}))).toContain(
-      "size must be non-negative",
-    );
     expect(
-      String(defaultEnv.program(defaultEnv.compile("lists.range(1000001)")).eval({})),
+      String(defaultEnv.program(unwrapAst(defaultEnv.compile("lists.range(-1)"))).eval({})),
+    ).toContain("size must be non-negative");
+    expect(
+      String(defaultEnv.program(unwrapAst(defaultEnv.compile("lists.range(1000001)"))).eval({})),
     ).toContain("exceeds maximum allowed");
     const unlimited = listsEnv({ maxRangeSize: 0 });
     expect(
-      unlimited.program(unlimited.compile("size(lists.range(100)) == 100")).eval({}).value(),
+      unlimited
+        .program(unwrapAst(unlimited.compile("size(lists.range(100)) == 100")))
+        .eval({})
+        .value(),
     ).toBe(true);
   });
 });

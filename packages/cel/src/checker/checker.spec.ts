@@ -1,6 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../cel/env.js";
 import { AST, exprFactory, protoToExpr, sourceInfo } from "../common/ast/index.js";
 import { defaultContainer } from "../common/containers.js";
 import { func, overload } from "../common/decls.js";
@@ -9,7 +10,7 @@ import { syncedCases } from "../common/spec-helpers.js";
 import { standardFunctions } from "../common/stdlib.js";
 import { exprTypeToType, IntType, mapType, registry, StringType } from "../common/types/index.js";
 import { parse } from "../parser/parser.js";
-import { tryCheck } from "./checker.js";
+import { check } from "./checker.js";
 import { env } from "./env.js";
 import { print } from "./printer.js";
 import {
@@ -38,7 +39,7 @@ describe("checker/checker", () => {
     const name = `checker/checker_test.go/TestCheck/${index} ${testCase.in}`;
     it(name, () => {
       const resolved = resolveCheckerCase(testCase);
-      const parsed = parse(resolved.input, resolved.parserConfig);
+      const parsed = unwrapAst(parse(resolved.input, resolved.parserConfig));
       const source = textSource(resolved.input);
       const checkerEnv = env(
         checkerContainer(resolved.sourceContainerName),
@@ -58,7 +59,7 @@ describe("checker/checker", () => {
         checkerEnv.addFunctions(...resolved.functions);
       }
 
-      const result = tryCheck(parsed, source, checkerEnv);
+      const result = check(parsed, source, checkerEnv);
       const errorString = result.errors?.toDisplayString();
       if (resolved.expectedError) {
         expect(normalizeComparisonString(errorString ?? "")).toBe(
@@ -110,8 +111,8 @@ describe("checker/checker", () => {
 
   it("checker/checker_test.go/TestCheckErrorData", () => {
     const source = textSource("a || true");
-    const parsed = parse(source.content(), { enableOptionalSyntax: true });
-    const result = tryCheck(parsed, source, standardEnv());
+    const parsed = unwrapAst(parse(source.content(), { enableOptionalSyntax: true }));
+    const result = check(parsed, source, standardEnv());
     const errors = result.errors?.getErrors() ?? [];
     expect(errors).toHaveLength(1);
     expect(errors[0]?.exprId).toBe(1);
@@ -126,7 +127,7 @@ describe("checker/checker", () => {
     const call = factory.memberCall(4, "_?._", target, arg1, arg2);
     const source = textSource("Foo{}._?._(Foo{}, 'field')");
     const parsed = new AST(call, undefined);
-    const result = tryCheck(parsed, source, env(defaultContainer, registry()));
+    const result = check(parsed, source, env(defaultContainer, registry()));
     expect(result.errors?.toDisplayString()).toContain("incorrect signature. member call");
   });
 
@@ -136,7 +137,7 @@ describe("checker/checker", () => {
     const call = factory.call(2, "_?._", arg1);
     const source = textSource("_?._(Foo{})");
     const parsed = new AST(call, undefined);
-    const result = tryCheck(parsed, source, env(defaultContainer, registry()));
+    const result = check(parsed, source, env(defaultContainer, registry()));
     expect(result.errors?.toDisplayString()).toContain("incorrect signature. argument count: 1");
   });
 
@@ -157,7 +158,7 @@ describe("checker/checker", () => {
     });
     const source = textSource("1s");
     const parsed = new AST(invalidDurationLiteral, sourceInfo(source));
-    const result = tryCheck(parsed, source, env(defaultContainer, registry()));
+    const result = check(parsed, source, env(defaultContainer, registry()));
     expect(result.errors?.toDisplayString()).toContain("unexpected literal type");
   });
 });

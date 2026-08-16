@@ -13,7 +13,7 @@ import {
   nested_example,
 } from "@protoutil/testing/cel/proto2-extensions";
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { container } from "../common/containers.js";
 import { func, memberOverload, variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -37,7 +37,10 @@ describe("ext/protos_test.go/TestProtos", () => {
     const msg = messageWithExtensions();
     for (const testCase of syncedCases<ProtosCase>("ext/protos_test.go/TestProtos")) {
       expect(
-        celEnv.program(celEnv.compile(testCase.expr)).eval({ msg }).value(),
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({ msg })
+          .value(),
         testCase.expr,
       ).toBe(true);
     }
@@ -65,7 +68,10 @@ describe("ext/protos_test.go/TestProtosNonMatch", () => {
     const msg = messageWithExtensions();
     for (const testCase of syncedCases<ProtosCase>("ext/protos_test.go/TestProtosNonMatch")) {
       expect(
-        celEnv.program(celEnv.compile(testCase.expr)).eval({ msg }).value(),
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({ msg })
+          .value(),
         testCase.expr,
       ).toBe(true);
     }
@@ -81,7 +87,7 @@ describe("ext/protos_test.go/TestProtosParseErrors", () => {
           ? "Syntax error"
           : normalizeDisplay(testCase.err ?? "");
       expect(
-        normalizeDisplay(celEnv.tryParse(testCase.expr).errors?.toDisplayString() ?? ""),
+        normalizeDisplay(celEnv.parse(testCase.expr).errors?.toDisplayString() ?? ""),
         testCase.expr,
       ).toContain(expected);
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { astToString } from "../cel/io.js";
 import { optionalTypes } from "../cel/library.js";
 import { sizeEstimate } from "../checker/cost.js";
@@ -72,9 +72,13 @@ describe("ext/comprehensions_test.go/TestTwoVarComprehensions", () => {
     for (const testCase of syncedCases<ComprehensionCase>(
       "ext/comprehensions_test.go/TestTwoVarComprehensions",
     )) {
-      expect(celEnv.program(celEnv.compile(testCase.expr)).eval({}).value(), testCase.expr).toBe(
-        true,
-      );
+      expect(
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({})
+          .value(),
+        testCase.expr,
+      ).toBe(true);
     }
   });
 });
@@ -86,7 +90,7 @@ describe("ext/comprehensions_test.go/TestTwoVarComprehensionsCost", () => {
     it(testCase.name ?? testCase.expr, () => {
       const declarations = (testCase.vars ?? []).map((entry) => resolveVariable(entry.$expr));
       const celEnv = comprehensionEnv(declarations);
-      const expression = celEnv.compile(testCase.expr);
+      const expression = unwrapAst(celEnv.compile(testCase.expr));
       const estimate = celEnv.estimateCost(expression, {
         estimateCallCost: () => undefined,
         estimateSize: (node) => {
@@ -111,7 +115,7 @@ describe("ext/comprehensions_test.go/TestTwoVarComprehensionsStaticErrors", () =
     for (const testCase of syncedCases<ComprehensionCase>(
       "ext/comprehensions_test.go/TestTwoVarComprehensionsStaticErrors",
     )) {
-      expect(celEnv.tryCompile(testCase.expr).errors?.toDisplayString(), testCase.expr).toContain(
+      expect(celEnv.compile(testCase.expr).errors?.toDisplayString(), testCase.expr).toContain(
         testCase.err,
       );
     }
@@ -124,7 +128,7 @@ describe("ext/comprehensions_test.go/TestTwoVarComprehensionsRuntimeErrors", () 
     for (const testCase of syncedCases<ComprehensionCase>(
       "ext/comprehensions_test.go/TestTwoVarComprehensionsRuntimeErrors",
     )) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({});
       expect(String(result), testCase.expr).toContain(testCase.err);
     }
   });
@@ -135,7 +139,10 @@ describe("ext/comprehensions_test.go/TestTwoVarComprehensionsVersion", () => {
     for (const version of [0, Number.MAX_SAFE_INTEGER]) {
       const celEnv = env({ libraries: [twoVarComprehensions({ version })] });
       expect(
-        celEnv.program(celEnv.compile("[1].all(i, v, i == 0 && v == 1)")).eval({}).value(),
+        celEnv
+          .program(unwrapAst(celEnv.compile("[1].all(i, v, i == 0 && v == 1)")))
+          .eval({})
+          .value(),
       ).toBe(true);
     }
   });
@@ -150,7 +157,7 @@ describe("ext/comprehensions_test.go/TestTwoVarComprehensionsUnparse", () => {
         libraries: [twoVarComprehensions()],
         parser: { populateMacroCalls: true },
       });
-      expect(astToString(celEnv.parse(testCase.expr))).toBe(testCase.unparsed);
+      expect(astToString(unwrapAst(celEnv.parse(testCase.expr)))).toBe(testCase.unparsed);
     });
   }
 });
@@ -163,7 +170,7 @@ describe("ext/comprehensions_test.go/TestTwoVarComprehensionsResidualAST", () =>
       const celEnv = comprehensionEnv(
         testCase.varOpts.map((entry) => resolveVariable(entry.$expr)),
       );
-      const expression = celEnv.compile(testCase.expr);
+      const expression = unwrapAst(celEnv.compile(testCase.expr));
       const activation = partialActivation({
         bindings: normalizeInputs(testCase.in, testCase.varOpts),
         unknowns: testCase.unks.map((entry) => resolveUnknown(entry.$expr)),

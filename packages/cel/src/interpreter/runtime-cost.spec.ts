@@ -2,6 +2,7 @@ import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 import type { TestAllTypes } from "@protoutil/testing/cel/proto3";
 import { NestedTestAllTypesSchema, TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../cel/env.js";
 import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
 import { defaultContainer } from "../common/containers.js";
@@ -337,8 +338,8 @@ function computeCost(options: {
   if (variables.length !== 0) {
     checkerEnv.addIdents(...variables);
   }
-  const parsed = parse(options.expr);
-  const checked = check(parsed, textSource(options.expr), checkerEnv);
+  const parsed = unwrapAst(parse(options.expr));
+  const checked = unwrapAst(check(parsed, textSource(options.expr), checkerEnv));
   const runtime = interpreter({
     dispatcher: standardDispatcher(),
     provider: reg,

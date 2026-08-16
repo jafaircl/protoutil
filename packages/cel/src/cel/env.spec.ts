@@ -123,6 +123,7 @@ import {
   receiverMacro,
 } from "../parser/macro.js";
 import type { Macro } from "../parser/options.js";
+import { unwrapAst } from "./env.js";
 
 /**
  * teamDescriptorFiles decodes the synced cel-go dynamic protobuf fixture with Buf.
@@ -326,9 +327,9 @@ describe("Env.optimize", () => {
       variables: [variable("greeting", StringType), variable("subject", StringType)],
     });
     const optimized = celEnv.optimize(
-      celEnv.compile('greeting + ", " + subject + "!"'),
+      unwrapAst(celEnv.compile('greeting + ", " + subject + "!"')),
       inline({
-        greeting: celEnv.compile('"Hello"'),
+        greeting: unwrapAst(celEnv.compile('"Hello"')),
       }),
       fold({ subject: "world" }),
     );
@@ -341,9 +342,9 @@ describe("Env.optimize", () => {
       variables: [variable("subtotal", IntType)],
     });
     const optimized = celEnv.optimize(
-      celEnv.compile("subtotal * 2"),
+      unwrapAst(celEnv.compile("subtotal * 2")),
       inline({
-        subtotal: celEnv.compile("2 + 3"),
+        subtotal: unwrapAst(celEnv.compile("2 + 3")),
       }),
       fold(),
     );
@@ -364,7 +365,7 @@ describe("cel/env_test.go/TestLibraries", () => {
 
     const extendedEnv = celEnv.extend();
     expect(extendedEnv.hasLibrary("cel.lib.optional")).toBe(true);
-    expect(extendedEnv.tryCompile("optional.of(1).hasValue()").errors).toBeUndefined();
+    expect(extendedEnv.compile("optional.of(1).hasValue()").errors).toBeUndefined();
   });
 });
 
@@ -394,7 +395,7 @@ describe("cel/env_test.go/TestEnvVariableValidation", () => {
         continue;
       }
       const celEnv = env({ variables });
-      expect(celEnv.tryCompile("foo").errors, testCase.name).toBeUndefined();
+      expect(celEnv.compile("foo").errors, testCase.name).toBeUndefined();
     }
   });
 });
@@ -409,11 +410,11 @@ describe("cel/cel_test.go/TestMacroSubset", () => {
       variables: [variable("name", mapType(StringType, StringType))],
     });
     const result = celEnv
-      .program(celEnv.compile("has(name.first)"))
+      .program(unwrapAst(celEnv.compile("has(name.first)")))
       .eval({ name: { first: "Jim" } });
 
     expect(result.value()).toBe(true);
-    expect(celEnv.tryCompile("[1, 2].all(i, i > 0)").errors).toBeDefined();
+    expect(celEnv.compile("[1, 2].all(i, i > 0)").errors).toBeDefined();
   });
 });
 
@@ -422,7 +423,7 @@ describe("cel/cel_test.go/Test_ExampleWithBuiltins", () => {
     const celEnv = env({
       variables: [variable("i", StringType), variable("you", StringType)],
     });
-    const ast = celEnv.compile(`"Hello " + you + "! I'm " + i + "."`);
+    const ast = unwrapAst(celEnv.compile(`"Hello " + you + "! I'm " + i + "."`));
     const program = celEnv.program(ast);
 
     const result = program.eval({
@@ -445,7 +446,7 @@ describe("cel/cel_test.go/TestEval", () => {
     });
 
     for (const testCase of cases) {
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const program = celEnv.program(ast, {
         interruptCheckFrequency: 100,
       });
@@ -466,7 +467,7 @@ describe("cel/cel_test.go/TestEval", () => {
     let interruptible = false;
     const celEnv = env();
 
-    celEnv.program(celEnv.compile("[1].all(value, value > 0)"), {
+    celEnv.program(unwrapAst(celEnv.compile("[1].all(value, value > 0)")), {
       decorators: [
         (value) =>
           value instanceof FoldInterpretableValue
@@ -498,7 +499,7 @@ describe("cel/cel_test.go/TestAbbrevsCompiled", () => {
       variables: [variable("qualified.identifier.name.first", StringType)],
     });
     // The abbreviation is resolved while compiling the checked expression.
-    const program = celEnv.program(celEnv.compile(`"hello " + name.first`));
+    const program = celEnv.program(unwrapAst(celEnv.compile(`"hello " + name.first`)));
     const result = program.eval({
       "qualified.identifier.name.first": "Jim",
     });
@@ -514,7 +515,7 @@ describe("cel/cel_test.go/TestAbbrevsParsed", () => {
       container: container({ abbrevs: ["qualified.identifier.name"] }),
     });
     // Without checking, the abbreviation is resolved while planning the program.
-    const program = celEnv.program(celEnv.parse(`"hello " + name.first`));
+    const program = celEnv.program(unwrapAst(celEnv.parse(`"hello " + name.first`)));
     const result = program.eval({
       "qualified.identifier.name": {
         first: "Jim",
@@ -532,8 +533,13 @@ describe("cel/cel_test.go/TestCustomEnv", () => {
       variables: [variable("a.b.c", BoolType)],
     });
 
-    expect(celEnv.tryCompile("a.b.c == true").errors).toBeDefined();
-    expect(celEnv.program(celEnv.compile("a.b.c")).eval({ "a.b.c": true }).value()).toBe(true);
+    expect(celEnv.compile("a.b.c == true").errors).toBeDefined();
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.compile("a.b.c")))
+        .eval({ "a.b.c": true })
+        .value(),
+    ).toBe(true);
   });
 });
 
@@ -568,7 +574,7 @@ describe("cel/cel_test.go/TestCrossTypeNumericComparisons", () => {
           crossTypeNumericComparisons: testCase.crossTypeNumericComparisons,
         },
       });
-      const result = celEnv.tryCompile(testCase.expression);
+      const result = celEnv.compile(testCase.expression);
       if (testCase.wantsError) {
         expect(result.errors, testCase.expression).toBeDefined();
         continue;
@@ -598,7 +604,7 @@ describe("cel/cel_test.go/TestOptionalValuesCompile", () => {
     });
 
     for (const testCase of cases) {
-      const references = celEnv.compile(testCase.expr).referenceMap();
+      const references = unwrapAst(celEnv.compile(testCase.expr)).referenceMap();
       for (const [id, expected] of Object.entries(testCase.references)) {
         expect(
           references.get(Number(id))?.equals(resolveExpectedReference(expected)),
@@ -635,7 +641,7 @@ describe("cel/cel_test.go/TestOptionalValuesEvalErrorCases", () => {
     const celEnv = env({ libraries: [optionalTypes()] });
 
     for (const testCase of cases) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({});
       expect(result, testCase.expr).toBeInstanceOf(Err);
       expect((result as Err).message, testCase.expr).toContain(testCase.wantErr);
     }
@@ -650,7 +656,7 @@ describe("cel/cel_test.go/TestOptionalMacroError", () => {
     });
 
     for (const expression of ["x.optMap(y.z, y.z + 1)", "x.optFlatMap(y.z, y.z + 1)"]) {
-      expect(currentEnv.tryCompile(expression).errors?.toDisplayString()).toContain(
+      expect(currentEnv.compile(expression).errors?.toDisplayString()).toContain(
         "variable name must be a simple identifier",
       );
     }
@@ -659,7 +665,7 @@ describe("cel/cel_test.go/TestOptionalMacroError", () => {
       libraries: [optionalTypes({ version: 0 })],
       variables: [variable("x", optionalType(IntType))],
     });
-    expect(versionZeroEnv.tryCompile("x.optFlatMap(y, y + 1)").errors?.toDisplayString()).toContain(
+    expect(versionZeroEnv.compile("x.optFlatMap(y, y + 1)").errors?.toDisplayString()).toContain(
       "undeclared reference to 'optFlatMap'",
     );
   });
@@ -669,14 +675,14 @@ describe("cel/cel_test.go/TestAstIsChecked", () => {
   it("distinguishes parsed and compiled ASTs", () => {
     const celEnv = env();
 
-    expect(celEnv.parse("true").isChecked()).toBe(false);
-    expect(celEnv.compile("true").isChecked()).toBe(true);
+    expect(unwrapAst(celEnv.parse("true")).isChecked()).toBe(false);
+    expect(unwrapAst(celEnv.compile("true")).isChecked()).toBe(true);
   });
 });
 
 describe("cel/cel_test.go/TestParseError", () => {
   it("returns parse diagnostics without throwing", () => {
-    const result = env().tryParse("invalid & logical_and");
+    const result = env().parse("invalid & logical_and");
 
     expect(result.errors?.getErrors()).not.toHaveLength(0);
   });
@@ -694,10 +700,10 @@ describe("cel/cel_test.go/TestEnvExtensionIsolation", () => {
       variables: [variable("group", StringType)],
     });
 
-    expect(env1.tryCompile("age > 20 && name.size() > 10").errors).toBeUndefined();
-    expect(env1.tryCompile("group.size() > 10").errors).toBeDefined();
-    expect(env2.tryCompile("age > 20 && group.size() > 10").errors).toBeUndefined();
-    expect(env2.tryCompile("name.size() > 10").errors).toBeDefined();
+    expect(env1.compile("age > 20 && name.size() > 10").errors).toBeUndefined();
+    expect(env1.compile("group.size() > 10").errors).toBeDefined();
+    expect(env2.compile("age > 20 && group.size() > 10").errors).toBeUndefined();
+    expect(env2.compile("name.size() > 10").errors).toBeDefined();
   });
 });
 
@@ -716,8 +722,18 @@ describe("cel/cel_test.go/TestEnvExtension", () => {
       },
     });
 
-    expect(extendedEnv.program(extendedEnv.compile("foo()")).eval({}).value()).toBe("foo");
-    expect(extendedEnv.program(extendedEnv.compile("bar()")).eval({}).value()).toBe("bar");
+    expect(
+      extendedEnv
+        .program(unwrapAst(extendedEnv.compile("foo()")))
+        .eval({})
+        .value(),
+    ).toBe("foo");
+    expect(
+      extendedEnv
+        .program(unwrapAst(extendedEnv.compile("bar()")))
+        .eval({})
+        .value(),
+    ).toBe("bar");
   });
 });
 
@@ -726,7 +742,7 @@ describe("cel/cel_test.go/TestContextEval", () => {
     const celEnv = env({
       variables: [variable("items", listType(IntType))],
     });
-    const ast = celEnv.compile("items.map(i, i * 2).filter(i, i >= 50).size()");
+    const ast = unwrapAst(celEnv.compile("items.map(i, i * 2).filter(i, i >= 50).size()"));
     const program = celEnv.program(ast, {
       interruptCheckFrequency: 1,
     });
@@ -778,7 +794,7 @@ describe("cel/cel_example_test.go/Example", () => {
         }),
       ],
     });
-    const ast = celEnv.compile("i.greet(you)");
+    const ast = unwrapAst(celEnv.compile("i.greet(you)"));
     const program = celEnv.program(ast);
 
     const result = program.eval({
@@ -795,7 +811,7 @@ describe("cel/cel_example_test.go/Example_statefulOverload", () => {
     const baseEnv = env({
       functions: [fetchDeclaration()],
     });
-    const ast = baseEnv.compile("fetch('my-resource') == 'my-value'");
+    const ast = unwrapAst(baseEnv.compile("fetch('my-resource') == 'my-value'"));
     const runtimeEnv = baseEnv.extend({
       functions: [fetchDeclaration("my-value")],
     });
@@ -849,7 +865,7 @@ describe("cel/cel_example_test.go/Example_globalOverload", () => {
     });
 
     // Compile the expression and create the program.
-    const program = celEnv.program(celEnv.compile("shake_hands(i, you)"));
+    const program = celEnv.program(unwrapAst(celEnv.compile("shake_hands(i, you)")));
 
     // Evaluate the program against some inputs. Values may also be lazily supplied.
     const result = program.eval({
@@ -875,7 +891,9 @@ describe("cel/cel_test.go/TestAbbrevsDisambiguation", () => {
     });
     // This expression returns either a string or a protobuf Expr value depending on `test`.
     // The fully qualified type name disambiguates the protobuf type from `external.Expr`.
-    const program = celEnv.program(celEnv.compile(`test ? dyn(Expr) : cel.expr.Expr{id: 1}`));
+    const program = celEnv.program(
+      unwrapAst(celEnv.compile(`test ? dyn(Expr) : cel.expr.Expr{id: 1}`)),
+    );
 
     expect(
       program
@@ -901,9 +919,11 @@ describe("cel/cel_test.go/TestConvertToNativeJSONStructure", () => {
     const celEnv = env();
     const result = celEnv
       .program(
-        celEnv.compile(`{
+        unwrapAst(
+          celEnv.compile(`{
           "parts": [{"kind": "text"}]
         }`),
+        ),
       )
       .eval({});
 
@@ -956,7 +976,9 @@ describe("cel/cel_test.go/TestExtendStdlibFunction", () => {
 
     expect(
       celEnv
-        .program(celEnv.compile(`b'string'.contains(b'tri') && 'string'.contains('tri')`))
+        .program(
+          unwrapAst(celEnv.compile(`b'string'.contains(b'tri') && 'string'.contains('tri')`)),
+        )
         .eval({}),
     ).toBe(True);
   });
@@ -983,7 +1005,7 @@ describe("cel/cel_test.go/TestSubsetStdLib", () => {
 
   for (const testCase of cases) {
     it(testCase.name, () => {
-      const compiled = celEnv.tryCompile(testCase.expr);
+      const compiled = celEnv.compile(testCase.expr);
       expect(compiled.errors === undefined).toBe(testCase.compiles);
       if (!testCase.compiles) {
         return;
@@ -1054,14 +1076,16 @@ describe("cel/cel_test.go/TestCustomTypes", () => {
       types: [BoolType, IntType, StringType],
       variables: [variable("expr", objectType(ExprSchema.typeName))],
     });
-    const ast = celEnv.compile(`
+    const ast = unwrapAst(
+      celEnv.compile(`
       expr == Expr{id: 2,
         call_expr: Expr.Call{
           function: "_==_",
           args: [
             Expr{id: 1, ident_expr: Expr.Ident{name: "a"}},
             Expr{id: 3, ident_expr: Expr.Ident{name: "b"}}]
-        }}`);
+        }}`),
+    );
     const input: Expr = {
       $typeName: ExprSchema.typeName,
       id: 2n,
@@ -1116,11 +1140,11 @@ describe("cel/cel_test.go/TestTypeIsolation", () => {
     });
     const expression = "myteam.members[0].name == 'Cyclops'";
 
-    expect(typedEnv.tryCompile(expression).errors).toBeUndefined();
+    expect(typedEnv.compile(expression).errors).toBeUndefined();
     expect(
       env({
         variables: [variable("myteam", objectType("cel.testdata.Team"))],
-      }).tryCompile(expression).errors,
+      }).compile(expression).errors,
     ).toBeDefined();
   });
 });
@@ -1139,12 +1163,14 @@ describe("cel/cel_test.go/TestDynamicProto", () => {
     });
     const result = celEnv
       .program(
-        celEnv.compile(`testdata.Team{name: 'X-Men', members: [
+        unwrapAst(
+          celEnv.compile(`testdata.Team{name: 'X-Men', members: [
           testdata.Mutant{name: 'Jean Grey', level: 20},
           testdata.Mutant{name: 'Cyclops', level: 7},
           testdata.Mutant{name: 'Storm', level: 7},
           testdata.Mutant{name: 'Wolverine', level: 11}
         ]}`),
+        ),
         { optimize: true },
       )
       .eval({});
@@ -1172,7 +1198,7 @@ describe("cel/cel_test.go/TestDynamicProtoFileDescriptors", () => {
       variables: [variable("mutant", objectType(mutantSchema.typeName))],
     });
     const result = celEnv
-      .program(celEnv.compile("has(mutant.name) && mutant.name == 'Wolverine'"), {
+      .program(unwrapAst(celEnv.compile("has(mutant.name) && mutant.name == 'Wolverine'")), {
         optimize: true,
       })
       .eval({ mutant: wolverine });
@@ -1186,10 +1212,12 @@ describe("cel/cel_test.go/TestGlobalVars", () => {
     const celEnv = env({
       variables: [variable("attrs", mapType(StringType, DynType)), variable("default", DynType)],
     });
-    const ast = celEnv.compile(
-      `"first" in attrs
+    const ast = unwrapAst(
+      celEnv.compile(
+        `"first" in attrs
         ? attrs["first"]
         : ("second" in attrs ? attrs["second"] : default)`,
+      ),
     );
 
     // Global variables can be configured as a ProgramOption and optionally overridden on Eval.
@@ -1240,9 +1268,12 @@ describe("cel/cel_test.go/TestCustomMacro", () => {
       );
     });
     const celEnv = env({ macros: { custom: [joinMacro] } });
-    const program = celEnv.program(celEnv.compile(`['hello', 'cel', 'friend'].join(',')`), {
-      exhaustiveEval: true,
-    });
+    const program = celEnv.program(
+      unwrapAst(celEnv.compile(`['hello', 'cel', 'friend'].join(',')`)),
+      {
+        exhaustiveEval: true,
+      },
+    );
 
     expect(program.eval({}).value()).toBe("hello,cel,friend");
   });
@@ -1265,7 +1296,7 @@ describe("cel/cel_test.go/TestMacroInterop", () => {
 
     for (const testCase of cases) {
       const value = celEnv
-        .program(celEnv.compile(testCase.expression), { exhaustiveEval: true })
+        .program(unwrapAst(celEnv.compile(testCase.expression)), { exhaustiveEval: true })
         .eval({});
       expect(
         value.equal(DefaultTypeAdapter.nativeToValue(testCase.expected)).value(),
@@ -1292,7 +1323,7 @@ describe("cel/cel_test.go/TestMacroModern", () => {
 
     for (const testCase of cases) {
       const value = celEnv
-        .program(celEnv.compile(testCase.expression), { exhaustiveEval: true })
+        .program(unwrapAst(celEnv.compile(testCase.expression)), { exhaustiveEval: true })
         .eval({});
       expect(
         value.equal(DefaultTypeAdapter.nativeToValue(testCase.expected)).value(),
@@ -1352,7 +1383,7 @@ describe("cel/cel_test.go/TestCustomExistsMacro", () => {
       macros: { custom: [kleeneOr, kleeneEq] },
     });
     const program = celEnv.program(
-      celEnv.compile("kleeneOr(kleeneEq(attr.value, true), kleeneOr(0, 1, 1)) == 1"),
+      unwrapAst(celEnv.compile("kleeneOr(kleeneEq(attr.value, true), kleeneOr(0, 1, 1)) == 1")),
     );
 
     expect(program.eval({ attr: { value: false } }).value()).toBe(true);
@@ -1364,8 +1395,11 @@ describe("cel/cel_test.go/TestVariadicLogicalOperators", () => {
     const celEnv = env({
       parser: { enableVariadicOperatorASTs: true },
     });
-    const ast = celEnv.compile(
-      "(false || false || false || false || true) && " + "(true && true && true && true && false)",
+    const ast = unwrapAst(
+      celEnv.compile(
+        "(false || false || false || false || true) && " +
+          "(true && true && true && true && false)",
+      ),
     );
 
     expect(celEnv.program(ast).eval({}).value()).toBe(false);
@@ -1374,9 +1408,11 @@ describe("cel/cel_test.go/TestVariadicLogicalOperators", () => {
 
 describe("cel/cel_test.go/TestParseWithMacroTracking", () => {
   it("records original macro calls in source information", () => {
-    const ast = env({
-      parser: { populateMacroCalls: true },
-    }).parse("has(a.b) && a.b.exists(c, c < 10)");
+    const ast = unwrapAst(
+      env({
+        parser: { populateMacroCalls: true },
+      }).parse("has(a.b) && a.b.exists(c, c < 10)"),
+    );
     const calls = [...ast.sourceInfo().macroCalls().values()].map((expression) =>
       expression.asCall()?.functionName(),
     );
@@ -1398,7 +1434,7 @@ describe("cel/cel_test.go/TestParseAndCheckConcurrently", () => {
     await Promise.all(
       Array.from({ length: 10 }, async (_, index) => {
         await Promise.resolve();
-        expect(celEnv.compile(`expr.id + ${index}`).isChecked()).toBe(true);
+        expect(unwrapAst(celEnv.compile(`expr.id + ${index}`)).isChecked()).toBe(true);
       }),
     );
   });
@@ -1430,7 +1466,7 @@ describe("cel/cel_test.go/TestCustomInterpreterDecorator", () => {
     };
     const celEnv = env({ variables: [variable("foo", IntType)] });
 
-    celEnv.program(celEnv.compile("foo == -1 + 2 * 3 / 3"), {
+    celEnv.program(unwrapAst(celEnv.compile("foo == -1 + 2 * 3 / 3")), {
       partialEval: true,
       decorators: [adaptLegacyDecorator(optimizeArithmetic)],
     });
@@ -1471,7 +1507,7 @@ describe("cel/cel_test.go/TestCustomInterpreterDecoratorV2", () => {
     };
     const celEnv = env({ variables: [variable("foo", IntType)] });
 
-    celEnv.program(celEnv.compile("foo == -1 + 2 * 3 / 3"), {
+    celEnv.program(unwrapAst(celEnv.compile("foo == -1 + 2 * 3 / 3")), {
       partialEval: true,
       decorators: [optimizeArithmetic],
     });
@@ -1504,7 +1540,7 @@ describe("cel/cel_test.go/TestEstimateCostAndRuntimeCost", () => {
         }),
       );
       const celEnv = env({ variables });
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const estimator: CostEstimator = {
         /** estimateSize returns a fixed hint for the node's declared path. */
         estimateSize: (node) => {
@@ -1543,7 +1579,7 @@ describe("cel/cel_test.go/TestCostLimit", () => {
       const celEnv = env({
         variables: testCase.decls.map((declaration) => resolveSyncedVariableDecl(declaration)),
       });
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const estimate = celEnv.estimateCost(ast);
       const program = celEnv.program(ast, {
         costTracking: { limit: testCase.costLimit },
@@ -1569,7 +1605,7 @@ describe("cel/cel_test.go/TestCostTrackingConsistentAcrossEvals", () => {
     const celEnv = env({
       variables: [variable("val1", IntType), variable("val2", IntType)],
     });
-    const program = celEnv.program(celEnv.compile("val1 + val2"), {
+    const program = celEnv.program(unwrapAst(celEnv.compile("val1 + val2")), {
       costTracking: {},
     });
     const input = { val1: 1, val2: 2 };
@@ -1596,7 +1632,7 @@ describe("cel/cel_test.go/TestContextProto", () => {
       && standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.FOO
       && repeated_int32 == [1, 2]
       && map_string_string == {'': ''}`;
-    const result = celEnv.program(celEnv.compile(expression)).eval(input);
+    const result = celEnv.program(unwrapAst(celEnv.compile(expression))).eval(input);
 
     expect(result).toBe(True);
   });
@@ -1617,7 +1653,7 @@ describe("cel/cel_test.go/TestContextProtoJSONFieldNames", () => {
       && standaloneEnum == google.expr.proto3.test.TestAllTypes.NestedEnum.FOO
       && repeatedInt32 == [1, 2]
       && mapStringString == {'': ''}`;
-    const result = celEnv.program(celEnv.compile(expression)).eval(input);
+    const result = celEnv.program(unwrapAst(celEnv.compile(expression))).eval(input);
 
     expect(result).toBe(True);
   });
@@ -1634,7 +1670,10 @@ describe("cel/cel_test.go/TestRegexOptimizer", () => {
     const celEnv = env();
 
     for (const testCase of cases) {
-      for (const ast of [celEnv.parse(testCase.expr), celEnv.compile(testCase.expr)]) {
+      for (const ast of [
+        unwrapAst(celEnv.parse(testCase.expr)),
+        unwrapAst(celEnv.compile(testCase.expr)),
+      ]) {
         if (testCase.progErr !== undefined) {
           expect(
             () =>
@@ -1775,7 +1814,7 @@ describe("cel/cel_test.go/TestDefaultUTCTimeZoneDisabled", () => {
     for (const environment of environments) {
       for (const testCase of cases) {
         const result = environment.value
-          .program(environment.value.compile(testCase.expression))
+          .program(unwrapAst(environment.value.compile(testCase.expression)))
           .eval({ x: timestamp })
           .value();
         expect(result, `${environment.name}/${testCase.name}`).toBe(
@@ -1792,13 +1831,15 @@ describe("cel/cel_test.go/TestDefaultUTCTimeZoneExtension", () => {
       variables: [variable("x", TimestampType), variable("y", DurationType)],
     }).extend();
     const program = celEnv.program(
-      celEnv.compile(`
+      unwrapAst(
+        celEnv.compile(`
         x.getFullYear() == 1970
         && y.getHours() == 2
         && y.getMinutes() == 120
         && y.getSeconds() == 7235
         && y.getMilliseconds() == 7235000
       `),
+      ),
     );
 
     expect(
@@ -1818,7 +1859,8 @@ describe("cel/cel_test.go/TestDefaultUTCTimeZoneError", () => {
       variables: [variable("x", TimestampType)],
     });
     const program = celEnv.program(
-      celEnv.compile(`
+      unwrapAst(
+        celEnv.compile(`
         x.getFullYear(':xx') == 1969
         || x.getDayOfYear('xx:') == 364
         || x.getMonth('Am/Ph') == 11
@@ -1830,6 +1872,7 @@ describe("cel/cel_test.go/TestDefaultUTCTimeZoneError", () => {
         || x.getSeconds('Am/Ph') == 6
         || x.getMilliseconds('Am/Ph') == 1
       `),
+      ),
     );
 
     const result = program.eval({ x: timestampOf(7506n, 1_000_000) });
@@ -1848,7 +1891,7 @@ describe("cel/cel_test.go/TestParserRecursionLimit", () => {
     const celEnv = env({ parser: { maxRecursionDepth: 10 } });
 
     for (const testCase of cases) {
-      const compiled = celEnv.tryCompile(testCase.expr);
+      const compiled = celEnv.compile(testCase.expr);
       if (testCase.errorSubstr !== undefined) {
         expect(compiled.errors?.toDisplayString(), testCase.expr).toContain(testCase.errorSubstr);
         continue;
@@ -1875,7 +1918,7 @@ describe("cel/cel_test.go/TestQuotedFields", () => {
     });
 
     for (const testCase of cases) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({});
       if (testCase.errorSubstr !== undefined) {
         expect(result, testCase.expr).toBeInstanceOf(Err);
         expect((result as Err).message, testCase.expr).toContain(testCase.errorSubstr);
@@ -1931,7 +1974,8 @@ describe("cel/cel_test.go/TestDynamicDispatch", () => {
     });
     const result = celEnv
       .program(
-        celEnv.compile(`
+        unwrapAst(
+          celEnv.compile(`
           dyn([]).first() == 0
           && [1, 2].first() == 1
           && [1.0, 2.0].first() == 1.0
@@ -1943,6 +1987,7 @@ describe("cel/cel_test.go/TestDynamicDispatch", () => {
           && dyn(["hello", "world"]).first() == "hello"
           && dyn([["hello"], ["world", "!"]]).first().first() == "hello"
         `),
+        ),
       )
       .eval({});
 
@@ -1976,7 +2021,7 @@ describe("cel/cel_test.go/TestOptionalValuesEval", () => {
 
     for (const testCase of cases) {
       const result = celEnv
-        .program(celEnv.compile(testCase.expr))
+        .program(unwrapAst(celEnv.compile(testCase.expr)))
         .eval(resolveSyncedExpr(testCase.in ?? {}));
       expectOptionalRuntimeResult({
         adapter: typeRegistry,
@@ -2009,7 +2054,7 @@ describe("cel/cel_test.go/TestOptionalValuesEvalUnknowns", () => {
         resolveSyncedExpr(testCase.in) as Record<string, unknown>,
       );
       const result = celEnv
-        .program(celEnv.compile(testCase.expr), { partialEval: true })
+        .program(unwrapAst(celEnv.compile(testCase.expr)), { partialEval: true })
         .eval(activation);
       const expected = resolveSyncedExpr(testCase.out) as Val;
       if (isUnknownValue(expected)) {
@@ -2041,7 +2086,7 @@ describe("cel/cel_test.go/TestEnableErrorOnBadPresenceTest", () => {
 
     for (const testCase of cases) {
       const result = celEnv
-        .program(celEnv.compile(testCase.expr))
+        .program(unwrapAst(celEnv.compile(testCase.expr)))
         .eval(resolveSyncedExpr(testCase.in ?? {}));
       expectOptionalRuntimeResult({
         adapter: typeRegistry,
@@ -2059,10 +2104,8 @@ describe("cel/cel_test.go/TestParserExpressionSizeLimit", () => {
       parser: { expressionSizeCodePointLimit: 10 },
     });
 
-    expect(celEnv.tryParse("'greeting'").errors).toBeUndefined();
-    expect(celEnv.tryParse("'greetings'").errors?.toDisplayString()).toContain(
-      "size exceeds limit",
-    );
+    expect(celEnv.parse("'greeting'").errors).toBeUndefined();
+    expect(celEnv.parse("'greetings'").errors?.toDisplayString()).toContain("size exceeds limit");
   });
 });
 
@@ -2075,7 +2118,7 @@ describe("cel/cel_test.go/TestExpressionNodeLimit", () => {
       parser: { maxExpressionNodeCount: 100 },
       variables: [variable("x", optionalType(IntType))],
     });
-    expect(limited.tryParse(expression).errors?.toString()).toContain(
+    expect(limited.parse(expression).errors?.toString()).toContain(
       "expression count exceeds limit of 100 while expanding macro 'optMap'",
     );
 
@@ -2084,23 +2127,24 @@ describe("cel/cel_test.go/TestExpressionNodeLimit", () => {
       parser: { maxExpressionNodeCount: -1 },
       variables: [variable("x", optionalType(IntType))],
     });
-    expect(unbounded.tryParse(expression).errors).toBeUndefined();
+    expect(unbounded.parse(expression).errors).toBeUndefined();
   });
 });
 
 describe("cel/cel_test.go/TestExpressionNodeLimitCheck", () => {
   it("rejects an externally parsed AST above the checker limit", () => {
     const source = textSource("x + 1 + 2 + 3 + 4 + 5");
-    const parsed = env({
-      parser: { maxExpressionNodeCount: -1 },
-      variables: [variable("x", IntType)],
-    }).parseSource(source);
-    expect(() =>
+    const parsed = unwrapAst(
       env({
-        parser: { maxExpressionNodeCount: 5 },
+        parser: { maxExpressionNodeCount: -1 },
         variables: [variable("x", IntType)],
-      }).check(parsed, source),
-    ).toThrow("expression node count exceeds limit");
+      }).parseSource(source),
+    );
+    const limited = env({
+      parser: { maxExpressionNodeCount: 5 },
+      variables: [variable("x", IntType)],
+    }).check(parsed, source);
+    expect(limited.errors?.toDisplayString()).toContain("expression node count exceeds limit");
   });
 });
 
@@ -2110,11 +2154,11 @@ describe("cel/cel_test.go/TestRegexProgramSizeLimit", () => {
       regexProgramSizeLimit: 5,
       variables: [variable("pattern", StringType)],
     });
-    expect(celEnv.tryCompile(`"123 abc 456".matches('(a|b)*[0-9]+')`).errors?.toString()).toContain(
+    expect(celEnv.compile(`"123 abc 456".matches('(a|b)*[0-9]+')`).errors?.toString()).toContain(
       "regex program size 8 exceeds limit of 5",
     );
 
-    const program = celEnv.program(celEnv.compile(`"123 abc 456".matches(pattern)`));
+    const program = celEnv.program(unwrapAst(celEnv.compile(`"123 abc 456".matches(pattern)`)));
     expect(program.eval({ pattern: "(a|b)*[0-9]+" }).toString()).toContain(
       "regex program size 8 exceeds limit of 5",
     );
@@ -2162,14 +2206,14 @@ describe("cel/cel_test.go/TestJSONFieldNames", () => {
       });
       const expression = resolveSyncedExpr(testCase.expr) as string;
       const result = celEnv
-        .program(celEnv.compile(expression))
+        .program(unwrapAst(celEnv.compile(expression)))
         .eval({ jsonOptMsg: jsonNamesMessage, msg: message });
 
       if (testCase.name.startsWith("json opt fields")) {
         for (const clause of expression.split("&&").map((part) => part.trim())) {
           expect(
             celEnv
-              .program(celEnv.compile(clause))
+              .program(unwrapAst(celEnv.compile(clause)))
               .eval({ jsonOptMsg: jsonNamesMessage, msg: message })
               .value(),
             clause,
@@ -2204,8 +2248,7 @@ describe("cel/cel_test.go/TestExpressionSizeLimitEarlyEnforcement", () => {
     const payload = "a".repeat(10_000);
 
     for (const testCase of cases) {
-      const result =
-        testCase.mode === "compile" ? celEnv.tryCompile(payload) : celEnv.tryParse(payload);
+      const result = testCase.mode === "compile" ? celEnv.compile(payload) : celEnv.parse(payload);
       expect(result.errors?.toDisplayString(), testCase.name).toContain(
         "expression code point size exceeds limit",
       );
@@ -2220,7 +2263,7 @@ describe("cel/cel_test.go/TestProgramEvalInvalidInput", () => {
       name: string;
       wantErr: string;
     }>("cel/cel_test.go/TestProgramEvalInvalidInput");
-    const program = env().program(env().compile("true"));
+    const program = env().program(unwrapAst(env().compile("true")));
 
     for (const testCase of cases) {
       expect(() => program.eval(testCase.input), testCase.name).toThrow(testCase.wantErr);
@@ -2237,7 +2280,7 @@ describe("cel/cel_test.go/TestProgramContextEvalInvalidInput", () => {
       wantErr: string;
     }>("cel/cel_test.go/TestProgramContextEvalInvalidInput");
     const celEnv = env();
-    const program = celEnv.program(celEnv.compile("true"));
+    const program = celEnv.program(unwrapAst(celEnv.compile("true")));
 
     for (const testCase of cases) {
       const signal = testCase.ctx === null ? undefined : new AbortController().signal;
@@ -2262,7 +2305,7 @@ describe("cel/cel_test.go/TestOptionalOperatorsLegacyEval", () => {
         testCase.name === "optional or"
           ? "optional.of(true).or(optional.of(false))"
           : "dyn(true).orValue(false)";
-      const result = celEnv.program(celEnv.compile(expression)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(expression))).eval({});
       if (testCase.name === "optional or") {
         expect(result.value(), testCase.name).toBe(true);
       } else {
@@ -2318,7 +2361,7 @@ describe("cel/env_test.go/TestErrorAsIssues", () => {
 
 describe("cel/env_test.go/TestIssuesAppendSelf", () => {
   it("does not duplicate diagnostics when appended to itself", () => {
-    const diagnostics = env().tryCompile("a").errors!;
+    const diagnostics = env().compile("a").errors!;
 
     expect(diagnostics.errors()).toHaveLength(1);
     expect(diagnostics.append(diagnostics)).toBe(diagnostics);
@@ -2328,8 +2371,8 @@ describe("cel/env_test.go/TestIssuesAppendSelf", () => {
 
 describe("cel/env_test.go/TestIssues", () => {
   it("combines and formats parse and check diagnostics", () => {
-    const parseIssues = env().tryCompile("-").errors!;
-    const checkIssues = env().tryCompile("b").errors!;
+    const parseIssues = env().compile("-").errors!;
+    const checkIssues = env().compile("b").errors!;
     const diagnostics = parseIssues.append(checkIssues);
 
     expect(diagnostics.errors()).toHaveLength(3);
@@ -2551,10 +2594,15 @@ describe("cel/env_test.go/TestEnvFromConfig", () => {
       registry: typeRegistry,
     });
 
-    expect(celEnv.program(celEnv.compile("plus(x, 2)")).eval({ x: 40 }).value()).toBe(42n);
-    expect(celEnv.tryCompile("optional.none()").errors).toBeUndefined();
-    expect(celEnv.tryCompile("TestAllTypes{singleInt64: 1}.singleInt64").errors).toBeUndefined();
-    expect(celEnv.tryParse("x.`key-name`").errors).toBeUndefined();
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.compile("plus(x, 2)")))
+        .eval({ x: 40 })
+        .value(),
+    ).toBe(42n);
+    expect(celEnv.compile("optional.none()").errors).toBeUndefined();
+    expect(celEnv.compile("TestAllTypes{singleInt64: 1}.singleInt64").errors).toBeUndefined();
+    expect(celEnv.parse("x.`key-name`").errors).toBeUndefined();
   });
 
   it("declares configured context protobuf fields", () => {
@@ -2565,7 +2613,7 @@ describe("cel/env_test.go/TestEnvFromConfig", () => {
     );
     const celEnv = env({ configuration: { config }, registry: typeRegistry });
 
-    expect(celEnv.tryCompile("single_int64 == 1").errors).toBeUndefined();
+    expect(celEnv.compile("single_int64 == 1").errors).toBeUndefined();
   });
 
   it("uses declarative option maps for extension-owned configuration", () => {
@@ -2590,7 +2638,12 @@ describe("cel/env_test.go/TestEnvFromConfig", () => {
       },
     });
 
-    expect(celEnv.program(celEnv.compile("plus(1, 2)")).eval({}).value()).toBe(3n);
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.compile("plus(1, 2)")))
+        .eval({})
+        .value(),
+    ).toBe(3n);
   });
 });
 
@@ -2633,7 +2686,7 @@ describe("cel/env_test.go/TestEnableHiddenAccumulatorName", () => {
       parser: { enableHiddenAccumulatorName: true },
     });
 
-    expect(celEnv.tryCompile("[1].all(value, value > 0)").errors).toBeUndefined();
+    expect(celEnv.compile("[1].all(value, value > 0)").errors).toBeUndefined();
   });
 });
 
@@ -2657,7 +2710,7 @@ describe("TypeScript extension/TestStrongEnumEnvironment", () => {
       registry: typeRegistry,
     });
 
-    const named = celEnv.tryCompile('GlobalEnum("GAZ")');
+    const named = celEnv.compile('GlobalEnum("GAZ")');
     expect(named.errors).toBeUndefined();
     expect(astOutputType(named.ast).typeName()).toBe("google.expr.proto3.test.GlobalEnum");
     const namedResult = celEnv.program(named.ast).eval({});
@@ -2666,21 +2719,28 @@ describe("TypeScript extension/TestStrongEnumEnvironment", () => {
 
     const assigned = celEnv
       .program(
-        celEnv.compile(
-          "TestAllTypes{standalone_enum: TestAllTypes.NestedEnum(-1)}.standalone_enum",
+        unwrapAst(
+          celEnv.compile(
+            "TestAllTypes{standalone_enum: TestAllTypes.NestedEnum(-1)}.standalone_enum",
+          ),
         ),
       )
       .eval({});
     expect(assigned.type().typeName()).toBe("google.expr.proto3.test.TestAllTypes.NestedEnum");
     expect(assigned.value()).toBe(-1n);
 
-    expect(celEnv.program(celEnv.compile("int(GlobalEnum.GAZ)")).eval({}).value()).toBe(2n);
-    expect(celEnv.tryCompile("TestAllTypes{standalone_enum: GlobalEnum.GAR}").errors).toBeDefined();
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.compile("int(GlobalEnum.GAZ)")))
+        .eval({})
+        .value(),
+    ).toBe(2n);
+    expect(celEnv.compile("TestAllTypes{standalone_enum: GlobalEnum.GAR}").errors).toBeDefined();
 
-    const invalidName = celEnv.program(celEnv.compile('GlobalEnum("MISSING")')).eval({});
+    const invalidName = celEnv.program(unwrapAst(celEnv.compile('GlobalEnum("MISSING")'))).eval({});
     expect(isError(invalidName)).toBe(true);
 
-    const overflow = celEnv.program(celEnv.compile("GlobalEnum(2147483648)")).eval({});
+    const overflow = celEnv.program(unwrapAst(celEnv.compile("GlobalEnum(2147483648)"))).eval({});
     expect(isError(overflow)).toBe(true);
   });
 });

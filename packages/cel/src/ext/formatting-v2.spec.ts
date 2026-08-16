@@ -1,6 +1,6 @@
 import { file_test_proto3pb_test_all_types } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { container } from "../common/containers.js";
 import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -45,7 +45,12 @@ describe("ext/formatting_v2_test.go/TestStringsWithExtensionV2", () => {
     const celEnv = env({ libraries: [strings()] }).extend({
       libraries: [strings()],
     });
-    expect(celEnv.program(celEnv.compile(`"%s".format(["ok"])`)).eval({}).value()).toBe("ok");
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.compile(`"%s".format(["ok"])`)))
+        .eval({})
+        .value(),
+    ).toBe("ok");
   });
 });
 
@@ -79,12 +84,12 @@ describe("ext/formatting_v2_test.go/TestStringFormatV2", () => {
       const expression = `${JSON.stringify(testCase.format)}.format([${
         testCase.formatArgs ?? ""
       }])`;
-      const compileResult = celEnv.tryCompile(expression);
+      const compileResult = celEnv.compile(expression);
       if (testCase.err && compileResult.errors) {
         expect(compileResult.errors.toDisplayString(), testCase.name).toContain(testCase.err);
         return;
       }
-      const ast = testCase.err ? celEnv.parse(expression) : compileResult.ast;
+      const ast = testCase.err ? unwrapAst(celEnv.parse(expression)) : compileResult.ast;
       const result = celEnv.program(ast).eval(inputs);
       if (testCase.err) {
         expect(String(result), testCase.name).toContain(testCase.err);
@@ -101,9 +106,13 @@ describe("ext/formatting_v2_test.go/TestStringFormatHeterogeneousLiteralsV2", ()
     for (const testCase of syncedCases<HeterogeneousFormatCase>(
       "ext/formatting_v2_test.go/TestStringFormatHeterogeneousLiteralsV2",
     )) {
-      expect(celEnv.program(celEnv.compile(testCase.expr)).eval({}).value(), testCase.expr).toBe(
-        testCase.out,
-      );
+      expect(
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({})
+          .value(),
+        testCase.expr,
+      ).toBe(testCase.out);
     }
   });
 });

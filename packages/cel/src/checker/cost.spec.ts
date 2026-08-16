@@ -1,6 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../cel/env.js";
 import { defaultContainer } from "../common/containers.js";
 import { func, memberOverload } from "../common/decls.js";
 import { textSource } from "../common/source.js";
@@ -71,8 +72,10 @@ describe("checker/cost_test.go/TestCost", () => {
     it(`checker/cost_test.go/TestCost/${testCase.name || index + 1}`, () => {
       const resolved = resolveCostCase(testCase);
       currentHints = resolved.hints;
-      const parsed = parse(resolved.expr);
-      const checked = check(parsed, textSource(resolved.expr), standardEnv(resolved.vars));
+      const parsed = unwrapAst(parse(resolved.expr));
+      const checked = unwrapAst(
+        check(parsed, textSource(resolved.expr), standardEnv(resolved.vars)),
+      );
       const actual = cost(checked, testEstimator as never, resolved.options);
       expect(actual.Min).toBe(resolved.wanted.Min);
       expect(actual.Max).toBe(resolved.wanted.Max);

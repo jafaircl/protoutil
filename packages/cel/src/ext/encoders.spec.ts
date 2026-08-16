@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { isError } from "../common/types/err.js";
@@ -39,7 +39,9 @@ describe("ext/encoders_test.go/TestEncoders", () => {
   it("evaluates every synced encoder case", () => {
     const celEnv = env({ libraries: [encoders()] });
     for (const testCase of syncedCases<EncoderCase>("ext/encoders_test.go/TestEncoders")) {
-      const ast = testCase.parseOnly ? celEnv.parse(testCase.expr) : celEnv.compile(testCase.expr);
+      const ast = unwrapAst(
+        testCase.parseOnly ? celEnv.parse(testCase.expr) : celEnv.compile(testCase.expr),
+      );
       const result = celEnv.program(ast).eval({});
       if (testCase.err !== undefined) {
         expect(isError(result), testCase.expr).toBe(true);
@@ -54,11 +56,11 @@ describe("ext/encoders_test.go/TestEncoders", () => {
 describe("ext/encoders_test.go/TestEncodersVersion", () => {
   it("gates JSON encoding at version one", () => {
     const versionZero = env({ libraries: [encoders({ version: 0 })] });
-    expect(versionZero.tryCompile("base64.encode(b'hello')").errors).toBeUndefined();
-    expect(versionZero.tryCompile("json.encode('hello')").errors).toBeDefined();
+    expect(versionZero.compile("base64.encode(b'hello')").errors).toBeUndefined();
+    expect(versionZero.compile("json.encode('hello')").errors).toBeDefined();
 
     const versionOne = env({ libraries: [encoders({ version: 1 })] });
-    expect(versionOne.tryCompile("json.encode('hello')").errors).toBeUndefined();
+    expect(versionOne.compile("json.encode('hello')").errors).toBeUndefined();
   });
 });
 
@@ -78,7 +80,7 @@ describe("ext/encoders_test.go/TestEncodersCosts", () => {
           ),
         ),
       });
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const estimator: CostEstimator = {
         estimateCallCost: () => undefined,
         estimateSize: (node) => {
@@ -107,7 +109,7 @@ describe("ext/encoders_test.go/TestEncodersCosts", () => {
 describe("ext/encoders_test.go/TestDecodeNonBase64Error", () => {
   it("reports invalid base64 while retaining its measured cost", () => {
     const celEnv = env({ libraries: [encoders({ version: 1 })] });
-    const ast = celEnv.compile("base64.decode('abc-') == b''");
+    const ast = unwrapAst(celEnv.compile("base64.decode('abc-') == b''"));
 
     expect([celEnv.estimateCost(ast).Min, celEnv.estimateCost(ast).Max]).toEqual([2n, 2n]);
     const result = celEnv.program(ast, { costTracking: {} }).evalWithDetails({});
@@ -119,7 +121,7 @@ describe("ext/encoders_test.go/TestDecodeNonBase64Error", () => {
 describe("ext/encoders_test.go/TestJSONEncodeCostUnbounded", () => {
   it("uses the uint64 maximum for JSON encoding's unknown structural cost", () => {
     const celEnv = env({ libraries: [encoders({ version: 1 })] });
-    const ast = celEnv.compile("json.encode('hello')");
+    const ast = unwrapAst(celEnv.compile("json.encode('hello')"));
     const maximum = (1n << 64n) - 1n;
     const estimate = celEnv.estimateCost(ast);
     const result = celEnv.program(ast, { costTracking: {} }).evalWithDetails({});

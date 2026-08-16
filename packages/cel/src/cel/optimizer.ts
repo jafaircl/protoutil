@@ -13,7 +13,7 @@ import {
 } from "../common/ast/index.js";
 import type { Source } from "../common/source.js";
 import { False } from "../common/types/bool.js";
-import type { Env, EnvOptions } from "./env.js";
+import { type Env, type EnvOptions, unwrapAst } from "./env.js";
 
 /**
  * StaticOptimizerOptions configures a static optimizer without functional options.
@@ -561,7 +561,10 @@ export class StaticOptimizer {
       if (duplicates.length > 0) {
         throw new Error(`optimizer produced duplicate expression ids: ${duplicates.join(", ")}`);
       }
-      optimized = context.env().check(astValue(optimized.expr(), optimized.sourceInfo()), source);
+      // The optimizer re-checks an AST it just produced; diagnostics here are a library defect.
+      optimized = unwrapAst(
+        context.env().check(astValue(optimized.expr(), optimized.sourceInfo()), source),
+      );
     }
     return optimized;
   }

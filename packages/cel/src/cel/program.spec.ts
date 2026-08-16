@@ -27,6 +27,7 @@ import {
   partialActivation,
 } from "../interpreter/activation.js";
 import { constValue } from "../interpreter/interpretable.js";
+import { unwrapAst } from "./env.js";
 import { EvalProgram, type EvalResult } from "./program.js";
 
 /**
@@ -52,7 +53,7 @@ describe("cel/cel_test.go/BenchmarkEvalOptions", () => {
 describe("TypeScript extension/TestProgramCachesMapInputAdaptationPerEvaluation", () => {
   it("adapts a map binding once per evaluation without caching custom activations", () => {
     const celEnv = env({ variables: [variable("x", IntType)] });
-    const evalProgram = celEnv.program(celEnv.compile("x + x"));
+    const evalProgram = celEnv.program(unwrapAst(celEnv.compile("x + x")));
     let reads = 0;
     let value = 1;
     const input = Object.defineProperty({}, "x", {
@@ -86,7 +87,7 @@ describe("TypeScript extension/TestProgramCachesMapInputAdaptationPerEvaluation"
     const celEnv = env({
       variables: [variable("x", IntType), variable("y", IntType)],
     });
-    const evalProgram = celEnv.program(celEnv.compile("x + y + x"));
+    const evalProgram = celEnv.program(unwrapAst(celEnv.compile("x + y + x")));
     let xReads = 0;
     let yReads = 0;
     const input = Object.defineProperties(
@@ -130,7 +131,7 @@ describe("cel/cel_test.go/TestEvalRecover", () => {
         }),
       ],
     });
-    const ast = celEnv.parse("panic()");
+    const ast = unwrapAst(celEnv.parse("panic()"));
 
     expect(() => celEnv.program(ast).eval({})).toThrow("internal error: watch me recover");
     expect(() => celEnv.program(ast, { trackState: true }).eval({})).toThrow(
@@ -152,7 +153,7 @@ describe("cel/program_async_test.go/TestConcurrentEval", () => {
         }),
       ],
     });
-    const program = celEnv.program(celEnv.compile("asyncDouble(asyncDouble(1))"));
+    const program = celEnv.program(unwrapAst(celEnv.compile("asyncDouble(asyncDouble(1))")));
     const result = await program.concurrentEval({}, { signal: new AbortController().signal });
     expect(result.value.value()).toBe(4n);
   });
@@ -171,7 +172,7 @@ describe("cel/program_async_test.go/TestEvalRejectsAsync", () => {
         }),
       ],
     });
-    const program = celEnv.program(celEnv.compile("asyncIdentity(1)"));
+    const program = celEnv.program(unwrapAst(celEnv.compile("asyncIdentity(1)")));
     expect(() => program.eval({})).toThrow(
       "expression contains asynchronous function calls; use concurrentEval",
     );
@@ -191,7 +192,7 @@ describe("cel/program_async_test.go/TestContextEvalRejectsAsync", () => {
         }),
       ],
     });
-    const program = celEnv.program(celEnv.compile("asyncIdentity(1)"));
+    const program = celEnv.program(unwrapAst(celEnv.compile("asyncIdentity(1)")));
     expect(() => program.contextEval({}, { signal: new AbortController().signal })).toThrow(
       "expression contains asynchronous function calls; use concurrentEval",
     );
@@ -212,7 +213,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalAllowsPartialUnknown", () 
       ],
       variables: [variable("missing", BoolType)],
     });
-    const program = celEnv.program(celEnv.compile("asyncTrue() && missing"), {
+    const program = celEnv.program(unwrapAst(celEnv.compile("asyncTrue() && missing")), {
       partialEval: true,
     });
     const result = await program.concurrentEval(
@@ -229,7 +230,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalAllowsPartialUnknown", () 
 describe("cel/program_async_test.go/TestContextEvalAllowsPartialUnknown", () => {
   it("does not mistake a partial-evaluation variable unknown for an async call", () => {
     const celEnv = env({ variables: [variable("x", IntType)] });
-    const program = celEnv.program(celEnv.compile("x + 1"), { partialEval: true });
+    const program = celEnv.program(unwrapAst(celEnv.compile("x + 1")), { partialEval: true });
     const result = program.contextEval(
       partialActivation({
         bindings: {},
@@ -256,7 +257,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalAsyncObserver", () => {
         }),
       ],
     });
-    const program = celEnv.program(celEnv.compile("asyncIdentity(1)"), {
+    const program = celEnv.program(unwrapAst(celEnv.compile("asyncIdentity(1)")), {
       asyncObserver: {
         onCallFinished: (call) => events.push(`finish:${call.callId()}`),
         onCallStarted: (call) => events.push(`start:${call.callId()}`),
@@ -281,7 +282,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalProgramThreadSafety", () =
       ],
       variables: [variable("value", IntType)],
     });
-    const program = celEnv.program(celEnv.compile("asyncIdentity(value)"));
+    const program = celEnv.program(unwrapAst(celEnv.compile("asyncIdentity(value)")));
     const results = await Promise.all(
       [1, 2, 3, 4].map((value) =>
         program.concurrentEval({ value }, { signal: new AbortController().signal }),
@@ -304,7 +305,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalPreCanceledContext", () =>
     });
     await expect(
       celEnv
-        .program(celEnv.compile("asyncTrue()"))
+        .program(unwrapAst(celEnv.compile("asyncTrue()")))
         .concurrentEval({}, { signal: controller.signal }),
     ).rejects.toThrow("cancelled");
   });
@@ -327,7 +328,7 @@ describe("cel/program_async_test.go/TestSyncEvalRejectsAsyncBeforeEvaluating", (
         }),
       ],
     });
-    expect(() => celEnv.program(celEnv.compile("asyncTrue()")).eval({})).toThrow();
+    expect(() => celEnv.program(unwrapAst(celEnv.compile("asyncTrue()"))).eval({})).toThrow();
     expect(calls).toBe(0);
   });
 });
@@ -341,7 +342,9 @@ describe("cel/program_async_test.go/TestSyncEvalRejectedInAsyncEnv", () => {
         }),
       ],
     });
-    expect(() => celEnv.program(celEnv.compile("true")).eval({})).toThrow("use concurrentEval");
+    expect(() => celEnv.program(unwrapAst(celEnv.compile("true"))).eval({})).toThrow(
+      "use concurrentEval",
+    );
   });
 });
 
@@ -361,7 +364,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalRecover", () => {
       ],
     });
     const result = await celEnv
-      .program(celEnv.compile("asyncFailure()"))
+      .program(unwrapAst(celEnv.compile("asyncFailure()")))
       .concurrentEval({}, { signal: new AbortController().signal });
     expect(result.value.toString()).toContain("async failure");
   });
@@ -377,7 +380,7 @@ describe("cel/program_async_test.go/TestAsyncWithTraceAndExhaustiveEval", () => 
       ],
     });
     const result = await celEnv
-      .program(celEnv.compile("asyncTrue() && true"), {
+      .program(unwrapAst(celEnv.compile("asyncTrue() && true")), {
         exhaustiveEval: true,
         trackState: true,
       })
@@ -401,7 +404,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalDrainReady", () => {
       ],
     });
     const result = await celEnv
-      .program(celEnv.compile("asyncIdentity(1) + asyncIdentity(2)"), {
+      .program(unwrapAst(celEnv.compile("asyncIdentity(1) + asyncIdentity(2)")), {
         asyncMaxConcurrency: 1,
       })
       .concurrentEval({}, { signal: new AbortController().signal });
@@ -427,7 +430,7 @@ describe("cel/program_async_test.go/TestConcurrentEvalCancelDuringDebounce", () 
     globalThis.setTimeout(() => controller.abort(new Error("cancelled")), 5);
     await expect(
       celEnv
-        .program(celEnv.compile("asyncSlow()"))
+        .program(unwrapAst(celEnv.compile("asyncSlow()")))
         .concurrentEval({}, { signal: controller.signal }),
     ).rejects.toThrow("cancelled");
   });
@@ -438,7 +441,7 @@ describe("cel/cel_test.go/TestExhaustiveEval", () => {
     const celEnv = env({
       variables: [variable("k", StringType), variable("v", BoolType)],
     });
-    const ast = celEnv.compile("{k: true}[k] || v != false");
+    const ast = unwrapAst(celEnv.compile("{k: true}[k] || v != false"));
     const evaluated = celEnv
       .program(ast, { exhaustiveEval: true })
       .evalWithDetails({ k: "key", v: true });
@@ -460,7 +463,7 @@ describe("cel/cel_test.go/TestContextEvalUnknowns", () => {
       bindings: { groups: [1, 2, 3] },
       unknowns: [attributePattern("id")],
     });
-    const program = celEnv.program(celEnv.compile("groups.exists(t, t == id)"), {
+    const program = celEnv.program(unwrapAst(celEnv.compile("groups.exists(t, t == id)")), {
       interruptCheckFrequency: 100,
       partialEval: true,
       trackState: true,
@@ -481,7 +484,7 @@ describe("cel/cel_test.go/TestResidualAst", () => {
     const celEnv = env({
       variables: [variable("x", IntType), variable("y", IntType)],
     });
-    const ast = celEnv.parse(`x < 10 && (y == 0 || "hello" != "goodbye")`);
+    const ast = unwrapAst(celEnv.parse(`x < 10 && (y == 0 || "hello" != "goodbye")`));
     const evaluated = celEnv
       .program(ast, { partialEval: true, trackState: true })
       .evalWithDetails(celEnv.unknownVars());
@@ -507,9 +510,11 @@ describe("cel/cel_test.go/TestResidualAstComplex", () => {
       },
       unknowns: [attributePattern("request.auth.claims").qualString("email")],
     });
-    const ast = celEnv.compile(`resource.name.startsWith("bucket/my-bucket") &&
+    const ast = unwrapAst(
+      celEnv.compile(`resource.name.startsWith("bucket/my-bucket") &&
       bool(request.auth.claims.email_verified) == true &&
-      request.auth.claims.email == "wiley@acme.co"`);
+      request.auth.claims.email == "wiley@acme.co"`),
+    );
     const evaluated = celEnv
       .program(ast, { partialEval: true, trackState: true })
       .evalWithDetails(vars);
@@ -537,7 +542,7 @@ describe("cel/cel_test.go/TestResidualAstMacros", () => {
         bindings: testCase.in,
         unknowns: testCase.unks.map(syncedAttributePattern),
       });
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const evaluated = celEnv
         .program(ast, { partialEval: true, trackState: true })
         .evalWithDetails(vars);
@@ -565,7 +570,7 @@ describe("cel/cel_test.go/TestPartialVars", () => {
     const celEnv = env({
       variables: [variable("x", StringType), variable("y", IntType)],
     });
-    const program = celEnv.program(celEnv.compile("x == string(y)"), {
+    const program = celEnv.program(unwrapAst(celEnv.compile("x == string(y)")), {
       partialEval: true,
     });
 
@@ -593,9 +598,11 @@ describe("cel/cel_test.go/TestResidualAstAttributeQualifiers", () => {
         variable("u", IntType),
       ],
     });
-    const ast = celEnv.parse(
-      `x.abc == u && x["abc"] == u && x[x.string] == u && y[0] == u && ` +
-        `y[x.zero] == u && (true ? x : y).abc == u && (false ? y : x).abc == u`,
+    const ast = unwrapAst(
+      celEnv.parse(
+        `x.abc == u && x["abc"] == u && x[x.string] == u && y[0] == u && ` +
+          `y[x.zero] == u && (true ? x : y).abc == u && (false ? y : x).abc == u`,
+      ),
     );
     const vars = partialActivation({
       bindings: {
@@ -622,7 +629,7 @@ describe("cel/cel_test.go/TestPartialVarsEnv", () => {
       variables: [variable("x", IntType), variable("y", IntType)],
     });
     const result = celEnv
-      .program(celEnv.compile("x == y"), { partialEval: true })
+      .program(unwrapAst(celEnv.compile("x == y")), { partialEval: true })
       .eval(celEnv.partialVars({ x: 1, y: 1 }));
 
     expect(result.value()).toBe(true);
@@ -639,7 +646,7 @@ describe("cel/cel_test.go/TestPartialVarsExtendedEnv", () => {
       variables: [variable("z", IntType)],
     });
     const result = extended
-      .program(extended.compile("x == y && y == z"), { partialEval: true })
+      .program(unwrapAst(extended.compile("x == y && y == z")), { partialEval: true })
       .eval(extended.partialVars({ z: 1, y: 1 }));
 
     expect(isUnknown(result)).toBe(true);
@@ -652,7 +659,7 @@ describe("cel/cel_test.go/TestResidualAstModified", () => {
     const celEnv = env({
       variables: [variable("x", mapType(StringType, IntType)), variable("y", IntType)],
     });
-    const ast = celEnv.parse("x == y");
+    const ast = unwrapAst(celEnv.parse("x == y"));
     const program = celEnv.program(ast, { partialEval: true, trackState: true });
 
     for (const x of [123, 456]) {

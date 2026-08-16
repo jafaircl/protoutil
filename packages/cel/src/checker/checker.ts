@@ -870,19 +870,11 @@ export interface CheckResult {
 
 /**
  * check performs type checking and returns a checked AST plus diagnostics.
+ *
+ * Diagnostics accompany the AST rather than being thrown, matching the parser and the environment
+ * frontend: a type error in a user-supplied expression is an expected result.
  */
-export function check(parsed: AST, source: Source, env: Env): AST {
-  const result = tryCheck(parsed, source, env);
-  if (result.errors) {
-    throw new Error(result.errors.toDisplayString());
-  }
-  return result.ast;
-}
-
-/**
- * tryCheck performs type checking and returns diagnostics instead of throwing.
- */
-export function tryCheck(parsed: AST, source: Source, env: Env): CheckResult {
+export function check(parsed: AST, source: Source, env: Env): CheckResult {
   const c = new checker(parsed, source, env);
   c.check(parsed.expr());
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { isError } from "../common/types/err.js";
 import { strings } from "./strings.js";
@@ -38,7 +38,9 @@ describe("ext/strings_test.go/TestStrings", () => {
   it("evaluates every synchronized string expression", () => {
     const celEnv = env({ libraries: [strings()] });
     for (const testCase of syncedCases<StringsCase>("ext/strings_test.go/TestStrings")) {
-      const ast = testCase.parseOnly ? celEnv.parse(testCase.expr) : celEnv.compile(testCase.expr);
+      const ast = unwrapAst(
+        testCase.parseOnly ? celEnv.parse(testCase.expr) : celEnv.compile(testCase.expr),
+      );
       const result = celEnv.program(ast).eval({});
       if (testCase.err) {
         expect(isError(result), testCase.expr).toBe(true);
@@ -60,7 +62,7 @@ describe("ext/strings_test.go/TestStringsVersions", () => {
     for (let version = 0; version <= 3; version += 1) {
       const celEnv = env({ libraries: [strings({ version })] });
       for (const [expression, introduced] of expressions) {
-        const result = celEnv.tryCompile(expression);
+        const result = celEnv.compile(expression);
         expect(result.errors === undefined, `${version}: ${expression}`).toBe(
           version >= introduced,
         );
@@ -72,7 +74,12 @@ describe("ext/strings_test.go/TestStringsVersions", () => {
 describe("ext/strings_test.go/TestStringsWithExtension", () => {
   it("applies the singleton library once when extending an environment", () => {
     const celEnv = env({ libraries: [strings()] }).extend({ libraries: [strings()] });
-    expect(celEnv.program(celEnv.compile("'abc'.reverse() == 'cba'")).eval({}).value()).toBe(true);
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.compile("'abc'.reverse() == 'cba'")))
+        .eval({})
+        .value(),
+    ).toBe(true);
   });
 });
 
@@ -89,8 +96,10 @@ describe("ext/strings_test.go/TestQuoteUnquote", () => {
       }
       const celEnv = env({ libraries: [strings()] });
       const expression = `strings.quote(${JSON.stringify(testCase.testStr)})`;
-      const result = celEnv.program(celEnv.compile(expression)).eval({});
-      const roundTrip = celEnv.program(celEnv.compile(result.value() as string)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(expression))).eval({});
+      const roundTrip = celEnv
+        .program(unwrapAst(celEnv.compile(result.value() as string)))
+        .eval({});
       expect(roundTrip.value(), testCase.testStr).toBe(testCase.testStr);
     }
   });
@@ -107,7 +116,9 @@ describe("ext/strings_test.go/TestFunctionsForVersions", () => {
 describe("ext/strings_test.go/TestStringCostTracking", () => {
   it("does not enable runtime cost tracking when the library is imported", () => {
     const celEnv = env({ libraries: [strings({ version: 5 })] });
-    const evaluated = celEnv.program(celEnv.compile("'abc'.reverse()")).evalWithDetails({});
+    const evaluated = celEnv
+      .program(unwrapAst(celEnv.compile("'abc'.reverse()")))
+      .evalWithDetails({});
 
     expect(evaluated.details.actualCost()).toBeUndefined();
   });
@@ -117,7 +128,7 @@ describe("ext/strings_test.go/TestStringCostTracking", () => {
     for (const testCase of syncedCases<StringCostCase>(
       "ext/strings_test.go/TestStringCostTracking",
     )) {
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const estimate = celEnv.estimateCost(ast);
       expect([estimate.Min, estimate.Max], testCase.name).toEqual(
         parseStringCost(testCase.estimatedCost.$expr),
@@ -134,7 +145,7 @@ describe("ext/strings_test.go/TestStringCostLimitEnforced", () => {
     const expression = `"A".replace("", "AAAAAAAAAA")${`.replace("", "AAAAAAAAAA")`.repeat(5)}`;
     expect(() =>
       celEnv
-        .program(celEnv.compile(expression), {
+        .program(unwrapAst(celEnv.compile(expression)), {
           costTracking: { limit: 1000 },
         })
         .eval({}),

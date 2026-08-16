@@ -1,5 +1,6 @@
 import { NullValue } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../cel/env.js";
 import { protoToExpr, type SourceInfo, sourceInfo } from "../common/ast/index.js";
 import * as operators from "../common/operators.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -8,7 +9,6 @@ import {
   type ParserConfig,
   parse,
   parser,
-  tryParse,
   tryUnparse,
   type UnparserConfig,
   unparse,
@@ -54,12 +54,12 @@ describe("parser/unparser_test.go", () => {
     for (const row of rows) {
       it(row.name, () => {
         const celParser = parser(parserConfigFor(row));
-        const parsed = celParser.parse(row.in);
+        const parsed = unwrapAst(celParser.parse(row.in));
 
         const output = unparse(parsed, unparserConfigFor(row.unparserOptions ?? []));
         expect(output).toBe(resolveExpectedUnparse(row.out, row.in));
 
-        const roundTripped = celParser.parse(output);
+        const roundTripped = unwrapAst(celParser.parse(output));
         expect(roundTripped.expr().toProto()).toEqual(parsed.expr().toProto());
       });
     }
@@ -82,19 +82,19 @@ describe("parser/unparser_test.go", () => {
 
   describe("parse / unparse convenience helpers", () => {
     it("exports idiomatic top-level parse and unparse helpers", () => {
-      const parsed = parse("a + b * c");
+      const parsed = unwrapAst(parse("a + b * c"));
       expect(parsed.toParsedExpr().expr).toBeDefined();
       expect(unparse(parsed)).toBe("a + b * c");
     });
 
-    it("exports a non-throwing top-level tryParse helper", () => {
-      const parsed = tryParse("a + b * c");
+    it("reports parse diagnostics from the top-level parse helper", () => {
+      const parsed = parse("a + b * c");
       expect(parsed.errors).toBeUndefined();
       expect(parsed.ast.toParsedExpr().expr).toBeDefined();
     });
 
     it("exports a non-throwing top-level tryUnparse helper", () => {
-      const parsed = parse("a + b * c");
+      const parsed = unwrapAst(parse("a + b * c"));
       const result = tryUnparse(parsed);
       expect(result.error).toBeUndefined();
       expect(result.source).toBe("a + b * c");

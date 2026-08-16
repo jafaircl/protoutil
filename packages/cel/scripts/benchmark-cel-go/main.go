@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/cel-go/cel"
@@ -175,6 +175,26 @@ var benchmarkSink any
 // The fixed count avoids making the first fixture case pay for JavaScript runtime tier-up while
 // keeping the cel-go and TypeScript harnesses equivalent.
 const policyEvalPrimingIterations = 20_000
+
+// minimumWarmupIterations mirrors the TypeScript harness warmup contract so both implementations
+// discard the same amount of work before sampling. Go has no tiering compiler, so the extended
+// warmup changes little here; keeping the contract identical is what makes the ratio meaningful.
+var minimumWarmupIterations = envInt("CEL_BENCHMARK_WARMUP_ITERATIONS", 20000)
+
+// warmupBudgetMs bounds the extended warmup so expensive rows do not dominate total runtime.
+var warmupBudgetMs = envInt("CEL_BENCHMARK_WARMUP_BUDGET_MS", 300)
+
+// targetSampleMs is the duration each measured sample aims to occupy.
+var targetSampleMs = float64(envInt("CEL_BENCHMARK_TARGET_SAMPLE_MS", 15))
+
+// iterationsOverride pins the iteration count, bypassing calibration, for reproducible reruns.
+var iterationsOverride = envInt("CEL_BENCHMARK_ITERATIONS", 0)
+
+// calibrationFloorMs is the shortest probe duration accepted when estimating operation cost.
+const calibrationFloorMs = 1
+
+// maximumIterations bounds calibration for operations too cheap to time individually.
+const maximumIterations = 5_000_000
 
 // main runs the cel-go half of the benchmark matrix and emits JSON for the TypeScript report writer.
 func main() {
@@ -952,17 +972,11 @@ func validateEvaluation(options evaluationValidationOptions) {
 
 // benchmark warms up and samples one cel-go operation.
 func benchmark(options benchmarkOptions) benchmarkResult {
-	iterations := benchmarkIterations(
-		options.operation,
-		options.scenario,
-		options.iterationsPerSample,
-	)
-	for index := 0; index < options.warmupCount; index++ {
-		runIterations(iterationOptions{
-			iterations: iterations,
-			run:        options.run,
-		})
-	}
+	iterations := calibrateIterations(options.run)
+	runWarmup(options.warmupCount, iterationOptions{
+		iterations: iterations,
+		run:        options.run,
+	})
 
 	durationsMs := make([]float64, 0, options.sampleCount)
 	for index := 0; index < options.sampleCount; index++ {
@@ -981,41 +995,53 @@ func benchmark(options benchmarkOptions) benchmarkResult {
 	}
 }
 
-// benchmarkIterations scales the base count so expensive cases do not dominate total runtime.
-func benchmarkIterations(operation string, scenario string, baseIterations int) int {
-	if operation == "unparse" {
-		return baseIterations * 20
+// calibrateIterations chooses an iteration count that makes one sample last targetSampleMs.
+//
+// This mirrors the TypeScript harness so both implementations resolve cheap and expensive rows
+// equally well. Fixed per-operation multipliers previously produced sub-millisecond samples in
+// which scheduler noise, not the operation, dominated the measured spread.
+func calibrateIterations(run func() any) int {
+	if iterationsOverride > 0 {
+		return iterationsOverride
 	}
-	if operation == "parse" || operation == "plan" || operation == "policy-parse" {
-		return baseIterations * 4
+	iterations := 1
+	for {
+		elapsedMs := runIterations(iterationOptions{iterations: iterations, run: run})
+		if elapsedMs >= calibrationFloorMs {
+			perOperationMs := elapsedMs / float64(iterations)
+			target := int(math.Round(targetSampleMs / perOperationMs))
+			if target > maximumIterations {
+				target = maximumIterations
+			}
+			if target < 1 {
+				target = 1
+			}
+			return target
+		}
+		if iterations >= maximumIterations {
+			return iterations
+		}
+		iterations *= 4
 	}
-	if operation == "policy-compile" ||
-		operation == "policy-plan" ||
-		operation == "policy-eval" ||
-		operation == "partial-eval" ||
-		operation == "residual" ||
-		operation == "residual-roundtrip" {
-		return baseIterations
-	}
-	if operation != "eval" && operation != "eval-details" && operation != "eval-state" {
-		return baseIterations
-	}
-	if strings.HasSuffix(scenario, "/ runtime cost") {
-		return baseIterations
-	}
-	if strings.HasPrefix(scenario, "macro comprehension") {
-		return baseIterations * 2
-	}
-	if strings.Contains(scenario, "fold ") {
-		return baseIterations * 2
-	}
-	if strings.HasPrefix(scenario, "constant regex") && strings.HasSuffix(scenario, "/ baseline") {
-		return baseIterations * 4
-	}
-	return baseIterations * 20
 }
 
-// runIterations executes and times one benchmark sample.
+// runWarmup executes discarded operations until the row reaches steady state.
+//
+// Every row runs the configured warmup samples, then keeps going until it has executed
+// minimumWarmupIterations operations or exhausted warmupBudgetMs, whichever happens first.
+func runWarmup(warmupCount int, options iterationOptions) {
+	executed := 0
+	for index := 0; index < warmupCount; index++ {
+		runIterations(options)
+		executed += options.iterations
+	}
+	deadline := time.Now().Add(time.Duration(warmupBudgetMs) * time.Millisecond)
+	for executed < minimumWarmupIterations && time.Now().Before(deadline) {
+		runIterations(options)
+		executed += options.iterations
+	}
+}
+
 func runIterations(options iterationOptions) float64 {
 	start := time.Now()
 	for index := 0; index < options.iterations; index++ {

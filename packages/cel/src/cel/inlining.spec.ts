@@ -34,6 +34,7 @@ import {
   UintType,
   variable,
 } from "../index.js";
+import { unwrapAst } from "./env.js";
 
 /**
  * SyncedVariableExpression is the Go composite-literal shape emitted by the fixture synchronizer.
@@ -212,14 +213,14 @@ function optimizeInliningOutputs(
     .map((definition) =>
       inlineVariable({
         alias: definition.alias,
-        definition: celEnv.compile(definition.expression!),
+        definition: unwrapAst(celEnv.compile(definition.expression!)),
         name: definition.name,
       }),
     );
   const optimizer = staticOptimizer({
     optimizers: [inliningOptimizer({ variables: inlineVariables })],
   });
-  const inlinedAst = optimizer.optimize(celEnv, celEnv.compile(testCase.expr));
+  const inlinedAst = optimizer.optimize(celEnv, unwrapAst(celEnv.compile(testCase.expr)));
   const foldedAst = staticOptimizer({
     optimizers: [constantFoldingOptimizer()],
   }).optimize(celEnv, inlinedAst);

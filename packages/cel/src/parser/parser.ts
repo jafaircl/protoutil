@@ -33,36 +33,14 @@ export class Parser {
   /**
    * Parses source text into a CEL AST and source info.
    */
-  public parse(source: string): AST {
-    const result = this.tryParse(source);
-    if (result.errors) {
-      throw new Error(result.errors.toDisplayString());
-    }
-    return result.ast;
+  public parse(source: string): ParseResult {
+    return this.parseSource(textSource(source));
   }
 
   /**
-   * Tries to parse source text into a CEL AST and optional diagnostics.
+   * Parses a lower-level Source into a CEL AST and optional diagnostics.
    */
-  public tryParse(source: string): ParseResult {
-    return this.tryParseSource(textSource(source));
-  }
-
-  /**
-   * Parses a lower-level Source into a CEL AST and source info.
-   */
-  public parseSource(source: Source): AST {
-    const result = this.tryParseSource(source);
-    if (result.errors) {
-      throw new Error(result.errors.toDisplayString());
-    }
-    return result.ast;
-  }
-
-  /**
-   * Tries to parse a lower-level Source into a CEL AST and optional diagnostics.
-   */
-  public tryParseSource(source: Source): ParseResult {
+  public parseSource(source: Source): ParseResult {
     const sourceText = source.content();
     const errs = errorsValue(source);
     const helper = new ParserHelper(
@@ -100,30 +78,19 @@ export function parser(config: ParserConfig = {}): Parser {
 
 /**
  * parse parses source text with the optional provided parser configuration.
+ *
+ * Diagnostics accompany the AST rather than being thrown, matching the environment frontend and
+ * cel-go: a malformed expression is an expected result when the source comes from a user.
  */
-export function parse(source: string, config: ParserConfig = {}): AST {
+export function parse(source: string, config: ParserConfig = {}): ParseResult {
   return parser(config).parse(source);
-}
-
-/**
- * tryParse parses source text with the optional provided parser configuration and returns diagnostics instead of throwing.
- */
-export function tryParse(source: string, config: ParserConfig = {}): ParseResult {
-  return parser(config).tryParse(source);
 }
 
 /**
  * parseSource parses a lower-level Source with the optional provided parser configuration.
  */
-export function parseSource(source: Source, config: ParserConfig = {}): AST {
+export function parseSource(source: Source, config: ParserConfig = {}): ParseResult {
   return parser(config).parseSource(source);
-}
-
-/**
- * tryParseSource parses a lower-level Source with the optional provided parser configuration and returns diagnostics.
- */
-export function tryParseSource(source: Source, config: ParserConfig = {}): ParseResult {
-  return parser(config).tryParseSource(source);
 }
 
 /**

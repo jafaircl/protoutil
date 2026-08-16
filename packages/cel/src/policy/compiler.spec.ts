@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
 import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -121,7 +121,7 @@ describe("policy/compiler_test.go/TestCompile", () => {
 `),
       {
         matchOutputCompiler: {
-          compile: ({ env: matchEnvironment }) => matchEnvironment.compile("'custom'"),
+          compile: ({ env: matchEnvironment }) => unwrapAst(matchEnvironment.compile("'custom'")),
         },
       },
     );

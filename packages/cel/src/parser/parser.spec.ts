@@ -91,7 +91,7 @@ describe("parser/parser_test.go", () => {
       it(`${index} ${row.I}`, () => {
         const celParser = buildParser(row.Opts ?? []);
         const src = stringSource(row.I, "<input>");
-        const parsed = celParser.tryParseSource(src);
+        const parsed = celParser.parseSource(src);
         const errs = parsed.errors;
         const actualErr = errs?.toDisplayString() ?? "";
         if ((errs?.getErrors().length ?? 0) > 0) {
@@ -126,7 +126,7 @@ describe("parser/parser_test.go", () => {
   describe("TestExpressionSizeCodePointLimit", () => {
     it("parser/parser_test.go/TestExpressionSizeCodePointLimit", () => {
       const celParser = parser({ expressionSizeCodePointLimit: 2 });
-      const errs = celParser.tryParseSource(stringSource("foo", "<input>")).errors;
+      const errs = celParser.parseSource(stringSource("foo", "<input>")).errors;
       expect(errs).toBeDefined();
       expect(errs!.getErrors()).toHaveLength(1);
       expect(errs!.getErrors()[0]?.message).toBe(
@@ -138,7 +138,7 @@ describe("parser/parser_test.go", () => {
   describe("TestMaxExpressionNodeCount", () => {
     it("parser/parser_test.go/TestMaxExpressionNodeCount", () => {
       const celParser = parser({ maxExpressionNodeCount: 10 });
-      const errs = celParser.tryParse("a.exists(x, x.exists(y, y == 1))").errors;
+      const errs = celParser.parse("a.exists(x, x.exists(y, y == 1))").errors;
       expect(errs?.getErrors()[0]?.message).toContain(
         "expression count exceeds limit of 10 while expanding macro 'exists'",
       );
@@ -186,7 +186,7 @@ describe("parser/parser_test.go", () => {
   describe("TestParseErrorData", () => {
     it("parser/parser_test.go/TestParseErrorData", () => {
       const celParser = buildParser([]);
-      const errs = celParser.tryParseSource(stringSource("a.?b", "<input>")).errors;
+      const errs = celParser.parseSource(stringSource("a.?b", "<input>")).errors;
       expect(errs).toBeDefined();
       expect(errs!.getErrors()).toHaveLength(1);
       expect(errs!.getErrors()[0]?.exprId).toBe(2);
@@ -478,7 +478,7 @@ function verifyRelativeSourceOffsets(
     src,
     new SourceLocation(11, 0),
   );
-  const padded = celParser.tryParseSource(padSrc);
+  const padded = celParser.parseSource(padSrc);
   expect(padded.errors).toBeUndefined();
   for (const [id, origRange] of parsed.sourceInfo().offsetRanges()) {
     const [padRange, found] = padded.ast.sourceInfo().getOffsetRange(id);

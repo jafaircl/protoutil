@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
 import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -18,9 +18,13 @@ describe("ext/regex_test.go/TestRegex", () => {
   it("evaluates every synchronized regular-expression case", () => {
     const celEnv = regexEnv();
     for (const testCase of syncedCases<RegexCase>("ext/regex_test.go/TestRegex")) {
-      expect(celEnv.program(celEnv.compile(testCase.expr)).eval({}).value(), testCase.expr).toBe(
-        true,
-      );
+      expect(
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({})
+          .value(),
+        testCase.expr,
+      ).toBe(true);
     }
   });
 
@@ -28,7 +32,9 @@ describe("ext/regex_test.go/TestRegex", () => {
     const celEnv = regexEnv();
     expect(
       celEnv
-        .program(celEnv.compile(`regex.extract("CaseInsensitive", "(?i)caseinsensitive")`))
+        .program(
+          unwrapAst(celEnv.compile(`regex.extract("CaseInsensitive", "(?i)caseinsensitive")`)),
+        )
         .eval({})
         .value(),
     ).toBe("CaseInsensitive");
@@ -39,7 +45,7 @@ describe("ext/regex_test.go/TestRegexStaticErrors", () => {
   it("reports every synchronized checker error", () => {
     const celEnv = regexEnv();
     for (const testCase of syncedCases<RegexCase>("ext/regex_test.go/TestRegexStaticErrors")) {
-      expect(celEnv.tryCompile(testCase.expr).errors?.toDisplayString(), testCase.expr).toContain(
+      expect(celEnv.compile(testCase.expr).errors?.toDisplayString(), testCase.expr).toContain(
         testCase.err,
       );
     }
@@ -50,7 +56,7 @@ describe("ext/regex_test.go/TestRegexRuntimeErrors", () => {
   it("reports every synchronized runtime error", () => {
     const celEnv = regexEnv();
     for (const testCase of syncedCases<RegexCase>("ext/regex_test.go/TestRegexRuntimeErrors")) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({});
       expect(String(result), testCase.expr).toContain(testCase.err);
     }
   });
@@ -62,7 +68,9 @@ describe("ext/regex_test.go/TestRegexRuntimeErrors", () => {
       ["*", "Err: error parsing regexp: missing argument to repetition operator: `*`"],
     ]) {
       const expression = `regex.extract("input", ${JSON.stringify(pattern)})`;
-      expect(String(celEnv.program(celEnv.compile(expression)).eval({})), pattern).toBe(expected);
+      expect(String(celEnv.program(unwrapAst(celEnv.compile(expression))).eval({})), pattern).toBe(
+        expected,
+      );
     }
   });
 });
@@ -86,9 +94,13 @@ describe("ext/regex_test.go/TestRegexCosts", () => {
   it("evaluates every synchronized cost expression", () => {
     const celEnv = regexEnv();
     for (const testCase of syncedCases<RegexCase>("ext/regex_test.go/TestRegexCosts")) {
-      expect(celEnv.program(celEnv.compile(testCase.expr)).eval({}).value(), testCase.expr).toBe(
-        true,
-      );
+      expect(
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({})
+          .value(),
+        testCase.expr,
+      ).toBe(true);
     }
   });
 });
@@ -107,7 +119,7 @@ describe("ext/regex_test.go/TestRegexProgramSizeLimit", () => {
       `regex.replace('a1', pat, 'x')`,
       `regex.replace('a1', pat, 'x', 1)`,
     ]) {
-      const program = celEnv.program(celEnv.compile(expression));
+      const program = celEnv.program(unwrapAst(celEnv.compile(expression)));
       expect(String(program.eval({ pat: "(a|b)*[0-9]+" })), expression).toContain(
         "regex program size 8 exceeds limit of 5",
       );

@@ -605,11 +605,11 @@ function executeConformance(execution: ConformanceExecution): ConformanceResult 
     return { execution, failure: "environment" };
   }
 
-  const parsed = environment.tryParse(test.expr);
+  const parsed = environment.parse(test.expr);
   if (parsed.errors) {
     return { execution, failure: "parse" };
   }
-  const compiled = test.disableCheck ? parsed : environment.tryCompile(test.expr);
+  const compiled = test.disableCheck ? parsed : environment.compile(test.expr);
   if (compiled.errors) {
     const expectsError =
       test.resultMatcher.case === "evalError" || test.resultMatcher.case === "anyEvalErrors";

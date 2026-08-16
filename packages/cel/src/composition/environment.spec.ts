@@ -1,7 +1,7 @@
 import { TestAllTypesSchema as Proto2TestAllTypesSchema } from "@protoutil/testing/cel/proto2";
 import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
-import { type Env, env } from "../cel/env.js";
+import { type Env, env, unwrapAst } from "../cel/env.js";
 import type { SingletonLibrary } from "../cel/library.js";
 import { optionalTypes } from "../cel/library.js";
 import { func, overload, variable } from "../common/decls.js";
@@ -95,7 +95,7 @@ describe("composition/environment", () => {
       const a = env({});
       const b = env({ macros: { custom: [myMacro] } });
       const composed = composeEnvironments(a, b);
-      const ast = composed.compile("myMacro()");
+      const ast = unwrapAst(composed.compile("myMacro()"));
       expect(composed.program(ast).eval({}).value()).toBe(true);
     });
 
@@ -268,7 +268,7 @@ describe("composition/environment", () => {
       const a = env({});
       const b = env({ libraries: [optionalTypes()] });
       const composed = composeEnvironments(a, b);
-      const ast = composed.compile("optional.of(1).hasValue()");
+      const ast = unwrapAst(composed.compile("optional.of(1).hasValue()"));
       const result = composed.program(ast).eval({});
       expect(result.value()).toBe(true);
     });
@@ -282,12 +282,12 @@ describe("composition/environment", () => {
       const composed = composeEnvironments(a, b);
 
       count.applied = 0;
-      a.program(a.compile("1 + 1"));
+      a.program(unwrapAst(a.compile("1 + 1")));
       const single = count.applied;
       expect(single).toBeGreaterThan(0);
 
       count.applied = 0;
-      composed.program(composed.compile("1 + 1"));
+      composed.program(unwrapAst(composed.compile("1 + 1")));
       expect(count.applied).toBe(single);
     });
 
@@ -295,7 +295,7 @@ describe("composition/environment", () => {
       const count = { applied: 0 };
       const composed = composeEnvironments(env({}), env({ libraries: [countingLibrary(count)] }));
       count.applied = 0;
-      composed.program(composed.compile("1 + 1"));
+      composed.program(unwrapAst(composed.compile("1 + 1")));
       expect(count.applied).toBeGreaterThan(0);
     });
 
@@ -342,7 +342,12 @@ describe("composition/environment", () => {
       const b = env({ standardLibrary: false });
       const composed = composeEnvironments(a, b);
       expect(composed.hasLibrary("cel.lib.std")).toBe(true);
-      expect(composed.program(composed.compile("1 + 1")).eval({}).value()).toBe(2n);
+      expect(
+        composed
+          .program(unwrapAst(composed.compile("1 + 1")))
+          .eval({})
+          .value(),
+      ).toBe(2n);
       expect(assignableEnvironment(a, composed)).toBe(true);
       expect(assignableEnvironment(b, composed)).toBe(true);
     });
@@ -373,7 +378,7 @@ describe("composition/environment", () => {
       const a = env({ checker: { crossTypeNumericComparisons: true } });
       const b = env({ checker: { crossTypeNumericComparisons: false } });
       const composed = composeEnvironments(a, b);
-      expect(composed.tryCompile("1 < 2.0").errors).toBeUndefined();
+      expect(composed.compile("1 < 2.0").errors).toBeUndefined();
     });
 
     it("does not block composition on differing resource limits (regression)", () => {
@@ -515,31 +520,31 @@ describe("composition/environment", () => {
 
     it("accepts an expression using only available variables", () => {
       const source = envWithVariable();
-      const ast = source.compile("x + 1");
+      const ast = unwrapAst(source.compile("x + 1"));
       expect(canEvaluate(source, ast)).toBe(true);
     });
 
     it("rejects an expression referencing a missing variable", () => {
       const source = envWithVariable();
-      const ast = source.compile("x + 1");
+      const ast = unwrapAst(source.compile("x + 1"));
       expect(canEvaluate(env({}), ast)).toBe(false);
     });
 
     it("accepts an expression whose overload is available and bound", () => {
       const source = env({ functions: [boundTriple()], variables: [variable("x", IntType)] });
-      const ast = source.compile("triple(x)");
+      const ast = unwrapAst(source.compile("triple(x)"));
       expect(canEvaluate(source, ast)).toBe(true);
     });
 
     it("rejects an expression whose overload is missing", () => {
       const source = env({ functions: [boundTriple()], variables: [variable("x", IntType)] });
-      const ast = source.compile("triple(x)");
+      const ast = unwrapAst(source.compile("triple(x)"));
       expect(canEvaluate(env({ variables: [variable("x", IntType)] }), ast)).toBe(false);
     });
 
     it("rejects an expression whose overload is declared without a runtime binding", () => {
       const source = env({ functions: [boundTriple()], variables: [variable("x", IntType)] });
-      const ast = source.compile("triple(x)");
+      const ast = unwrapAst(source.compile("triple(x)"));
       const target = env({
         functions: [func("triple", { overloads: [overload("triple_int", [IntType], IntType)] })],
         variables: [variable("x", IntType)],
@@ -549,37 +554,37 @@ describe("composition/environment", () => {
 
     it("accepts an expression selecting an available message field", () => {
       const source = env({ contextProto: Proto3TestAllTypesSchema });
-      const ast = source.compile("single_int32");
+      const ast = unwrapAst(source.compile("single_int32"));
       expect(canEvaluate(source, ast)).toBe(true);
     });
 
     it("rejects an expression referencing a missing message type", () => {
       const source = env({ contextProto: Proto3TestAllTypesSchema });
-      const ast = source.compile("single_int32");
+      const ast = unwrapAst(source.compile("single_int32"));
       expect(canEvaluate(env({}), ast)).toBe(false);
     });
 
     it("accepts a field selection the target's type declares", () => {
       const source = userEnv([nameField]);
-      const ast = source.compile("user.name == ''");
+      const ast = unwrapAst(source.compile("user.name == ''"));
       expect(canEvaluate(userEnv([nameField]), ast)).toBe(true);
     });
 
     it("rejects a field selection the target's type does not declare", () => {
       const source = userEnv([nameField]);
-      const ast = source.compile("user.name == ''");
+      const ast = unwrapAst(source.compile("user.name == ''"));
       expect(canEvaluate(userEnv([idField]), ast)).toBe(false);
     });
 
     it("does not require reparsing or rechecking: an unchecked AST is not evaluable", () => {
       const source = envWithVariable();
-      const parsed = source.parse("x + 1");
+      const parsed = unwrapAst(source.parse("x + 1"));
       expect(canEvaluate(source, parsed)).toBe(false);
     });
 
     it("treats comprehension-bound variables as available without a target declaration", () => {
       const source = env({});
-      const ast = source.compile("[1, 2, 3].exists(i, i > 1)");
+      const ast = unwrapAst(source.compile("[1, 2, 3].exists(i, i > 1)"));
       expect(canEvaluate(source, ast)).toBe(true);
     });
   });

@@ -1,6 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { TestAllTypesSchema as Proto3TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../../cel/env.js";
 import { check } from "../../checker/checker.js";
 import { env } from "../../checker/env.js";
 import { CheckedExprSchema } from "../../gen/cel/expr/checked_pb.js";
@@ -43,16 +44,16 @@ import { standardFunctions } from "../stdlib.js";
 import { registry } from "../types/index.js";
 
 function astFor(source: string): AST {
-  return parse(source, { enableOptionalSyntax: true, populateMacroCalls: true });
+  return unwrapAst(parse(source, { enableOptionalSyntax: true, populateMacroCalls: true }));
 }
 
 function mustTypeCheck(source: string, jsonFieldNames = false): AST {
-  const parsed = parse(source);
+  const parsed = unwrapAst(parse(source));
   const reg = registry([create(Proto3TestAllTypesSchema), Proto3TestAllTypesSchema]);
   reg.withJSONFieldNames(jsonFieldNames);
   const checkerEnv = env(defaultContainer, reg, { jsonFieldNames });
   checkerEnv.addFunctions(...standardFunctions());
-  return check(parsed, textSource(source), checkerEnv);
+  return unwrapAst(check(parsed, textSource(source), checkerEnv));
 }
 
 describe("common/ast", () => {
@@ -279,10 +280,10 @@ describe("common/ast", () => {
   });
 
   it("converts expressions and entry expressions to and from protobuf", () => {
-    const expr = parse("{1u: 'hello'}").expr();
+    const expr = unwrapAst(parse("{1u: 'hello'}")).expr();
     expect(protoToExpr(exprToProto(expr)).toProto()).toEqual(exprToProto(expr));
 
-    const entry = parse("{1u: 'hello'}").expr().asMap()?.entries()[0];
+    const entry = unwrapAst(parse("{1u: 'hello'}")).expr().asMap()?.entries()[0];
     expect(entry).toBeDefined();
     if (!entry) {
       return;
@@ -332,7 +333,7 @@ describe("common/ast", () => {
   it("common/ast/ast_test.go/TestMaxID", () => {
     const exprAst = astFor("has({'a': 1}.a)");
     const currentMax = maxId(exprAst);
-    const dummy = parse("a").expr();
+    const dummy = unwrapAst(parse("a")).expr();
     dummy.renumberIds(() => currentMax + 1);
     exprAst.sourceInfo().setMacroCall(currentMax + 2, dummy);
     expect(maxId(exprAst)).toBe(currentMax + 3);
@@ -346,14 +347,14 @@ describe("common/ast", () => {
   it("supports source-info cleanup behaviors", () => {
     const info = sourceInfo(textSource("a"));
     info.setOffsetRange(99, { start: 0, stop: 0 });
-    const wrapped = ast(parse("a").expr(), info);
+    const wrapped = ast(unwrapAst(parse("a")).expr(), info);
     wrapped.clearUnusedIds();
     expect(wrapped.sourceInfo().getOffsetRange(99)[1]).toBe(false);
   });
 
   it("supports checked-expr conversion for the first common pass", () => {
     const checked = create(CheckedExprSchema, {
-      expr: exprToProto(parse("type(1) == int").expr()),
+      expr: exprToProto(unwrapAst(parse("type(1) == int")).expr()),
       sourceInfo: sourceInfoToProto(sourceInfo(textSource("type(1) == int"))),
     });
 
@@ -362,8 +363,8 @@ describe("common/ast", () => {
   });
 
   it("replaces an expression kind case in place for rewrite-style use", () => {
-    const expr = parse("a.size()").expr();
-    const replacement = parse("'a' == 'b'").expr();
+    const expr = unwrapAst(parse("a.size()")).expr();
+    const replacement = unwrapAst(parse("'a' == 'b'")).expr();
     expr.setKindCase(replacement);
     expect(expr.toProto()).toEqual(exprToProto(replacement));
   });

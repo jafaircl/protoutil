@@ -1,6 +1,6 @@
 import { file_test_proto3pb_test_all_types } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { type CostEstimator, sizeEstimate } from "../checker/cost.js";
 import { container } from "../common/containers.js";
 import { variable } from "../common/decls.js";
@@ -32,7 +32,7 @@ describe("ext/sets_test.go/TestSets", () => {
     for (const testCase of syncedCases<SetsCase>("ext/sets_test.go/TestSets")) {
       const variables = testCase.vars === undefined ? [] : [variable("x", listType(IntType))];
       const celEnv = env({ libraries: [sets()], variables });
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const estimator: CostEstimator = {
         /** estimateSize returns a synchronized upper-bound hint for a variable path. */
         estimateSize: (node) => {
@@ -82,7 +82,7 @@ describe("ext/sets_test.go/TestSetsMembershipRewriter", () => {
         registry: typeRegistry,
         variables,
       });
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const optimized = celEnv.optimize(ast, setMembershipOptimizer());
       expect(unparse(optimized), testCase.expr).toBe(testCase.optimized);
       expect(

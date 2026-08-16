@@ -369,7 +369,7 @@ function compileRuleGraph(options: CompileRuleOptions): CompiledRule {
   const variables: CompiledVariable[] = [];
   let activeEnv = options.env;
   for (const value of options.rule.variables()) {
-    const result = activeEnv.tryCompileSource(relativeSource(options.policy, value.expression()));
+    const result = activeEnv.compileSource(relativeSource(options.policy, value.expression()));
     if (result.errors) {
       appendIssues(options.issues, result.errors);
     }
@@ -385,7 +385,7 @@ function compileRuleGraph(options: CompileRuleOptions): CompiledRule {
   for (const value of options.rule.matches()) {
     const conditionValue =
       value.condition().value === "" ? { id: value.sourceId(), value: "true" } : value.condition();
-    const condition = activeEnv.tryCompileSource(relativeSource(options.policy, conditionValue));
+    const condition = activeEnv.compileSource(relativeSource(options.policy, conditionValue));
     if (condition.errors) {
       appendIssues(options.issues, condition.errors);
     }
@@ -411,7 +411,7 @@ function compileRuleGraph(options: CompileRuleOptions): CompiledRule {
           });
         }
       } else {
-        const compiledOutput = activeEnv.tryCompileSource(
+        const compiledOutput = activeEnv.compileSource(
           relativeSource(options.policy, value.output()),
         );
         if (compiledOutput.errors) {

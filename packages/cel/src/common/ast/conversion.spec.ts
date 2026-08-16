@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../../cel/env.js";
 import { parse } from "../../parser/parser.js";
 import { stringSource } from "../index.js";
 import { syncedCases } from "../spec-helpers.js";
@@ -142,10 +143,12 @@ describe("common/ast conversion", () => {
     }>("common/ast/conversion_test.go/TestConvertExpr");
 
     for (const testCase of cases) {
-      const parsed = parse(testCase.expr, {
-        enableOptionalSyntax: true,
-        populateMacroCalls: true,
-      });
+      const parsed = unwrapAst(
+        parse(testCase.expr, {
+          enableOptionalSyntax: true,
+          populateMacroCalls: true,
+        }),
+      );
       const actualProto = exprToProto(parsed.expr());
       const wantedExpr = resolveSyncedConvertExpr(testCase);
       const wantedProto = exprToProto(wantedExpr);
@@ -160,10 +163,12 @@ describe("common/ast conversion", () => {
   });
 
   it("common/ast/conversion_test.go/TestSourceInfoToProto", () => {
-    const parsed = parse("[{}, {'field': true}].exists(i, has(i.field))", {
-      enableOptionalSyntax: true,
-      populateMacroCalls: true,
-    });
+    const parsed = unwrapAst(
+      parse("[{}, {'field': true}].exists(i, has(i.field))", {
+        enableOptionalSyntax: true,
+        populateMacroCalls: true,
+      }),
+    );
     const actual = sourceInfoToProto(parsed.sourceInfo());
     expect(actual.location).toBe("<input>");
     expect(actual.lineOffsets).toEqual([46]);

@@ -37,7 +37,7 @@ function expectValidationCases(options: {
   environment: ReturnType<typeof env>;
 }): void {
   for (const testCase of options.cases) {
-    const result = options.environment.tryCompile(testCase.expr);
+    const result = options.environment.compile(testCase.expr);
     if (testCase.iss === undefined) {
       expect(result.errors, testCase.expr).toBeUndefined();
     } else {
@@ -167,7 +167,7 @@ describe("cel/validator_test.go/TestValidateRegexProgramSizeLimitFactory", () =>
     const restored = env({ configuration: { config } });
 
     expect(restored.hasValidator("cel.validator.regex_program_size_limit")).toBe(true);
-    expect(restored.tryCompile(`"input".matches("abcdef")`).errors?.toDisplayString()).toContain(
+    expect(restored.compile(`"input".matches("abcdef")`).errors?.toDisplayString()).toContain(
       "regex program size",
     );
   });
@@ -177,13 +177,13 @@ describe("cel/validator_test.go/TestOverrideValidator", () => {
   it("replaces a validator by name while leaving the base environment immutable", () => {
     const expression = "[1, 2, 3].map(i, [4, 5, 6].map(j, [7, 8, 9].map(k, i * j * k)))";
     const base = env({ validators: [validateComprehensionNestingLimit(2)] });
-    expect(base.tryCompile(expression).errors).toBeDefined();
+    expect(base.compile(expression).errors).toBeDefined();
 
     const extended = base.extend({
       validators: [validateComprehensionNestingLimit(3)],
     });
-    expect(extended.tryCompile(expression).errors).toBeUndefined();
-    expect(base.tryCompile(expression).errors).toBeDefined();
+    expect(extended.compile(expression).errors).toBeUndefined();
+    expect(base.compile(expression).errors).toBeDefined();
   });
 });
 
@@ -196,7 +196,7 @@ describe("cel/validator_test.go/TestOverrideValidatorFromConfig", () => {
     const extended = base.extend({ configuration: { config } });
 
     expect(
-      extended.tryCompile("[1, 2, 3].map(i, [4, 5, 6].map(j, [7, 8, 9].map(k, i * j * k)))").errors,
+      extended.compile("[1, 2, 3].map(i, [4, 5, 6].map(j, [7, 8, 9].map(k, i * j * k)))").errors,
     ).toBeUndefined();
   });
 });

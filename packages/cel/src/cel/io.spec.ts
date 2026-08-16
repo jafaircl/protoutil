@@ -49,6 +49,7 @@ import {
   valueToRefValue,
   variable,
 } from "../index.js";
+import { unwrapAst } from "./env.js";
 
 /**
  * deepBoolExpr creates a protobuf expression with the requested number of nested negations.
@@ -189,7 +190,7 @@ describe("TypeScript extension/TestAlphaProtoSchemaCompatibility", () => {
 
 describe("TypeScript extension/TestAlphaExpressionProtos", () => {
   it("converts canonical expression protobufs and ASTs to and from alpha protobufs", () => {
-    const parsedAst = env().parse('title == "Dune"');
+    const parsedAst = unwrapAst(env().parse('title == "Dune"'));
     const expression = parsedAst.expr().toProto();
 
     const alphaExpr = exprAsAlphaProto(expression);
@@ -228,9 +229,11 @@ describe("TypeScript extension/TestAlphaExpressionProtos", () => {
     expect(canonicalParsed.$typeName).toBe("cel.expr.ParsedExpr");
     expect(canonicalParsed.expr?.$typeName).toBe("cel.expr.Expr");
 
-    const checkedAst = env({
-      variables: [variable("title", StringType)],
-    }).compile('title == "Dune"');
+    const checkedAst = unwrapAst(
+      env({
+        variables: [variable("title", StringType)],
+      }).compile('title == "Dune"'),
+    );
     const checked = astToCheckedExpr(checkedAst);
     const alphaChecked = checkedExprAsAlphaProto(checked);
     expect(alphaChecked.$typeName).toBe("google.api.expr.v1alpha1.CheckedExpr");
@@ -355,7 +358,7 @@ describe("cel/io_test.go/TestAstToProto", () => {
     const celEnv = env({
       variables: [variable("a", DynType), variable("b", DynType)],
     });
-    const parsedAst = celEnv.parse("a + b");
+    const parsedAst = unwrapAst(celEnv.parse("a + b"));
     const parsedExpr = astToParsedExpr(parsedAst);
     const parsedRoundTrip = parsedExprToAst(parsedExpr);
     const parsedSource = textSource("a + b");
@@ -366,7 +369,7 @@ describe("cel/io_test.go/TestAstToProto", () => {
     expect(parsedWithSource.source()).toBe(parsedSource);
     expect(() => astToCheckedExpr(parsedAst)).toThrow("cannot convert unchecked ast");
 
-    const checkedAst = celEnv.check(parsedAst, textSource("a + b"));
+    const checkedAst = unwrapAst(celEnv.check(parsedAst, textSource("a + b")));
     const checkedExpr = astToCheckedExpr(checkedAst);
     const checkedRoundTrip = checkedExprToAst(checkedExpr);
     const checkedSource = textSource("a + b");
@@ -383,18 +386,20 @@ describe("cel/io_test.go/TestAstToString", () => {
   it("renders a parsed AST as CEL source", () => {
     const source = "a + b - (c ? (-d + 4) : e)";
 
-    expect(astToString(env().parse(source))).toBe(source);
+    expect(astToString(unwrapAst(env().parse(source)))).toBe(source);
   });
 });
 
 describe("cel/io_test.go/TestExprToString", () => {
   it("renders an expression using its source information", () => {
     const source = "[a, b].filter(i, (i > 0) ? (-i + 4) : i)";
-    const ast = env({
-      parser: {
-        populateMacroCalls: true,
-      },
-    }).parse(source);
+    const ast = unwrapAst(
+      env({
+        parser: {
+          populateMacroCalls: true,
+        },
+      }).parse(source),
+    );
 
     expect(exprToString(ast.expr(), ast.sourceInfo())).toBe(source);
   });
@@ -422,7 +427,7 @@ describe("cel/io_test.go/TestAstToParsedExprNil", () => {
 
 describe("cel/io_test.go/TestCheckedExprToAstConstantExpr", () => {
   it("round-trips a checked constant expression", () => {
-    const ast = env().compile("10");
+    const ast = unwrapAst(env().compile("10"));
 
     expect(checkedExprToAst(astToCheckedExpr(ast)).expr().toProto()).toEqual(ast.expr().toProto());
   });
@@ -430,7 +435,7 @@ describe("cel/io_test.go/TestCheckedExprToAstConstantExpr", () => {
 
 describe("cel/io_test.go/TestCheckedExprToAstMissingInfo", () => {
   it("restores checked state when source information is absent", () => {
-    const parsed = env().parse("10").toParsedExpr();
+    const parsed = unwrapAst(env().parse("10")).toParsedExpr();
     const checked = {
       $typeName: "cel.expr.CheckedExpr" as const,
       referenceMap: {},
@@ -456,7 +461,7 @@ describe("cel/io_test.go/TestLoadedAstDepthLimit", () => {
     const celEnv = env();
 
     // Sanity check: a shallow parsed expression still checks and plans cleanly.
-    const shallow = celEnv.parse("1 + 2");
+    const shallow = unwrapAst(celEnv.parse("1 + 2"));
     expect(() => celEnv.check(shallow, textSource("1 + 2"))).not.toThrow();
     expect(() => celEnv.program(shallow)).not.toThrow();
 

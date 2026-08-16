@@ -1,6 +1,6 @@
 import { file_test_proto3pb_test_all_types } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { container } from "../common/containers.js";
 import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -82,13 +82,13 @@ describe("ext/formatting_test.go/TestStringFormat", () => {
       const expression = `${JSON.stringify(testCase.format)}.format([${
         testCase.formatArgs ?? ""
       }])`;
-      const compiled = celEnv.tryCompile(expression);
+      const compiled = celEnv.compile(expression);
       if (testCase.err && compiled.errors) {
         expect(compiled.errors.toDisplayString(), testCase.name).toContain(testCase.err);
         return;
       }
       const result = celEnv
-        .program(testCase.err ? celEnv.parse(expression) : compiled.ast)
+        .program(testCase.err ? unwrapAst(celEnv.parse(expression)) : compiled.ast)
         .eval(inputs);
       if (testCase.err) {
         expect(String(result), testCase.name).toContain(testCase.err);
@@ -105,9 +105,13 @@ describe("ext/formatting_test.go/TestStringFormatHeterogeneousLiterals", () => {
     for (const testCase of syncedCases<HeterogeneousFormatCase>(
       "ext/formatting_test.go/TestStringFormatHeterogeneousLiterals",
     )) {
-      expect(celEnv.program(celEnv.compile(testCase.expr)).eval({}).value(), testCase.expr).toBe(
-        testCase.out,
-      );
+      expect(
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({})
+          .value(),
+        testCase.expr,
+      ).toBe(testCase.out);
     }
   });
 });
@@ -125,12 +129,12 @@ describe("ext/formatting_test.go/TestLiteralOutput", () => {
       "ext/formatting_test.go/TestLiteralOutput",
     )) {
       const formatted = celEnv
-        .program(celEnv.compile(`"%s".format([${testCase.formatLiteral}])`))
+        .program(unwrapAst(celEnv.compile(`"%s".format([${testCase.formatLiteral}])`)))
         .eval({})
         .value() as string;
       expect(
         celEnv
-          .program(celEnv.compile(`type(${formatted})`))
+          .program(unwrapAst(celEnv.compile(`type(${formatted})`)))
           .eval({})
           .value(),
         testCase.name,

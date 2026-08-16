@@ -1,5 +1,5 @@
 import type { DescMessage } from "@bufbuild/protobuf";
-import { check as checkExpression, tryCheck as tryCheckExpression } from "../checker/checker.js";
+import { check as checkExpression } from "../checker/checker.js";
 import {
   type CostEstimate,
   type CostEstimator,
@@ -8,7 +8,7 @@ import {
 } from "../checker/cost.js";
 import { type Env as CheckerEnv, env as checkerEnvironment } from "../checker/env.js";
 import type { CheckerOptions } from "../checker/options.js";
-import { AST, nodeCount, type SourceInfo } from "../common/ast/index.js";
+import { type AST, nodeCount, type SourceInfo } from "../common/ast/index.js";
 import { type Container, container, defaultContainer } from "../common/containers.js";
 import {
   type FunctionDecl,
@@ -78,8 +78,6 @@ import { type Macro, macroKey, type ParserConfig, parserOptions } from "../parse
 import {
   parse as parseExpression,
   parseSource as parseExpressionSource,
-  tryParse as tryParseExpression,
-  tryParseSource as tryParseExpressionSource,
 } from "../parser/parser.js";
 import { astToString } from "./io.js";
 import { type Library, legacyTimeFunctions, optionalTypes } from "./library.js";
@@ -426,6 +424,36 @@ export interface CompileResult {
 
   /** errors contains environment diagnostics when parsing, checking, or validation fails. */
   errors?: Issues;
+}
+
+/**
+ * DiagnosticResult is any frontend result pairing an AST with optional diagnostics.
+ *
+ * Both the environment's `CompileResult` and the parser's `ParseResult` satisfy this, so a single
+ * unwrap helper serves every frontend entry point.
+ */
+export interface DiagnosticResult {
+  /** ast contains the parsed or checked expression. */
+  ast: AST;
+
+  /** errors contains diagnostics when parsing, checking, or validation fails. */
+  errors?: { toDisplayString(): string };
+}
+
+/**
+ * unwrapAst returns the AST from a frontend result, throwing when diagnostics are present.
+ *
+ * The frontend mirrors cel-go by returning diagnostics rather than throwing, because invalid user
+ * expressions are an expected outcome. This helper is the escape hatch for callers whose input is
+ * known-good — library internals re-checking an AST they just produced, tests, and literal
+ * expressions — so that guarantee is stated at one call site instead of duplicated into a parallel
+ * throwing method for every frontend operation.
+ */
+export function unwrapAst(result: DiagnosticResult): AST {
+  if (result.errors !== undefined) {
+    throw new Error(result.errors.toDisplayString());
+  }
+  return result.ast;
 }
 
 /**
@@ -833,23 +861,13 @@ export class Env {
 
   /**
    * parse parses a CEL source string into an unchecked AST.
+   *
+   * Diagnostics are returned alongside the AST rather than thrown, matching cel-go's
+   * `Env.Parse`. Malformed user expressions are an expected outcome of this API, not an
+   * exceptional one.
    */
-  public parse(source: string): AST {
-    return parseExpression(source, this.parserConfigValue);
-  }
-
-  /**
-   * parseSource parses a lower-level CEL source while preserving its description and locations.
-   */
-  public parseSource(source: Source): AST {
-    return parseExpressionSource(source, this.parserConfigValue);
-  }
-
-  /**
-   * tryParse parses a CEL source string and returns structured diagnostics instead of throwing.
-   */
-  public tryParse(source: string): CompileResult {
-    const result = tryParseExpression(source, this.parserConfigValue);
+  public parse(source: string): CompileResult {
+    const result = parseExpression(source, this.parserConfigValue);
     return {
       ast: result.ast,
       errors:
@@ -860,10 +878,10 @@ export class Env {
   }
 
   /**
-   * tryParseSource parses a lower-level CEL source and returns structured diagnostics.
+   * parseSource parses a lower-level CEL source while preserving its description and locations.
    */
-  public tryParseSource(source: Source): CompileResult {
-    const result = tryParseExpressionSource(source, this.parserConfigValue);
+  public parseSource(source: Source): CompileResult {
+    const result = parseExpressionSource(source, this.parserConfigValue);
     return {
       ast: result.ast,
       errors:
@@ -876,49 +894,34 @@ export class Env {
   /**
    * check type-checks a parsed AST using its corresponding source.
    */
-  public check(parsed: AST, source: Source): AST {
-    this.assertExpressionNodeLimit(parsed);
-    const checked = checkExpression(parsed, source, this.checkerValue);
-    const validationErrors = this.validateAst(checked, source);
-    if (validationErrors !== undefined) {
-      throw new Error(validationErrors.toDisplayString());
+  public check(parsed: AST, source: Source): CompileResult {
+    const nodeLimitErrors = this.expressionNodeLimitErrors(parsed, source);
+    if (nodeLimitErrors !== undefined) {
+      return { ast: parsed, errors: nodeLimitErrors };
     }
-    return new AST(
-      checked.expr(),
-      checked.sourceInfo(),
-      checked.typeMap(),
-      checked.referenceMap(),
-      source,
-    );
+    const result = checkExpression(parsed, source, this.checkerValue);
+    if (result.errors !== undefined) {
+      return {
+        ast: result.ast,
+        errors: issues({ errors: result.errors, sourceInfo: result.ast.sourceInfo() }),
+      };
+    }
+    const validationErrors = this.validateAst(result.ast, source);
+    return {
+      // `result.ast` is a local temporary, so the result may share its checked metadata.
+      ast: result.ast.withSource(source),
+      errors:
+        validationErrors === undefined
+          ? undefined
+          : issues({ errors: validationErrors, sourceInfo: result.ast.sourceInfo() }),
+    };
   }
 
   /**
    * compile parses and checks a CEL source string.
    */
-  public compile(source: string): AST {
-    const result = this.tryCompile(source);
-    if (result.errors !== undefined) {
-      throw new Error(result.errors.toDisplayString());
-    }
-    return result.ast;
-  }
-
-  /**
-   * compileSource parses and checks a lower-level CEL source while preserving source metadata.
-   */
-  public compileSource(source: Source): AST {
-    const result = this.tryCompileSource(source);
-    if (result.errors !== undefined) {
-      throw new Error(result.errors.toDisplayString());
-    }
-    return result.ast;
-  }
-
-  /**
-   * tryCompile parses and checks a CEL source string, returning diagnostics instead of throwing.
-   */
-  public tryCompile(source: string): CompileResult {
-    const parsed = this.tryParse(source);
+  public compile(source: string): CompileResult {
+    const parsed = this.parse(source);
     if (parsed.errors) {
       return parsed;
     }
@@ -927,7 +930,7 @@ export class Env {
     if (nodeLimitErrors !== undefined) {
       return { ast: parsed.ast, errors: nodeLimitErrors };
     }
-    const result = tryCheckExpression(parsed.ast, sourceValue, this.checkerValue);
+    const result = checkExpression(parsed.ast, sourceValue, this.checkerValue);
     if (result.errors !== undefined) {
       return {
         ast: result.ast,
@@ -945,10 +948,10 @@ export class Env {
   }
 
   /**
-   * tryCompileSource parses and checks a lower-level CEL source with structured diagnostics.
+   * compileSource parses and checks a lower-level CEL source while preserving source metadata.
    */
-  public tryCompileSource(source: Source): CompileResult {
-    const parsed = this.tryParseSource(source);
+  public compileSource(source: Source): CompileResult {
+    const parsed = this.parseSource(source);
     if (parsed.errors) {
       return parsed;
     }
@@ -956,7 +959,7 @@ export class Env {
     if (nodeLimitErrors !== undefined) {
       return { ast: parsed.ast, errors: nodeLimitErrors };
     }
-    const result = tryCheckExpression(parsed.ast, source, this.checkerValue);
+    const result = checkExpression(parsed.ast, source, this.checkerValue);
     if (result.errors !== undefined) {
       return {
         ast: result.ast,
@@ -965,13 +968,8 @@ export class Env {
     }
     const validationErrors = this.validateAst(result.ast, source);
     return {
-      ast: new AST(
-        result.ast.expr(),
-        result.ast.sourceInfo(),
-        result.ast.typeMap(),
-        result.ast.referenceMap(),
-        source,
-      ),
+      // `result.ast` is a local temporary, so the result may share its checked metadata.
+      ast: result.ast.withSource(source),
       errors:
         validationErrors === undefined
           ? undefined
@@ -1230,17 +1228,6 @@ export class Env {
   }
 
   /**
-   * assertExpressionNodeLimit rejects externally supplied ASTs before recursive type checking.
-   */
-  private assertExpressionNodeLimit(astValue: AST): void {
-    const limit = parserOptions(this.parserConfigValue).maxExpressionNodeCount;
-    const count = nodeCount(astValue);
-    if (count > limit) {
-      throw new Error(`expression node count exceeds limit: count ${count}, limit ${limit}`);
-    }
-  }
-
-  /**
    * expressionNodeLimitErrors reports an expression-count failure as structured compile issues.
    */
   private expressionNodeLimitErrors(astValue: AST, source: Source): Issues | undefined {
@@ -1302,8 +1289,8 @@ export class Env {
       state,
     });
     const expression = astToString(pruned);
-    const parsed = this.parse(expression);
-    return astValue.isChecked() ? this.check(parsed, textSource(expression)) : parsed;
+    const parsed = unwrapAst(this.parse(expression));
+    return astValue.isChecked() ? unwrapAst(this.check(parsed, textSource(expression))) : parsed;
   }
 
   /**
@@ -1713,7 +1700,7 @@ function strongEnumFunctions(typeRegistry: Registry): FunctionDecl[] {
  */
 export function compile(source: string, options: EnvOptions = {}): Program {
   const environment = env(options);
-  return environment.program(environment.compile(source));
+  return environment.program(unwrapAst(environment.compile(source)));
 }
 
 /**

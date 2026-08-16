@@ -478,6 +478,25 @@ export class AST {
     return new Map(this.refMapValue);
   }
 
+  /**
+   * WithSource returns an equivalent AST bound to a source, sharing this AST's checked metadata.
+   *
+   * Rebuilding an AST through `typeMap()` and `referenceMap()` deep-copies both maps, and copying
+   * the type map structured-clones every entry. Callers that attach a source to an AST they just
+   * produced and are about to discard pay that copy for nothing: `check` spent roughly a third of
+   * its total time there. Sharing is safe only because the receiver is a temporary; use the
+   * copying accessors when the original AST outlives the result.
+   */
+  public withSource(source: Source): AST {
+    return new AST(
+      this.exprValue,
+      this.sourceInfoValue,
+      this.typeMapValue,
+      this.refMapValue,
+      source,
+    );
+  }
+
   /** SetReference records the reference for an expression id. */
   public setReference(id: number, reference: ReferenceInfo): void {
     this.refMapValue.set(id, reference);

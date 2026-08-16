@@ -34,6 +34,7 @@ import {
   VariableDecl,
   variable,
 } from "../index.js";
+import { unwrapAst } from "./env.js";
 
 describe("cel/decls_test.go/TestFunctionMerge", () => {
   it("merges overload extensions while preserving singleton behavior", () => {
@@ -85,7 +86,10 @@ describe("cel/decls_test.go/TestFunctionMerge", () => {
       vector([1.2, 2.3, 3.4]).size() == 3
     ]`;
 
-    const result = celEnv.program(celEnv.compile(expression)).eval({}).value() as Val[];
+    const result = celEnv
+      .program(unwrapAst(celEnv.compile(expression)))
+      .eval({})
+      .value() as Val[];
     expect(result.map((value) => value.value())).toEqual([true, true, true]);
 
     const incompatibleSingleton = func("size", {
@@ -115,7 +119,7 @@ describe("cel/decls_test.go/TestFunctionMerge", () => {
       functions: [size, specialized],
       standardLibrary: false,
     });
-    expect(() => specializedEnv.program(celEnv.compile(expression))).toThrow(
+    expect(() => specializedEnv.program(unwrapAst(celEnv.compile(expression)))).toThrow(
       /incompatible with specialized overloads/,
     );
   });
@@ -163,7 +167,7 @@ describe("cel/decls_test.go/TestSingletonFunctionBinding", () => {
 
     for (const testCase of cases) {
       const result = celEnv
-        .program(celEnv.parse(testCase.expr))
+        .program(unwrapAst(celEnv.parse(testCase.expr)))
         .eval({ err: new Err("error argument"), unk: unknown(42) });
       const expected = resolveSyncedVal(testCase.out);
       if (expected instanceof Err) {
@@ -221,7 +225,7 @@ describe("cel/decls_test.go/TestFunctionBinding", () => {
 
     for (const testCase of cases) {
       const result = celEnv
-        .program(celEnv.parse(testCase.expr))
+        .program(unwrapAst(celEnv.parse(testCase.expr)))
         .eval({ err: new Err("error argument"), unk: unknown(42) });
       const expected = resolveSyncedVal(testCase.out);
       if (expected instanceof Err) {
@@ -253,7 +257,12 @@ describe("cel/decls_test.go/TestSingletonUnaryBinding", () => {
       variables: [variable("x", AnyType)],
     });
 
-    expect(celEnv.program(celEnv.parse("id(x)")).eval({ x: "hello" }).value()).toBe("hello");
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.parse("id(x)")))
+        .eval({ x: "hello" })
+        .value(),
+    ).toBe("hello");
   });
 });
 
@@ -276,7 +285,7 @@ describe("cel/decls_test.go/TestSingletonUnaryBindingParameterized", () => {
 
     expect(
       celEnv
-        .program(celEnv.parse("x.isSorted()"))
+        .program(unwrapAst(celEnv.parse("x.isSorted()")))
         .eval({ x: [1, 2, 3] })
         .value(),
     ).toBe(true);
@@ -332,7 +341,7 @@ describe("cel/decls_test.go/TestUnaryBinding", () => {
       standardLibrary: false,
       variables: [variable("x", listType(DynType))],
     });
-    const result = celEnv.program(celEnv.compile("size(x)")).eval({ x: unknown(1) });
+    const result = celEnv.program(unwrapAst(celEnv.compile("size(x)"))).eval({ x: unknown(1) });
 
     expect(result.type().typeName()).toBe("unknown");
   });
@@ -361,7 +370,7 @@ describe("cel/decls_test.go/TestBinaryBinding", () => {
       standardLibrary: false,
       variables: [variable("x", IntType), variable("y", IntType)],
     });
-    const program = celEnv.program(celEnv.parse("max(x, y)"));
+    const program = celEnv.program(unwrapAst(celEnv.parse("max(x, y)")));
 
     expect(program.eval({ x: unknown(1), y: 1 }).value()).toBe(1n);
     expect(program.eval({ x: 2, y: unknown(2) }).value()).toBe(2n);
@@ -417,7 +426,12 @@ describe("cel/decls_test.go/TestFunctionMergeDeclarationAndDefinition", () => {
       variables: [variable("x", AnyType)],
     });
 
-    expect(celEnv.program(celEnv.compile("id(x)")).eval({ x: true }).value()).toBe(true);
+    expect(
+      celEnv
+        .program(unwrapAst(celEnv.compile("id(x)")))
+        .eval({ x: true })
+        .value(),
+    ).toBe(true);
   });
 });
 
@@ -461,8 +475,8 @@ describe("cel/decls_test.go/TestFunctionDisableDeclaration", () => {
       standardLibrary: false,
     });
 
-    expect(celEnv.program(celEnv.parse("disabled(true)")).eval({})).toBe(True);
-    expect(celEnv.tryCompile("disabled(true)").errors).toBeDefined();
+    expect(celEnv.program(unwrapAst(celEnv.parse("disabled(true)"))).eval({})).toBe(True);
+    expect(celEnv.compile("disabled(true)").errors).toBeDefined();
   });
 });
 
@@ -484,8 +498,8 @@ describe("cel/decls_test.go/TestFunctionDisableDeclarationMerge", () => {
       standardLibrary: false,
     });
 
-    expect(celEnv.program(celEnv.parse("disabled(true)")).eval({})).toBe(True);
-    expect(celEnv.tryCompile("disabled(true)").errors).toBeDefined();
+    expect(celEnv.program(unwrapAst(celEnv.parse("disabled(true)"))).eval({})).toBe(True);
+    expect(celEnv.compile("disabled(true)").errors).toBeDefined();
   });
 });
 
@@ -508,8 +522,8 @@ describe("cel/decls_test.go/TestFunctionDisableDeclarationMergeReenable", () => 
       standardLibrary: false,
     });
 
-    expect(celEnv.program(celEnv.parse("enabled(true)")).eval({})).toBe(True);
-    expect(celEnv.tryCompile("enabled(true)").errors).toBeUndefined();
+    expect(celEnv.program(unwrapAst(celEnv.parse("enabled(true)"))).eval({})).toBe(True);
+    expect(celEnv.compile("enabled(true)").errors).toBeUndefined();
   });
 });
 
@@ -536,7 +550,7 @@ describe("cel/decls_test.go/TestFunctionDeclExcludeOverloads", () => {
     });
 
     for (const testCase of successCases) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({});
       const expected = resolveSyncedVal(testCase.want);
       expect(result.value(), testCase.name).toEqual(
         typeof expected === "object" &&
@@ -548,7 +562,7 @@ describe("cel/decls_test.go/TestFunctionDeclExcludeOverloads", () => {
       );
     }
     for (const testCase of failureCases) {
-      expect(celEnv.tryCompile(testCase.expr).errors, testCase.name).toBeDefined();
+      expect(celEnv.compile(testCase.expr).errors, testCase.name).toBeDefined();
     }
   });
 });
@@ -574,7 +588,7 @@ describe("cel/decls_test.go/TestFunctionDeclIncludeOverloads", () => {
     });
 
     for (const testCase of successCases) {
-      const result = celEnv.program(celEnv.compile(testCase.expr)).eval({});
+      const result = celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({});
       const expected = resolveSyncedVal(testCase.want);
       expect(result.value(), testCase.name).toEqual(
         typeof expected === "object" &&
@@ -586,7 +600,7 @@ describe("cel/decls_test.go/TestFunctionDeclIncludeOverloads", () => {
       );
     }
     for (const testCase of failureCases) {
-      expect(celEnv.tryCompile(testCase.expr).errors, testCase.name).toBeDefined();
+      expect(celEnv.compile(testCase.expr).errors, testCase.name).toBeDefined();
     }
   });
 });
@@ -702,7 +716,7 @@ describe("cel/decls_test.go/TestExprDeclToDeclaration", () => {
       functions: [equals, size] as FunctionDecl[],
       variables: [variable, constant] as VariableDecl[],
     });
-    const program = celEnv.program(celEnv.compile("(size(x) == x.size()) == constant"));
+    const program = celEnv.program(unwrapAst(celEnv.compile("(size(x) == x.size()) == constant")));
 
     expect(program.eval({ x: "hello" }).value()).toBe(true);
   });

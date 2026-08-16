@@ -146,16 +146,27 @@ expands any macros present within the environment. Parsing and checking are
 more computationally expensive than evaluation, and it is recommended that
 expressions be parsed and checked ahead of time.
 
-The parse and check phases are combined for convenience into the `tryCompile`
-step:
+The parse and check phases are combined for convenience into the `compile`
+step. Like `cel-go`, the frontend reports diagnostics in its return value
+rather than throwing, because an invalid expression is an expected outcome
+when the source comes from a user:
 
 ```ts
-const result = myEnv.tryCompile(`name.startsWith("/groups/" + group)`);
+const result = myEnv.compile(`name.startsWith("/groups/" + group)`);
 if (result.errors) {
   console.error(result.errors.toDisplayString());
   throw result.errors.err();
 }
 const program = myEnv.program(result.ast);
+```
+
+`parse`, `parseSource`, `check`, and `compileSource` follow the same shape.
+When an expression is known to be valid — a literal in application code, or an
+AST the library itself produced — `unwrapAst` returns the AST directly and
+throws on diagnostics:
+
+```ts
+const program = myEnv.program(unwrapAst(myEnv.compile("1 + 1")));
 ```
 
 The program generated at the end of parse and check is stateless and

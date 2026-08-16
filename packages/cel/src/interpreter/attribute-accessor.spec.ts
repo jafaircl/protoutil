@@ -1,7 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { variable } from "../common/decls.js";
 import {
   attributeTrail,
@@ -21,7 +21,7 @@ import { attributeAccessor } from "./index.js";
 describe("TypeScript extension/AttributeAccessor", () => {
   it("resolves one checked field path against multiple activations", () => {
     const celEnv = env({ variables: [variable("request", DynType)] });
-    const ast = celEnv.compile("request.auth.subject");
+    const ast = unwrapAst(celEnv.compile("request.auth.subject"));
     const accessor = attributeAccessor({
       ast,
       expr: ast.expr(),
@@ -54,7 +54,7 @@ describe("TypeScript extension/AttributeAccessor", () => {
       registry: typeRegistry,
       variables: [variable("message", objectType(TestAllTypesSchema.typeName))],
     });
-    const ast = celEnv.compile("message.single_int32");
+    const ast = unwrapAst(celEnv.compile("message.single_int32"));
     const accessor = attributeAccessor({
       ast,
       expr: ast.expr(),
@@ -74,7 +74,7 @@ describe("TypeScript extension/AttributeAccessor", () => {
 
   it("uses checked references to resolve qualified variables", () => {
     const celEnv = env({ variables: [variable("request.auth", StringType)] });
-    const ast = celEnv.compile("request.auth");
+    const ast = unwrapAst(celEnv.compile("request.auth"));
     const accessor = attributeAccessor({
       ast,
       expr: ast.expr(),
@@ -95,7 +95,7 @@ describe("TypeScript extension/AttributeAccessor", () => {
 
   it("returns CEL errors without another result wrapper", () => {
     const celEnv = env({ variables: [variable("request", DynType)] });
-    const ast = celEnv.compile("request.auth");
+    const ast = unwrapAst(celEnv.compile("request.auth"));
     const accessor = attributeAccessor({
       ast,
       expr: ast.expr(),
@@ -110,7 +110,7 @@ describe("TypeScript extension/AttributeAccessor", () => {
 
   it("returns unknown and optional CEL values unchanged", () => {
     const celEnv = env({ variables: [variable("request", DynType)] });
-    const ast = celEnv.compile("request");
+    const ast = unwrapAst(celEnv.compile("request"));
     const accessor = attributeAccessor({
       ast,
       expr: ast.expr(),
@@ -129,8 +129,8 @@ describe("TypeScript extension/AttributeAccessor", () => {
 
   it("returns undefined for calls and presence tests", () => {
     const celEnv = env({ variables: [variable("request", DynType)] });
-    const callAst = celEnv.compile('request.auth == "admin"');
-    const presenceAst = celEnv.compile("has(request.auth)");
+    const callAst = unwrapAst(celEnv.compile('request.auth == "admin"'));
+    const presenceAst = unwrapAst(celEnv.compile("has(request.auth)"));
 
     for (const ast of [callAst, presenceAst]) {
       expect(
@@ -146,7 +146,7 @@ describe("TypeScript extension/AttributeAccessor", () => {
 
   it("rejects an unchecked AST", () => {
     const celEnv = env({ variables: [variable("request", DynType)] });
-    const ast = celEnv.parse("request.auth");
+    const ast = unwrapAst(celEnv.parse("request.auth"));
 
     expect(() =>
       attributeAccessor({

@@ -34,6 +34,7 @@ import {
   UintType,
   variable,
 } from "../index.js";
+import { unwrapAst } from "./env.js";
 
 /**
  * FoldingCase is the shared shape of synced constant-folding test rows.
@@ -166,7 +167,7 @@ function optimizeFolding(testCase: FoldingCase, sideEffects = false): AST {
       }),
     ],
   });
-  return optimizer.optimize(celEnv, celEnv.compile(testCase.expr));
+  return optimizer.optimize(celEnv, unwrapAst(celEnv.compile(testCase.expr)));
 }
 
 /**
@@ -260,7 +261,7 @@ describe("cel/folding_test.go/TestConstantFoldingNormalizeIDs", () => {
       "cel/folding_test.go/TestConstantFoldingNormalizeIDs",
     )) {
       const celEnv = foldingEnvironment();
-      const checked = celEnv.compile(testCase.expr);
+      const checked = unwrapAst(celEnv.compile(testCase.expr));
       const optimized = staticOptimizer({
         optimizers: [constantFoldingOptimizer()],
       }).optimize(celEnv, checked);
@@ -299,7 +300,7 @@ describe("cel/folding_test.go/TestConstantFoldingOptimizer_EvaluateExpr", () => 
       });
       const optimized = staticOptimizer({
         optimizers: [constantFoldingOptimizer()],
-      }).optimize(celEnv, celEnv.compile(testCase.expr));
+      }).optimize(celEnv, unwrapAst(celEnv.compile(testCase.expr)));
       expect(astToString(optimized), testCase.name).toBe(testCase.wantFold);
     }
   });
@@ -312,7 +313,7 @@ describe("cel/folding_test.go/TestConstantFoldingOptimizer_VariadicShortcircuitL
     });
     const optimized = staticOptimizer({
       optimizers: [constantFoldingOptimizer()],
-    }).optimize(celEnv, celEnv.compile("x && true && y"));
+    }).optimize(celEnv, unwrapAst(celEnv.compile("x && true && y")));
 
     expect(astToString(optimized)).toBe("x && y");
   });
@@ -340,7 +341,7 @@ describe("cel/optimizer_test.go/TestConstantFoldingOptimizerTwoVar", () => {
             knownValues: testCase.knownValues,
           }),
         ],
-      }).optimize(celEnv, celEnv.compile(testCase.expr));
+      }).optimize(celEnv, unwrapAst(celEnv.compile(testCase.expr)));
       expect(astToString(optimized), testCase.expr).toBe(testCase.folded);
     }
   });

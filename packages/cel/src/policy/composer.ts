@@ -1,4 +1,4 @@
-import { astOutputType, type Env } from "../cel/env.js";
+import { astOutputType, type Env, unwrapAst } from "../cel/env.js";
 import { type ASTOptimizer, type OptimizerContext, staticOptimizer } from "../cel/optimizer.js";
 import type { AST } from "../common/ast/ast.js";
 import { type Expr, ExprKind, postOrderVisit } from "../common/ast/index.js";
@@ -41,7 +41,7 @@ export function composeRule(options: ComposeRuleOptions): AST {
 
   const composition = new RuleCompositionOptimizer(options.rule);
   const unnester = new RuleUnnestOptimizer(composition, expressionUnnestHeight);
-  const placeholder = options.env.compile("true");
+  const placeholder = unwrapAst(options.env.compile("true"));
   const source = recoverOriginalSource(options.rule);
   return staticOptimizer({
     optimizers: [composition, unnester],

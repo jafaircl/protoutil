@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env } from "../cel/env.js";
+import { env, unwrapAst } from "../cel/env.js";
 import { syncedCases } from "../common/spec-helpers.js";
 import { StringType, TypeType } from "../common/types/types.js";
 import { network } from "./network.js";
@@ -32,9 +32,13 @@ describe("ext/network_test.go/TestNetwork_Success", () => {
   it("evaluates every synchronized networking case", () => {
     const celEnv = env({ libraries: [network()] });
     for (const testCase of syncedCases<NetworkCase>("ext/network_test.go/TestNetwork_Success")) {
-      expect(celEnv.program(celEnv.compile(testCase.expr)).eval({}).value(), testCase.name).toEqual(
-        networkExpected(testCase.out),
-      );
+      expect(
+        celEnv
+          .program(unwrapAst(celEnv.compile(testCase.expr)))
+          .eval({})
+          .value(),
+        testCase.name,
+      ).toEqual(networkExpected(testCase.out));
     }
   });
 });
@@ -55,7 +59,7 @@ describe("ext/network_test.go/TestNetwork_RuntimeErrors", () => {
       "ext/network_test.go/TestNetwork_RuntimeErrors",
     )) {
       expect(
-        String(celEnv.program(celEnv.compile(testCase.expr)).eval({})),
+        String(celEnv.program(unwrapAst(celEnv.compile(testCase.expr))).eval({})),
         testCase.name,
       ).toContain(testCase.errContains);
     }
@@ -65,8 +69,8 @@ describe("ext/network_test.go/TestNetwork_RuntimeErrors", () => {
 describe("ext/network_test.go/TestNetwork_TypeConversions", () => {
   it("converts IP and CIDR values to native strings and CEL types", () => {
     const celEnv = env({ libraries: [network()] });
-    const ip = celEnv.program(celEnv.compile("ip('1.2.3.4')")).eval({});
-    const cidr = celEnv.program(celEnv.compile("cidr('10.0.0.0/8')")).eval({});
+    const ip = celEnv.program(unwrapAst(celEnv.compile("ip('1.2.3.4')"))).eval({});
+    const cidr = celEnv.program(unwrapAst(celEnv.compile("cidr('10.0.0.0/8')"))).eval({});
 
     expect(ip.convertToNative(String)).toBe("1.2.3.4");
     expect(cidr.convertToNative(String)).toBe("10.0.0.0/8");
@@ -85,7 +89,7 @@ describe("ext/network_test.go/TestNetwork_CompileErrors", () => {
     for (const testCase of syncedCases<NetworkCase>(
       "ext/network_test.go/TestNetwork_CompileErrors",
     )) {
-      const errors = celEnv.tryCompile(testCase.expr).errors?.toDisplayString();
+      const errors = celEnv.compile(testCase.expr).errors?.toDisplayString();
       if (testCase.errContains) {
         expect(errors, testCase.name).toContain(testCase.errContains);
       } else {
@@ -99,7 +103,7 @@ describe("ext/network_test.go/TestNetworkCost", () => {
   it("matches every synchronized network checker and runtime cost", () => {
     const celEnv = env({ libraries: [network()] });
     for (const testCase of syncedCases<NetworkCostCase>("ext/network_test.go/TestNetworkCost")) {
-      const ast = celEnv.compile(testCase.expr);
+      const ast = unwrapAst(celEnv.compile(testCase.expr));
       const estimate = celEnv.estimateCost(ast);
       expect([estimate.Min, estimate.Max], testCase.name).toEqual(
         parseNetworkCost(testCase.estimatedCost.$expr),
@@ -119,7 +123,7 @@ describe("ext/network_test.go/TestIPCost", () => {
       ["ip('2001:db8:3333:4444:5555:6666:7777:8888')", 4],
       ["ip('2001:db8:3333:4444:5555:6666:7777:8888').isLoopback()", 5],
     ] as const) {
-      const ast = celEnv.compile(expression);
+      const ast = unwrapAst(celEnv.compile(expression));
       const result = celEnv.program(ast, { costTracking: {} }).evalWithDetails({});
       expect(result.details.actualCost(), expression).toBe(expected);
     }
@@ -135,7 +139,7 @@ describe("ext/network_test.go/TestCIDRCost", () => {
       ["cidr('192.168.0.0/16').containsIP('192.0.0.1')", 4],
       ["cidr('192.168.0.0/16').containsCIDR('192.0.0.0/30')", 7],
     ] as const) {
-      const ast = celEnv.compile(expression);
+      const ast = unwrapAst(celEnv.compile(expression));
       const result = celEnv.program(ast, { costTracking: {} }).evalWithDetails({});
       expect(result.details.actualCost(), expression).toBe(expected);
     }

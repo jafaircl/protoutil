@@ -7,7 +7,7 @@ import {
   TestAllTypesSchema,
 } from "@protoutil/testing/cel/conformance/proto3";
 import { describe, expect, it } from "vitest";
-import { type Env, type EnvOptions, env } from "./cel/env.js";
+import { type Env, type EnvOptions, env, unwrapAst } from "./cel/env.js";
 import { optionalTypes } from "./cel/library.js";
 import { func, overload } from "./common/decls.js";
 import { configFromYAML } from "./common/env/io.js";
@@ -443,7 +443,7 @@ function preparePolicy(fixture: PolicyFixture): PreparedPolicy | PolicySetupFail
 
 /** evaluateExpression evaluates one CEL expression in an empty activation. */
 function evaluateExpression(environment: Env, expression: string): Val {
-  return environment.program(environment.compile(expression)).eval({});
+  return environment.program(unwrapAst(environment.compile(expression))).eval({});
 }
 
 /** caseBindings evaluates literal, expression, and protobuf-context activation inputs. */

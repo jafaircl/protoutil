@@ -8,7 +8,7 @@ import {
   TestAllTypesSchema as Proto3TestAllTypesSchema,
 } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it, vi } from "vitest";
-import { env as celEnv } from "../cel/env.js";
+import { env as celEnv, unwrapAst } from "../cel/env.js";
 import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
 import { ast, exprFactory } from "../common/ast/index.js";
@@ -164,7 +164,9 @@ describe("interpreter/interpreter_test.go/TestInterpreter_RegexProgramSizeLimit"
   it("limits constant and dynamic regex programs without affecting other functions", () => {
     const constantEnvironment = celEnv({ regexProgramSizeLimit: 5 });
     expect(() =>
-      constantEnvironment.program(constantEnvironment.compile(`"hello".matches("(a|b)*[0-9]+")`)),
+      constantEnvironment.program(
+        unwrapAst(constantEnvironment.compile(`"hello".matches("(a|b)*[0-9]+")`)),
+      ),
     ).toThrow("regex program size 8 exceeds limit of 5");
 
     const dynamicEnvironment = celEnv({
@@ -172,18 +174,18 @@ describe("interpreter/interpreter_test.go/TestInterpreter_RegexProgramSizeLimit"
       variables: [variable("pattern", StringType)],
     });
     const dynamic = dynamicEnvironment
-      .program(dynamicEnvironment.compile(`"hello".matches(pattern)`))
+      .program(unwrapAst(dynamicEnvironment.compile(`"hello".matches(pattern)`)))
       .eval({ pattern: "(a|b)*[0-9]+" });
     expect(String(dynamic)).toContain("regex program size 8 exceeds limit of 5");
     expect(
       dynamicEnvironment
-        .program(dynamicEnvironment.compile(`"hello".matches(pattern)`))
+        .program(unwrapAst(dynamicEnvironment.compile(`"hello".matches(pattern)`)))
         .eval({ pattern: "el*" })
         .value(),
     ).toBe(true);
     expect(
       constantEnvironment
-        .program(constantEnvironment.compile(`"hello".contains("e")`))
+        .program(unwrapAst(constantEnvironment.compile(`"hello".contains("e")`)))
         .eval({})
         .value(),
     ).toBe(true);
@@ -637,7 +639,7 @@ function executeSyncedInterpreterCase(testCase: SyncedInterpreterCase): void {
   }
   addInterpreterFunctions(testCase, checkerEnv, dispatcherValue);
   const sourceExpr = normalizeInterpreterSourceExpr(testCase.expr);
-  const parsed = parse(sourceExpr, { enableOptionalSyntax: true });
+  const parsed = unwrapAst(parse(sourceExpr, { enableOptionalSyntax: true }));
   const runtime = interpreter({
     dispatcher: dispatcherValue,
     provider: reg,
@@ -646,7 +648,9 @@ function executeSyncedInterpreterCase(testCase: SyncedInterpreterCase): void {
     attrFactory: interpreterAttributeFactory(testCase, reg),
   });
   const exprAst =
-    testCase.unchecked === true ? parsed : check(parsed, textSource(sourceExpr), checkerEnv);
+    testCase.unchecked === true
+      ? parsed
+      : unwrapAst(check(parsed, textSource(sourceExpr), checkerEnv));
   const program = runtime.interpretable({ exprAst });
   const frame = executionFrame({
     input: interpreterActivation(testCase),
@@ -1099,7 +1103,9 @@ describe("interpreter/interpreter_test.go", () => {
       const checkerEnv = env(defaultContainer, reg, { crossTypeNumericComparisons: true });
       checkerEnv.addFunctions(...standardFunctions());
       checkerEnv.addIdents(variable("pb3", objectType(Proto3TestAllTypesSchema.typeName)));
-      const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
+      const checked = unwrapAst(
+        check(unwrapAst(parse(sourceExpr)), textSource(sourceExpr), checkerEnv),
+      );
       const program = interpreter({
         dispatcher: standardDispatcher(),
         provider: reg,
@@ -1121,7 +1127,7 @@ describe("interpreter/interpreter_test.go", () => {
    */
   describe("interpreter/interpreter_test.go/TestInterpreter_LogicalAndMissingType", () => {
     it("interpreter/interpreter_test.go/TestInterpreter_LogicalAndMissingType", () => {
-      const parsed = parse(`a && TestProto{c: true}.c`);
+      const parsed = unwrapAst(parse(`a && TestProto{c: true}.c`));
       const reg = registry();
       expect(() =>
         interpreter({
@@ -1152,7 +1158,7 @@ describe("interpreter/interpreter_test.go", () => {
         provider: reg,
         adapter: reg,
       }).interpretable({
-        exprAst: parse(sourceExpr),
+        exprAst: unwrapAst(parse(sourceExpr)),
         plannerConfig: {
           decorators: [
             ...(exhaustiveEvalConfig().decorators ?? []),
@@ -1183,7 +1189,9 @@ describe("interpreter/interpreter_test.go", () => {
       const checkerEnv = env(defaultContainer, reg, { crossTypeNumericComparisons: true });
       checkerEnv.addFunctions(...standardFunctions());
       checkerEnv.addIdents(variable("items", listType(IntType)));
-      const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
+      const checked = unwrapAst(
+        check(unwrapAst(parse(sourceExpr)), textSource(sourceExpr), checkerEnv),
+      );
       const program = interpreter({
         dispatcher: standardDispatcher(),
         provider: reg,
@@ -1216,7 +1224,7 @@ describe("interpreter/interpreter_test.go", () => {
         provider: reg,
         adapter: reg,
       }).interpretable({
-        exprAst: parse(`a || b == "b"`),
+        exprAst: unwrapAst(parse(`a || b == "b"`)),
         plannerConfig: {
           decorators: [
             ...(exhaustiveEvalConfig().decorators ?? []),
@@ -1258,7 +1266,9 @@ describe("interpreter/interpreter_test.go", () => {
       const checkerEnv = env(containerValue, reg, { crossTypeNumericComparisons: true });
       checkerEnv.addFunctions(...standardFunctions());
       checkerEnv.addIdents(variable("input", objectType(Proto2TestAllTypesSchema.typeName)));
-      const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
+      const checked = unwrapAst(
+        check(unwrapAst(parse(sourceExpr)), textSource(sourceExpr), checkerEnv),
+      );
       const input = reg.newValue(Proto2TestAllTypesSchema.typeName, {
         single_int32: reg.nativeToValue(1),
         single_int64: reg.nativeToValue(2n),
@@ -1295,7 +1305,9 @@ describe("interpreter/interpreter_test.go", () => {
       const checkerEnv = env(containerValue, reg, { crossTypeNumericComparisons: true });
       checkerEnv.addFunctions(...standardFunctions());
       checkerEnv.addIdents(variable("a.b", DynType));
-      const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
+      const checked = unwrapAst(
+        check(unwrapAst(parse(sourceExpr)), textSource(sourceExpr), checkerEnv),
+      );
       const program = interpreter({
         dispatcher: standardDispatcher(),
         provider: reg,
@@ -1349,7 +1361,9 @@ describe("interpreter/interpreter_test.go", () => {
         const reg = registry();
         const checkerEnv = env(defaultContainer, reg, { crossTypeNumericComparisons: true });
         checkerEnv.addFunctions(...standardFunctions());
-        const checked = check(parse(sourceExpr), textSource(sourceExpr), checkerEnv);
+        const checked = unwrapAst(
+          check(unwrapAst(parse(sourceExpr)), textSource(sourceExpr), checkerEnv),
+        );
         const runtime = interpreter({
           dispatcher: standardDispatcher(),
           provider: reg,
@@ -1543,7 +1557,7 @@ describe("interpreter/interpreter_test.go", () => {
       const runtimeEnv = celEnv({
         variables: [variable("needle", IntType)],
       });
-      const expression = runtimeEnv.compile("[1, 2, 3].exists(value, value == needle)");
+      const expression = unwrapAst(runtimeEnv.compile("[1, 2, 3].exists(value, value == needle)"));
       const program = runtimeEnv.program(expression);
       const push = vi.spyOn(ExecutionFrame.prototype, "push");
       try {
@@ -1560,7 +1574,7 @@ describe("interpreter/interpreter_test.go", () => {
       const runtimeEnv = celEnv({
         variables: [variable("reentrant", BoolType)],
       });
-      const expression = runtimeEnv.compile("[1].exists(value, reentrant)");
+      const expression = unwrapAst(runtimeEnv.compile("[1].exists(value, reentrant)"));
       const program = runtimeEnv.program(expression);
       let nested = false;
       expect(

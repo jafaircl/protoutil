@@ -19,6 +19,7 @@ export {
   astOutputType,
   type CompileResult,
   compile,
+  type DiagnosticResult,
   Env,
   type EnvConfigurationOptions,
   type EnvOptions,
@@ -31,6 +32,7 @@ export {
   type ProgramOptions,
   type ReportIssueOptions,
   type StandardLibraryOptions,
+  unwrapAst,
 } from "./cel/env.js";
 export {
   FieldPath,

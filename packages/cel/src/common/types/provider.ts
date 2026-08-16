@@ -1053,6 +1053,9 @@ function dynCheckedType(): CheckedType {
 }
 
 function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
+  // The well-known message cases below all share this test; computing it once avoids repeating a
+  // message-shape check for every candidate type name.
+  const message = isMessage(value) ? value : undefined;
   switch (true) {
     case value === null:
     case value === undefined:
@@ -1087,36 +1090,36 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
       );
     case Array.isArray(value):
       return dynamicList(adapter, value);
-    case isMessage(value) && value.$typeName === DurationSchema.typeName: {
+    case message !== undefined && message.$typeName === DurationSchema.typeName: {
       const duration = value as MessageShape<typeof DurationSchema>;
       return durationOf(duration.seconds * 1_000_000_000n + BigInt(duration.nanos));
     }
-    case isMessage(value) && value.$typeName === TimestampSchema.typeName: {
+    case message !== undefined && message.$typeName === TimestampSchema.typeName: {
       const ts = value as MessageShape<typeof TimestampSchema>;
       return timestampOf(ts.seconds, ts.nanos);
     }
-    case isMessage(value) && value.$typeName === BoolValueSchema.typeName:
+    case message !== undefined && message.$typeName === BoolValueSchema.typeName:
       return (value as MessageShape<typeof BoolValueSchema>).value ? True : False;
-    case isMessage(value) && value.$typeName === BytesValueSchema.typeName:
+    case message !== undefined && message.$typeName === BytesValueSchema.typeName:
       return new Bytes((value as MessageShape<typeof BytesValueSchema>).value);
-    case isMessage(value) && value.$typeName === DoubleValueSchema.typeName:
-    case isMessage(value) && value.$typeName === FloatValueSchema.typeName:
+    case message !== undefined && message.$typeName === DoubleValueSchema.typeName:
+    case message !== undefined && message.$typeName === FloatValueSchema.typeName:
       return new Double((value as MessageShape<typeof DoubleValueSchema>).value);
-    case isMessage(value) && value.$typeName === Int32ValueSchema.typeName:
+    case message !== undefined && message.$typeName === Int32ValueSchema.typeName:
       return new Int(BigInt((value as MessageShape<typeof Int32ValueSchema>).value));
-    case isMessage(value) && value.$typeName === Int64ValueSchema.typeName:
+    case message !== undefined && message.$typeName === Int64ValueSchema.typeName:
       return new Int((value as MessageShape<typeof Int64ValueSchema>).value);
-    case isMessage(value) && value.$typeName === UInt32ValueSchema.typeName:
+    case message !== undefined && message.$typeName === UInt32ValueSchema.typeName:
       return new Uint((value as MessageShape<typeof UInt32ValueSchema>).value);
-    case isMessage(value) && value.$typeName === UInt64ValueSchema.typeName:
+    case message !== undefined && message.$typeName === UInt64ValueSchema.typeName:
       return new Uint((value as MessageShape<typeof UInt64ValueSchema>).value);
-    case isMessage(value) && value.$typeName === StringValueSchema.typeName:
+    case message !== undefined && message.$typeName === StringValueSchema.typeName:
       return new CelString((value as MessageShape<typeof StringValueSchema>).value);
-    case isMessage(value) && value.$typeName === ListValueSchema.typeName:
+    case message !== undefined && message.$typeName === ListValueSchema.typeName:
       return jsonListValue(adapter, value as MessageShape<typeof ListValueSchema>);
-    case isMessage(value) && value.$typeName === StructSchema.typeName:
+    case message !== undefined && message.$typeName === StructSchema.typeName:
       return jsonStructMap(adapter, value as MessageShape<typeof StructSchema>);
-    case isMessage(value) && value.$typeName === ValueSchema.typeName: {
+    case message !== undefined && message.$typeName === ValueSchema.typeName: {
       const json = value as MessageShape<typeof ValueSchema>;
       switch (json.kind.case) {
         case "nullValue":
@@ -1135,7 +1138,7 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
           return NullValue;
       }
     }
-    case isMessage(value) && value.$typeName === AnySchema.typeName:
+    case message !== undefined && message.$typeName === AnySchema.typeName:
       return unsupportedRefValConversionErr(value);
     case value instanceof Map:
       return [...value.keys()].every(isRefVal) && [...value.values()].every(isRefVal)

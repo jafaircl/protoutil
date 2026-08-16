@@ -7,6 +7,7 @@ import {
   TestAllTypesSchema as Proto3TestAllTypesSchema,
 } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../cel/env.js";
 import { check } from "../checker/checker.js";
 import { env } from "../checker/env.js";
 import { container, defaultContainer } from "../common/containers.js";
@@ -1258,8 +1259,8 @@ describe("interpreter/attributes_test.go", () => {
       for (const testCase of resolveAttributeStateCases()) {
         const checkedEnv = checkerEnv();
         checkedEnv.addIdents(...testCase.vars);
-        const parsed = parse(testCase.expr, { enableOptionalSyntax: true });
-        const checked = check(parsed, textSource(testCase.expr), checkedEnv);
+        const parsed = unwrapAst(parse(testCase.expr, { enableOptionalSyntax: true }));
+        const checked = unwrapAst(check(parsed, textSource(testCase.expr), checkedEnv));
         const state = evalState();
         const attrs =
           typeof testCase.input === "object" &&

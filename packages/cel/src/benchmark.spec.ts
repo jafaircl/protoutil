@@ -17,6 +17,7 @@ import {
   type EnvOptions as CelEnvOptions,
   env as celEnv,
   type ProgramOptions,
+  unwrapAst,
 } from "./cel/env.js";
 import { optionalTypes } from "./cel/library.js";
 import type { Program } from "./cel/program.js";
@@ -740,9 +741,30 @@ const sampleCount = Number(process.env.CEL_BENCHMARK_SAMPLE_COUNT ?? "8");
 const warmupCount = Number(process.env.CEL_BENCHMARK_WARMUP_COUNT ?? "2");
 
 /**
- * iterationsPerSample controls the operations timed in each sample.
+ * targetSampleMs is the duration each measured sample aims to occupy.
+ *
+ * Samples long enough to dwarf scheduler and timer noise keep a row's own variation small enough
+ * that the published ratio means something.
  */
-const iterationsPerSample = Number(process.env.CEL_BENCHMARK_ITERATIONS ?? "250");
+const targetSampleMs = Number(process.env.CEL_BENCHMARK_TARGET_SAMPLE_MS ?? "15");
+
+/**
+ * calibrationFloorMs is the shortest probe duration accepted when estimating operation cost.
+ */
+const calibrationFloorMs = 1;
+
+/**
+ * maximumIterations bounds calibration for operations too cheap to time individually.
+ */
+const maximumIterations = 5_000_000;
+
+/**
+ * iterationsOverride pins the iteration count, bypassing calibration, for reproducible reruns.
+ */
+const iterationsOverride =
+  process.env.CEL_BENCHMARK_ITERATIONS === undefined
+    ? undefined
+    : Number(process.env.CEL_BENCHMARK_ITERATIONS);
 
 /**
  * policyEvalPrimingIterations warms each policy input before policy-eval samples begin.
@@ -751,6 +773,36 @@ const iterationsPerSample = Number(process.env.CEL_BENCHMARK_ITERATIONS ?? "250"
  * keeping the cel-go and TypeScript harnesses equivalent.
  */
 const policyEvalPrimingIterations = 20_000;
+
+/**
+ * minimumWarmupIterations is the operation count every row tries to execute before it is sampled.
+ *
+ * Two warmup samples leave cheap rows far below JavaScript tier-up thresholds: at the base
+ * iteration count `check` was warmed with 500 operations, which reported a per-operation cost
+ * higher than the `compile` row that performs the same check plus a parse. Both harnesses apply
+ * the same warmup contract; only the JavaScript side has a tiering compiler that benefits.
+ */
+const minimumWarmupIterations = Number(process.env.CEL_BENCHMARK_WARMUP_ITERATIONS ?? "20000");
+
+/**
+ * warmupBudgetMs bounds the extended warmup so expensive rows do not dominate total runtime.
+ *
+ * Rows costing milliseconds per operation stop warming early; they are already far past tier-up.
+ */
+const warmupBudgetMs = Number(process.env.CEL_BENCHMARK_WARMUP_BUDGET_MS ?? "300");
+
+/**
+ * unstableSpreadThreshold is the coefficient of variation above which a row is reported unstable.
+ *
+ * Repeated runs of unmodified code differ by a few percent per row, so a row whose own samples
+ * disagree by more than this cannot support the two-decimal ratio the table would otherwise imply.
+ */
+const unstableSpreadThreshold = 0.1;
+
+/**
+ * goBuildCache keeps the companion module build cache out of the developer's default GOCACHE.
+ */
+const goBuildCache = "/private/tmp/protoutil-cel-go-build-cache";
 
 /**
  * goBinaryCandidates lists supported ways to locate a Go toolchain.
@@ -790,7 +842,7 @@ function validateBenchmarkConfiguration(): void {
   for (const [name, value] of [
     ["CEL_BENCHMARK_SAMPLE_COUNT", sampleCount],
     ["CEL_BENCHMARK_WARMUP_COUNT", warmupCount],
-    ["CEL_BENCHMARK_ITERATIONS", iterationsPerSample],
+    ["CEL_BENCHMARK_TARGET_SAMPLE_MS", targetSampleMs],
   ] as const) {
     if (!Number.isSafeInteger(value) || value <= 0) {
       throw new Error(`${name} must be a positive integer`);
@@ -828,6 +880,47 @@ function validateResultMatrix(results: readonly BenchmarkResult[]): void {
   ]) {
     if (![...implementationsByScenario].some(([key]) => key.startsWith(`${operation}::`))) {
       throw new Error(`benchmark matrix is missing ${operation}`);
+    }
+  }
+  reportCompositeConsistency(results);
+}
+
+/**
+ * reportCompositeConsistency warns when a composite row is cheaper than the stages it contains.
+ *
+ * `compile` performs a parse and a check, so it cannot cost meaningfully less than their sum. A
+ * shortfall means either the stage rows were sampled before reaching steady state, or the stage
+ * entry points carry per-call work the composite avoids. Both are worth knowing: the first
+ * invalidates the measurement, and the second is a real cost paid by callers who stage the work
+ * themselves. `env.check` currently re-wraps its result in a second `AST`, which the compile path
+ * returns directly.
+ */
+function reportCompositeConsistency(results: readonly BenchmarkResult[]): void {
+  const byKey = new Map<string, BenchmarkResult>();
+  for (const result of results) {
+    byKey.set(`${result.operation}::${result.scenario}::${result.implementation}`, result);
+  }
+  const scenarios = new Set(
+    results.filter((result) => result.operation === "compile").map((result) => result.scenario),
+  );
+  for (const scenario of scenarios) {
+    for (const implementation of ["@protoutil/cel", "cel-go"] as const) {
+      const parts = (["parse", "check", "compile"] as const).map((operation) =>
+        byKey.get(`${operation}::${scenario}::${implementation}`),
+      );
+      if (parts.some((part) => part === undefined)) {
+        continue;
+      }
+      const [parse, check, compile] = parts as [BenchmarkResult, BenchmarkResult, BenchmarkResult];
+      const sum = parse.stats.medianUsPerOp + check.stats.medianUsPerOp;
+      // Composite planning shares work with its stages, so only a large shortfall is suspicious.
+      if (compile.stats.medianUsPerOp < sum * 0.8) {
+        process.stdout.write(
+          `WARNING: ${implementation} ${scenario}: compile (${compile.stats.medianUsPerOp.toFixed(2)}us) ` +
+            `is cheaper than parse + check (${sum.toFixed(2)}us); the stage entry points carry work the ` +
+            `composite avoids, or the stage rows are under-warmed\n`,
+        );
+      }
     }
   }
 }
@@ -911,7 +1004,7 @@ function residualBenchmarkContext(benchmarkCase: ResidualBenchmarkCase): Residua
     variables: benchmarkCase.variables.map((v) => variable(v.name, v.type)),
     parser: { populateMacroCalls: true },
   });
-  const ast = environment.compile(benchmarkCase.expression);
+  const ast = unwrapAst(environment.compile(benchmarkCase.expression));
   const input = partialActivation({
     bindings: benchmarkCase.input,
     unknowns: benchmarkCase.unknowns.map((unknown) => {
@@ -1099,7 +1192,7 @@ function policyCaseInput(
     input[name] =
       value.expr === undefined
         ? value.value
-        : environment.program(environment.compile(value.expr)).eval({});
+        : environment.program(unwrapAst(environment.compile(value.expr))).eval({});
   }
   return input;
 }
@@ -1182,8 +1275,8 @@ function benchmarkContext(benchmarkCase: BenchmarkCase): BenchmarkContext {
     },
   });
   const source = textSource(benchmarkCase.expression);
-  const parsed = programEnv.parse(benchmarkCase.expression);
-  const checked = programEnv.check(parsed, source);
+  const parsed = unwrapAst(programEnv.parse(benchmarkCase.expression));
+  const checked = unwrapAst(programEnv.check(parsed, source));
   return {
     benchmarkCase,
     source,
@@ -1334,10 +1427,8 @@ function nativeEqual(actual: unknown, expected: unknown): boolean {
  * benchmark samples one TypeScript operation and computes its aggregate timings.
  */
 function benchmark(options: BenchmarkOptions): BenchmarkResult {
-  const iterations = benchmarkIterations(options.operation, options.scenario, iterationsPerSample);
-  for (let index = 0; index < warmupCount; index += 1) {
-    runIterations({ iterations, run: options.run });
-  }
+  const iterations = calibrateIterations(options.run);
+  runWarmup({ iterations, run: options.run });
 
   const durationsMs: number[] = [];
   for (let index = 0; index < sampleCount; index += 1) {
@@ -1354,46 +1445,54 @@ function benchmark(options: BenchmarkOptions): BenchmarkResult {
 }
 
 /**
- * benchmarkIterations scales the base iteration count to keep fast operations measurable without
- * making expensive checker and observer scenarios dominate total runtime.
+ * calibrateIterations chooses an iteration count that makes one sample last `targetSampleMs`.
+ *
+ * A hand-tuned multiplier per operation previously produced samples as short as a third of a
+ * millisecond, where scheduler noise dominated: several `cel-go` baseline rows varied by more than
+ * fifteen percent between their own samples, which is larger than most differences the report is
+ * used to detect. Sizing each sample by measured cost keeps cheap and expensive rows equally
+ * resolvable and stops millisecond-scale rows from dominating total runtime.
+ *
+ * The probe doubles until it can measure the operation, which also warms the code it times.
  */
-function benchmarkIterations(
-  operation: BenchmarkOperation,
-  scenario: string,
-  baseIterations: number,
-): number {
-  if (operation === "unparse") {
-    return baseIterations * 20;
+function calibrateIterations(run: () => unknown): number {
+  if (iterationsOverride !== undefined) {
+    return iterationsOverride;
   }
-  if (operation === "parse" || operation === "plan" || operation === "policy-parse") {
-    return baseIterations * 4;
+  let iterations = 1;
+  for (;;) {
+    const elapsedMs = runIterations({ iterations, run });
+    if (elapsedMs >= calibrationFloorMs) {
+      const perOperationMs = elapsedMs / iterations;
+      const target = Math.round(targetSampleMs / perOperationMs);
+      return Math.min(maximumIterations, Math.max(1, target));
+    }
+    if (iterations >= maximumIterations) {
+      return iterations;
+    }
+    iterations *= 4;
   }
-  if (
-    operation === "policy-compile" ||
-    operation === "policy-plan" ||
-    operation === "policy-eval" ||
-    operation === "partial-eval" ||
-    operation === "residual" ||
-    operation === "residual-roundtrip"
-  ) {
-    return baseIterations;
+}
+
+/**
+ * runWarmup executes discarded operations until the row reaches steady state.
+ *
+ * Every row runs the configured warmup samples, then keeps going until it has executed
+ * `minimumWarmupIterations` operations or exhausted `warmupBudgetMs`, whichever happens first.
+ * The budget keeps millisecond-scale rows such as policy compilation from dominating the run while
+ * still letting microsecond-scale rows reach a tiered-up steady state.
+ */
+function runWarmup(options: IterationOptions): void {
+  let executed = 0;
+  for (let index = 0; index < warmupCount; index += 1) {
+    runIterations(options);
+    executed += options.iterations;
   }
-  if (operation !== "eval" && operation !== "eval-details" && operation !== "eval-state") {
-    return baseIterations;
+  const deadline = performance.now() + warmupBudgetMs;
+  while (executed < minimumWarmupIterations && performance.now() < deadline) {
+    runIterations(options);
+    executed += options.iterations;
   }
-  if (scenario.endsWith("/ runtime cost")) {
-    return baseIterations;
-  }
-  if (scenario.startsWith("macro comprehension")) {
-    return baseIterations * 2;
-  }
-  if (scenario.includes("fold ")) {
-    return baseIterations * 2;
-  }
-  if (scenario.endsWith("/ baseline") && scenario.startsWith("constant regex")) {
-    return baseIterations * 4;
-  }
-  return baseIterations * 20;
 }
 
 /**
@@ -1466,8 +1565,13 @@ function runCelGoBenchmarks(): BenchmarkResult[] {
       ...process.env,
       CEL_BENCHMARK_SAMPLE_COUNT: String(sampleCount),
       CEL_BENCHMARK_WARMUP_COUNT: String(warmupCount),
-      CEL_BENCHMARK_ITERATIONS: String(iterationsPerSample),
-      GOCACHE: "/private/tmp/protoutil-cel-go-build-cache",
+      CEL_BENCHMARK_TARGET_SAMPLE_MS: String(targetSampleMs),
+      CEL_BENCHMARK_WARMUP_ITERATIONS: String(minimumWarmupIterations),
+      CEL_BENCHMARK_WARMUP_BUDGET_MS: String(warmupBudgetMs),
+      ...(iterationsOverride === undefined
+        ? {}
+        : { CEL_BENCHMARK_ITERATIONS: String(iterationsOverride) }),
+      GOCACHE: goBuildCache,
     },
   });
   return parseCelGoResults(stdout);
@@ -1607,13 +1711,22 @@ Generated at: \`${new Date().toISOString()}\`
 
 These are in-process microbenchmarks for the CEL frontend and public program API plus the \`cel-go\` reference implementation on the same machine. Core planning and evaluation reuse equivalent public programs and activations in both implementations. Diagnostic evaluation rows form a feature ladder from literals through activation lookup, dispatch, dynamic and protobuf attributes, indexing, and folds. Residual rows separately measure state-tracking partial evaluation, residual AST construction, and the combined round trip. Policy measurements use the same synchronized YAML sources and separately cover parsing, compilation and composition, optimized planning, and steady-state evaluation. Each policy program primes every prepared activation in round-robin order before policy evaluation samples begin. They are intended to provide a quick regression signal, not a universal cross-machine claim. Cross-runtime ratios are directional; changes in this package's own results over time are the primary regression signal.
 
+### Reading these numbers
+
+- **Ratios come from median per-operation latency**, not the mean. Eight samples are few enough that one garbage-collection or tier-up outlier moves a mean substantially while leaving the median intact.
+- **\`Spread\`** is the coefficient of variation across a row's own samples. Rows above ${formatPercent(unstableSpreadThreshold)} are marked ⚠ and their ratios should not be read to two decimals.
+- **Repeated runs of unmodified code differ by roughly 3% per row**, and occasionally more. Treat a change smaller than that as noise, and confirm any real change by re-running both sides.
+- **Every scenario shares one process per implementation.** This makes call sites in the interpreter as polymorphic as they are in an application that uses many CEL features, which is deliberate: an optimization measured against a single expression in isolation can behave differently here, and this is the workload that decides.
+- **The whole matrix moves together when the machine is busy.** Compare the \`cel-go\` columns across runs first; if they moved, the machine did, not the code.
+
 - Runtime: \`node ${process.version}\`
 - Go: \`${readGoVersion()}\`
+- cel-go: \`${readCelGoVersion()}\`
 - Platform: \`${process.platform}\`
 - Arch: \`${process.arch}\`
 - Samples per scenario: \`${sampleCount}\`
-- Warmup samples per scenario: \`${warmupCount}\`
-- Base iterations per sample: \`${iterationsPerSample}\` (scaled by operation cost)
+- Warmup samples per scenario: \`${warmupCount}\` (extended to \`${minimumWarmupIterations}\` operations or \`${warmupBudgetMs}\`ms, whichever comes first)
+- Target sample duration: \`${targetSampleMs}\`ms (iteration count calibrated per scenario)
 
 ## Diagnostic operations
 
@@ -1624,12 +1737,126 @@ These are in-process microbenchmarks for the CEL frontend and public program API
 - \`residual\` reuses captured state to isolate pruning, rendering, parsing, and checking.
 - \`residual-roundtrip\` combines partial evaluation and residual construction.
 
+## Slowest paths
+
+The widest cel-go gaps, worst first. These are where optimization work pays off.
+
+| Rank | Operation | Scenario | \`@protoutil/cel\` us/op | \`cel-go\` us/op | Slower by | Cost per op |
+| ---: | --- | --- | ---: | ---: | ---: | ---: |
+${formatSlowestPaths(results)}
+
+## Summary by operation
+
+Median cel-go-relative cost across every scenario in each operation, so a stage-level regression is
+visible without reading the full matrix.
+
+| Operation | Scenarios | Median slower by | Best scenario | Worst scenario |
+| --- | ---: | ---: | --- | --- |
+${formatOperationSummary(results)}
+
 ## Results
 
-| Operation | Scenario | Implementation | Iterations | Mean us/op | Median us/op | Std dev | Ops/sec | Relative | Notes |
+| Operation | Scenario | Implementation | Iterations | Median us/op | Mean us/op | Std dev us/op | Spread | Relative | Notes |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 ${formatComparisonRows(results)}
 `;
+}
+
+/**
+ * ComparisonPair couples one measured scenario with its cel-go baseline.
+ */
+interface ComparisonPair {
+  /**
+   * candidate is the `@protoutil/cel` result for the scenario.
+   */
+  readonly candidate: BenchmarkResult;
+
+  /**
+   * baseline is the `cel-go` result for the same scenario.
+   */
+  readonly baseline: BenchmarkResult;
+
+  /**
+   * ratio is the cel-go-relative speed, below one when this package is slower.
+   */
+  readonly ratio: number;
+}
+
+/**
+ * comparisonPairs couples every scenario measured by both implementations.
+ */
+function comparisonPairs(results: readonly BenchmarkResult[]): ComparisonPair[] {
+  const baselines = new Map<string, BenchmarkResult>();
+  for (const result of results) {
+    if (result.implementation === "cel-go") {
+      baselines.set(`${result.operation}::${result.scenario}`, result);
+    }
+  }
+  const pairs: ComparisonPair[] = [];
+  for (const candidate of results) {
+    if (candidate.implementation !== "@protoutil/cel") {
+      continue;
+    }
+    const baseline = baselines.get(`${candidate.operation}::${candidate.scenario}`);
+    if (baseline !== undefined) {
+      pairs.push({ candidate, baseline, ratio: relativeSpeed(candidate, baseline) });
+    }
+  }
+  return pairs;
+}
+
+/**
+ * formatSlowestPaths ranks the scenarios where this package trails cel-go by the widest margin.
+ *
+ * The absolute per-operation gap is reported alongside the ratio because a large multiple of a
+ * very cheap operation can matter less than a smaller multiple of an expensive one.
+ */
+function formatSlowestPaths(results: readonly BenchmarkResult[]): string {
+  const slowest = comparisonPairs(results)
+    .filter((pair) => pair.ratio < 1)
+    .sort((left, right) => left.ratio - right.ratio)
+    .slice(0, 15);
+  return slowest
+    .map((pair, index) => {
+      const candidateUs = pair.candidate.stats.medianUsPerOp;
+      const baselineUs = pair.baseline.stats.medianUsPerOp;
+      const unstable = isUnstable(pair.candidate) || isUnstable(pair.baseline) ? " ⚠" : "";
+      return `| ${index + 1} | \`${pair.candidate.operation}\` | ${pair.candidate.scenario} | ${formatNumber(candidateUs)} | ${formatNumber(baselineUs)} | ${formatNumber(1 / pair.ratio)}x${unstable} | +${formatNumber(candidateUs - baselineUs)} us |`;
+    })
+    .join("\n");
+}
+
+/**
+ * formatOperationSummary aggregates scenario ratios into one row per measured stage.
+ */
+function formatOperationSummary(results: readonly BenchmarkResult[]): string {
+  const byOperation = new Map<BenchmarkOperation, ComparisonPair[]>();
+  for (const pair of comparisonPairs(results)) {
+    const existing = byOperation.get(pair.candidate.operation) ?? [];
+    existing.push(pair);
+    byOperation.set(pair.candidate.operation, existing);
+  }
+  return [...byOperation.entries()]
+    .map(([operation, pairs]) => {
+      const sorted = [...pairs].sort((left, right) => left.ratio - right.ratio);
+      const medianRatio = median(pairs.map((pair) => pair.ratio));
+      const worst = sorted[0]!;
+      const best = sorted[sorted.length - 1]!;
+      return { operation, pairs, medianRatio, worst, best };
+    })
+    .sort((left, right) => left.medianRatio - right.medianRatio)
+    .map(
+      (entry) =>
+        `| \`${entry.operation}\` | ${entry.pairs.length} | ${describeRatio(entry.medianRatio)} | ${entry.best.candidate.scenario} (${describeRatio(entry.best.ratio)}) | ${entry.worst.candidate.scenario} (${describeRatio(entry.worst.ratio)}) |`,
+    )
+    .join("\n");
+}
+
+/**
+ * describeRatio renders a cel-go-relative speed in the direction a reader expects.
+ */
+function describeRatio(ratio: number): string {
+  return ratio >= 1 ? `${formatNumber(ratio)}x faster` : `${formatNumber(1 / ratio)}x slower`;
 }
 
 /**
@@ -1639,6 +1866,36 @@ function readGoVersion(): string {
   return execFileSync(resolveGoBinary(), ["env", "GOVERSION"], {
     encoding: "utf8",
   }).trim();
+}
+
+/**
+ * readCelGoVersion identifies the cel-go source the companion process was built from.
+ *
+ * The companion module redirects cel-go to a working copy under `.tmp`, which is untracked and can
+ * be moved by the testdata sync scripts. Recording the resolved revision keeps a published report
+ * auditable: without it a baseline shift is indistinguishable from a change in this package.
+ */
+function readCelGoVersion(): string {
+  const listed = execFileSync(
+    resolveGoBinary(),
+    ["list", "-m", "-f", "{{.Path}} {{.Version}} {{.Dir}}", "github.com/google/cel-go"],
+    { cwd: benchmarkGoDir, encoding: "utf8", env: { ...process.env, GOCACHE: goBuildCache } },
+  ).trim();
+  const directory = listed.split(" ").slice(2).join(" ");
+  if (directory === "") {
+    return listed;
+  }
+  try {
+    const revision = execFileSync("git", ["describe", "--tags", "--always", "--dirty"], {
+      cwd: directory,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return `${revision} (local working copy)`;
+  } catch {
+    // A cel-go resolved from the module cache has no repository to describe.
+    return listed.split(" ").slice(0, 2).join(" ");
+  }
 }
 
 /**
@@ -1662,7 +1919,7 @@ function formatComparisonRows(results: readonly BenchmarkResult[]): string {
         .filter((result): result is BenchmarkResult => result !== undefined)
         .map(
           (result) =>
-            `| \`${result.operation}\` | ${result.scenario} | \`${result.implementation}\` | ${result.stats.iterationsPerSample} | ${formatNumber(result.stats.meanUsPerOp)} | ${formatNumber(result.stats.medianUsPerOp)} | ${formatNumber(result.stats.standardDeviationMs)} ms | ${formatNumber(result.stats.opsPerSecond)} | ${describeRelativeSpeed(result, baseline)} | ${result.notes} |`,
+            `| \`${result.operation}\` | ${result.scenario} | \`${result.implementation}\` | ${result.stats.iterationsPerSample} | ${formatNumber(result.stats.medianUsPerOp)} | ${formatNumber(result.stats.meanUsPerOp)} | ${formatNumber(standardDeviationUsPerOp(result.stats))} | ${formatPercent(sampleSpread(result.stats))}${isUnstable(result) ? " ⚠" : ""} | ${describeRelativeSpeed(result, baseline)} | ${result.notes} |`,
         );
     })
     .join("\n");
@@ -1681,16 +1938,66 @@ function describeRelativeSpeed(
   if (result.implementation === "cel-go") {
     return "baseline";
   }
-  const ratio = celGoBaseline.stats.meanUsPerOp / result.stats.meanUsPerOp;
+  const ratio = relativeSpeed(result, celGoBaseline);
   return ratio >= 1 ? `${formatNumber(ratio)}x faster` : `${formatNumber(1 / ratio)}x slower`;
+}
+
+/**
+ * relativeSpeed returns the cel-go-relative speed of a result from median per-operation latency.
+ *
+ * The median is used rather than the mean because a single garbage-collection or tier-up outlier
+ * in an eight-sample run moves the mean far more than the underlying cost. A cel-go row once
+ * reported a mean of 3.31us against its own median of 1.31us, which alone moved the published
+ * ratio for that scenario from 7.89x to 3.15x without either implementation changing.
+ */
+function relativeSpeed(result: BenchmarkResult, celGoBaseline: BenchmarkResult): number {
+  return celGoBaseline.stats.medianUsPerOp / result.stats.medianUsPerOp;
+}
+
+/**
+ * sampleSpread returns the coefficient of variation across a row's measured samples.
+ *
+ * The value is unitless so it can be compared across rows whose per-operation costs differ by
+ * orders of magnitude.
+ */
+function sampleSpread(stats: BenchmarkStats): number {
+  return stats.meanMs === 0 ? 0 : stats.standardDeviationMs / stats.meanMs;
+}
+
+/**
+ * isUnstable reports whether a row's own samples disagree too much to support its published ratio.
+ */
+function isUnstable(result: BenchmarkResult): boolean {
+  return sampleSpread(result.stats) > unstableSpreadThreshold;
+}
+
+/**
+ * standardDeviationUsPerOp converts sample dispersion into the unit used by the latency columns.
+ *
+ * The report previously placed a per-sample millisecond standard deviation beside per-operation
+ * microsecond means, so a row whose dispersion exceeded its own mean looked unremarkable.
+ */
+function standardDeviationUsPerOp(stats: BenchmarkStats): number {
+  return (stats.standardDeviationMs * 1000) / stats.iterationsPerSample;
+}
+
+/**
+ * formatPercent renders a unitless ratio as a percentage for the spread column.
+ */
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 /**
  * formatNumber renders benchmark values consistently for the Markdown table.
  */
 function formatNumber(value: number): string {
-  return Number(value.toFixed(2)).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+  // Two decimals resolve a sub-microsecond row no better than 25%, which reads as a large run-to-run
+  // change when the underlying measurement barely moved. Cheap rows get proportional precision.
+  const magnitude = Math.abs(value);
+  const digits = magnitude === 0 || magnitude >= 1 ? 2 : magnitude >= 0.1 ? 3 : 4;
+  return Number(value.toFixed(digits)).toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   });
 }

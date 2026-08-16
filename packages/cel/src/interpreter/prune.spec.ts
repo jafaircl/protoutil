@@ -1,6 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../cel/env.js";
 import { type AST, ast, ExprKind } from "../common/ast/index.js";
 import { defaultContainer } from "../common/containers.js";
 import { func, overload } from "../common/decls.js";
@@ -445,7 +446,9 @@ function evaluateForState(exprAst: AST, vars: Activation) {
  * canonicalSource parses and unparses CEL source so formatting differences do not affect comparisons.
  */
 function canonicalSource(source: string): string {
-  return unparse(parse(source, { enableOptionalSyntax: true, populateMacroCalls: true }));
+  return unparse(
+    unwrapAst(parse(source, { enableOptionalSyntax: true, populateMacroCalls: true })),
+  );
 }
 
 /**
@@ -459,10 +462,12 @@ describe("interpreter/prune_test.go", () => {
     const cases = syncedCases<SyncedPruneCase>("interpreter/prune_test.go/TestPrune");
     for (const [index, testCase] of cases.entries()) {
       it(`case ${index}: ${testCase.expr}`, () => {
-        const parsed = parse(testCase.expr, {
-          enableOptionalSyntax: true,
-          populateMacroCalls: true,
-        });
+        const parsed = unwrapAst(
+          parse(testCase.expr, {
+            enableOptionalSyntax: true,
+            populateMacroCalls: true,
+          }),
+        );
         const state = evaluateForState(parsed, decodeActivation(testCase.in));
         const pruned = pruneAst({
           expr: parsed.expr(),

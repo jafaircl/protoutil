@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { unwrapAst } from "../../cel/env.js";
 import { parse } from "../../parser/parser.js";
 import {
   allMatcher,
@@ -33,7 +34,7 @@ describe("common/ast navigable", () => {
         ["[true].exists(i, i)", -1, false],
       ] as const;
       for (const [source, maxDepth, expected] of cases) {
-        expect(exceedsDepth(parse(source), maxDepth), source).toBe(expected);
+        expect(exceedsDepth(unwrapAst(parse(source)), maxDepth), source).toBe(expected);
       }
     });
   });
@@ -74,7 +75,7 @@ describe("common/ast navigable", () => {
     ] as const;
 
     for (const [source, descendantCount, callCount, maxDepthValue, maxIdValue] of cases) {
-      const parsed = parse(source);
+      const parsed = unwrapAst(parse(source));
       const nav = navigateAst(parsed);
       const descendants = matchDescendants(nav, allMatcher());
       expect(descendants).toHaveLength(descendantCount);
@@ -99,7 +100,7 @@ describe("common/ast navigable", () => {
     ] as const;
 
     for (const [source, preOrder, postOrder] of cases) {
-      const root = navigateAst(parse(source));
+      const root = navigateAst(unwrapAst(parse(source)));
       const preOrderIds: number[] = [];
       preOrderVisit(root, (expr) => preOrderIds.push(expr.id()));
       expect(preOrderIds).toEqual(preOrder);
@@ -132,7 +133,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableExpr", () => {
-    const root = navigateAst(parse("'a' == 'b'"));
+    const root = navigateAst(unwrapAst(parse("'a' == 'b'")));
     const literals = matchDescendants(
       root,
       (expr) => expr.kind() === ExprKind.Literal && expr.asLiteral() === "a",
@@ -142,11 +143,13 @@ describe("common/ast navigable", () => {
     expect(literals[0]?.parent()[1]).toBe(true);
     expect(literals[0]?.parent()[0]?.kind()).toBe(ExprKind.Call);
     expect(literals[0]?.parent()[0]?.asCall()?.functionName()).toBe("_==_");
-    expect(navigateExpr(parse("'a' == 'b'"), literals[0]!).depth()).toBe(literals[0]?.depth());
+    expect(navigateExpr(unwrapAst(parse("'a' == 'b'")), literals[0]!).depth()).toBe(
+      literals[0]?.depth(),
+    );
   });
 
   it("common/ast/navigable_test.go/TestNavigableCallExprMember", () => {
-    const member = navigateAst(parse("'a'.size()"));
+    const member = navigateAst(unwrapAst(parse("'a'.size()")));
     const target = member.asCall()?.target();
     const constantValues = matchDescendants(member, constantValueMatcher());
     const navTarget = constantValues[0];
@@ -164,7 +167,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableCallExprGlobal", () => {
-    const global = navigateAst(parse("size('hello')"));
+    const global = navigateAst(unwrapAst(parse("size('hello')")));
     const arg = global.asCall()?.args()[0];
     const constantValues = matchDescendants(global, constantValueMatcher());
     const navArg = constantValues[0];
@@ -182,7 +185,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableListExpr", () => {
-    const list = navigateAst(parse("[[1], [2]]"));
+    const list = navigateAst(unwrapAst(parse("[[1], [2]]")));
     expect(list.kind()).toBe(ExprKind.List);
     expect(list.asList()?.size()).toBe(2);
     expect(list.asList()?.optionalIndices()).toEqual([]);
@@ -197,7 +200,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableMapExpr", () => {
-    const map = navigateAst(parse("{'hello': 1}"));
+    const map = navigateAst(unwrapAst(parse("{'hello': 1}")));
     expect(map.kind()).toBe(ExprKind.Map);
     expect(map.asMap()?.size()).toBe(1);
     expect(map.asMap()?.entries()).toHaveLength(1);
@@ -211,7 +214,9 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableStructExpr", () => {
-    const struct = navigateAst(parse("google.expr.proto3.test.TestAllTypes{single_int32: 1}"));
+    const struct = navigateAst(
+      unwrapAst(parse("google.expr.proto3.test.TestAllTypes{single_int32: 1}")),
+    );
     expect(struct.kind()).toBe(ExprKind.Struct);
     expect(struct.asStruct()?.typeName()).toBe("google.expr.proto3.test.TestAllTypes");
     expect(struct.asStruct()?.fields()).toHaveLength(1);
@@ -231,7 +236,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableComprehensionExpr", () => {
-    const expr = navigateAst(parse("[true].exists(i, i)"));
+    const expr = navigateAst(unwrapAst(parse("[true].exists(i, i)")));
     expect(expr.kind()).toBe(ExprKind.Comprehension);
     const comp = expr.asComprehension();
     expect(matchSubset([comp!.iterRange()! as NavigableExpr], constantValueMatcher())).toHaveLength(
@@ -248,7 +253,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableSelectExpr", () => {
-    const select = navigateAst(parse("msg.single_int32")).asSelect();
+    const select = navigateAst(unwrapAst(parse("msg.single_int32"))).asSelect();
     expect(select?.fieldName()).toBe("single_int32");
     expect(select?.operand().kind()).toBe(ExprKind.Ident);
     expect(select?.operand().asIdent()).toBe("msg");
@@ -256,7 +261,7 @@ describe("common/ast navigable", () => {
   });
 
   it("common/ast/navigable_test.go/TestNavigableSelectExpr_TestOnly", () => {
-    const testOnly = navigateAst(parse("has(msg.single_int32)")).asSelect();
+    const testOnly = navigateAst(unwrapAst(parse("has(msg.single_int32)"))).asSelect();
     expect(testOnly?.isTestOnly()).toBe(true);
     expect(testOnly?.fieldName()).toBe("single_int32");
     expect(testOnly?.operand().kind()).toBe(ExprKind.Ident);
