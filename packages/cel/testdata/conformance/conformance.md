@@ -6,8 +6,8 @@ Generated from the synchronized fixtures in `testdata/conformance/*.textproto.js
 
 | Metric | Count |
 | --- | ---: |
-| Total cases | 2451 |
-| Conformant | 2451 |
+| Total cases | 2505 |
+| Conformant | 2505 |
 | Non-conformant | 0 |
 | Skipped | 3 |
 | Conformance | 100.0% |
@@ -29,8 +29,8 @@ Generated from the synchronized fixtures in `testdata/conformance/*.textproto.js
 
 | Profile | Conformant | Non-conformant | Total | Conformance |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 1856 | 0 | 1856 | 100.0% |
-| Extension-dependent | 595 | 0 | 595 | 100.0% |
+| Core | 1858 | 0 | 1858 | 100.0% |
+| Extension-dependent | 647 | 0 | 647 | 100.0% |
 
 ## Suite results
 
@@ -48,6 +48,7 @@ Generated from the synchronized fixtures in `testdata/conformance/*.textproto.js
 | `fp_math` | 30 | 0 | 30 | 100.0% |
 | `integer_math` | 64 | 0 | 64 | 100.0% |
 | `lists` | 39 | 0 | 39 | 100.0% |
+| `lists_ext` | 52 | 0 | 52 | 100.0% |
 | `logic` | 30 | 0 | 30 | 100.0% |
 | `macros` | 44 | 0 | 44 | 100.0% |
 | `macros2` | 46 | 0 | 46 | 100.0% |
@@ -62,7 +63,7 @@ Generated from the synchronized fixtures in `testdata/conformance/*.textproto.js
 | `proto3` | 85 | 0 | 85 | 100.0% |
 | `string` | 51 | 0 | 51 | 100.0% |
 | `string_ext` | 214 | 0 | 214 | 100.0% |
-| `timestamps` | 75 | 0 | 75 | 100.0% |
+| `timestamps` | 77 | 0 | 77 | 100.0% |
 | `type_deductions` | 47 | 0 | 47 | 100.0% |
 | `wrappers` | 36 | 0 | 36 | 100.0% |
 

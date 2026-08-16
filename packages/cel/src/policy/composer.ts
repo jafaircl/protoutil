@@ -138,9 +138,12 @@ class RuleCompositionOptimizer implements ASTOptimizer {
   }
 
   /**
-   * optimizeRule recursively composes one compiled rule using first-match semantics.
+   * optimizeRule recursively composes one compiled rule.
    */
   private optimizeRule(context: OptimizerContext, rule: CompiledRule): Expr {
+    if (rule.semantic() === "aggregate") {
+      return this.optimizeAggregateRule(context, rule);
+    }
     this.enterScope();
     for (const variable of rule.variables()) {
       this.registerVariable(context, variable);
@@ -194,6 +197,112 @@ class RuleCompositionOptimizer implements ASTOptimizer {
     this.rewriteVariableNames(context, output.expression);
     this.exitScope();
     return output.expression;
+  }
+
+  /**
+   * optimizeAggregateRule composes one compiled rule using aggregate semantics.
+   *
+   * Each choice contributes a list holding at most one element, and the choice lists are
+   * concatenated in declaration order. A choice which does not match contributes the empty list,
+   * which is why an aggregate rule with no matching choice evaluates to `[]` rather than to an
+   * absent value.
+   */
+  private optimizeAggregateRule(context: OptimizerContext, rule: CompiledRule): Expr {
+    this.enterScope();
+    for (const variable of rule.variables()) {
+      this.registerVariable(context, variable);
+    }
+
+    let aggregated: Expr | undefined;
+    for (const choice of rule.matches()) {
+      const compiledOutput = choice.output();
+      const nestedRule = choice.nestedRule();
+      let segment: Expr;
+      if (compiledOutput) {
+        segment = context.list({
+          elements: [context.copyAstAndMetadata(compiledOutput.expression())],
+        });
+      } else if (nestedRule) {
+        segment = this.optimizeRuleAsElements(context, nestedRule);
+      } else {
+        continue;
+      }
+      if (!choice.conditionIsTrue()) {
+        segment = context.call({
+          functionName: "_?_:_",
+          arguments: [
+            context.copyAstAndMetadata(choice.condition()),
+            segment,
+            context.list({ elements: [] }),
+          ],
+        });
+      }
+      aggregated =
+        aggregated === undefined
+          ? segment
+          : context.call({ functionName: "_+_", arguments: [aggregated, segment] });
+    }
+
+    const expression = aggregated ?? context.list({ elements: [] });
+    this.rewriteVariableNames(context, expression);
+    this.exitScope();
+    return expression;
+  }
+
+  /**
+   * optimizeRuleAsElements composes a rule nested under an aggregate choice as a list of the
+   * elements it contributes.
+   *
+   * A first-match rule contributes the single output of its matching branch, or nothing when no
+   * branch matches. Composing it directly as a list rather than as an optional is what prunes an
+   * unmatched nested rule from the aggregate: an outcome the rule itself authored, including an
+   * explicit `optional.none()`, is still contributed as an element.
+   *
+   * An aggregate rule cannot appear here, since nesting one inside another is rejected while
+   * compiling the rule graph.
+   */
+  private optimizeRuleAsElements(context: OptimizerContext, rule: CompiledRule): Expr {
+    this.enterScope();
+    for (const variable of rule.variables()) {
+      this.registerVariable(context, variable);
+    }
+
+    let output: CompositionStep | undefined;
+    if (rule.hasOptionalOutput()) {
+      output = {
+        condition: context.literal(true),
+        expression: context.list({ elements: [] }),
+        optional: false,
+      };
+    }
+
+    const matches = rule.matches();
+    for (let index = matches.length - 1; index >= 0; index -= 1) {
+      const current = matches[index]!;
+      const condition = context.copyAstAndMetadata(current.condition());
+      const compiledOutput = current.output();
+      const nestedRule = current.nestedRule();
+      let expression: Expr;
+      if (compiledOutput) {
+        expression = context.list({
+          elements: [context.copyAstAndMetadata(compiledOutput.expression())],
+        });
+      } else if (nestedRule) {
+        expression = this.optimizeRuleAsElements(context, nestedRule);
+      } else {
+        continue;
+      }
+      output = combineStep({
+        context,
+        current: { condition, expression, optional: false },
+        remaining: output,
+      });
+    }
+
+    const expression = output?.expression ?? context.list({ elements: [] });
+    this.rewriteVariableNames(context, expression);
+    this.exitScope();
+    return expression;
   }
 
   /**

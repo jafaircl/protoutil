@@ -367,7 +367,8 @@ function distinctList(value: Val): Val {
   const unique: Val[] = [];
   for (let index = 0; index < length; index += 1) {
     const candidate = list.get(new Int(BigInt(index)));
-    if (!unique.some((other) => equal(candidate, other) === True)) {
+    // Compare by value: only some Val types return the shared True singleton from equal().
+    if (!unique.some((other) => equal(candidate, other).value() === true)) {
       unique.push(candidate);
     }
   }

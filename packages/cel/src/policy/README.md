@@ -18,8 +18,10 @@ with CEL.
 A policy is a named instance of a rule which consists of a set of conditional
 outputs and conditional sub-rules. Matches within the rule and subrules are
 combined and ordered according to the policy evaluation semantic. The default
-semantic is `FIRST_MATCH`. The supported top-level fields in a policy include:
-`name`, `description`, `imports`, and `rule.`
+semantic is `FIRST_MATCH`; a rule may instead declare `AGGREGATE` semantics by
+using an [`aggregate`](#aggregate) block in place of its `match` block. The
+supported top-level fields in a policy include: `name`, `description`,
+`imports`, and `rule.`
 
 - `name (string)`: a system-specific identifier for the policy
 - `description (string)`: a human-readable description of the policy
@@ -96,6 +98,79 @@ rule:
 When the `condition` is absent it defaults to `true`. Since the evaluation
 algorithm is first-match, an `output` without a `condition` behaves like a
 default evaluation result if no other match conditions are satisfied.
+
+#### Aggregate
+
+A `rule` may replace its `match` block with an `aggregate` block. Where `match`
+stops at the first choice whose `condition` holds, `aggregate` evaluates every
+choice and collects the outcomes of the matching ones into a list. A rule
+specifies either `match` or `aggregate`, never both.
+
+An aggregate choice takes a `condition` and either an `output` or a nested
+`rule`, exactly like a match. It has no `explanation`.
+
+```
+rule:
+  aggregate:
+    - condition: "resource.is_pii"
+      output: "'PII'"
+    - condition: "resource.is_confidential"
+      output: "'CONFIDENTIAL'"
+```
+
+If the outputs of an aggregate rule have type `T`, the rule's result type is
+`list(T)`. An aggregate rule always produces a list, so when no condition holds
+the result is the empty list `[]` rather than `optional.none()`. A choice
+guarded by the constant `false` can never contribute and is rejected as dead
+code:
+
+```
+condition is always false
+```
+
+Because order does not select a single outcome, no choice can make a later
+choice unreachable, and every choice must agree on the element type with the
+choice before it.
+
+An `output` is appended as one element, whatever its own type. An output which
+evaluates to a list therefore nests:
+
+```
+# result: [['tag1', 'tag2']]
+rule:
+  aggregate:
+    - output: "['tag1', 'tag2']"
+```
+
+A nested `rule` under an aggregate choice contributes the single outcome it
+selects. When the nested rule matches nothing it contributes nothing, which is
+how an unmatched sub-rule is pruned from the result rather than appearing as an
+`optional.none()` element. An `optional.none()` the nested rule itself authored
+as an `output` is still an outcome, and is contributed like any other value.
+
+```
+# resource.is_pii true, resource.is_admin false -> ['PII']
+rule:
+  aggregate:
+    - condition: "resource.is_pii"
+      output: "'PII'"
+    - rule:
+        match:
+          - condition: "resource.is_admin"
+            output: "'ADMIN'"
+```
+
+An `aggregate` rule may be nested inside a `match` rule, and a `match` rule may
+be nested inside an `aggregate` choice. An `aggregate` rule may not be nested,
+directly or indirectly, inside another `aggregate` rule:
+
+```
+nested aggregate rules are not allowed
+```
+
+Since an aggregate rule always produces a value, an unconditional nested
+aggregate rule is exhaustive: any match written after it in a first-match parent
+is dead code.
 
 #### Condition
 

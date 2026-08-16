@@ -8,6 +8,7 @@ import {
   String as CelString,
   durationOf,
   Int,
+  parseTimestamp,
   type Timestamp,
   TimestampType,
   timestampOf,
@@ -186,7 +187,124 @@ describe("common/types timestamp", () => {
       ).value(),
     ).toBe(1n);
   });
+
+  it("common/types/timestamp_test.go/TestParseTimestamp", () => {
+    const cases = syncedCases<{ name: string; val: unknown; want?: unknown; wantErr?: boolean }>(
+      "common/types/timestamp_test.go/TestParseTimestamp",
+    );
+    for (const testCase of cases) {
+      const expected = resolveParseTimestampCase(testCase.name);
+      if (expected === goOnly) {
+        continue;
+      }
+      if (expected === undefined) {
+        expect(
+          () => parseTimestamp(resolveParseTimestampInput(testCase.name)),
+          testCase.name,
+        ).toThrow();
+        continue;
+      }
+      const parsed = parseTimestamp(resolveParseTimestampInput(testCase.name));
+      expect(parsed.value(), testCase.name).toEqual(expected);
+    }
+  });
 });
+
+/**
+ * goOnly marks synced cases whose input type has no TypeScript analogue.
+ */
+const goOnly = Symbol("go-only");
+
+/**
+ * resolveParseTimestampInput maps one synced Go input expression onto its TypeScript analogue.
+ */
+function resolveParseTimestampInput(name: string): unknown {
+  switch (name) {
+    case "nil":
+      return null;
+    case "empty string":
+      return "";
+    case "time.Time":
+      return new Date(1_700_000_000_000);
+    case "Timestamp struct":
+      return timestampOf(1_700_000_000n, 0);
+    case "*tpb.Timestamp":
+      return { $typeName: "google.protobuf.Timestamp", seconds: 1_700_000_000n, nanos: 0 };
+    case "int":
+    case "int32":
+    case "int64":
+      return 1_700_000_000n;
+    case "float64":
+      return 1_700_000_000.5;
+    case "float64 negative":
+      return -1_700_000_000.5;
+    case "float64 MaxFloat64 overflow":
+      return Number.MAX_VALUE;
+    case "float64 NaN overflow":
+      return Number.NaN;
+    case "float64 Inf overflow":
+      return Number.POSITIVE_INFINITY;
+    case "float64 -Inf overflow":
+      return Number.NEGATIVE_INFINITY;
+    case "string RFC3339":
+      return "2026-08-10T12:00:00Z";
+    case "string RFC3339Nano":
+      return "2026-08-10T12:00:00.500Z";
+    case "string RFC3339 invalid":
+      return "2026-99-99T99:99:99Z";
+    case "string epoch int":
+      return "1700000000";
+    case "string epoch float":
+      return "1700000000.5";
+    case "string invalid":
+      return "not-a-timestamp";
+    case "unsupported map type":
+      return {};
+    case "overflow":
+      return 999_999_999_999_999n;
+    default:
+      throw new Error(`unsupported synced parseTimestamp case: ${name}`);
+  }
+}
+
+/**
+ * resolveParseTimestampCase returns the expected components, `undefined` when the case must
+ * throw, or `goOnly` when the Go input type does not exist in TypeScript.
+ */
+function resolveParseTimestampCase(
+  name: string,
+): { seconds: bigint; nanos: number } | undefined | typeof goOnly {
+  switch (name) {
+    // Go's float32, json.Number, and typed-nil pointer cases have no TypeScript analogue.
+    case "nil *tpb.Timestamp":
+    case "float32":
+    case "float32 negative":
+    case "json.Number int":
+    case "json.Number float":
+    case "json.Number invalid":
+      return goOnly;
+    case "time.Time":
+    case "Timestamp struct":
+    case "*tpb.Timestamp":
+    case "int":
+    case "int32":
+    case "int64":
+    case "string epoch int":
+      return { seconds: 1_700_000_000n, nanos: 0 };
+    case "float64":
+    case "string epoch float":
+      return { seconds: 1_700_000_000n, nanos: 500_000_000 };
+    case "float64 negative":
+      return { seconds: -1_700_000_000n, nanos: -500_000_000 };
+    // 2026-08-10T12:00:00Z
+    case "string RFC3339":
+      return { seconds: 1_786_363_200n, nanos: 0 };
+    case "string RFC3339Nano":
+      return { seconds: 1_786_363_200n, nanos: 500_000_000 };
+    default:
+      return undefined;
+  }
+}
 
 function runTimestampOperator(name: string) {
   const unixTimestamp = (epoch: bigint) => timestampOf(epoch, 0);

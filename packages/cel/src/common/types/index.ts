@@ -1,3 +1,4 @@
+export * from "./aggregate-sizer.js";
 export * from "./any-value.js";
 export * from "./bool.js";
 export * from "./bytes.js";
@@ -26,6 +27,7 @@ export {
   type TypeRegistry,
 } from "./ref/index.js";
 export * from "./regex.js";
+export * from "./size-calc.js";
 export * from "./string.js";
 export * from "./timestamp.js";
 export type {

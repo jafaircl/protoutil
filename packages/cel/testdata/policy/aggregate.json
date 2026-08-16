@@ -1,0 +1,111 @@
+{
+  "path": "aggregate",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"aggregate\"\nvariables:\n  - name: \"resource\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\n",
+      "value": {
+        "name": "aggregate",
+        "variables": [
+          {
+            "name": "resource",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: aggregate\nrule:\n  aggregate:\n    - condition: \"resource.is_pii == true\"\n      output: \"'PII'\"\n    - condition: \"resource.is_confidential == true\"\n      output: \"'CONFIDENTIAL'\"\n    - condition: \"true\"\n      rule:\n        match:\n          - condition: \"resource.nested_cond == true\"\n            output: \"'NESTED'\"\n",
+      "value": {
+        "name": "aggregate",
+        "rule": {
+          "aggregate": [
+            {
+              "condition": "resource.is_pii == true",
+              "output": "'PII'"
+            },
+            {
+              "condition": "resource.is_confidential == true",
+              "output": "'CONFIDENTIAL'"
+            },
+            {
+              "condition": "true",
+              "rule": {
+                "match": [
+                  {
+                    "condition": "resource.nested_cond == true",
+                    "output": "'NESTED'"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: Aggregate semantic conformance tests\nsection:\n  - name: \"basic\"\n    tests:\n      - name: \"all_match_nested_triggered\"\n        input:\n          resource:\n            expr: \"{'is_pii': true, 'is_confidential': true, 'nested_cond': true}\"\n        output:\n          expr: \"['PII', 'CONFIDENTIAL', 'NESTED']\"\n      - name: \"all_match_nested_fallback\"\n        input:\n          resource:\n            expr: \"{'is_pii': true, 'is_confidential': true, 'nested_cond': false}\"\n        output:\n          expr: \"['PII', 'CONFIDENTIAL']\"\n      - name: \"some_match\"\n        input:\n          resource:\n            expr: \"{'is_pii': true, 'is_confidential': false, 'nested_cond': false}\"\n        output:\n          expr: \"['PII']\"\n      - name: \"none_match\"\n        input:\n          resource:\n            expr: \"{'is_pii': false, 'is_confidential': false, 'nested_cond': false}\"\n        output:\n          expr: \"[]\"\n",
+      "value": {
+        "description": "Aggregate semantic conformance tests",
+        "section": [
+          {
+            "name": "basic",
+            "tests": [
+              {
+                "input": {
+                  "resource": {
+                    "expr": "{'is_pii': true, 'is_confidential': true, 'nested_cond': true}"
+                  }
+                },
+                "name": "all_match_nested_triggered",
+                "output": {
+                  "expr": "['PII', 'CONFIDENTIAL', 'NESTED']"
+                }
+              },
+              {
+                "input": {
+                  "resource": {
+                    "expr": "{'is_pii': true, 'is_confidential': true, 'nested_cond': false}"
+                  }
+                },
+                "name": "all_match_nested_fallback",
+                "output": {
+                  "expr": "['PII', 'CONFIDENTIAL']"
+                }
+              },
+              {
+                "input": {
+                  "resource": {
+                    "expr": "{'is_pii': true, 'is_confidential': false, 'nested_cond': false}"
+                  }
+                },
+                "name": "some_match",
+                "output": {
+                  "expr": "['PII']"
+                }
+              },
+              {
+                "input": {
+                  "resource": {
+                    "expr": "{'is_pii': false, 'is_confidential': false, 'nested_cond': false}"
+                  }
+                },
+                "name": "none_match",
+                "output": {
+                  "expr": "[]"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

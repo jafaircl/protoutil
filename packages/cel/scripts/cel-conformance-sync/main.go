@@ -22,14 +22,16 @@ import (
 
 const (
 	defaultRepoURL     = "https://github.com/cel-expr/cel-spec.git"
-	defaultRef         = "v0.25.2"
+	defaultRef         = "v0.25.3"
 	defaultRepoSubdir  = "tests/simple/testdata"
-	defaultProtoDir    = "."
+	defaultProtoDir    = "../testing"
 	defaultOutputDir   = "./testdata/conformance"
 	defaultMessageName = "cel.expr.conformance.test.SimpleTestFile"
 	defaultWorkdir     = "./.tmp/cel-spec-upstream"
 	outputFileSuffix   = ".textproto.json"
-	wrapperProtoPath   = "proto/protoutil/cel/v1/conformance.proto"
+	// The conformance wrapper schema lives in @protoutil/testing since the testing schemas were
+	// split into their own package.
+	wrapperProtoPath = "src/proto/protoutil/cel/v1/conformance.proto"
 )
 
 type syncConfig struct {

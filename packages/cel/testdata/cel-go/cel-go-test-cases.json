@@ -273,10 +273,7 @@
       ],
       "expr": "input",
       "in": {
-        "input": [
-          1,
-          2
-        ]
+        "input": [1, 2]
       },
       "name": "identity",
       "want": {
@@ -311,11 +308,7 @@
     {
       "expr": "input.size() != 0",
       "in": {
-        "input": [
-          1,
-          2,
-          3
-        ]
+        "input": [1, 2, 3]
       }
     }
   ],
@@ -334,10 +327,10 @@
       "name": "chained optMap exceeding configured limit"
     },
     {
-      "errSubstring": "expression count exceeds limit of 100000 while expanding macro 'optMap'",
+      "errSubstring": "expression count exceeds limit of 200 while expanding macro 'optMap'",
       "expectErr": true,
       "expr": "x.optMap(a, [a, a]).optMap(b, {b: b}).optMap(c, c + 1).optMap(d, d + 2).optMap(e, e + 3).optMap(f, f + 4).optMap(g, g + 5).optMap(h, h + 6).optMap(i, i + 7).optMap(j, j + 8).optMap(k, k + 9).optMap(l, l + 10).optMap(m, m + 11).optMap(n, n + 12)",
-      "limit": 0,
+      "limit": 200,
       "name": "chained optMap of various complexity exceeding default limit"
     },
     {
@@ -355,6 +348,28 @@
     {
       "mode": "parse",
       "name": "parse_rejects_oversized"
+    }
+  ],
+  "cel/cel_test.go/TestExtendCheckerParity": [
+    {
+      "expr": "value + \" \" + oldValue + \" \" + baseVar",
+      "vars": {
+        "baseVar": "base",
+        "oldValue": "old",
+        "value": "new"
+      },
+      "want": {
+        "$expr": "types.String(\"new old base\")"
+      }
+    },
+    {
+      "expr": "size(value) \u003e 0 \u0026\u0026 [1, 2, 3].exists(x, x \u003e 2)",
+      "vars": {
+        "value": "test"
+      },
+      "want": {
+        "$expr": "types.True"
+      }
     }
   ],
   "cel/cel_test.go/TestJSONFieldNames": [
@@ -765,6 +780,24 @@
       }
     },
     {
+      "expr": "{0: 10}[?0].optMap(v, v + 1)",
+      "out": {
+        "$expr": "types.OptionalOf(types.Int(11))"
+      }
+    },
+    {
+      "expr": "{0: 10}[?0].optMap(a, a + 1).optMap(b, b * 2)",
+      "out": {
+        "$expr": "types.OptionalOf(types.Int(22))"
+      }
+    },
+    {
+      "expr": "{0: 10}[?1].optMap(a, a + 1).optMap(b, b * 2)",
+      "out": {
+        "$expr": "types.OptionalNone"
+      }
+    },
+    {
       "expr": "optional.ofNonZeroValue(z).or(optional.of(10)).value() == 42",
       "in": {
         "z": 42
@@ -957,9 +990,7 @@
           "$expr": "types.OptionalNone"
         }
       },
-      "out": [
-        42
-      ]
+      "out": [42]
     },
     {
       "expr": "[?optional.ofNonZeroValue(m.?c.orValue({}))]",
@@ -1409,6 +1440,31 @@
     {
       "err": "error parsing regexp: unexpected ): `)[0-9]*`",
       "expr": "\"123 abc 456\".matches(')[0-9]*')"
+    }
+  ],
+  "cel/cel_test.go/TestRegexProgramSizeLimit": [
+    {
+      "compileErr": "regex program size 8 exceeds limit of 5",
+      "expr": "\"123 abc 456\".matches('(a|b)*[0-9]+')",
+      "name": "constant_regex_exceeds_limit_ast_validation"
+    },
+    {
+      "evalErr": "regex program size 8 exceeds limit of 5",
+      "expr": "\"123 abc 456\".matches(pattern)",
+      "name": "dynamic_regex_exceeds_limit_runtime",
+      "vars": {
+        "pattern": "(a|b)*[0-9]+"
+      }
+    },
+    {
+      "expr": "\"123 abc 456\".matches(pattern)",
+      "name": "dynamic_regex_within_limit",
+      "vars": {
+        "pattern": "[0-9]+"
+      },
+      "want": {
+        "$expr": "types.True"
+      }
     }
   ],
   "cel/cel_test.go/TestResidualAstMacros": [
@@ -2696,121 +2752,48 @@
   "cel/folding_test.go/TestConstantFoldingNormalizeIDs": [
     {
       "expr": "[1, 2, 3]",
-      "ids": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "normalizedIDs": [
-        1,
-        2,
-        3,
-        4
-      ]
+      "ids": [1, 2, 3, 4],
+      "normalizedIDs": [1, 2, 3, 4]
     },
     {
       "expr": "google.expr.proto3.test.TestAllTypes{single_int32: 0}",
-      "ids": [
-        1,
-        2,
-        3
-      ],
-      "normalizedIDs": [
-        1,
-        2,
-        3
-      ]
+      "ids": [1, 2, 3],
+      "normalizedIDs": [1, 2, 3]
     },
     {
       "expr": "has({x: 'value'}.single_int32)",
-      "ids": [
-        2,
-        3,
-        4,
-        5,
-        7
-      ],
+      "ids": [2, 3, 4, 5, 7],
       "macros": {
         "7": "\n\t\t\tcall_expr: {\n\t\t\t\tfunction: \"has\"\n\t\t\t\targs: {\n\t\t\t\t  id: 6\n\t\t\t\t  select_expr: {\n\t\t\t\t\toperand: {\n\t\t\t\t\t  id: 2\n\t\t\t\t\t  struct_expr: {\n\t\t\t\t\t\tentries: {\n\t\t\t\t\t\t  id: 3\n\t\t\t\t\t\t  map_key: {\n\t\t\t\t\t\t\tid: 4\n\t\t\t\t\t\t\tident_expr: {\n\t\t\t\t\t\t\t  name: \"x\"\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t  value: {\n\t\t\t\t\t\t\tid: 5\n\t\t\t\t\t\t\tconst_expr: {\n\t\t\t\t\t\t\t  string_value: \"value\"\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfield: \"single_int32\"\n\t\t\t\t  }\n\t\t\t\t}\n\t\t\t  }"
       },
-      "normalizedIDs": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
+      "normalizedIDs": [1, 2, 3, 4, 5],
       "normalizedMacros": {
         "1": "\n\t\t\tcall_expr:  {\n\t\t\t\tfunction:  \"has\"\n\t\t\t\targs:  {\n\t\t\t\t  id:  6\n\t\t\t\t  select_expr:  {\n\t\t\t\t\toperand:  {\n\t\t\t\t\t  id:  2\n\t\t\t\t\t  struct_expr:  {\n\t\t\t\t\t\tentries:  {\n\t\t\t\t\t\t  id:  3\n\t\t\t\t\t\t  map_key:  {\n\t\t\t\t\t\t\tid:  4\n\t\t\t\t\t\t\tident_expr:  {\n\t\t\t\t\t\t\t  name:  \"x\"\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t  value:  {\n\t\t\t\t\t\t\tid:  5\n\t\t\t\t\t\t\tconst_expr:  {\n\t\t\t\t\t\t\t  string_value:  \"value\"\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfield:  \"single_int32\"\n\t\t\t\t  }\n\t\t\t\t}\n\t\t\t  }"
       }
     },
     {
       "expr": "has(google.expr.proto3.test.TestAllTypes{}.single_int32)",
-      "ids": [
-        2,
-        4
-      ],
+      "ids": [2, 4],
       "macros": {
         "4": "call_expr:  {\n\t\t\t\t\tfunction:  \"has\"\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  3\n\t\t\t\t\t  select_expr:  {\n\t\t\t\t\t\toperand:  {\n\t\t\t\t\t\t  id:  2\n\t\t\t\t\t\t  struct_expr:  {\n\t\t\t\t\t\t\tmessage_name:  \"google.expr.proto3.test.TestAllTypes\"\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t\tfield:  \"single_int32\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t  }"
       },
-      "normalizedIDs": [
-        1
-      ]
+      "normalizedIDs": [1]
     },
     {
       "expr": "[true].exists(i, i)",
-      "ids": [
-        1,
-        2,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13
-      ],
+      "ids": [1, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       "macros": {
         "13": "call_expr:  {\n\t\t\t\t\ttarget:  {\n\t\t\t\t\t  id:  1\n\t\t\t\t\t  list_expr:  {\n\t\t\t\t\t\telements:  {\n\t\t\t\t\t\t  id:  2\n\t\t\t\t\t\t  const_expr:  {\n\t\t\t\t\t\t\tbool_value:  true\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfunction:  \"exists\"\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  4\n\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\tname:  \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  5\n\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\tname:  \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t  }"
       },
-      "normalizedIDs": [
-        1
-      ]
+      "normalizedIDs": [1]
     },
     {
       "expr": "[x].exists(i, i)",
-      "ids": [
-        1,
-        2,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13
-      ],
+      "ids": [1, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       "macros": {
         "13": "call_expr:  {\n\t\t\t\t\ttarget:  {\n\t\t\t\t\t  id:  1\n\t\t\t\t\t  list_expr:  {\n\t\t\t\t\t\telements:  {\n\t\t\t\t\t\t  id:  2\n\t\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\t\tname:  \"x\"\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfunction:  \"exists\"\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  4\n\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\tname:  \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\targs:  {\n\t\t\t\t\t  id:  5\n\t\t\t\t\t  ident_expr:  {\n\t\t\t\t\t\tname:  \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t  }"
       },
-      "normalizedIDs": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11
-      ],
+      "normalizedIDs": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       "normalizedMacros": {
         "1": "call_expr: {\n\t\t\t\t\ttarget: {\n\t\t\t\t\t  id: 2\n\t\t\t\t\t  list_expr: {\n\t\t\t\t\t\telements: {\n\t\t\t\t\t\t  id: 3\n\t\t\t\t\t\t  ident_expr: {\n\t\t\t\t\t\t\tname: \"x\"\n\t\t\t\t\t\t  }\n\t\t\t\t\t\t}\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\tfunction: \"exists\"\n\t\t\t\t\targs: {\n\t\t\t\t\t  id: 12\n\t\t\t\t\t  ident_expr: {\n\t\t\t\t\t\tname: \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t\targs: {\n\t\t\t\t\t  id: 10\n\t\t\t\t\t  ident_expr: {\n\t\t\t\t\t\tname: \"i\"\n\t\t\t\t\t  }\n\t\t\t\t\t}\n\t\t\t\t  }"
       }
@@ -2820,6 +2803,38 @@
     {
       "expr": "[1, 1 + 2, 1 + (2 + 3)]",
       "folded": "[1, 3, 6]"
+    },
+    {
+      "expr": "[1, 2] + [3, 4]",
+      "folded": "[1, 2, 3, 4]"
+    },
+    {
+      "expr": "[1, ?optional.of(2)] + [3, 4]",
+      "folded": "[1, 2, 3, 4]"
+    },
+    {
+      "expr": "[1, ?optional.none()] + [2]",
+      "folded": "[1, 2]"
+    },
+    {
+      "expr": "[x, 1] + [2, y]",
+      "folded": "[x, 1, 2, y]"
+    },
+    {
+      "expr": "[x, ?optional.of(1)] + [?optional.of(2), y]",
+      "folded": "[x, 1, 2, y]"
+    },
+    {
+      "expr": "[1] + [x] + [2]",
+      "folded": "[1, x, 2]"
+    },
+    {
+      "expr": "[1] + [?x] + [2]",
+      "folded": "[1, ?x, 2]"
+    },
+    {
+      "expr": "[?x, 1] + [2, ?y]",
+      "folded": "[?x, 1, 2, ?y]"
     },
     {
       "expr": "6 in [1, 1 + 2, 1 + (2 + 3)]",
@@ -3152,22 +3167,14 @@
       "expr": "l.exists(e, e == \"foo\") ? \"has Foo\" : \"no Foo\"",
       "folded": "\"has Foo\"",
       "knownValues": {
-        "l": [
-          "foo",
-          "bar",
-          "baz"
-        ]
+        "l": ["foo", "bar", "baz"]
       }
     },
     {
       "expr": "\"foo\" in l",
       "folded": "true",
       "knownValues": {
-        "l": [
-          "foo",
-          "bar",
-          "baz"
-        ]
+        "l": ["foo", "bar", "baz"]
       }
     },
     {
@@ -3293,7 +3300,7 @@
     },
     {
       "expr": "[1] + [x]",
-      "folded": "[1] + [x]"
+      "folded": "[1, x]"
     },
     {
       "expr": "duration(\"1h\") - duration(\"60m\")",
@@ -4054,10 +4061,7 @@
       }
     },
     {
-      "value": [
-        true,
-        "abc"
-      ]
+      "value": [true, "abc"]
     },
     {
       "value": {
@@ -4179,11 +4183,7 @@
     {
       "expr": "[1, 2, 3].map(i, dbl(i))",
       "name": "comprehension_single",
-      "want": [
-        2,
-        4,
-        6
-      ],
+      "want": [2, 4, 6],
       "wantLaunches": 3
     },
     {
@@ -4191,42 +4191,26 @@
       "maxConc": 2,
       "name": "comprehension_single_conc_2",
       "trackCost": true,
-      "want": [
-        2,
-        3,
-        4
-      ]
+      "want": [2, 3, 4]
     },
     {
       "expr": "[1, 2, 3].map(i, async_inc(i))",
       "maxConc": -1,
       "name": "comprehension_single_conc_unlimited",
-      "want": [
-        2,
-        3,
-        4
-      ]
+      "want": [2, 3, 4]
     },
     {
       "expr": "[1, 2, 3].map(i, async_inc(async_inc(i)))",
       "maxConc": 1,
       "name": "comprehension_chained_conc_1",
       "trackCost": true,
-      "want": [
-        3,
-        4,
-        5
-      ]
+      "want": [3, 4, 5]
     },
     {
       "expr": "[1, 2, 3].map(i, async_inc(async_inc(i)))",
       "maxConc": 0,
       "name": "comprehension_chained_conc_default",
-      "want": [
-        3,
-        4,
-        5
-      ]
+      "want": [3, 4, 5]
     },
     {
       "expr": "[1, 2].map(i, [10, 20].map(j, async_inc(async_inc(i + j))))",
@@ -4294,7 +4278,7 @@
       "name": "drain_ready_partial_debounce",
       "opts": [
         {
-          "$expr": "cel.ConcurrentDrainStrategy(async.DrainReady(2 * time.Millisecond))"
+          "$expr": "cel.ConcurrentDrainStrategy(async.DrainReady(3 * time.Millisecond))"
         }
       ],
       "trackCost": true,
@@ -4763,6 +4747,18 @@
     {
       "expr": "'hello'.matches('??el*')",
       "iss": "\n\t\t\tERROR: \u003cinput\u003e:1:17: invalid matches argument\n             | 'hello'.matches('??el*')\n             | ................^"
+    },
+    {
+      "expr": "'hello'.matches(x)"
+    }
+  ],
+  "cel/validator_test.go/TestValidateRegexProgramSizeLimit": [
+    {
+      "expr": "'hello'.matches('el*')"
+    },
+    {
+      "expr": "'hello'.matches('(a|b)*[0-9]+')",
+      "iss": "\n\t\t\tERROR: \u003cinput\u003e:1:17: regex program size 8 exceeds limit of 5\n             | 'hello'.matches('(a|b)*[0-9]+')\n             | ................^"
     },
     {
       "expr": "'hello'.matches(x)"
@@ -7510,97 +7506,33 @@
   "common/ast/navigable_test.go/TestExprVisitor": [
     {
       "expr": "'a' == 'b'",
-      "postOrderIDs": [
-        1,
-        3,
-        2
-      ],
-      "preOrderIDs": [
-        2,
-        1,
-        3
-      ]
+      "postOrderIDs": [1, 3, 2],
+      "preOrderIDs": [2, 1, 3]
     },
     {
       "expr": "'a'.size()",
-      "postOrderIDs": [
-        1,
-        2
-      ],
-      "preOrderIDs": [
-        2,
-        1
-      ]
+      "postOrderIDs": [1, 2],
+      "preOrderIDs": [2, 1]
     },
     {
       "expr": "type(1) == int",
-      "postOrderIDs": [
-        2,
-        1,
-        4,
-        3
-      ],
-      "preOrderIDs": [
-        3,
-        1,
-        2,
-        4
-      ]
+      "postOrderIDs": [2, 1, 4, 3],
+      "preOrderIDs": [3, 1, 2, 4]
     },
     {
       "expr": "{'hello': 'world'}.hello",
-      "postOrderIDs": [
-        3,
-        4,
-        1,
-        5
-      ],
-      "preOrderIDs": [
-        5,
-        1,
-        3,
-        4
-      ]
+      "postOrderIDs": [3, 4, 1, 5],
+      "preOrderIDs": [5, 1, 3, 4]
     },
     {
       "expr": "google.expr.proto3.test.TestAllTypes{single_int32: 1}",
-      "postOrderIDs": [
-        3,
-        1
-      ],
-      "preOrderIDs": [
-        1,
-        3
-      ]
+      "postOrderIDs": [3, 1],
+      "preOrderIDs": [1, 3]
     },
     {
       "expr": "[true].exists(i, i)",
-      "postOrderIDs": [
-        2,
-        1,
-        6,
-        7,
-        8,
-        9,
-        10,
-        5,
-        11,
-        12,
-        13
-      ],
-      "preOrderIDs": [
-        13,
-        1,
-        2,
-        6,
-        9,
-        8,
-        7,
-        11,
-        10,
-        5,
-        12
-      ]
+      "postOrderIDs": [2, 1, 6, 7, 8, 9, 10, 5, 11, 12, 13],
+      "preOrderIDs": [13, 1, 2, 6, 9, 8, 7, 11, 10, 5, 12]
     }
   ],
   "common/ast/navigable_test.go/TestNavigableASTNilSafety": [
@@ -7678,46 +7610,32 @@
   ],
   "common/containers/container_test.go/TestContainers_Aliasing_Errors": [
     {
-      "abbrevs": [
-        "my.alias.R",
-        "yer.other.R"
-      ],
+      "abbrevs": ["my.alias.R", "yer.other.R"],
       "err": {
         "$expr": "\"abbreviation collides with existing reference: \" +\n\t\t\t\t\"name=yer.other.R, abbreviation=R, existing=my.alias.R\""
       }
     },
     {
-      "abbrevs": [
-        "my.alias.a",
-        "yer.other.b"
-      ],
+      "abbrevs": ["my.alias.a", "yer.other.b"],
       "container": "a.b.c.M.N",
       "err": {
         "$expr": "\"abbreviation collides with container name: name=my.alias.a, \" +\n\t\t\t\t\"abbreviation=a, container=a.b.c.M.N\""
       }
     },
     {
-      "abbrevs": [
-        ".bad"
-      ],
+      "abbrevs": [".bad"],
       "err": "invalid qualified name: .bad, wanted name of the form 'qualified.name'"
     },
     {
-      "abbrevs": [
-        "bad.alias."
-      ],
+      "abbrevs": ["bad.alias."],
       "err": "invalid qualified name: bad.alias., wanted name of the form 'qualified.name'"
     },
     {
-      "abbrevs": [
-        "   bad_alias1"
-      ],
+      "abbrevs": ["   bad_alias1"],
       "err": "invalid qualified name: bad_alias1, wanted name of the form 'qualified.name'"
     },
     {
-      "abbrevs": [
-        "   bad.alias!  "
-      ],
+      "abbrevs": ["   bad.alias!  "],
       "err": "invalid qualified name: bad.alias!, wanted name of the form 'qualified.name'"
     },
     {
@@ -7813,64 +7731,44 @@
       ]
     },
     {
-      "examples": [
-        "type(int) // type"
-      ],
+      "examples": ["type(int) // type"],
       "fn": {
         "$expr": "testFunction(t, overloads.TypeConvertType,\n\t\t\t\tOverload(overloads.TypeConvertType,\n\t\t\t\t\t[]*types.Type{types.NewTypeTypeWithParam(types.NewTypeParamType(\"T\"))},\n\t\t\t\t\ttypes.TypeType,\n\t\t\t\t\tOverloadExamples(`type(int) // type`)))"
       },
       "name": "type",
-      "signatures": [
-        "type(type) -\u003e type"
-      ]
+      "signatures": ["type(type) -\u003e type"]
     },
     {
-      "examples": [
-        "-(1) // -1"
-      ],
+      "examples": ["-(1) // -1"],
       "fn": {
         "$expr": "testFunction(t, operators.Negate,\n\t\t\t\tFunctionDocs(`negate a numeric value`),\n\t\t\t\tOverload(overloads.NegateInt64, []*types.Type{types.IntType}, types.IntType,\n\t\t\t\t\tOverloadExamples(`-(1) // -1`)))"
       },
       "name": "unary operator",
-      "signatures": [
-        "-int -\u003e int"
-      ]
+      "signatures": ["-int -\u003e int"]
     },
     {
-      "examples": [
-        "1 + 2 // 3"
-      ],
+      "examples": ["1 + 2 // 3"],
       "fn": {
         "$expr": "testFunction(t, operators.Add,\n\t\t\t\tFunctionDocs(`add two numeric values`),\n\t\t\t\tOverload(overloads.AddInt64, []*types.Type{types.IntType, types.IntType}, types.IntType,\n\t\t\t\t\tOverloadExamples(`1 + 2 // 3`)))"
       },
       "name": "binary operator",
-      "signatures": [
-        "int + int -\u003e int"
-      ]
+      "signatures": ["int + int -\u003e int"]
     },
     {
-      "examples": [
-        "[1, 2, 3, 4][2] // 3"
-      ],
+      "examples": ["[1, 2, 3, 4][2] // 3"],
       "fn": {
         "$expr": "testFunction(t, operators.Index,\n\t\t\t\tFunctionDocs(`access a list by numeric index, zero-based`),\n\t\t\t\tOverload(overloads.IndexList, []*types.Type{types.NewListType(types.NewTypeParamType(\"T\")), types.IntType}, types.NewTypeParamType(\"T\"),\n\t\t\t\t\tOverloadExamples(`[1, 2, 3, 4][2] // 3`)))"
       },
       "name": "index operator",
-      "signatures": [
-        "list(\u003cT\u003e)[int] -\u003e \u003cT\u003e"
-      ]
+      "signatures": ["list(\u003cT\u003e)[int] -\u003e \u003cT\u003e"]
     },
     {
-      "examples": [
-        "true ? 1 : 2 // 1"
-      ],
+      "examples": ["true ? 1 : 2 // 1"],
       "fn": {
         "$expr": "testFunction(t, operators.Conditional,\n\t\t\t\tFunctionDocs(`ternary operator`),\n\t\t\t\tOverload(overloads.Conditional,\n\t\t\t\t\t[]*types.Type{types.BoolType, types.NewTypeParamType(\"T\"), types.NewTypeParamType(\"T\")},\n\t\t\t\t\ttypes.NewTypeParamType(\"T\"),\n\t\t\t\t\tOverloadExamples(`true ? 1 : 2 // 1`)))"
       },
       "name": "conditional",
-      "signatures": [
-        "bool ? \u003cT\u003e : \u003cT\u003e -\u003e \u003cT\u003e"
-      ]
+      "signatures": ["bool ? \u003cT\u003e : \u003cT\u003e -\u003e \u003cT\u003e"]
     }
   ],
   "common/decls/decls_test.go/TestTypeVariable": [
@@ -7977,25 +7875,17 @@
     {
       "in": "hello",
       "name": "single",
-      "out": [
-        "hello"
-      ]
+      "out": ["hello"]
     },
     {
       "in": "bar\nbaz\n\nfoo",
       "name": "multi",
-      "out": [
-        "bar\nbaz",
-        "foo"
-      ]
+      "out": ["bar\nbaz", "foo"]
     },
     {
       "in": "hello\n\n\nworld",
       "name": "multi",
-      "out": [
-        "hello",
-        "world"
-      ]
+      "out": ["hello", "world"]
     }
   ],
   "common/env/env_test.go/TestConfig": [
@@ -9096,6 +8986,24 @@
       "want": {
         "$expr": "NewTypeDesc(\"map\", NewTypeDesc(\"int\"), NewTypeDesc(\"list\", NewTypeDesc(\"string\")))"
       }
+    },
+    {
+      "text": "list\u003c\n\tint\n\u003e",
+      "want": {
+        "$expr": "NewTypeDesc(\"list\", NewTypeDesc(\"int\"))"
+      }
+    },
+    {
+      "text": "map\u003c\r\n  string,\r\n  list\u003cstring\u003e\r\n\u003e",
+      "want": {
+        "$expr": "NewTypeDesc(\"map\", NewTypeDesc(\"string\"), NewTypeDesc(\"list\", NewTypeDesc(\"string\")))"
+      }
+    },
+    {
+      "text": "map\u003cstring,\tint\u003e",
+      "want": {
+        "$expr": "NewTypeDesc(\"map\", NewTypeDesc(\"string\"), NewTypeDesc(\"int\"))"
+      }
     }
   ],
   "common/env/io_test.go/TestParseTypeDescErrors": [
@@ -9156,6 +9064,11 @@
       "name": "function",
       "yamlIn": "name: foo\nfunctions:\n    - name: getOrDefault\n      overloads:\n          - id: getOrDefault\n            target: map\u003cstring, ~V\u003e\n            params:\n                - string\n                - ~V\n            return: ~V\n",
       "yamlOut": "name: foo\nfunctions:\n    - name: getOrDefault\n      overloads:\n        - id: getOrDefault\n          target:\n            type_name: map\n            params:\n                - type_name: string\n                - type_name: V\n                  is_type_param: true\n          return:\n            type_name: V\n            is_type_param: true\n"
+    },
+    {
+      "name": "multiline and tab whitespace in types",
+      "yamlIn": "name: user_env\nvariables:\n  - name: user_lookup_table\n    type: \u003e-\n      map\u003c\n        string,\n        list\u003cstring\u003e\n      \u003e\n  - name: permissions\n    type: \"map\u003cstring,\\tint\u003e\"\n",
+      "yamlOut": "name: user_env\nvariables:\n    - name: user_lookup_table\n      type_name: map\n      params:\n        - type_name: string\n        - type_name: list\n          params:\n            - type_name: string\n    - name: permissions\n      type_name: map\n      params:\n        - type_name: string\n        - type_name: int\n"
     }
   ],
   "common/types/double_test.go/TestDoubleCompare": [
@@ -10078,29 +9991,65 @@
       }
     }
   ],
+  "common/types/list_test.go/TestListCalculateSize": [
+    {
+      "name": "empty_list",
+      "val": {
+        "$expr": "NewRefValList(adapter, []ref.Val{})"
+      },
+      "want": 1
+    },
+    {
+      "name": "flat_list",
+      "val": {
+        "$expr": "l1"
+      },
+      "want": 3
+    },
+    {
+      "name": "nested_list",
+      "val": {
+        "$expr": "nested"
+      },
+      "want": 12
+    },
+    {
+      "name": "concat_list",
+      "val": {
+        "$expr": "l1.Add(l2_1)"
+      },
+      "want": 6
+    },
+    {
+      "name": "string_list",
+      "val": {
+        "$expr": "NewStringList(adapter, []string{\"hello\", \"world\"})"
+      },
+      "want": 11
+    },
+    {
+      "name": "dynamic_list",
+      "val": {
+        "$expr": "NewDynamicList(adapter, []any{int64(1), []int64{3, 4}})"
+      },
+      "want": 5
+    }
+  ],
   "common/types/list_test.go/TestListFold": [
     {
       "foldLimit": 2,
       "folds": 2,
-      "l": [
-        "hello",
-        "world"
-      ]
+      "l": ["hello", "world"]
     },
     {
       "foldLimit": 1,
       "folds": 1,
-      "l": [
-        "hello",
-        "world"
-      ]
+      "l": ["hello", "world"]
     },
     {
       "foldLimit": 2,
       "folds": 1,
-      "l": [
-        "hello"
-      ]
+      "l": ["hello"]
     },
     {
       "foldLimit": 20,
@@ -10189,21 +10138,15 @@
     },
     {
       "isZeroValue": false,
-      "val": [
-        ""
-      ]
+      "val": [""]
     },
     {
       "isZeroValue": false,
-      "val": [
-        false
-      ]
+      "val": [false]
     },
     {
       "isZeroValue": false,
-      "val": [
-        0
-      ]
+      "val": [0]
     },
     {
       "isZeroValue": false,
@@ -10224,6 +10167,57 @@
       "val": {
         "$expr": "DefaultTypeAdapter.NativeToValue([]ref.Val{IntOne}).(traits.Lister).Add(DefaultTypeAdapter.NativeToValue([]ref.Val{}))"
       }
+    }
+  ],
+  "common/types/map_test.go/TestMapCalculateSize": [
+    {
+      "name": "empty_ref_val_map",
+      "val": {
+        "$expr": "NewRefValMap(adapter, map[ref.Val]ref.Val{})"
+      },
+      "want": 1
+    },
+    {
+      "name": "ref_val_map_nested",
+      "val": {
+        "$expr": "refValMap"
+      },
+      "want": 7
+    },
+    {
+      "name": "string_interface_map",
+      "val": {
+        "$expr": "ifaceMap"
+      },
+      "want": 7
+    },
+    {
+      "name": "string_string_map",
+      "val": {
+        "$expr": "NewStringStringMap(adapter, map[string]string{\"k1\": \"v1\", \"k2\": \"v2\"})"
+      },
+      "want": 9
+    },
+    {
+      "name": "mutable_map_after_insert",
+      "val": {
+        "$expr": "mutMap"
+      },
+      "want": 9
+    },
+    {
+      "name": "proto_map",
+      "val": {
+        "$expr": "pm"
+      },
+      "want": 5
+    },
+    {
+      "name": "nil_proto_map",
+      "val": {
+        "$expr": "\u0026protoMap{}"
+      },
+      "want": 0
     }
   ],
   "common/types/map_test.go/TestMapContains": [
@@ -10447,6 +10441,547 @@
       }
     }
   ],
+  "common/types/native_test.go/TestConvertToTypeErrors": [
+    {
+      "in": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      },
+      "out": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "TestAllTypes{BoolVal: true}"
+      },
+      "out": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      },
+      "out": {
+        "$expr": "TestAllTypes{BoolVal: true}"
+      }
+    },
+    {
+      "err": "type conversion error",
+      "in": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      },
+      "out": {
+        "$expr": "\u0026proto3pb.TestAllTypes{}"
+      }
+    }
+  ],
+  "common/types/native_test.go/TestNativeFindStructFieldNames": [
+    {
+      "fields": ["NestedListVal", "NestedMapVal", "custom_name"],
+      "typeName": "types_test.TestNestedType"
+    },
+    {
+      "fields": ["bb"],
+      "typeName": "google.expr.proto3.test.TestAllTypes.NestedMessage"
+    },
+    {
+      "fields": [],
+      "typeName": "invalid.TypeName"
+    }
+  ],
+  "common/types/native_test.go/TestNativeNestedStruct": [
+    {
+      "expr": "test.ListVal.exists(x, x.custom_name == \"name\")",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestNestedStruct{ListVal: []*TestNestedType{{NestedCustomName: \"name\"}}}"
+        }
+      }
+    }
+  ],
+  "common/types/native_test.go/TestNativeObjectCalculateSize": [
+    {
+      "name": "empty_struct",
+      "val": {
+        "$expr": "\u0026TestNestedType{}"
+      },
+      "want": 1
+    },
+    {
+      "name": "struct_with_scalar_and_list",
+      "val": {
+        "$expr": "\u0026TestNestedType{\n\t\t\t\tNestedListVal: []string{\"a\", \"b\", \"c\"},\n\t\t\t}"
+      },
+      "want": 5
+    },
+    {
+      "name": "struct_with_nested_map",
+      "val": {
+        "$expr": "\u0026TestNestedType{\n\t\t\t\tNestedMapVal: map[int64]bool{1: true, 2: false},\n\t\t\t}"
+      },
+      "want": 6
+    },
+    {
+      "name": "nested_struct",
+      "val": {
+        "$expr": "\u0026TestAllTypes{\n\t\t\t\tStringVal: \"hello\",\n\t\t\t\tNestedVal: \u0026TestNestedType{\n\t\t\t\t\tNestedListVal: []string{\"a\", \"b\"},\n\t\t\t\t},\n\t\t\t}"
+      },
+      "want": 10
+    },
+    {
+      "name": "bytes_and_time",
+      "val": {
+        "$expr": "\u0026TestAllTypes{\n\t\t\t\tBytesVal:     []byte(\"test\"),\n\t\t\t\tDurationVal:  time.Second,\n\t\t\t\tTimestampVal: time.Unix(100, 0),\n\t\t\t}"
+      },
+      "want": 7
+    },
+    {
+      "name": "slice_of_structs",
+      "val": {
+        "$expr": "\u0026TestAllTypes{\n\t\t\t\tListVal: []*TestNestedType{\n\t\t\t\t\t{NestedListVal: []string{\"x\"}},\n\t\t\t\t\t{NestedListVal: []string{\"y\", \"z\"}},\n\t\t\t\t},\n\t\t\t}"
+      },
+      "want": 9
+    }
+  ],
+  "common/types/native_test.go/TestNativeStructEmbedded": [
+    {
+      "expr": "test.embedded.custom_name == \"name\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tTestNestedType: TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t\tSkipped:        \"should-be-hidden\",\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "dyn(test.embedded)[\"-\"] == \"error\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tTestNestedType: TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t\tSkipped:        \"should-be-hidden\",\n\t\t\t\t}"
+        }
+      },
+      "out": {
+        "$expr": "errors.New(\"no such field: -\")"
+      }
+    },
+    {
+      "expr": "test.embedded == types_test.TestNestedType{custom_name: \"name\"}",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tTestNestedType: TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t\tSkipped:        \"should-be-hidden\",\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "test.Name == \"name\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tCustom: Custom{Name: \"name\"},\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    }
+  ],
+  "common/types/native_test.go/TestNativeStructEmbeddedPointer": [
+    {
+      "expr": "!has(test.custom_name) \u0026\u0026 test.custom_name == \"\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedPointerTypes{\n\t\t\t\t\tTestNestedType: nil,\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "has(test.custom_name) \u0026\u0026 test.custom_name == \"name\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedPointerTypes{\n\t\t\t\t\tTestNestedType: \u0026TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "types_test.TestEmbeddedPointerTypes{custom_name: \"name\"}.custom_name == \"name\"",
+      "in": null,
+      "out": true
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypeConvertToType": [
+    {
+      "tag": "cel"
+    },
+    {
+      "tag": "json"
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypes": [
+    {
+      "envOpts": [
+        {
+          "$expr": "types.ParseStructTags(true)"
+        }
+      ],
+      "expr": "types_test.TestAllTypes{\n\t\t\t\tNestedVal: types_test.TestNestedType{NestedMapVal: {1: false}},\n\t\t\t\tBoolVal: true,\n\t\t\t\tBytesVal: b'hello',\n\t\t\t\tDurationVal: duration('5s'),\n\t\t\t\tDoubleVal: 1.5,\n\t\t\t\tFloatVal: 2.5,\n\t\t\t\tInt32Val: 10,\n\t\t\t\tInt64Val: 20,\n\t\t\t\tStringVal: 'hello world',\n\t\t\t\tTimestampVal: timestamp('2011-08-06T01:23:45Z'),\n\t\t\t\tUint32Val: 100u,\n\t\t\t\tUint64Val: 200u,\n\t\t\t\tListVal: [\n\t\t\t\t\ttypes_test.TestNestedType{\n\t\t\t\t\t\tNestedListVal:['goodbye', 'cruel', 'world'],\n\t\t\t\t\t\tNestedMapVal: {42: true},\n\t\t\t\t\t\tcustom_name: 'name',\n\t\t\t\t\t},\n\t\t\t\t],\n\t\t\t\tArrayVal: [\n\t\t\t\t\ttypes_test.TestNestedType{\n\t\t\t\t\t\tNestedListVal:['goodbye', 'cruel', 'world'],\n\t\t\t\t\t\tNestedMapVal: {42: true},\n\t\t\t\t\t\tcustom_name: 'name',\n\t\t\t\t\t},\n\t\t\t\t],\n\t\t\t\tMapVal: {'map-key': types_test.TestAllTypes{BoolVal: true}},\n\t\t\t\tCustomSliceVal: [types_test.TestNestedSliceType{Value: 'none'}],\n\t\t\t\tCustomMapVal: {'even': types_test.TestMapVal{Value: 'more'}},\n\t\t\t\tcustom_name: 'name',\n\t\t\t}",
+      "out": {
+        "$expr": "\u0026TestAllTypes{\n\t\t\t\tNestedVal:    \u0026TestNestedType{NestedMapVal: map[int64]bool{1: false}},\n\t\t\t\tBoolVal:      true,\n\t\t\t\tBytesVal:     []byte(\"hello\"),\n\t\t\t\tDurationVal:  time.Second * 5,\n\t\t\t\tDoubleVal:    1.5,\n\t\t\t\tFloatVal:     2.5,\n\t\t\t\tInt32Val:     10,\n\t\t\t\tInt64Val:     20,\n\t\t\t\tStringVal:    \"hello world\",\n\t\t\t\tTimestampVal: mustParseTime(t, \"2011-08-06T01:23:45Z\"),\n\t\t\t\tUint32Val:    uint32(100),\n\t\t\t\tUint64Val:    uint64(200),\n\t\t\t\tListVal: []*TestNestedType{\n\t\t\t\t\t{\n\t\t\t\t\t\tNestedListVal:    []string{\"goodbye\", \"cruel\", \"world\"},\n\t\t\t\t\t\tNestedMapVal:     map[int64]bool{42: true},\n\t\t\t\t\t\tNestedCustomName: \"name\",\n\t\t\t\t\t},\n\t\t\t\t},\n\t\t\t\tArrayVal: [1]*TestNestedType{{\n\t\t\t\t\tNestedListVal:    []string{\"goodbye\", \"cruel\", \"world\"},\n\t\t\t\t\tNestedMapVal:     map[int64]bool{42: true},\n\t\t\t\t\tNestedCustomName: \"name\",\n\t\t\t\t}},\n\t\t\t\tMapVal:         map[string]TestAllTypes{\"map-key\": {BoolVal: true}},\n\t\t\t\tCustomSliceVal: []TestNestedSliceType{{Value: \"none\"}},\n\t\t\t\tCustomMapVal:   map[string]TestMapVal{\"even\": {Value: \"more\"}},\n\t\t\t\tCustomName:     \"name\",\n\t\t\t}"
+      }
+    },
+    {
+      "envOpts": [
+        {
+          "$expr": "types.ParseStructTag(\"json\")"
+        }
+      ],
+      "expr": "types_test.TestAllTypes{\n\t\t\t\tnestedVal: types_test.TestNestedType{NestedMapVal: {1: false}},\n\t\t\t\tboolVal: true,\n\t\t\t\tBytesVal: b'hello',\n\t\t\t\tDurationVal: duration('5s'),\n\t\t\t\tDoubleVal: 1.5,\n\t\t\t\tFloatVal: 2.5,\n\t\t\t\tInt32Val: 10,\n\t\t\t\tInt64Val: 20,\n\t\t\t\tStringVal: 'hello world',\n\t\t\t\tTimestampVal: timestamp('2011-08-06T01:23:45Z'),\n\t\t\t\tUint32Val: 100u,\n\t\t\t\tUint64Val: 200u,\n\t\t\t\tListVal: [\n\t\t\t\t\ttypes_test.TestNestedType{\n\t\t\t\t\t\tNestedListVal:['goodbye', 'cruel', 'world'],\n\t\t\t\t\t\tNestedMapVal: {42: true},\n\t\t\t\t\t\tcustom_name: 'name',\n\t\t\t\t\t},\n\t\t\t\t],\n\t\t\t\tArrayVal: [\n\t\t\t\t\ttypes_test.TestNestedType{\n\t\t\t\t\t\tNestedListVal:['goodbye', 'cruel', 'world'],\n\t\t\t\t\t\tNestedMapVal: {42: true},\n\t\t\t\t\t\tcustom_name: 'name',\n\t\t\t\t\t},\n\t\t\t\t],\n\t\t\t\tMapVal: {'map-key': types_test.TestAllTypes{boolVal: true}},\n\t\t\t\tCustomSliceVal: [types_test.TestNestedSliceType{Value: 'none'}],\n\t\t\t\tCustomMapVal: {'even': types_test.TestMapVal{Value: 'more'}},\n\t\t\t\tCustomName: 'name',\n\t\t\t}",
+      "out": {
+        "$expr": "\u0026TestAllTypes{\n\t\t\t\tNestedVal:    \u0026TestNestedType{NestedMapVal: map[int64]bool{1: false}},\n\t\t\t\tBoolVal:      true,\n\t\t\t\tBytesVal:     []byte(\"hello\"),\n\t\t\t\tDurationVal:  time.Second * 5,\n\t\t\t\tDoubleVal:    1.5,\n\t\t\t\tFloatVal:     2.5,\n\t\t\t\tInt32Val:     10,\n\t\t\t\tInt64Val:     20,\n\t\t\t\tStringVal:    \"hello world\",\n\t\t\t\tTimestampVal: mustParseTime(t, \"2011-08-06T01:23:45Z\"),\n\t\t\t\tUint32Val:    uint32(100),\n\t\t\t\tUint64Val:    uint64(200),\n\t\t\t\tListVal: []*TestNestedType{\n\t\t\t\t\t{\n\t\t\t\t\t\tNestedListVal:    []string{\"goodbye\", \"cruel\", \"world\"},\n\t\t\t\t\t\tNestedMapVal:     map[int64]bool{42: true},\n\t\t\t\t\t\tNestedCustomName: \"name\",\n\t\t\t\t\t},\n\t\t\t\t},\n\t\t\t\tArrayVal: [1]*TestNestedType{{\n\t\t\t\t\tNestedListVal:    []string{\"goodbye\", \"cruel\", \"world\"},\n\t\t\t\t\tNestedMapVal:     map[int64]bool{42: true},\n\t\t\t\t\tNestedCustomName: \"name\",\n\t\t\t\t}},\n\t\t\t\tMapVal:         map[string]TestAllTypes{\"map-key\": {BoolVal: true}},\n\t\t\t\tCustomSliceVal: []TestNestedSliceType{{Value: \"none\"}},\n\t\t\t\tCustomMapVal:   map[string]TestMapVal{\"even\": {Value: \"more\"}},\n\t\t\t\tCustomName:     \"name\",\n\t\t\t}"
+      }
+    },
+    {
+      "expr": "types_test.TestAllTypes{\n\t\t\t\tNestedVal: types_test.TestNestedType{NestedMapVal: {1: false}},\n\t\t\t\tBoolVal: true,\n\t\t\t\tBytesVal: b'hello',\n\t\t\t\tDurationVal: duration('5s'),\n\t\t\t\tDoubleVal: 1.5,\n\t\t\t\tFloatVal: 2.5,\n\t\t\t\tInt32Val: 10,\n\t\t\t\tInt64Val: 20,\n\t\t\t\tStringVal: 'hello world',\n\t\t\t\tTimestampVal: timestamp('2011-08-06T01:23:45Z'),\n\t\t\t\tUint32Val: 100u,\n\t\t\t\tUint64Val: 200u,\n\t\t\t\tListVal: [\n\t\t\t\t\ttypes_test.TestNestedType{\n\t\t\t\t\t\tNestedListVal:['goodbye', 'cruel', 'world'],\n\t\t\t\t\t\tNestedMapVal: {42: true},\n\t\t\t\t\t\tNestedCustomName: 'name',\n\t\t\t\t\t},\n\t\t\t\t],\n\t\t\t\tArrayVal: [\n\t\t\t\t\ttypes_test.TestNestedType{\n\t\t\t\t\t\tNestedListVal:['goodbye', 'cruel', 'world'],\n\t\t\t\t\t\tNestedMapVal: {42: true},\n\t\t\t\t\t\tNestedCustomName: 'name',\n\t\t\t\t\t},\n\t\t\t\t],\n\t\t\t\tMapVal: {'map-key': types_test.TestAllTypes{BoolVal: true}},\n\t\t\t\tCustomSliceVal: [types_test.TestNestedSliceType{Value: 'none'}],\n\t\t\t\tCustomMapVal: {'even': types_test.TestMapVal{Value: 'more'}},\n\t\t\t\tCustomName: 'name',\n\t\t\t}",
+      "out": {
+        "$expr": "\u0026TestAllTypes{\n\t\t\t\tNestedVal:    \u0026TestNestedType{NestedMapVal: map[int64]bool{1: false}},\n\t\t\t\tBoolVal:      true,\n\t\t\t\tBytesVal:     []byte(\"hello\"),\n\t\t\t\tDurationVal:  time.Second * 5,\n\t\t\t\tDoubleVal:    1.5,\n\t\t\t\tFloatVal:     2.5,\n\t\t\t\tInt32Val:     10,\n\t\t\t\tInt64Val:     20,\n\t\t\t\tStringVal:    \"hello world\",\n\t\t\t\tTimestampVal: mustParseTime(t, \"2011-08-06T01:23:45Z\"),\n\t\t\t\tUint32Val:    uint32(100),\n\t\t\t\tUint64Val:    uint64(200),\n\t\t\t\tListVal: []*TestNestedType{\n\t\t\t\t\t{\n\t\t\t\t\t\tNestedListVal:    []string{\"goodbye\", \"cruel\", \"world\"},\n\t\t\t\t\t\tNestedMapVal:     map[int64]bool{42: true},\n\t\t\t\t\t\tNestedCustomName: \"name\",\n\t\t\t\t\t},\n\t\t\t\t},\n\t\t\t\tArrayVal: [1]*TestNestedType{{\n\t\t\t\t\tNestedListVal:    []string{\"goodbye\", \"cruel\", \"world\"},\n\t\t\t\t\tNestedMapVal:     map[int64]bool{42: true},\n\t\t\t\t\tNestedCustomName: \"name\",\n\t\t\t\t}},\n\t\t\t\tMapVal:         map[string]TestAllTypes{\"map-key\": {BoolVal: true}},\n\t\t\t\tCustomSliceVal: []TestNestedSliceType{{Value: \"none\"}},\n\t\t\t\tCustomMapVal:   map[string]TestMapVal{\"even\": {Value: \"more\"}},\n\t\t\t\tCustomName:     \"name\",\n\t\t\t}"
+      }
+    },
+    {
+      "expr": "types_test.TestAllTypes{\n\t\t\t\t\tPbVal: test.TestAllTypes{single_int32: 123}\n\t\t\t\t}.PbVal",
+      "out": {
+        "$expr": "\u0026proto3pb.TestAllTypes{SingleInt32: 123}"
+      }
+    },
+    {
+      "expr": "types_test.TestAllTypes{PbVal: test.TestAllTypes{}} ==\n\t\t\ttypes_test.TestAllTypes{PbVal: test.TestAllTypes{single_bool: false}}"
+    },
+    {
+      "expr": "types_test.TestNestedType{} == TestNestedType{}"
+    },
+    {
+      "expr": "types_test.TestAllTypes{}.BoolVal != true"
+    },
+    {
+      "expr": "!has(types_test.TestAllTypes{}.BoolVal) \u0026\u0026 !has(types_test.TestAllTypes{}.NestedVal)"
+    },
+    {
+      "expr": "type(types_test.TestAllTypes) == type"
+    },
+    {
+      "expr": "type(types_test.TestAllTypes{}) == types_test.TestAllTypes"
+    },
+    {
+      "expr": "type(types_test.TestAllTypes{}) == types_test.TestAllTypes"
+    },
+    {
+      "expr": "types_test.TestAllTypes != test.TestAllTypes"
+    },
+    {
+      "expr": "types_test.TestAllTypes{BoolVal: true} != dyn(test.TestAllTypes{single_bool: true})"
+    },
+    {
+      "expr": "types_test.TestAllTypes{}.NestedVal == types_test.TestNestedType{}"
+    },
+    {
+      "expr": "types_test.TestNestedType{} == types_test.TestAllTypes{}.NestedStructVal"
+    },
+    {
+      "expr": "types_test.TestAllTypes{}.NestedStructVal == types_test.TestNestedType{}"
+    },
+    {
+      "expr": "types_test.TestAllTypes{}.ListVal.size() == 0"
+    },
+    {
+      "expr": "types_test.TestAllTypes{}.MapVal.size() == 0"
+    },
+    {
+      "expr": "types_test.TestAllTypes{}.TimestampVal == timestamp(0)"
+    },
+    {
+      "expr": "test.TestAllTypes{}.single_timestamp == timestamp(0)"
+    },
+    {
+      "expr": "[TestAllTypes{BoolVal: true}, TestAllTypes{BoolVal: false}].exists(t, t.BoolVal == true)"
+    },
+    {
+      "expr": "[TestAllTypes{CustomName: 'Alice'}, TestAllTypes{CustomName: 'Bob'}].exists(t, t.CustomName == 'Alice')"
+    },
+    {
+      "envOpts": [
+        {
+          "$expr": "types.ParseStructTags(true)"
+        }
+      ],
+      "expr": "[TestAllTypes{custom_name: 'Alice'}, TestAllTypes{custom_name: 'Bob'}].exists(t, t.custom_name == 'Alice')"
+    },
+    {
+      "expr": "TestAllTypes{BytesArrayVal: b'1234'}.BytesArrayVal != b'123'"
+    },
+    {
+      "expr": "TestAllTypes{BytesArrayVal: b'1234'}.BytesArrayVal == b'1234'"
+    },
+    {
+      "expr": "tests.all(t, t.Int32Val \u003e 17)",
+      "in": {
+        "tests": [
+          {
+            "$expr": "{Int32Val: 18}"
+          },
+          {
+            "$expr": "{Int32Val: 19}"
+          },
+          {
+            "$expr": "{Int32Val: 20}"
+          }
+        ]
+      }
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypesConvertToNative": [
+    {
+      "in": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      },
+      "inType": {
+        "$expr": "cel.ObjectType(\"types_test.TestAllTypes\")"
+      },
+      "out": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "TestAllTypes{BoolVal: true}"
+      },
+      "inType": {
+        "$expr": "cel.ObjectType(\"types_test.TestAllTypes\")"
+      },
+      "out": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      },
+      "inType": {
+        "$expr": "cel.ObjectType(\"types_test.TestAllTypes\")"
+      },
+      "out": {
+        "$expr": "TestAllTypes{BoolVal: true}"
+      }
+    },
+    {
+      "in": null,
+      "inType": {
+        "$expr": "cel.NullType"
+      },
+      "out": {
+        "$expr": "types.NullValue"
+      }
+    },
+    {
+      "err": "type conversion error",
+      "in": {
+        "$expr": "\u0026TestAllTypes{BoolVal: true}"
+      },
+      "inType": {
+        "$expr": "cel.ObjectType(\"types_test.TestAllTypes\")"
+      },
+      "out": {
+        "$expr": "\u0026proto3pb.TestAllTypes{}"
+      }
+    },
+    {
+      "in": [1, 2, 3],
+      "inType": {
+        "$expr": "cel.ListType(cel.IntType)"
+      },
+      "out": [1, 2, 3]
+    },
+    {
+      "in": {
+        "$expr": "\u0026[3]byte{1, 2, 3}"
+      },
+      "inType": {
+        "$expr": "cel.BytesType"
+      },
+      "out": [1, 2, 3]
+    },
+    {
+      "in": [1, 2, 3],
+      "inType": {
+        "$expr": "cel.BytesType"
+      },
+      "out": [1, 2, 3]
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypesErrors": [
+    {
+      "err": "unsupported reflect.Type",
+      "nativeType": {
+        "$expr": "reflect.TypeOf(1)"
+      }
+    },
+    {
+      "err": "unsupported reflect.Type",
+      "nativeType": {
+        "$expr": "reflect.ValueOf(1)"
+      }
+    },
+    {
+      "err": "must be reflect.Type or reflect.Value",
+      "nativeType": 1
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypesJsonSerialization": [
+    {
+      "expr": "[b'string']",
+      "out": "[\"c3RyaW5n\"]"
+    },
+    {
+      "expr": "TestAllTypes{\n\t\t\t\tBoolVal: true,\n\t\t\t\tDurationVal: duration('5s'),\n\t\t\t\tDoubleVal: 1.5,\n\t\t\t\tFloatVal: 2.0,\n\t\t\t\tInt32Val: 23,\n\t\t\t\tInt64Val: 64,\n\t\t\t\tMapVal: {\n\t\t\t\t\t'map-key': types_test.TestAllTypes{\n\t\t\t\t\t\tBoolVal: true\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tNestedVal: TestNestedType{\n\t\t\t\t\tNestedListVal: [\"first\", \"second\"],\n\t\t\t\t},\n\t\t\t\tStringVal: \"string\",\n\t\t\t\tCustomName: \"name\",\n\t\t\t}",
+      "out": "{\n\t\t\t\t\"BoolVal\":  true,\n\t\t\t\t\"CustomName\":  \"name\",\n\t\t\t\t\"DoubleVal\":  1.5,\n\t\t\t\t\"DurationVal\":  \"5s\",\n\t\t\t\t\"FloatVal\":  2,\n\t\t\t\t\"Int32Val\":  23,\n\t\t\t\t\"Int64Val\":  64,\n\t\t\t\t\"MapVal\": {\n\t              \"map-key\": {\n    \t            \"BoolVal\": true\n        \t      }\n            \t},\n\t\t\t\t\"NestedVal\": {\n\t\t\t\t\t\"NestedListVal\": [\n\t\t\t\t\t  \"first\",\n\t\t\t\t\t  \"second\"\n\t\t\t\t\t]\n\t\t\t\t},\n\t\t\t\t\"StringVal\":  \"string\"\n\t\t\t  }"
+    },
+    {
+      "additionalEnvOptions": [
+        {
+          "$expr": "types.ParseStructTags(true)"
+        }
+      ],
+      "expr": "TestAllTypes{\n\t\t\t\tBoolVal: true,\n\t\t\t\tDurationVal: duration('5s'),\n\t\t\t\tDoubleVal: 1.5,\n\t\t\t\tFloatVal: 2.0,\n\t\t\t\tInt32Val: 23,\n\t\t\t\tInt64Val: 64,\n\t\t\t\tMapVal: {\n\t\t\t\t\t'map-key': types_test.TestAllTypes{\n\t\t\t\t\t\tBoolVal: true\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tNestedVal: TestNestedType{\n\t\t\t\t\tNestedListVal: [\"first\", \"second\"],\n\t\t\t\t},\n\t\t\t\tStringVal: \"string\",\n                custom_name: \"name\",\n\t\t\t}",
+      "out": "{\n\t\t\t\t\"BoolVal\":  true,\n\t\t\t\t\"DoubleVal\":  1.5,\n\t\t\t\t\"DurationVal\":  \"5s\",\n\t\t\t\t\"FloatVal\":  2,\n\t\t\t\t\"Int32Val\":  23,\n\t\t\t\t\"Int64Val\":  64,\n\t\t\t\t\"MapVal\": {\n\t              \"map-key\": {\n    \t            \"BoolVal\": true\n        \t      }\n            \t},\n\t\t\t\t\"NestedVal\": {\n\t\t\t\t\t\"NestedListVal\": [\n\t\t\t\t\t  \"first\",\n\t\t\t\t\t  \"second\"\n\t\t\t\t\t]\n\t\t\t\t},\n\t\t\t\t\"StringVal\":  \"string\",\n                \"custom_name\": \"name\"\n\t\t\t  }"
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypesRuntimeErrors": [
+    {
+      "err": "unknown type: TestAllTypos",
+      "expr": "TestAllTypos{}"
+    },
+    {
+      "err": "no such field: bool_val",
+      "expr": "types_test.TestAllTypes{bool_val: false}"
+    },
+    {
+      "err": "no such field: UnsupportedVal",
+      "expr": "types_test.TestAllTypes{UnsupportedVal: null}"
+    },
+    {
+      "err": "no such field: UnsupportedListVal",
+      "expr": "types_test.TestAllTypes{UnsupportedListVal: null}"
+    },
+    {
+      "err": "no such field: UnsupportedMapVal",
+      "expr": "types_test.TestAllTypes{UnsupportedMapVal: null}"
+    },
+    {
+      "err": "no such field: privateVal",
+      "expr": "types_test.TestAllTypes{privateVal: null}"
+    },
+    {
+      "err": "no such field: UnsupportedMapVal",
+      "expr": "types_test.TestAllTypes{}.UnsupportedMapVal"
+    },
+    {
+      "err": "no such field: privateVal",
+      "expr": "types_test.TestAllTypes{}.privateVal"
+    },
+    {
+      "err": "unsupported native conversion from string to 'bool'",
+      "expr": "types_test.TestAllTypes{BoolVal: 'false'}"
+    },
+    {
+      "err": "no such field: BadFieldName",
+      "expr": "has(types_test.TestAllTypes{}.BadFieldName)"
+    },
+    {
+      "err": "no such overload",
+      "expr": "types_test.TestAllTypes{}[42]"
+    },
+    {
+      "err": "integer overflow",
+      "expr": "types_test.TestAllTypes{Int32Val: 9223372036854775807}"
+    },
+    {
+      "err": "unsigned integer overflow",
+      "expr": "types_test.TestAllTypes{Uint32Val: 9223372036854775807u}"
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypesStaticErrors": [
+    {
+      "err": "ERROR: \u003cinput\u003e:1:13: undeclared reference to 'TestAllTypos' (in container 'types_test')\n\t\t\t | TestAllTypos{}\n\t\t\t | ............^",
+      "expr": "TestAllTypos{}"
+    },
+    {
+      "err": "ERROR: \u003cinput\u003e:1:33: undefined field 'bool_val'\n\t\t\t| types_test.TestAllTypes{bool_val: false}\n\t\t\t| ................................^",
+      "expr": "types_test.TestAllTypes{bool_val: false}"
+    },
+    {
+      "err": "ERROR: \u003cinput\u003e:1:39: undefined field 'UnsupportedVal'\n\t\t\t| types_test.TestAllTypes{UnsupportedVal: null}\n\t\t\t| ......................................^",
+      "expr": "types_test.TestAllTypes{UnsupportedVal: null}"
+    },
+    {
+      "err": "ERROR: \u003cinput\u003e:1:43: undefined field 'UnsupportedListVal'\n\t\t\t| types_test.TestAllTypes{UnsupportedListVal: null}\n\t\t\t| ..........................................^",
+      "expr": "types_test.TestAllTypes{UnsupportedListVal: null}"
+    },
+    {
+      "err": "ERROR: \u003cinput\u003e:1:42: undefined field 'UnsupportedMapVal'\n\t\t\t| types_test.TestAllTypes{UnsupportedMapVal: null}\n\t\t\t| .........................................^",
+      "expr": "types_test.TestAllTypes{UnsupportedMapVal: null}"
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypesWithCELTypedFields": [
+    {
+      "expr": "types_test.TestRefValFieldType{optional_name: optional.of('my name')}.optional_name.orValue('') == 'my name'"
+    },
+    {
+      "expr": "types_test.TestRefValFieldType{IntVal: 2}.IntVal \u003e= 1"
+    },
+    {
+      "expr": "types_test.TestRefValFieldType{time: timestamp('2001-01-01T00:00:00Z')}.time \u003e timestamp('1970-01-01T00:00:00Z')"
+    }
+  ],
+  "common/types/native_test.go/TestNativeTypesWithOptional": [
+    {
+      "expr": "!optional.ofNonZeroValue(types_test.TestAllTypes{}).hasValue()"
+    },
+    {
+      "expr": "!types_test.TestAllTypes{}.?BoolVal.orValue(false)"
+    },
+    {
+      "expr": "!types_test.TestAllTypes{}.?BoolVal.hasValue()"
+    },
+    {
+      "expr": "!types_test.TestAllTypes{BoolVal: false}.?BoolVal.hasValue()"
+    },
+    {
+      "expr": "types_test.TestAllTypes{BoolVal: true}.?BoolVal.hasValue()"
+    },
+    {
+      "expr": "types_test.TestAllTypes{}.NestedVal.?NestedMapVal.orValue({}).size() == 0"
+    }
+  ],
+  "common/types/native_test.go/TestTypeResolutionRace": [
+    {
+      "expr": "Custom{ name: \"name1\" }",
+      "name": "custom1"
+    },
+    {
+      "expr": "Custom{ name: \"name2\" }",
+      "name": "custom2"
+    },
+    {
+      "expr": "Custom{ name: \"name3\" }",
+      "name": "custom3"
+    },
+    {
+      "expr": "Custom{ name: \"name4\" }",
+      "name": "custom4"
+    },
+    {
+      "expr": "Custom{ name: \"name5\" }",
+      "name": "custom5"
+    }
+  ],
   "common/types/null_test.go/TestNullConvertToNative": [
     {
       "goType": {
@@ -10596,11 +11131,7 @@
           "id": "1"
         },
         "sourceInfo": {
-          "lineOffsets": [
-            1.0,
-            2.0,
-            3.0
-          ]
+          "lineOffsets": [1.0, 2.0, 3.0]
         }
       }
     },
@@ -10624,11 +11155,7 @@
           "id": "1"
         },
         "sourceInfo": {
-          "lineOffsets": [
-            1.0,
-            2.0,
-            3.0
-          ]
+          "lineOffsets": [1.0, 2.0, 3.0]
         }
       }
     }
@@ -11318,47 +11845,1413 @@
       }
     }
   ],
+  "common/types/provider_test.go/TestComposeTypes_ErrorCases": [
+    {
+      "name": "unsupported type",
+      "types": [12345]
+    },
+    {
+      "name": "conflicting type definitions",
+      "types": [
+        {
+          "$expr": "NewTypeValue(\"http.Request\", traits.ReceiverType)"
+        },
+        {
+          "$expr": "NewObjectType(\"http.Request\", traits.ReceiverType)"
+        }
+      ]
+    }
+  ],
+  "common/types/provider_test.go/TestConvertToNative": [
+    {
+      "in": {
+        "$expr": "True"
+      },
+      "name": "bool to bool",
+      "want": true
+    },
+    {
+      "in": {
+        "$expr": "True"
+      },
+      "name": "bool to ref.Val Bool",
+      "want": {
+        "$expr": "True"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Bool{True, False})"
+      },
+      "name": "bool list to []any",
+      "want": [true, false]
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Bool{True, False})"
+      },
+      "name": "bool list to []ref.Val",
+      "want": [
+        {
+          "$expr": "True"
+        },
+        {
+          "$expr": "False"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "Int(-1)"
+      },
+      "name": "int to int32",
+      "want": {
+        "$expr": "int32(-1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Int(2)"
+      },
+      "name": "int to int64",
+      "want": {
+        "$expr": "int64(2)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Int(-1)"
+      },
+      "name": "int to ref.Val Int",
+      "want": {
+        "$expr": "Int(-1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Int{4})"
+      },
+      "name": "int list to []any",
+      "want": [
+        {
+          "$expr": "int64(4)"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Int{5})"
+      },
+      "name": "int list to []ref.Val",
+      "want": [
+        {
+          "$expr": "Int(5)"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "Uint(3)"
+      },
+      "name": "uint to uint32",
+      "want": {
+        "$expr": "uint32(3)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Uint(4)"
+      },
+      "name": "uint to uint64",
+      "want": {
+        "$expr": "uint64(4)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Uint(5)"
+      },
+      "name": "uint to ref.Val Uint",
+      "want": {
+        "$expr": "Uint(5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Uint{4})"
+      },
+      "name": "uint list to []any",
+      "want": [
+        {
+          "$expr": "uint64(4)"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Uint{5})"
+      },
+      "name": "uint list to []ref.Val",
+      "want": [
+        {
+          "$expr": "Uint(5)"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "Double(5.5)"
+      },
+      "name": "double to float32",
+      "want": {
+        "$expr": "float32(5.5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Double(-5.5)"
+      },
+      "name": "double to float64",
+      "want": {
+        "$expr": "float64(-5.5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Double{-5.5})"
+      },
+      "name": "double list to []any",
+      "want": [-5.5]
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Double{-5.5})"
+      },
+      "name": "double list to []ref.Val",
+      "want": [
+        {
+          "$expr": "Double(-5.5)"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "Double(-5.5)"
+      },
+      "name": "double to ref.Val Double",
+      "want": {
+        "$expr": "Double(-5.5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "String(\"hello\")"
+      },
+      "name": "string to string",
+      "want": "hello"
+    },
+    {
+      "in": {
+        "$expr": "String(\"hello\")"
+      },
+      "name": "string to ref.Val String",
+      "want": {
+        "$expr": "String(\"hello\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NullValue"
+      },
+      "name": "null to structpb.NullValue",
+      "want": {
+        "$expr": "structpb.NullValue_NULL_VALUE"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NullValue"
+      },
+      "name": "null to ref.Val NullValue",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Null{NullValue})"
+      },
+      "name": "null list to []any",
+      "want": [
+        {
+          "$expr": "structpb.NullValue_NULL_VALUE"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Null{NullValue})"
+      },
+      "name": "null list to []ref.Val",
+      "want": [
+        {
+          "$expr": "NullValue"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "Bytes(\"world\")"
+      },
+      "name": "bytes to []byte",
+      "want": {
+        "$expr": "[]byte(\"world\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Bytes(\"world\")"
+      },
+      "name": "bytes to ref.Val Bytes",
+      "want": {
+        "$expr": "Bytes(\"world\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Bytes{Bytes(\"hello\")})"
+      },
+      "name": "bytes list to []any",
+      "want": [
+        {
+          "$expr": "[]byte(\"hello\")"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []Bytes{Bytes(\"hello\")})"
+      },
+      "name": "bytes list to []ref.Val",
+      "want": [
+        {
+          "$expr": "Bytes(\"hello\")"
+        }
+      ]
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicList(reg, []int64{1, 2, 3})"
+      },
+      "name": "int64 list to []int32",
+      "want": [1, 2, 3]
+    },
+    {
+      "in": {
+        "$expr": "Duration{Duration: time.Duration(500)}"
+      },
+      "name": "duration to time.Duration",
+      "want": {
+        "$expr": "time.Duration(500)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Duration{Duration: time.Duration(500)}"
+      },
+      "name": "duration to ref.Val Duration",
+      "want": {
+        "$expr": "Duration{Duration: time.Duration(500)}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Timestamp{Time: time.Unix(12345, 0)}"
+      },
+      "name": "timestamp to time.Time",
+      "want": {
+        "$expr": "time.Unix(12345, 0)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Timestamp{Time: time.Unix(12345, 0)}"
+      },
+      "name": "timestamp to ref.Val Timestamp",
+      "want": {
+        "$expr": "Timestamp{Time: time.Unix(12345, 0)}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "NewDynamicMap(reg, map[int64]int64{1: 1, 2: 1, 3: 1})"
+      },
+      "name": "map[int64]int64 to map[int32]int32",
+      "want": {
+        "1": 1,
+        "2": 1,
+        "3": 1
+      }
+    },
+    {
+      "in": {
+        "$expr": "Null(structpb.NullValue_NULL_VALUE)"
+      },
+      "name": "Null(NULL_VALUE) to structpb.NullValue",
+      "want": {
+        "$expr": "structpb.NullValue_NULL_VALUE"
+      }
+    },
+    {
+      "in": {
+        "$expr": "reg.NativeToValue(parsedExpr)"
+      },
+      "name": "parsedExpr proto to proto message",
+      "want": {
+        "$expr": "parsedExpr"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Int(1)"
+      },
+      "name": "int to testInt",
+      "want": {
+        "$expr": "testInt(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Int(1)"
+      },
+      "name": "int to testInt8",
+      "want": {
+        "$expr": "testInt8(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Int(1)"
+      },
+      "name": "int to testInt16",
+      "want": {
+        "$expr": "testInt16(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Int(1)"
+      },
+      "name": "int to testInt32",
+      "want": {
+        "$expr": "testInt32(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Int(1)"
+      },
+      "name": "int to testInt64",
+      "want": {
+        "$expr": "testInt64(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Uint(1)"
+      },
+      "name": "uint to testUint",
+      "want": {
+        "$expr": "testUint(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Uint(1)"
+      },
+      "name": "uint to testUint8",
+      "want": {
+        "$expr": "testUint8(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Uint(1)"
+      },
+      "name": "uint to testUint16",
+      "want": {
+        "$expr": "testUint16(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Uint(1)"
+      },
+      "name": "uint to testUint32",
+      "want": {
+        "$expr": "testUint32(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Uint(1)"
+      },
+      "name": "uint to testUint64",
+      "want": {
+        "$expr": "testUint64(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Double(4.5)"
+      },
+      "name": "double to testFloat32",
+      "want": {
+        "$expr": "testFloat32(4.5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "Double(-5.1)"
+      },
+      "name": "double to testFloat64",
+      "want": {
+        "$expr": "testFloat64(-5.1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "String(\"foo\")"
+      },
+      "name": "string to testString",
+      "want": {
+        "$expr": "testString(\"foo\")"
+      }
+    }
+  ],
+  "common/types/provider_test.go/TestNativeToValue_Any": [
+    {
+      "in": {
+        "$expr": "nullAny"
+      },
+      "name": "NullValue",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "jsonStructAny"
+      },
+      "name": "JSON Struct",
+      "want": {
+        "$expr": "NewJSONStruct(reg, \u0026structpb.Struct{\n\t\t\t\tFields: map[string]*structpb.Value{\n\t\t\t\t\t\"a\": structpb.NewStringValue(\"world\"),\n\t\t\t\t\t\"b\": structpb.NewStringValue(\"five!\"),\n\t\t\t\t},\n\t\t\t})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "jsonListAny"
+      },
+      "name": "JSON List",
+      "want": {
+        "$expr": "NewJSONList(reg, \u0026structpb.ListValue{\n\t\t\t\tValues: []*structpb.Value{\n\t\t\t\t\tstructpb.NewStringValue(\"world\"),\n\t\t\t\t\tstructpb.NewStringValue(\"five!\"),\n\t\t\t\t},\n\t\t\t})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "pbMessageAny"
+      },
+      "name": "Proto Message",
+      "want": {
+        "$expr": "reg.NativeToValue(\u0026pbMessage)"
+      }
+    }
+  ],
+  "common/types/provider_test.go/TestNativeToValue_Json": [
+    {
+      "in": {
+        "$expr": "structpb.NewBoolValue(false)"
+      },
+      "name": "bool value",
+      "want": {
+        "$expr": "False"
+      }
+    },
+    {
+      "in": {
+        "$expr": "structpb.NewNumberValue(1.1)"
+      },
+      "name": "number value",
+      "want": {
+        "$expr": "Double(1.1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "structpb.NewNullValue()"
+      },
+      "name": "null value",
+      "want": {
+        "$expr": "Null(structpb.NullValue_NULL_VALUE)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "structpb.NewStringValue(\"hello\")"
+      },
+      "name": "string value",
+      "want": {
+        "$expr": "String(\"hello\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "structpb.NewListValue(\n\t\t\t\t\u0026structpb.ListValue{\n\t\t\t\t\tValues: []*structpb.Value{\n\t\t\t\t\t\tstructpb.NewStringValue(\"world\"),\n\t\t\t\t\t\tstructpb.NewStringValue(\"five!\"),\n\t\t\t\t\t},\n\t\t\t\t},\n\t\t\t)"
+      },
+      "name": "list value",
+      "want": {
+        "$expr": "NewJSONList(reg, \u0026structpb.ListValue{\n\t\t\t\tValues: []*structpb.Value{\n\t\t\t\t\tstructpb.NewStringValue(\"world\"),\n\t\t\t\t\tstructpb.NewStringValue(\"five!\"),\n\t\t\t\t},\n\t\t\t})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "structpb.NewStructValue(\n\t\t\t\t\u0026structpb.Struct{\n\t\t\t\t\tFields: map[string]*structpb.Value{\n\t\t\t\t\t\t\"a\": structpb.NewStringValue(\"world\"),\n\t\t\t\t\t\t\"b\": structpb.NewStringValue(\"five!\"),\n\t\t\t\t\t},\n\t\t\t\t},\n\t\t\t)"
+      },
+      "name": "struct value",
+      "want": {
+        "$expr": "NewJSONStruct(reg, \u0026structpb.Struct{\n\t\t\t\tFields: map[string]*structpb.Value{\n\t\t\t\t\t\"a\": structpb.NewStringValue(\"world\"),\n\t\t\t\t\t\"b\": structpb.NewStringValue(\"five!\"),\n\t\t\t\t},\n\t\t\t})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "parsedExpr"
+      },
+      "name": "proto message",
+      "want": {
+        "$expr": "reg.NativeToValue(parsedExpr)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "json.Number(\"42\")"
+      },
+      "name": "json.Number int",
+      "want": {
+        "$expr": "Int(42)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "json.Number(\"42.5\")"
+      },
+      "name": "json.Number float",
+      "want": {
+        "$expr": "Double(42.5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "json.Number(\"invalid-num\")"
+      },
+      "name": "json.Number invalid",
+      "wantErr": true
+    },
+    {
+      "in": {
+        "$expr": "json.RawMessage(`{\"key\":\"value\"}`)"
+      },
+      "name": "json.RawMessage map",
+      "want": {
+        "$expr": "NewStringInterfaceMap(reg, map[string]any{\"key\": \"value\"})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "json.RawMessage(`\"hello\"`)"
+      },
+      "name": "json.RawMessage string",
+      "want": {
+        "$expr": "String(\"hello\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "json.RawMessage(`123`)"
+      },
+      "name": "json.RawMessage int",
+      "want": {
+        "$expr": "Double(123)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "json.RawMessage(`[\"world\", 42]`)"
+      },
+      "name": "json.RawMessage array",
+      "want": {
+        "$expr": "NewDynamicList(reg, []any{\"world\", float64(42)})"
+      }
+    },
+    {
+      "in": [
+        {
+          "$expr": "json.RawMessage(`\"hello\"`)"
+        },
+        {
+          "$expr": "json.RawMessage(`123`)"
+        }
+      ],
+      "name": "[]json.RawMessage slice",
+      "want": {
+        "$expr": "NewDynamicList(reg, []json.RawMessage{json.RawMessage(`\"hello\"`), json.RawMessage(`123`)})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "json.RawMessage(`invalid-json`)"
+      },
+      "name": "json.RawMessage invalid",
+      "wantErr": true
+    }
+  ],
+  "common/types/provider_test.go/TestNativeToValue_Primitive": [
+    {
+      "in": true,
+      "name": "bool",
+      "want": {
+        "$expr": "True"
+      }
+    },
+    {
+      "in": {
+        "$expr": "int(-10)"
+      },
+      "name": "int",
+      "want": {
+        "$expr": "Int(-10)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "int32(-1)"
+      },
+      "name": "int32",
+      "want": {
+        "$expr": "Int(-1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "int64(2)"
+      },
+      "name": "int64",
+      "want": {
+        "$expr": "Int(2)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "uint(6)"
+      },
+      "name": "uint",
+      "want": {
+        "$expr": "Uint(6)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "uint32(3)"
+      },
+      "name": "uint32",
+      "want": {
+        "$expr": "Uint(3)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "uint64(4)"
+      },
+      "name": "uint64",
+      "want": {
+        "$expr": "Uint(4)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "float32(5.5)"
+      },
+      "name": "float32",
+      "want": {
+        "$expr": "Double(5.5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "float64(-5.5)"
+      },
+      "name": "float64",
+      "want": {
+        "$expr": "Double(-5.5)"
+      }
+    },
+    {
+      "in": "hello",
+      "name": "string",
+      "want": {
+        "$expr": "String(\"hello\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "[]byte(\"world\")"
+      },
+      "name": "bytes slice",
+      "want": {
+        "$expr": "Bytes(\"world\")"
+      }
+    },
+    {
+      "in": [1, 2, 3, 4],
+      "name": "bytes array",
+      "want": {
+        "$expr": "Bytes([]byte{1, 2, 3, 4})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026[4]byte{1, 2, 3, 4}"
+      },
+      "name": "bytes array pointer",
+      "want": {
+        "$expr": "Bytes([]byte{1, 2, 3, 4})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "time.Duration(500)"
+      },
+      "name": "time duration",
+      "want": {
+        "$expr": "Duration{Duration: time.Duration(500)}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "time.Unix(12345, 0)"
+      },
+      "name": "time timestamp",
+      "want": {
+        "$expr": "Timestamp{Time: time.Unix(12345, 0)}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "dpb.New(time.Duration(500))"
+      },
+      "name": "proto duration",
+      "want": {
+        "$expr": "Duration{Duration: time.Duration(500)}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "tpb.New(time.Unix(12345, 0))"
+      },
+      "name": "proto timestamp",
+      "want": {
+        "$expr": "Timestamp{Time: time.Unix(12345, 0)}"
+      }
+    },
+    {
+      "in": [1, 2, 3],
+      "name": "slice of int32",
+      "want": {
+        "$expr": "NewDynamicList(reg, []int32{1, 2, 3})"
+      }
+    },
+    {
+      "in": {
+        "1": 1,
+        "2": 1,
+        "3": 1
+      },
+      "name": "map of int32",
+      "want": {
+        "$expr": "NewDynamicMap(reg, map[int32]int32{1: 1, 2: 1, 3: 1})"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pBool"
+      },
+      "name": "pointer to bool",
+      "want": {
+        "$expr": "True"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pDub32"
+      },
+      "name": "pointer to float32",
+      "want": {
+        "$expr": "Double(2.5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pDub64"
+      },
+      "name": "pointer to float64",
+      "want": {
+        "$expr": "Double(-1000.2)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pInt"
+      },
+      "name": "pointer to int",
+      "want": {
+        "$expr": "Int(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pInt32"
+      },
+      "name": "pointer to int32",
+      "want": {
+        "$expr": "Int(2)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pInt64"
+      },
+      "name": "pointer to int64",
+      "want": {
+        "$expr": "Int(-1000)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pStr"
+      },
+      "name": "pointer to string",
+      "want": {
+        "$expr": "String(\"hello\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pUint"
+      },
+      "name": "pointer to uint",
+      "want": {
+        "$expr": "Uint(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pUint32"
+      },
+      "name": "pointer to uint32",
+      "want": {
+        "$expr": "Uint(2)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026pUint64"
+      },
+      "name": "pointer to uint64",
+      "want": {
+        "$expr": "Uint(1000)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026rBool"
+      },
+      "name": "pointer to ref.Val bool",
+      "want": {
+        "$expr": "True"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026rDub"
+      },
+      "name": "pointer to ref.Val double",
+      "want": {
+        "$expr": "rDub"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026rInt"
+      },
+      "name": "pointer to ref.Val int",
+      "want": {
+        "$expr": "rInt"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026rStr"
+      },
+      "name": "pointer to ref.Val string",
+      "want": {
+        "$expr": "rStr"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026rUint"
+      },
+      "name": "pointer to ref.Val uint",
+      "want": {
+        "$expr": "rUint"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026rBytes"
+      },
+      "name": "pointer to ref.Val bytes",
+      "want": {
+        "$expr": "rBytes"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testBool(true)"
+      },
+      "name": "custom testBool",
+      "want": {
+        "$expr": "True"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testInt(1)"
+      },
+      "name": "custom testInt",
+      "want": {
+        "$expr": "Int(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testInt8(1)"
+      },
+      "name": "custom testInt8",
+      "want": {
+        "$expr": "Int(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testInt16(1)"
+      },
+      "name": "custom testInt16",
+      "want": {
+        "$expr": "Int(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testInt32(1)"
+      },
+      "name": "custom testInt32",
+      "want": {
+        "$expr": "Int(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testInt64(-100)"
+      },
+      "name": "custom testInt64",
+      "want": {
+        "$expr": "Int(-100)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testUint(1)"
+      },
+      "name": "custom testUint",
+      "want": {
+        "$expr": "Uint(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testUint8(1)"
+      },
+      "name": "custom testUint8",
+      "want": {
+        "$expr": "Uint(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testUint16(1)"
+      },
+      "name": "custom testUint16",
+      "want": {
+        "$expr": "Uint(1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testUint32(2)"
+      },
+      "name": "custom testUint32",
+      "want": {
+        "$expr": "Uint(2)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testUint64(3)"
+      },
+      "name": "custom testUint64",
+      "want": {
+        "$expr": "Uint(3)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testFloat32(4.5)"
+      },
+      "name": "custom testFloat32",
+      "want": {
+        "$expr": "Double(4.5)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testFloat64(-5.1)"
+      },
+      "name": "custom testFloat64",
+      "want": {
+        "$expr": "Double(-5.1)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "testString(\"foo\")"
+      },
+      "name": "custom testString",
+      "want": {
+        "$expr": "String(\"foo\")"
+      }
+    },
+    {
+      "in": null,
+      "name": "nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "structpb.NullValue_NULL_VALUE"
+      },
+      "name": "proto null value",
+      "want": {
+        "$expr": "Null(structpb.NullValue_NULL_VALUE)"
+      }
+    }
+  ],
+  "common/types/provider_test.go/TestNativeToValue_Wrappers": [
+    {
+      "in": {
+        "$expr": "wrapperspb.Bool(true)"
+      },
+      "name": "bool wrapper true",
+      "want": {
+        "$expr": "True"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.BoolValue{}"
+      },
+      "name": "bool wrapper zero value",
+      "want": {
+        "$expr": "False"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.BoolValue)(nil)"
+      },
+      "name": "bool wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.BytesValue{}"
+      },
+      "name": "bytes wrapper zero value",
+      "want": {
+        "$expr": "Bytes{}"
+      }
+    },
+    {
+      "in": {
+        "$expr": "wrapperspb.Bytes([]byte(\"hi\"))"
+      },
+      "name": "bytes wrapper value",
+      "want": {
+        "$expr": "Bytes(\"hi\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.BytesValue)(nil)"
+      },
+      "name": "bytes wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.DoubleValue{}"
+      },
+      "name": "double wrapper zero value",
+      "want": {
+        "$expr": "Double(0.0)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "wrapperspb.Double(6.4)"
+      },
+      "name": "double wrapper value",
+      "want": {
+        "$expr": "Double(6.4)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.DoubleValue)(nil)"
+      },
+      "name": "double wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.FloatValue{}"
+      },
+      "name": "float wrapper zero value",
+      "want": {
+        "$expr": "Double(0.0)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "wrapperspb.Float(3.0)"
+      },
+      "name": "float wrapper value",
+      "want": {
+        "$expr": "Double(3.0)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.FloatValue)(nil)"
+      },
+      "name": "float wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.Int32Value{}"
+      },
+      "name": "int32 wrapper zero value",
+      "want": {
+        "$expr": "IntZero"
+      }
+    },
+    {
+      "in": {
+        "$expr": "wrapperspb.Int32(-32)"
+      },
+      "name": "int32 wrapper value",
+      "want": {
+        "$expr": "Int(-32)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.Int32Value)(nil)"
+      },
+      "name": "int32 wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.Int64Value{}"
+      },
+      "name": "int64 wrapper zero value",
+      "want": {
+        "$expr": "IntZero"
+      }
+    },
+    {
+      "in": {
+        "$expr": "wrapperspb.Int64(-64)"
+      },
+      "name": "int64 wrapper value",
+      "want": {
+        "$expr": "Int(-64)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.Int64Value)(nil)"
+      },
+      "name": "int64 wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.StringValue{}"
+      },
+      "name": "string wrapper zero value",
+      "want": {
+        "$expr": "String(\"\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "wrapperspb.String(\"hello\")"
+      },
+      "name": "string wrapper value",
+      "want": {
+        "$expr": "String(\"hello\")"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.StringValue)(nil)"
+      },
+      "name": "string wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.UInt32Value{}"
+      },
+      "name": "uint32 wrapper zero value",
+      "want": {
+        "$expr": "Uint(0)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "wrapperspb.UInt32(32)"
+      },
+      "name": "uint32 wrapper value",
+      "want": {
+        "$expr": "Uint(32)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.UInt32Value)(nil)"
+      },
+      "name": "uint32 wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    },
+    {
+      "in": {
+        "$expr": "\u0026wrapperspb.UInt64Value{}"
+      },
+      "name": "uint64 wrapper zero value",
+      "want": {
+        "$expr": "Uint(0)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "wrapperspb.UInt64(64)"
+      },
+      "name": "uint64 wrapper value",
+      "want": {
+        "$expr": "Uint(64)"
+      }
+    },
+    {
+      "in": {
+        "$expr": "(*wrapperspb.UInt64Value)(nil)"
+      },
+      "name": "uint64 wrapper nil",
+      "want": {
+        "$expr": "NullValue"
+      }
+    }
+  ],
+  "common/types/provider_test.go/TestRegistryCopy": [
+    {
+      "name": "empty",
+      "reg": {
+        "$expr": "NewEmptyRegistry()"
+      }
+    },
+    {
+      "name": "populated",
+      "reg": {
+        "$expr": "newTestRegistry(t)"
+      }
+    }
+  ],
   "common/types/provider_test.go/TestRegistryFindStructFieldNames": [
     {
-      "fields": [
-        "name",
-        "overload_id",
-        "value"
-      ],
+      "fields": ["name", "overload_id", "value"],
+      "name": "Reference",
       "typeName": "google.api.expr.v1alpha1.Reference"
     },
     {
-      "fields": [
-        "name",
-        "ident",
-        "function"
-      ],
+      "fields": ["name", "ident", "function"],
+      "name": "Decl",
       "typeName": "google.api.expr.v1alpha1.Decl"
     },
     {
       "fields": [],
+      "name": "invalid type",
       "typeName": "invalid.TypeName"
     },
     {
-      "fields": [
-        "name",
-        "overloadId",
-        "value"
-      ],
+      "fields": ["name", "overloadId", "value"],
       "jsonFieldNames": true,
+      "name": "Reference JSON field names",
       "typeName": "google.api.expr.v1alpha1.Reference"
     }
   ],
   "common/types/provider_test.go/TestRegistryFindStructFieldType": [
     {
       "field": "single_bool",
-      "found": true,
-      "typeName": {
-        "$expr": "msgTypeName"
-      }
-    },
-    {
-      "field": "single_nested_message",
       "found": true,
       "typeName": {
         "$expr": "msgTypeName"
@@ -11449,6 +13342,16 @@
       "typeName": {
         "$expr": "msgTypeName"
       }
+    }
+  ],
+  "common/types/provider_test.go/TestRegistryFindStructType": [
+    {
+      "typeName": ".google.expr.proto3.test.TestAllTypes",
+      "wantFound": true
+    },
+    {
+      "typeName": ".google.expr.proto3.test.TestAllTypesUndefined",
+      "wantFound": false
     }
   ],
   "common/types/provider_test.go/TestRegistryNewValue": [
@@ -11636,6 +13539,803 @@
         }
       },
       "typeName": "google.expr.proto3.test.TestAllTypes"
+    }
+  ],
+  "common/types/provider_test.go/TestRegistryRegisterType": [
+    {
+      "name": "differing type definitions same name",
+      "types": [
+        {
+          "$expr": "NewTypeValue(\"http.Request\", traits.ReceiverType)"
+        },
+        {
+          "$expr": "NewObjectType(\"http.Request\", traits.ReceiverType)"
+        }
+      ],
+      "wantErr": true
+    },
+    {
+      "name": "equivalent opaque types no conflict",
+      "types": [
+        {
+          "$expr": "NewOpaqueType(\"http.Request\", NewTypeParamType(\"T\"))"
+        },
+        {
+          "$expr": "NewOpaqueType(\"http.Request\", NewTypeParamType(\"V\"))"
+        }
+      ],
+      "wantErr": false
+    },
+    {
+      "name": "differing opaque types conflict",
+      "types": [
+        {
+          "$expr": "NewOpaqueType(\"http.Request\", NewTypeParamType(\"T\"), NewTypeParamType(\"V\"))"
+        },
+        {
+          "$expr": "NewOpaqueType(\"http.Request\", NewTypeParamType(\"V\"))"
+        }
+      ],
+      "wantErr": true
+    }
+  ],
+  "common/types/provider_test.go/TestRegistryStructTypeDescriptor_FindStructFieldType": [
+    {
+      "fieldName": "Foo",
+      "wantType": {
+        "$expr": "StringType"
+      }
+    },
+    {
+      "fieldName": "Bar",
+      "wantType": {
+        "$expr": "IntType"
+      }
+    }
+  ],
+  "common/types/provider_test.go/TestRegistryStructTypeDescriptor_FindStructType": [
+    {
+      "name": "custom.MyStruct",
+      "wantType": "type"
+    },
+    {
+      "name": ".custom.MyStruct",
+      "wantType": "type"
+    }
+  ],
+  "common/types/provider_test.go/TestRegistryStructTypeDescriptor_NativeToValue": [
+    {
+      "check": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tfooVal := val.(traits.Indexer).Get(String(\"Foo\"))\n\t\t\t\tif fooVal.Equal(String(\"hello\")) != True {\n\t\t\t\t\tt.Errorf(\"Get('Foo') = %v, want 'hello'\", fooVal)\n\t\t\t\t}\n\t\t\t}"
+      },
+      "in": {
+        "$expr": "dummyNativeStruct{Foo: \"hello\", Bar: 42}"
+      },
+      "name": "struct instance"
+    },
+    {
+      "check": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tbarVal := val.(traits.Indexer).Get(String(\"Bar\"))\n\t\t\t\tif barVal.Equal(Int(99)) != True {\n\t\t\t\t\tt.Errorf(\"Get('Bar') = %v, want 99\", barVal)\n\t\t\t\t}\n\t\t\t}"
+      },
+      "in": {
+        "$expr": "\u0026dummyNativeStruct{Foo: \"world\", Bar: 99}"
+      },
+      "name": "pointer to struct instance"
+    },
+    {
+      "check": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tlister := val.(traits.Lister)\n\t\t\t\tif lister.Size().Equal(Int(2)) != True {\n\t\t\t\t\tt.Errorf(\"Size() = %v, want 2\", lister.Size())\n\t\t\t\t}\n\t\t\t\te1 := lister.Get(Int(0)).(traits.Indexer).Get(String(\"Foo\"))\n\t\t\t\tif e1.Equal(String(\"e1\")) != True {\n\t\t\t\t\tt.Errorf(\"element 0 Foo = %v, want 'e1'\", e1)\n\t\t\t\t}\n\t\t\t}"
+      },
+      "in": [
+        {
+          "$expr": "{Foo: \"e1\"}"
+        },
+        {
+          "$expr": "{Foo: \"e2\"}"
+        }
+      ],
+      "name": "slice of struct instances"
+    },
+    {
+      "check": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tmapper := val.(traits.Mapper)\n\t\t\t\tk1Val := mapper.Get(String(\"k1\")).(traits.Indexer).Get(String(\"Foo\"))\n\t\t\t\tif k1Val.Equal(String(\"v1\")) != True {\n\t\t\t\t\tt.Errorf(\"map k1 Foo = %v, want 'v1'\", k1Val)\n\t\t\t\t}\n\t\t\t}"
+      },
+      "in": {
+        "k1": {
+          "$expr": "{Foo: \"v1\"}"
+        }
+      },
+      "name": "map of struct instances"
+    },
+    {
+      "check": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif val != NullValue {\n\t\t\t\t\tt.Errorf(\"NativeToValue((*dummyNativeStruct)(nil)) = %v, want NullValue\", val)\n\t\t\t\t}\n\t\t\t}"
+      },
+      "in": {
+        "$expr": "(*dummyNativeStruct)(nil)"
+      },
+      "name": "typed nil pointer to struct instance"
+    }
+  ],
+  "common/types/provider_test.go/TestRegistry_EnumValueEdgeCases": [
+    {
+      "enumName": "google.expr.proto3.test.GlobalEnum.GOO",
+      "target": {
+        "$expr": "reg"
+      },
+      "wantVal": {
+        "$expr": "Int(proto3pb.GlobalEnum_GOO.Number())"
+      }
+    },
+    {
+      "enumName": "custom.Enum.VAL",
+      "target": {
+        "$expr": "composedReg"
+      },
+      "wantVal": {
+        "$expr": "Int(99)"
+      }
+    },
+    {
+      "enumName": "non.existent.Enum",
+      "isErr": true,
+      "target": {
+        "$expr": "reg"
+      }
+    }
+  ],
+  "common/types/provider_test.go/TestRegistry_FindFieldTypeEdgeCases": [
+    {
+      "fieldName": "single_int32",
+      "structType": "google.expr.proto3.test.TestAllTypes",
+      "target": {
+        "$expr": "composedReg"
+      },
+      "wantFound": true
+    },
+    {
+      "fieldName": "single_int32",
+      "structType": ".google.expr.proto3.test.TestAllTypes",
+      "target": {
+        "$expr": "composedReg"
+      },
+      "wantFound": true
+    },
+    {
+      "fieldName": "customField",
+      "structType": "custom.ProviderStruct",
+      "target": {
+        "$expr": "composedReg2"
+      },
+      "wantFound": false
+    },
+    {
+      "fieldName": "non_existent_field",
+      "structType": "google.expr.proto3.test.TestAllTypes",
+      "target": {
+        "$expr": "composedReg"
+      },
+      "wantFound": false
+    },
+    {
+      "fieldName": "some_field",
+      "structType": "non.existent.Type",
+      "target": {
+        "$expr": "composedReg"
+      },
+      "wantFound": false
+    }
+  ],
+  "common/types/provider_test.go/TestRegistry_FindIdentEdgeCases": [
+    {
+      "identName": "int",
+      "target": {
+        "$expr": "composedReg"
+      },
+      "wantFound": true
+    },
+    {
+      "identName": "google.expr.proto3.test.GlobalEnum.GOO",
+      "target": {
+        "$expr": "reg"
+      },
+      "wantFound": true
+    },
+    {
+      "identName": "customIdent",
+      "target": {
+        "$expr": "composedReg"
+      },
+      "wantFound": true
+    },
+    {
+      "identName": "nonExistentIdent",
+      "target": {
+        "$expr": "composedReg"
+      },
+      "wantFound": false
+    }
+  ],
+  "common/types/provider_test.go/TestRegistry_FindStructFieldDescriptionEdgeCases": [
+    {
+      "fieldName": "customField",
+      "structType": "custom.ProviderStruct",
+      "wantFound": true
+    },
+    {
+      "fieldName": "non_existent_field",
+      "structType": "google.expr.proto3.test.TestAllTypes",
+      "wantFound": false
+    },
+    {
+      "fieldName": "some_field",
+      "structType": "non.existent.Type",
+      "wantFound": false
+    }
+  ],
+  "common/types/provider_test.go/TestRegistry_FindTypeEdgeCases": [
+    {
+      "target": {
+        "$expr": "composedReg"
+      },
+      "typeName": "google.expr.proto3.test.TestAllTypes",
+      "wantFound": true
+    },
+    {
+      "target": {
+        "$expr": "composedReg"
+      },
+      "typeName": ".google.expr.proto3.test.TestAllTypes",
+      "wantFound": true
+    },
+    {
+      "target": {
+        "$expr": "composedReg2"
+      },
+      "typeName": "custom.ProviderStruct",
+      "wantFound": true
+    },
+    {
+      "target": {
+        "$expr": "composedReg"
+      },
+      "typeName": "non.existent.Type",
+      "wantFound": false
+    }
+  ],
+  "common/types/provider_test.go/TestRegistry_RegisterTypeEdgeCases": [
+    {
+      "name": "conflicting traits",
+      "targetType": {
+        "$expr": "NewTypeValue(\"bool\", traits.ContainerType)"
+      }
+    },
+    {
+      "name": "conflicting type definition",
+      "targetType": {
+        "$expr": "NewObjectType(\"bool\")"
+      }
+    }
+  ],
+  "common/types/regex_test.go/TestCompileRegexWithLimit": [
+    {
+      "limit": 10,
+      "pattern": "el*"
+    },
+    {
+      "limit": 0,
+      "pattern": "el*"
+    },
+    {
+      "limit": -1,
+      "pattern": "el*"
+    },
+    {
+      "hasError": true,
+      "limit": 5,
+      "pattern": "(a|b)*[0-9]+"
+    },
+    {
+      "hasError": true,
+      "limit": 10,
+      "pattern": "("
+    }
+  ],
+  "common/types/regex_test.go/TestRegexProgramSize": [
+    {
+      "minSize": 1,
+      "pattern": "a"
+    },
+    {
+      "minSize": 3,
+      "pattern": "el*"
+    },
+    {
+      "minSize": 5,
+      "pattern": "(a|b)*[0-9]+"
+    },
+    {
+      "hasError": true,
+      "pattern": "("
+    }
+  ],
+  "common/types/size_calc_test.go/TestCalculateSize": [
+    {
+      "name": "aggregate_sizer_list",
+      "val": {
+        "$expr": "NewRefValList(adapter, []ref.Val{Int(1), Int(2)})"
+      },
+      "want": 3
+    },
+    {
+      "name": "sizer_string",
+      "val": {
+        "$expr": "String(\"hello\")"
+      },
+      "want": 5
+    },
+    {
+      "name": "sizer_bytes",
+      "val": {
+        "$expr": "Bytes(\"world\")"
+      },
+      "want": 5
+    },
+    {
+      "name": "err_val",
+      "val": {
+        "$expr": "NewErr(\"test error\")"
+      },
+      "want": 1
+    },
+    {
+      "name": "unknown_val",
+      "val": {
+        "$expr": "\u0026Unknown{}"
+      },
+      "want": 1
+    },
+    {
+      "name": "type_val",
+      "val": {
+        "$expr": "IntType"
+      },
+      "want": 1
+    },
+    {
+      "name": "null_val",
+      "val": {
+        "$expr": "NullValue"
+      },
+      "want": 1
+    },
+    {
+      "name": "scalar_ref_val_int",
+      "val": {
+        "$expr": "Int(42)"
+      },
+      "want": 1
+    },
+    {
+      "name": "scalar_ref_val_double",
+      "val": {
+        "$expr": "Double(1.5)"
+      },
+      "want": 1
+    },
+    {
+      "name": "scalar_ref_val_bool",
+      "val": {
+        "$expr": "True"
+      },
+      "want": 1
+    },
+    {
+      "name": "scalar_ref_val_timestamp",
+      "val": {
+        "$expr": "Timestamp{Time: time.Unix(100, 0)}"
+      },
+      "want": 1
+    },
+    {
+      "name": "scalar_ref_val_duration",
+      "val": {
+        "$expr": "Duration{Duration: time.Second}"
+      },
+      "want": 1
+    },
+    {
+      "name": "proto_value_string",
+      "val": {
+        "$expr": "protoreflect.ValueOfString(\"hello\")"
+      },
+      "want": 5
+    },
+    {
+      "name": "proto_value_bytes",
+      "val": {
+        "$expr": "protoreflect.ValueOfBytes([]byte(\"world\"))"
+      },
+      "want": 5
+    },
+    {
+      "name": "proto_value_int",
+      "val": {
+        "$expr": "protoreflect.ValueOfInt32(42)"
+      },
+      "want": 1
+    },
+    {
+      "name": "proto_map_key",
+      "val": {
+        "$expr": "protoreflect.MapKey(protoreflect.ValueOfString(\"key\"))"
+      },
+      "want": 3
+    },
+    {
+      "name": "proto_message",
+      "val": {
+        "$expr": "\u0026proto3pb.TestAllTypes{SingleString: \"hello\"}"
+      },
+      "want": 6
+    },
+    {
+      "name": "proto_message_with_list_and_map",
+      "val": {
+        "$expr": "\u0026proto3pb.TestAllTypes{\n\t\t\t\tRepeatedString:  []string{\"a\", \"b\"},\n\t\t\t\tMapStringString: map[string]string{\"k\": \"v\"},\n\t\t\t}"
+      },
+      "want": 7
+    },
+    {
+      "name": "protoreflect_message",
+      "val": {
+        "$expr": "(\u0026proto3pb.TestAllTypes{SingleInt64: 10}).ProtoReflect()"
+      },
+      "want": 2
+    },
+    {
+      "name": "protoreflect_list",
+      "val": {
+        "$expr": "(\u0026proto3pb.TestAllTypes{RepeatedString: []string{\"a\", \"b\"}}).ProtoReflect().Get((\u0026proto3pb.TestAllTypes{}).ProtoReflect().Descriptor().Fields().ByName(\"repeated_string\")).List()"
+      },
+      "want": 3
+    },
+    {
+      "name": "protoreflect_map",
+      "val": {
+        "$expr": "(\u0026proto3pb.TestAllTypes{MapStringString: map[string]string{\"k\": \"v\"}}).ProtoReflect().Get((\u0026proto3pb.TestAllTypes{}).ProtoReflect().Descriptor().Fields().ByName(\"map_string_string\")).Map()"
+      },
+      "want": 3
+    },
+    {
+      "name": "nil_proto_message",
+      "val": {
+        "$expr": "(*proto3pb.TestAllTypes)(nil)"
+      },
+      "want": 0
+    },
+    {
+      "name": "reflect_value",
+      "val": {
+        "$expr": "reflect.ValueOf(\"reflected\")"
+      },
+      "want": 9
+    },
+    {
+      "name": "native_string",
+      "val": "hello",
+      "want": 5
+    },
+    {
+      "name": "native_bytes",
+      "val": {
+        "$expr": "[]byte(\"world\")"
+      },
+      "want": 5
+    },
+    {
+      "name": "native_int",
+      "val": 42,
+      "want": 1
+    },
+    {
+      "name": "native_float",
+      "val": 3.14,
+      "want": 1
+    },
+    {
+      "name": "native_bool",
+      "val": true,
+      "want": 1
+    },
+    {
+      "name": "native_time",
+      "val": {
+        "$expr": "time.Now()"
+      },
+      "want": 1
+    },
+    {
+      "name": "native_duration",
+      "val": {
+        "$expr": "time.Hour"
+      },
+      "want": 1
+    },
+    {
+      "name": "native_nil",
+      "val": null,
+      "want": 1
+    },
+    {
+      "name": "custom_struct",
+      "val": {
+        "$expr": "struct{ Name string }{\"cel\"}"
+      },
+      "want": 4
+    },
+    {
+      "name": "custom_lister",
+      "val": {
+        "$expr": "proxyLegacyList{proxy: NewRefValList(DefaultTypeAdapter, []ref.Val{String(\"a\"), String(\"b\")})}"
+      },
+      "want": 3
+    },
+    {
+      "name": "custom_mapper",
+      "val": {
+        "$expr": "interopFoldableMap{Mapper: NewStringStringMap(DefaultTypeAdapter, map[string]string{\"key\": \"val\"})}"
+      },
+      "want": 7
+    },
+    {
+      "name": "custom_pure_mapper",
+      "val": {
+        "$expr": "customPureMapper{Mapper: NewStringStringMap(DefaultTypeAdapter, map[string]string{\"key\": \"val\"})}"
+      },
+      "want": 7
+    },
+    {
+      "name": "custom_sizer_struct_field",
+      "val": {
+        "$expr": "struct{ Sizer traits.Sizer }{Sizer: customSizerVal(42)}"
+      },
+      "want": 43
+    },
+    {
+      "name": "custom_visitor_struct_field",
+      "val": {
+        "$expr": "struct{ Visitor customVisitorVal }{Visitor: customVisitorVal{Val: 1}}"
+      },
+      "want": 101
+    },
+    {
+      "name": "custom_sizer_pointer",
+      "val": {
+        "$expr": "newCustomSizerPtr(42)"
+      },
+      "want": 42
+    },
+    {
+      "name": "custom_visitor_pointer",
+      "val": {
+        "$expr": "\u0026customVisitorVal{Val: 1}"
+      },
+      "want": 100
+    }
+  ],
+  "common/types/timestamp_test.go/TestParseTimestamp": [
+    {
+      "name": "nil",
+      "val": null,
+      "wantErr": true
+    },
+    {
+      "name": "empty string",
+      "val": "",
+      "wantErr": true
+    },
+    {
+      "name": "time.Time",
+      "val": {
+        "$expr": "now"
+      },
+      "want": {
+        "$expr": "now"
+      }
+    },
+    {
+      "name": "Timestamp struct",
+      "val": {
+        "$expr": "Timestamp{Time: now}"
+      },
+      "want": {
+        "$expr": "now"
+      }
+    },
+    {
+      "name": "*tpb.Timestamp",
+      "val": {
+        "$expr": "tpb.New(now)"
+      },
+      "want": {
+        "$expr": "now"
+      }
+    },
+    {
+      "name": "nil *tpb.Timestamp",
+      "val": {
+        "$expr": "nilPbTs"
+      },
+      "want": {
+        "$expr": "time.Time{}"
+      }
+    },
+    {
+      "name": "int",
+      "val": {
+        "$expr": "int(epoch)"
+      },
+      "want": {
+        "$expr": "epochTime"
+      }
+    },
+    {
+      "name": "int32",
+      "val": {
+        "$expr": "int32(epoch)"
+      },
+      "want": {
+        "$expr": "epochTime"
+      }
+    },
+    {
+      "name": "int64",
+      "val": {
+        "$expr": "int64(epoch)"
+      },
+      "want": {
+        "$expr": "epochTime"
+      }
+    },
+    {
+      "name": "float64",
+      "val": {
+        "$expr": "float64(1700000000.5)"
+      },
+      "want": {
+        "$expr": "epochFloatTime"
+      }
+    },
+    {
+      "name": "float64 negative",
+      "val": {
+        "$expr": "float64(-1700000000.5)"
+      },
+      "want": {
+        "$expr": "time.Unix(-1700000000, -500000000).UTC()"
+      }
+    },
+    {
+      "name": "float64 MaxFloat64 overflow",
+      "val": {
+        "$expr": "math.MaxFloat64"
+      },
+      "wantErr": true
+    },
+    {
+      "name": "float64 NaN overflow",
+      "val": {
+        "$expr": "math.NaN()"
+      },
+      "wantErr": true
+    },
+    {
+      "name": "float64 Inf overflow",
+      "val": {
+        "$expr": "math.Inf(1)"
+      },
+      "wantErr": true
+    },
+    {
+      "name": "float64 -Inf overflow",
+      "val": {
+        "$expr": "math.Inf(-1)"
+      },
+      "wantErr": true
+    },
+    {
+      "name": "float32",
+      "val": {
+        "$expr": "float32(1700000000.5)"
+      },
+      "want": {
+        "$expr": "epochTime"
+      }
+    },
+    {
+      "name": "float32 negative",
+      "val": {
+        "$expr": "float32(-1700000000.5)"
+      },
+      "want": {
+        "$expr": "time.Unix(-1700000000, 0).UTC()"
+      }
+    },
+    {
+      "name": "json.Number int",
+      "val": {
+        "$expr": "json.Number(\"1700000000\")"
+      },
+      "want": {
+        "$expr": "epochTime"
+      }
+    },
+    {
+      "name": "json.Number float",
+      "val": {
+        "$expr": "json.Number(\"1700000000.5\")"
+      },
+      "want": {
+        "$expr": "epochFloatTime"
+      }
+    },
+    {
+      "name": "json.Number invalid",
+      "val": {
+        "$expr": "json.Number(\"invalid\")"
+      },
+      "wantErr": true
+    },
+    {
+      "name": "string RFC3339",
+      "val": "2026-08-10T12:00:00Z",
+      "want": {
+        "$expr": "time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)"
+      }
+    },
+    {
+      "name": "string RFC3339Nano",
+      "val": "2026-08-10T12:00:00.500Z",
+      "want": {
+        "$expr": "time.Date(2026, 8, 10, 12, 0, 0, 500000000, time.UTC)"
+      }
+    },
+    {
+      "name": "string RFC3339 invalid",
+      "val": "2026-99-99T99:99:99Z",
+      "wantErr": true
+    },
+    {
+      "name": "string epoch int",
+      "val": "1700000000",
+      "want": {
+        "$expr": "epochTime"
+      }
+    },
+    {
+      "name": "string epoch float",
+      "val": "1700000000.5",
+      "want": {
+        "$expr": "epochFloatTime"
+      }
+    },
+    {
+      "name": "string invalid",
+      "val": "not-a-timestamp",
+      "wantErr": true
+    },
+    {
+      "name": "unsupported map type",
+      "val": {},
+      "wantErr": true
+    },
+    {
+      "name": "overflow",
+      "val": {
+        "$expr": "int64(999999999999999)"
+      },
+      "wantErr": true
     }
   ],
   "common/types/timestamp_test.go/TestTimestampOperators": [
@@ -12080,9 +14780,7 @@
       "t": {
         "$expr": "NewListType(StringType)"
       },
-      "v": [
-        "hello"
-      ]
+      "v": ["hello"]
     },
     {
       "isRuntimeAssignable": true,
@@ -13463,58 +16161,36 @@
   ],
   "common/types/unknown_test.go/TestUnknownIDs": [
     {
-      "attrs": [
-        "\u003cunspecified\u003e"
-      ],
-      "ids": [
-        1
-      ],
+      "attrs": ["\u003cunspecified\u003e"],
+      "ids": [1],
       "unk": {
         "$expr": "NewUnknown(1, nil)"
       }
     },
     {
-      "attrs": [
-        "a[true]"
-      ],
-      "ids": [
-        2
-      ],
+      "attrs": ["a[true]"],
+      "ids": [2],
       "unk": {
         "$expr": "NewUnknown(2, QualifyAttribute[bool](NewAttributeTrail(\"a\"), true))"
       }
     },
     {
-      "attrs": [
-        "a.b"
-      ],
-      "ids": [
-        3
-      ],
+      "attrs": ["a.b"],
+      "ids": [3],
       "unk": {
         "$expr": "NewUnknown(3, QualifyAttribute[string](NewAttributeTrail(\"a\"), \"b\"))"
       }
     },
     {
-      "attrs": [
-        "a.c"
-      ],
-      "ids": [
-        4
-      ],
+      "attrs": ["a.c"],
+      "ids": [4],
       "unk": {
         "$expr": "NewUnknown(4, QualifyAttribute[string](NewAttributeTrail(\"a\"), \"c\"))"
       }
     },
     {
-      "attrs": [
-        "a[true]",
-        "a.b"
-      ],
-      "ids": [
-        3,
-        4
-      ],
+      "attrs": ["a[true]", "a.b"],
+      "ids": [3, 4],
       "unk": {
         "$expr": "MergeUnknowns(\n\t\t\t\tNewUnknown(4, QualifyAttribute[string](NewAttributeTrail(\"a\"), \"b\")),\n\t\t\t\tNewUnknown(3, QualifyAttribute[bool](NewAttributeTrail(\"a\"), true)),\n\t\t\t)"
       }
@@ -13546,10 +16222,7 @@
       }
     },
     {
-      "out": [
-        "a[true] (3)",
-        "a.b (4)"
-      ],
+      "out": ["a[true] (3)", "a.b (4)"],
       "unk": {
         "$expr": "MergeUnknowns(\n\t\t\t\tNewUnknown(3, QualifyAttribute[bool](NewAttributeTrail(\"a\"), true)),\n\t\t\t\tNewUnknown(4, QualifyAttribute[string](NewAttributeTrail(\"a\"), \"b\")),\n\t\t\t)"
       }
@@ -13602,10 +16275,7 @@
         "x": 3
       },
       "in": {
-        "x": [
-          3,
-          7
-        ]
+        "x": [3, 7]
       },
       "name": "nested bind with int list",
       "vars": [
@@ -13625,10 +16295,7 @@
         "x.@items": 10
       },
       "in": {
-        "x": [
-          "three",
-          "seven"
-        ]
+        "x": ["three", "seven"]
       },
       "name": "nested bind with string list",
       "vars": [
@@ -14224,11 +16891,7 @@
     {
       "expr": "x.exists(val, y.exists(key, _, key == val))",
       "in": {
-        "x": [
-          1,
-          2,
-          3
-        ]
+        "x": [1, 2, 3]
       },
       "name": "nested exists unknown inner range",
       "residual": "[1, 2, 3].exists(val, y.exists(key, _, key == val))",
@@ -14299,11 +16962,7 @@
     {
       "expr": "x.exists(val, y.exists(key, _, key == val)) || x[0] == 0 || x[1] == 1 || x[2] == 2",
       "in": {
-        "x": [
-          42,
-          0,
-          43
-        ],
+        "x": [42, 0, 43],
         "y": {
           "1": "hi",
           "2": "hello",
@@ -14329,11 +16988,7 @@
     {
       "expr": "x.exists(val, y.exists(key, _, key == val)) || (x[?0].hasValue() \u0026\u0026 x[?1].hasValue())",
       "in": {
-        "x": [
-          42,
-          0,
-          43
-        ],
+        "x": [42, 0, 43],
         "y": {
           "1": "hi",
           "2": "hello",
@@ -14359,11 +17014,7 @@
     {
       "expr": "x.exists(key, val, y[?key] == optional.of(val))",
       "in": {
-        "x": [
-          "howdy",
-          "hello",
-          "hi"
-        ],
+        "x": ["howdy", "hello", "hi"],
         "y": {
           "0": "hi",
           "1": "hello",
@@ -14389,9 +17040,7 @@
     {
       "expr": "y.exists(key, y[?key] == x[?key])",
       "in": {
-        "x": [
-          "howdy"
-        ],
+        "x": ["howdy"],
         "y": {
           "0": "hello"
         }
@@ -14437,11 +17086,7 @@
     {
       "expr": "cel.bind(z, y[0], x.all(i, val, val == z || optional.of(val) == y[?i]))",
       "in": {
-        "x": [
-          "hi",
-          "hello",
-          "howdy"
-        ],
+        "x": ["hi", "hello", "howdy"],
         "y": {
           "0": "hi",
           "1": "hello",
@@ -15506,11 +18151,7 @@
     },
     {
       "dynArgs": {
-        "dynList": [
-          6,
-          4.2,
-          "a string"
-        ]
+        "dynList": [6, 4.2, "a string"]
       },
       "expectedEstimatedCost": {
         "$expr": "checker.CostEstimate{Min: 13, Max: 13}"
@@ -16531,11 +19172,7 @@
     },
     {
       "dynArgs": {
-        "dynList": [
-          6,
-          4.2,
-          "a string"
-        ]
+        "dynList": [6, 4.2, "a string"]
       },
       "expectedEstimatedCost": {
         "$expr": "checker.CostEstimate{Min: 13, Max: 13}"
@@ -17035,13 +19672,7 @@
         "x": 3
       },
       "in": {
-        "x": [
-          [
-            1
-          ],
-          2,
-          3
-        ]
+        "x": [[1], 2, 3]
       },
       "name": "list_flatten_var",
       "vars": [
@@ -17061,13 +19692,7 @@
         "x": 3
       },
       "in": {
-        "x": [
-          [
-            1
-          ],
-          2,
-          3
-        ]
+        "x": [[1], 2, 3]
       },
       "name": "list_flatten_var_v4_no_item_hint",
       "vars": [
@@ -17087,13 +19712,7 @@
         "x.@items": 5
       },
       "in": {
-        "x": [
-          [
-            1
-          ],
-          2,
-          3
-        ]
+        "x": [[1], 2, 3]
       },
       "name": "list_flatten_var_v4_with_item_hint",
       "vars": [
@@ -17168,10 +19787,7 @@
         "x.@items": 5
       },
       "in": {
-        "x": [
-          "hello",
-          "hello"
-        ]
+        "x": ["hello", "hello"]
       },
       "name": "list_distinct_var",
       "vars": [
@@ -17212,15 +19828,7 @@
       "in": {
         "x": 1,
         "y": 3,
-        "z": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7
-        ]
+        "z": [1, 2, 3, 4, 5, 6, 7]
       },
       "name": "list_slice_var_list",
       "vars": [
@@ -17247,15 +19855,7 @@
       "in": {
         "x": 1,
         "y": 3,
-        "z": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7
-        ]
+        "z": [1, 2, 3, 4, 5, 6, 7]
       },
       "name": "list_slice_var_list_var_range",
       "vars": [
@@ -17296,11 +19896,7 @@
         "x": 5
       },
       "in": {
-        "x": [
-          3,
-          2,
-          1
-        ]
+        "x": [3, 2, 1]
       },
       "name": "list_var_reverse",
       "vars": [
@@ -17327,11 +19923,7 @@
         "x": 5
       },
       "in": {
-        "x": [
-          3,
-          2,
-          1
-        ]
+        "x": [3, 2, 1]
       },
       "name": "list_sort_var",
       "vars": [
@@ -17351,14 +19943,7 @@
         "x.@items": 1
       },
       "in": {
-        "x": [
-          "b",
-          "a",
-          "b",
-          "a",
-          "c",
-          "c"
-        ]
+        "x": ["b", "a", "b", "a", "c", "c"]
       },
       "name": "list_sort_var_string",
       "vars": [
@@ -17461,30 +20046,8 @@
         "y": 10
       },
       "in": {
-        "x": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10
-        ],
-        "y": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10
-        ]
+        "x": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "y": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       },
       "name": "list_sort_concat_cost",
       "vars": [
@@ -17508,30 +20071,8 @@
         "y": 10
       },
       "in": {
-        "x": [
-          "a",
-          "b",
-          "c",
-          "d",
-          "e",
-          "f",
-          "g",
-          "h",
-          "i",
-          "j"
-        ],
-        "y": [
-          "a",
-          "b",
-          "c",
-          "d",
-          "e",
-          "f",
-          "g",
-          "h",
-          "i",
-          "j"
-        ]
+        "x": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
+        "y": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
       },
       "name": "list_distinct_concat_cost_with_item_hint",
       "vars": [
@@ -17554,30 +20095,8 @@
         "y": 10
       },
       "in": {
-        "x": [
-          "a",
-          "b",
-          "c",
-          "d",
-          "e",
-          "f",
-          "g",
-          "h",
-          "i",
-          "j"
-        ],
-        "y": [
-          "a",
-          "b",
-          "c",
-          "d",
-          "e",
-          "f",
-          "g",
-          "h",
-          "i",
-          "j"
-        ]
+        "x": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
+        "y": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
       },
       "name": "list_distinct_concat_cost",
       "vars": [
@@ -17599,10 +20118,7 @@
         "x": 3
       },
       "in": {
-        "x": [
-          "hello",
-          "hello"
-        ]
+        "x": ["hello", "hello"]
       },
       "name": "list_distinct_var_v3",
       "vars": [
@@ -17622,10 +20138,7 @@
         "x": 3
       },
       "in": {
-        "x": [
-          "hello",
-          "hello"
-        ]
+        "x": ["hello", "hello"]
       },
       "name": "list_distinct_var_v4_no_item_hint",
       "vars": [
@@ -17645,10 +20158,7 @@
         "x.@items": 5
       },
       "in": {
-        "x": [
-          "hello",
-          "hello"
-        ]
+        "x": ["hello", "hello"]
       },
       "name": "list_distinct_var_v4_with_item_hint",
       "vars": [
@@ -17667,14 +20177,7 @@
         "x": 10
       },
       "in": {
-        "x": [
-          "b",
-          "a",
-          "b",
-          "a",
-          "c",
-          "c"
-        ]
+        "x": ["b", "a", "b", "a", "c", "c"]
       },
       "name": "list_sort_var_string_v3",
       "vars": [
@@ -17694,14 +20197,7 @@
         "x": 10
       },
       "in": {
-        "x": [
-          "b",
-          "a",
-          "b",
-          "a",
-          "c",
-          "c"
-        ]
+        "x": ["b", "a", "b", "a", "c", "c"]
       },
       "name": "list_sort_var_string_v4_no_item_hint",
       "vars": [
@@ -17721,14 +20217,7 @@
         "x.@items": 1
       },
       "in": {
-        "x": [
-          "b",
-          "a",
-          "b",
-          "a",
-          "c",
-          "c"
-        ]
+        "x": ["b", "a", "b", "a", "c", "c"]
       },
       "name": "list_sort_var_string_v4_with_item_hint",
       "vars": [
@@ -17950,11 +20439,7 @@
       "expr": "math.least(numbers) == dyn(a)",
       "in": {
         "a": -21,
-        "numbers": [
-          -21.0,
-          -10.5,
-          1.0
-        ]
+        "numbers": [-21.0, -10.5, 1.0]
       }
     },
     {
@@ -18037,11 +20522,7 @@
       "expr": "math.greatest(numbers) == dyn(a)",
       "in": {
         "a": 1,
-        "numbers": [
-          -21.0,
-          -10.5,
-          1.0
-        ]
+        "numbers": [-21.0, -10.5, 1.0]
       }
     },
     {
@@ -18251,13 +20732,7 @@
         "x": 10
       },
       "in": {
-        "x": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ]
+        "x": [1, 2, 3, 4, 5]
       },
       "name": "math_greatest_list_v2",
       "vars": [
@@ -18277,13 +20752,7 @@
         "x": 10
       },
       "in": {
-        "x": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ]
+        "x": [1, 2, 3, 4, 5]
       },
       "name": "math_greatest_list_v3",
       "vars": [
@@ -18303,11 +20772,7 @@
         "x": 100
       },
       "in": {
-        "x": [
-          -1.0,
-          -2.0,
-          -3.0
-        ]
+        "x": [-1.0, -2.0, -3.0]
       },
       "name": "math_least_list_v2",
       "vars": [
@@ -18327,11 +20792,7 @@
         "x": 100
       },
       "in": {
-        "x": [
-          -1.0,
-          -2.0,
-          -3.0
-        ]
+        "x": [-1.0, -2.0, -3.0]
       },
       "name": "math_least_list_v3",
       "vars": [
@@ -18378,30 +20839,21 @@
       "err": "no such overload: math.@min",
       "expr": "math.least(a)",
       "in": {
-        "a": [
-          "hello"
-        ]
+        "a": ["hello"]
       }
     },
     {
       "err": "no such overload: math.@min",
       "expr": "math.least(a)",
       "in": {
-        "a": [
-          [],
-          []
-        ]
+        "a": [[], []]
       }
     },
     {
       "err": "no such overload: math.@min",
       "expr": "math.least(a)",
       "in": {
-        "a": [
-          1,
-          true,
-          2
-        ]
+        "a": [1, true, 2]
       }
     },
     {
@@ -18435,20 +20887,14 @@
       "err": "no such overload: math.@max",
       "expr": "math.greatest(a)",
       "in": {
-        "a": [
-          true
-        ]
+        "a": [true]
       }
     },
     {
       "err": "no such overload: math.@max",
       "expr": "math.greatest(a)",
       "in": {
-        "a": [
-          1,
-          true,
-          2
-        ]
+        "a": [1, true, 2]
       }
     },
     {
@@ -18662,17 +21108,11 @@
   ],
   "ext/native_test.go/TestNativeFindStructFieldNames": [
     {
-      "fields": [
-        "NestedListVal",
-        "NestedMapVal",
-        "custom_name"
-      ],
+      "fields": ["NestedListVal", "NestedMapVal", "custom_name"],
       "typeName": "ext.TestNestedType"
     },
     {
-      "fields": [
-        "bb"
-      ],
+      "fields": ["bb"],
       "typeName": "google.expr.proto3.test.TestAllTypes.NestedMessage"
     },
     {
@@ -18718,6 +21158,40 @@
           "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tTestNestedType: TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t\tSkipped:        \"should-be-hidden\",\n\t\t\t\t}"
         }
       },
+      "out": true
+    },
+    {
+      "expr": "test.Name == \"name\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedTypes{\n\t\t\t\t\tCustom: Custom{Name: \"name\"},\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    }
+  ],
+  "ext/native_test.go/TestNativeStructEmbeddedPointer": [
+    {
+      "expr": "!has(test.custom_name) \u0026\u0026 test.custom_name == \"\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedPointerTypes{\n\t\t\t\t\tTestNestedType: nil,\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "has(test.custom_name) \u0026\u0026 test.custom_name == \"name\"",
+      "in": {
+        "test": {
+          "$expr": "\u0026TestEmbeddedPointerTypes{\n\t\t\t\t\tTestNestedType: \u0026TestNestedType{NestedCustomName: \"name\"},\n\t\t\t\t}"
+        }
+      },
+      "out": true
+    },
+    {
+      "expr": "ext.TestEmbeddedPointerTypes{custom_name: \"name\"}.custom_name == \"name\"",
+      "in": null,
       "out": true
     }
   ],
@@ -18905,19 +21379,11 @@
       }
     },
     {
-      "in": [
-        1,
-        2,
-        3
-      ],
+      "in": [1, 2, 3],
       "inType": {
         "$expr": "cel.ListType(cel.IntType)"
       },
-      "out": [
-        1,
-        2,
-        3
-      ]
+      "out": [1, 2, 3]
     },
     {
       "in": {
@@ -18926,26 +21392,14 @@
       "inType": {
         "$expr": "cel.BytesType"
       },
-      "out": [
-        1,
-        2,
-        3
-      ]
+      "out": [1, 2, 3]
     },
     {
-      "in": [
-        1,
-        2,
-        3
-      ],
+      "in": [1, 2, 3],
       "inType": {
         "$expr": "cel.BytesType"
       },
-      "out": [
-        1,
-        2,
-        3
-      ]
+      "out": [1, 2, 3]
     }
   ],
   "ext/native_test.go/TestNativeTypesErrors": [
@@ -19122,9 +21576,7 @@
       "expectRuntimeCost": {
         "$expr": "func(c uint64) uint64 { return c }"
       },
-      "ops": [
-        ""
-      ]
+      "ops": [""]
     },
     {
       "expectEsimatedCost": {
@@ -19149,9 +21601,7 @@
       "expectRuntimeCost": {
         "$expr": "func(c uint64) uint64 { return c + ipv4BaseRuntimeCost + 1 }"
       },
-      "ops": [
-        " == ip('192.168.0.1')"
-      ]
+      "ops": [" == ip('192.168.0.1')"]
     }
   ],
   "ext/network_test.go/TestNetworkCost": [
@@ -20192,6 +22642,28 @@
       ]
     }
   ],
+  "ext/regex_test.go/TestRegexProgramSizeLimit": [
+    {
+      "expr": "'a1'.matches(pat)",
+      "name": "matches"
+    },
+    {
+      "expr": "regex.extract('a1', pat)",
+      "name": "regex.extract"
+    },
+    {
+      "expr": "regex.extractAll('a1', pat)",
+      "name": "regex.extractAll"
+    },
+    {
+      "expr": "regex.replace('a1', pat, 'x')",
+      "name": "regex.replace 3-arg"
+    },
+    {
+      "expr": "regex.replace('a1', pat, 'x', 1)",
+      "name": "regex.replace 4-arg"
+    }
+  ],
   "ext/regex_test.go/TestRegexRuntimeErrors": [
     {
       "err": "error parsing regexp: missing closing ): `(`",
@@ -20256,6 +22728,731 @@
       "expr": "regex.replace('banana', 'a', 'x', 18446744073709551615)"
     }
   ],
+  "ext/security/jwt/jwt_test.go/TestClaimsCustomTypes": [
+    {
+      "claimName": "intNum",
+      "name": "json_number_int",
+      "validate": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif val.Value() != int64(42) {\n\t\t\t\t\tt.Errorf(\"expected 42, got %v\", val.Value())\n\t\t\t\t}\n\t\t\t}"
+      }
+    },
+    {
+      "claimName": "floatNum",
+      "name": "json_number_float",
+      "validate": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif val.Value() != float64(3.14) {\n\t\t\t\t\tt.Errorf(\"expected 3.14, got %v\", val.Value())\n\t\t\t\t}\n\t\t\t}"
+      }
+    },
+    {
+      "claimName": "strNum",
+      "name": "json_number_nan_string",
+      "validate": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif val == types.OptionalNone {\n\t\t\t\t\tt.Errorf(\"expected non-empty optional for strNum\")\n\t\t\t\t}\n\t\t\t}"
+      }
+    },
+    {
+      "claimName": "rawJSON",
+      "name": "raw_json_message",
+      "validate": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif val == types.OptionalNone {\n\t\t\t\t\tt.Errorf(\"expected rawJSON to be parsed\")\n\t\t\t\t}\n\t\t\t}"
+      }
+    },
+    {
+      "claimName": "rawMsgBad",
+      "name": "raw_msg_bad_conversion_error",
+      "validate": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif !types.IsError(val) {\n\t\t\t\t\tt.Errorf(\"expected error ref.Val for invalid json.RawMessage, got %v (%T)\", val, val)\n\t\t\t\t}\n\t\t\t}"
+      }
+    },
+    {
+      "claimName": "badNumFloat",
+      "name": "bad_num_conversion_error",
+      "validate": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif !types.IsError(val) {\n\t\t\t\t\tt.Errorf(\"expected error ref.Val for invalid json.Number, got %v (%T)\", val, val)\n\t\t\t\t}\n\t\t\t}"
+      }
+    },
+    {
+      "claimName": "simpleStr",
+      "name": "simple_string",
+      "validate": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif val.Value() != \"hello\" {\n\t\t\t\t\tt.Errorf(\"expected 'hello', got %v\", val.Value())\n\t\t\t\t}\n\t\t\t}"
+      }
+    },
+    {
+      "claimName": "nonexistent",
+      "name": "nonexistent_claim",
+      "validate": {
+        "$expr": "func(t *testing.T, val ref.Val) {\n\t\t\t\tif val != types.OptionalNone {\n\t\t\t\t\tt.Errorf(\"expected None for nonexistent claim, got %v\", val)\n\t\t\t\t}\n\t\t\t}"
+      }
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestJWTDirectTokenVariables": [
+    {
+      "expr": "t.presentedBy('https://auth.example.com', 'my-client')",
+      "name": "presented_by_direct_match",
+      "want": true
+    },
+    {
+      "expr": "t.presentedBy('https://auth.example.com', 'wrong-client')",
+      "name": "presented_by_direct_mismatch",
+      "want": false
+    },
+    {
+      "expr": "t.claim('tag').orValue('')",
+      "name": "claim_direct_present",
+      "want": "prod"
+    },
+    {
+      "expr": "t.claim('nonexistent').orValue('default')",
+      "name": "claim_direct_missing",
+      "want": "default"
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestJWTOptionalReceiverChaining": [
+    {
+      "env": {
+        "$expr": "envExpired"
+      },
+      "expr": "jwt.parse(tok).presentedBy('https://auth.example.com', 'my-client')",
+      "name": "presented_by_on_optional_none",
+      "want": false
+    },
+    {
+      "env": {
+        "$expr": "envExpired"
+      },
+      "expr": "jwt.parse(tok).claim('tag').orValue('default')",
+      "name": "claim_on_optional_none",
+      "want": "default"
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestJWTParseAndPresentedBy": [
+    {
+      "expr": "jwt.parse(tokenStr).hasValue()",
+      "name": "parse_has_value",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(bearerToken).hasValue()",
+      "name": "parse_bearer_prefix_has_value",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(upperBearerToken).hasValue()",
+      "name": "parse_uppercase_bearer_prefix_has_value",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokenStr).value().alg == 'RS256'",
+      "name": "token_algorithm",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokenStr).value().issuer == 'https://auth.example.com'",
+      "name": "token_issuer",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokenStr).value().subject == 'user_12345'",
+      "name": "token_subject",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokenStr).value().keyId == 'key-123'",
+      "name": "token_key_id",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokenStr).value().id == 'token-unique-id-999'",
+      "name": "token_id",
+      "want": true
+    },
+    {
+      "expr": "'https://api.example.com' in jwt.parse(tokenStr).value().aud",
+      "name": "token_audience",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokenStr).value().presentedBy('https://auth.example.com', 'https://api.example.com')",
+      "name": "token_presented_by_direct",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokenStr).presentedBy('https://auth.example.com', 'https://api.example.com')",
+      "name": "token_presented_by_on_optional",
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokenStr).presentedBy('https://evil.com', 'https://api.example.com')",
+      "name": "token_presented_by_mismatch_iss",
+      "want": false
+    },
+    {
+      "expr": "jwt.parse(tokenStr).presentedBy('https://auth.example.com', 'https://wrong-aud.com')",
+      "name": "token_presented_by_mismatch_aud",
+      "want": false
+    },
+    {
+      "expr": "jwt.parse(tokenStr).value().claim('tenant').orValue('')",
+      "name": "claim_tenant",
+      "want": "tenant_abc"
+    },
+    {
+      "expr": "jwt.parse(tokenStr).claim('tenant').orValue('')",
+      "name": "claim_on_optional",
+      "want": "tenant_abc"
+    },
+    {
+      "expr": "jwt.parse(tokenStr).claim('nonexistent').hasValue()",
+      "name": "claim_missing",
+      "want": false
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestJWTParsingErrorsAndEncodings": [
+    {
+      "errMsg": "invalid token format",
+      "name": "one_segment",
+      "tokenStr": "one"
+    },
+    {
+      "errMsg": "invalid token format",
+      "name": "four_segments",
+      "tokenStr": "one.two.three.four"
+    },
+    {
+      "errMsg": "invalid token format",
+      "name": "empty_token",
+      "tokenStr": ""
+    },
+    {
+      "errMsg": "failed to decode header",
+      "name": "bad_header_base64",
+      "tokenStr": "!bad!.payload.sig"
+    },
+    {
+      "errMsg": "failed to parse header JSON",
+      "name": "non_json_header",
+      "tokenStr": {
+        "$expr": "badJSONB64 + \".\" + validPayloadB64 + \".sig\""
+      }
+    },
+    {
+      "errMsg": "missing required header: 'alg'",
+      "name": "missing_header_alg",
+      "tokenStr": {
+        "$expr": "base64.RawURLEncoding.EncodeToString([]byte(`{\"typ\":\"JWT\"}`)) + \".\" + validPayloadB64 + \".sig\""
+      }
+    },
+    {
+      "errMsg": "failed to decode payload",
+      "name": "bad_payload_base64",
+      "tokenStr": {
+        "$expr": "goodHeaderB64 + \".!bad!.sig\""
+      }
+    },
+    {
+      "errMsg": "failed to parse payload JSON",
+      "name": "non_json_payload",
+      "tokenStr": {
+        "$expr": "goodHeaderB64 + \".\" + badJSONB64 + \".sig\""
+      }
+    },
+    {
+      "errMsg": "token size exceeds maximum allowed limit",
+      "name": "exceeds_max_token_size",
+      "tokenStr": {
+        "$expr": "strings.Repeat(\"a\", 11*1024*1024)"
+      }
+    },
+    {
+      "errMsg": "invalid claim 'nbf'",
+      "name": "malformed_nbf_claim",
+      "tokenStr": {
+        "$expr": "createTestJWT(t, header, map[string]any{\n\t\t\t\t\"iss\": \"https://auth.example.com\",\n\t\t\t\t\"sub\": \"user-123\",\n\t\t\t\t\"aud\": \"my-client\",\n\t\t\t\t\"exp\": 1700000000,\n\t\t\t\t\"iat\": 1699900000,\n\t\t\t\t\"nbf\": \"invalid-timestamp\",\n\t\t\t})"
+      }
+    },
+    {
+      "errMsg": "invalid claim 'aud'",
+      "name": "non_string_element_in_aud_list",
+      "tokenStr": {
+        "$expr": "createTestJWT(t, header, map[string]any{\n\t\t\t\t\"iss\": \"https://auth.example.com\",\n\t\t\t\t\"sub\": \"user-123\",\n\t\t\t\t\"aud\": []any{\"client-1\", 12345},\n\t\t\t\t\"exp\": 1700000000,\n\t\t\t\t\"iat\": 1699900000,\n\t\t\t})"
+      }
+    },
+    {
+      "errMsg": "invalid claim 'aud'",
+      "name": "invalid_aud_type",
+      "tokenStr": {
+        "$expr": "createTestJWT(t, header, map[string]any{\n\t\t\t\t\"iss\": \"https://auth.example.com\",\n\t\t\t\t\"sub\": \"user-123\",\n\t\t\t\t\"aud\": 12345,\n\t\t\t\t\"exp\": 1700000000,\n\t\t\t\t\"iat\": 1699900000,\n\t\t\t})"
+      }
+    },
+    {
+      "errMsg": "invalid token format",
+      "name": "excessive_dots",
+      "tokenStr": {
+        "$expr": "strings.Repeat(\".\", 100)"
+      }
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestJWTPresentedByWithAuthorizedPartyAZP": [
+    {
+      "expr": "jwt.parse(tokStr).value().azp",
+      "name": "azp_field_access",
+      "tokenStr": {
+        "$expr": "tokStr"
+      },
+      "want": "frontend-client-app-id"
+    },
+    {
+      "expr": "jwt.parse(tokStr).presentedBy('https://accounts.google.com', 'frontend-client-app-id')",
+      "name": "presented_by_matches_azp",
+      "tokenStr": {
+        "$expr": "tokStr"
+      },
+      "want": true
+    },
+    {
+      "expr": "jwt.parse(tokStr).presentedBy('https://accounts.google.com', 'https://api.example.com')",
+      "name": "presented_by_rejects_aud_when_azp_exists",
+      "tokenStr": {
+        "$expr": "tokStr"
+      },
+      "want": false
+    },
+    {
+      "expr": "jwt.parse(tokStr).presentedBy('https://accounts.google.com', 'https://api.example.com')",
+      "name": "presented_by_falls_back_to_aud_when_azp_omitted",
+      "tokenStr": {
+        "$expr": "tokNoAZP"
+      },
+      "want": true
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestJWTTimestampTypes": [
+    {
+      "name": "float64_and_string",
+      "payload": {
+        "aud": "my-client",
+        "exp": {
+          "$expr": "float64(1700000000.5)"
+        },
+        "iat": {
+          "$expr": "int64(1699990000)"
+        },
+        "iss": "https://auth.example.com",
+        "nbf": "1699990000",
+        "sub": "user-123"
+      },
+      "wantExp": 1700000000,
+      "wantIat": 1699990000,
+      "wantNbf": 1699990000
+    },
+    {
+      "name": "uint64_int32_float32",
+      "payload": {
+        "aud": "my-client",
+        "exp": {
+          "$expr": "uint64(1700000000)"
+        },
+        "iat": {
+          "$expr": "int32(1699990000)"
+        },
+        "iss": "https://auth.example.com",
+        "nbf": {
+          "$expr": "float32(1699990000)"
+        },
+        "sub": "user-123"
+      },
+      "wantExp": 1700000000,
+      "wantIat": 1699990000,
+      "wantNbf": 1699990000
+    },
+    {
+      "name": "int_uint_uint32",
+      "payload": {
+        "aud": "my-client",
+        "exp": {
+          "$expr": "int(1700000000)"
+        },
+        "iat": {
+          "$expr": "uint(1699990000)"
+        },
+        "iss": "https://auth.example.com",
+        "nbf": {
+          "$expr": "uint32(1699990000)"
+        },
+        "sub": "user-123"
+      },
+      "wantExp": 1700000000,
+      "wantIat": 1699990000,
+      "wantNbf": 1699990000
+    },
+    {
+      "name": "string_float",
+      "payload": {
+        "aud": "my-client",
+        "exp": "1700000000.5",
+        "iat": 1699900000,
+        "iss": "https://auth.example.com",
+        "sub": "user-123"
+      },
+      "wantExp": 1700000000,
+      "wantIat": 1699900000,
+      "wantNbf": 0
+    },
+    {
+      "name": "json_number_float",
+      "payload": {
+        "aud": "my-client",
+        "exp": {
+          "$expr": "json.Number(\"1700000000.75\")"
+        },
+        "iat": 1699900000,
+        "iss": "https://auth.example.com",
+        "sub": "user-123"
+      },
+      "wantExp": 1700000000,
+      "wantIat": 1699900000,
+      "wantNbf": 0
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestJWTValidateTimesOption": [
+    {
+      "name": "default_no_validation_allows_expired",
+      "options": null,
+      "tokenStr": {
+        "$expr": "tokExpired"
+      },
+      "wantPass": true
+    },
+    {
+      "name": "validated_valid_token_passes",
+      "options": [
+        {
+          "$expr": "jwt.ValidateTimes()"
+        },
+        {
+          "$expr": "jwt.Clock(func() time.Time { return fixedNow })"
+        }
+      ],
+      "tokenStr": {
+        "$expr": "tokValid"
+      },
+      "wantPass": true
+    },
+    {
+      "name": "validated_expired_token_rejected",
+      "options": [
+        {
+          "$expr": "jwt.ValidateTimes()"
+        },
+        {
+          "$expr": "jwt.Clock(func() time.Time { return fixedNow })"
+        }
+      ],
+      "tokenStr": {
+        "$expr": "tokExpired"
+      },
+      "wantPass": false
+    },
+    {
+      "name": "validated_future_nbf_rejected",
+      "options": [
+        {
+          "$expr": "jwt.ValidateTimes()"
+        },
+        {
+          "$expr": "jwt.Clock(func() time.Time { return fixedNow })"
+        }
+      ],
+      "tokenStr": {
+        "$expr": "tokFutureNbf"
+      },
+      "wantPass": false
+    },
+    {
+      "name": "validated_future_iat_rejected",
+      "options": [
+        {
+          "$expr": "jwt.ValidateTimes()"
+        },
+        {
+          "$expr": "jwt.Clock(func() time.Time { return fixedNow })"
+        }
+      ],
+      "tokenStr": {
+        "$expr": "tokFutureIat"
+      },
+      "wantPass": false
+    },
+    {
+      "name": "leeway_allows_token_expired_within_window",
+      "options": [
+        {
+          "$expr": "jwt.ValidateTimes(30 * time.Minute)"
+        },
+        {
+          "$expr": "jwt.Clock(func() time.Time { return fixedNow })"
+        }
+      ],
+      "tokenStr": {
+        "$expr": "tokExpired"
+      },
+      "wantPass": true
+    },
+    {
+      "name": "leeway_rejects_inverted_nbf_after_exp",
+      "options": [
+        {
+          "$expr": "jwt.ValidateTimes(30 * time.Minute)"
+        },
+        {
+          "$expr": "jwt.Clock(func() time.Time { return fixedNow })"
+        }
+      ],
+      "tokenStr": {
+        "$expr": "tokInvertedWindow"
+      },
+      "wantPass": false
+    },
+    {
+      "name": "validated_default_clock_valid_token",
+      "options": [
+        {
+          "$expr": "jwt.ValidateTimes()"
+        }
+      ],
+      "tokenStr": {
+        "$expr": "tokValidRealTime"
+      },
+      "wantPass": true
+    },
+    {
+      "name": "validated_default_clock_expired_token",
+      "options": [
+        {
+          "$expr": "jwt.ValidateTimes()"
+        }
+      ],
+      "tokenStr": {
+        "$expr": "tokExpiredRealTime"
+      },
+      "wantPass": false
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestParseUnverifiedTokenAndFieldVariations": [
+    {
+      "got": {
+        "$expr": "tok.Algorithm"
+      },
+      "name": "alg",
+      "want": "ES256"
+    },
+    {
+      "got": {
+        "$expr": "tok.Issuer"
+      },
+      "name": "issuer",
+      "want": "https://accounts.google.com"
+    },
+    {
+      "got": {
+        "$expr": "tok.Subject"
+      },
+      "name": "subject",
+      "want": "10987654321"
+    },
+    {
+      "got": {
+        "$expr": "tok.KeyID"
+      },
+      "name": "key_id",
+      "want": "k-42"
+    },
+    {
+      "got": {
+        "$expr": "tok.Audience"
+      },
+      "name": "audience",
+      "want": ["my-client-id"]
+    },
+    {
+      "got": {
+        "$expr": "tok.ExpiresAt.Unix()"
+      },
+      "name": "exp",
+      "want": {
+        "$expr": "int64(1700000000)"
+      }
+    },
+    {
+      "got": {
+        "$expr": "tok.NotBefore.Unix()"
+      },
+      "name": "nbf",
+      "want": {
+        "$expr": "int64(1699990000)"
+      }
+    },
+    {
+      "got": {
+        "$expr": "tok.IssuedAt.Unix()"
+      },
+      "name": "iat",
+      "want": {
+        "$expr": "int64(1699990000)"
+      }
+    }
+  ],
+  "ext/security/jwt/jwt_test.go/TestTokenIsValidAt": [
+    {
+      "leeway": 0,
+      "name": "valid token within active window",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(-1 * time.Hour),\n\t\t\t\tNotBefore: now.Add(-30 * time.Minute),\n\t\t\t\tExpiresAt: now.Add(1 * time.Hour),\n\t\t\t}"
+      },
+      "wantValid": true
+    },
+    {
+      "leeway": 0,
+      "name": "issued-at exactly now",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now,\n\t\t\t\tExpiresAt: now.Add(1 * time.Hour),\n\t\t\t}"
+      },
+      "wantValid": true
+    },
+    {
+      "leeway": {
+        "$expr": "leeway"
+      },
+      "name": "issued-at in future within leeway",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(3 * time.Minute),\n\t\t\t\tExpiresAt: now.Add(1 * time.Hour),\n\t\t\t}"
+      },
+      "wantValid": true
+    },
+    {
+      "leeway": {
+        "$expr": "leeway"
+      },
+      "name": "issued-at in future beyond leeway",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(10 * time.Minute),\n\t\t\t\tExpiresAt: now.Add(1 * time.Hour),\n\t\t\t}"
+      },
+      "wantValid": false
+    },
+    {
+      "leeway": {
+        "$expr": "leeway"
+      },
+      "name": "not-before in future within leeway",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(-10 * time.Minute),\n\t\t\t\tNotBefore: now.Add(3 * time.Minute),\n\t\t\t\tExpiresAt: now.Add(1 * time.Hour),\n\t\t\t}"
+      },
+      "wantValid": true
+    },
+    {
+      "leeway": {
+        "$expr": "leeway"
+      },
+      "name": "not-before in future beyond leeway",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(-10 * time.Minute),\n\t\t\t\tNotBefore: now.Add(10 * time.Minute),\n\t\t\t\tExpiresAt: now.Add(1 * time.Hour),\n\t\t\t}"
+      },
+      "wantValid": false
+    },
+    {
+      "leeway": {
+        "$expr": "leeway"
+      },
+      "name": "expired token in past within leeway",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(-1 * time.Hour),\n\t\t\t\tExpiresAt: now.Add(-3 * time.Minute),\n\t\t\t}"
+      },
+      "wantValid": true
+    },
+    {
+      "leeway": {
+        "$expr": "leeway"
+      },
+      "name": "expired token in past beyond leeway",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(-1 * time.Hour),\n\t\t\t\tExpiresAt: now.Add(-10 * time.Minute),\n\t\t\t}"
+      },
+      "wantValid": false
+    },
+    {
+      "leeway": {
+        "$expr": "leeway"
+      },
+      "name": "expired token exactly at negative leeway boundary",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(-1 * time.Hour),\n\t\t\t\tExpiresAt: now.Add(-5 * time.Minute),\n\t\t\t}"
+      },
+      "wantValid": false
+    },
+    {
+      "leeway": 0,
+      "name": "inverted nbf \u003e exp",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(-1 * time.Hour),\n\t\t\t\tNotBefore: now.Add(30 * time.Minute),\n\t\t\t\tExpiresAt: now.Add(15 * time.Minute),\n\t\t\t}"
+      },
+      "wantValid": false
+    },
+    {
+      "leeway": {
+        "$expr": "1 * time.Hour"
+      },
+      "name": "inverted iat \u003e exp",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuedAt:  now.Add(30 * time.Minute),\n\t\t\t\tExpiresAt: now.Add(15 * time.Minute),\n\t\t\t}"
+      },
+      "wantValid": false
+    },
+    {
+      "leeway": 0,
+      "name": "empty claims (all zero time)",
+      "refTime": {
+        "$expr": "now"
+      },
+      "token": {
+        "$expr": "jwt.Token{\n\t\t\t\tIssuer: \"https://auth.example.com\",\n\t\t\t}"
+      },
+      "wantValid": true
+    }
+  ],
   "ext/sets_test.go/TestSets": [
     {
       "actualCost": 27,
@@ -20267,13 +23464,7 @@
         "x": 10
       },
       "in": {
-        "x": [
-          5,
-          4,
-          3,
-          2,
-          1
-        ]
+        "x": [5, 4, 3, 2, 1]
       },
       "vars": [
         {
@@ -20288,13 +23479,7 @@
       },
       "expr": "sets.contains(x, [1, 1, 1, 1, 1])",
       "in": {
-        "x": [
-          5,
-          4,
-          3,
-          2,
-          1
-        ]
+        "x": [5, 4, 3, 2, 1]
       },
       "vars": [
         {
@@ -20771,10 +23956,7 @@
       "version": 0
     },
     {
-      "introducedFunctions": [
-        "strings.quote",
-        "format"
-      ],
+      "introducedFunctions": ["strings.quote", "format"],
       "version": 1
     },
     {
@@ -20782,9 +23964,7 @@
       "version": 2
     },
     {
-      "introducedFunctions": [
-        "reverse"
-      ],
+      "introducedFunctions": ["reverse"],
       "version": 3
     }
   ],
@@ -22182,12 +25362,7 @@
         "a": {
           "1": {
             "1": 0,
-            "2": [
-              "index",
-              "middex",
-              "outdex",
-              "dex"
-            ]
+            "2": ["index", "middex", "outdex", "dex"]
           }
         }
       },
@@ -22197,19 +25372,9 @@
       "state": {
         "2": {
           "1": 0,
-          "2": [
-            "index",
-            "middex",
-            "outdex",
-            "dex"
-          ]
+          "2": ["index", "middex", "outdex", "dex"]
         },
-        "4": [
-          "index",
-          "middex",
-          "outdex",
-          "dex"
-        ],
+        "4": ["index", "middex", "outdex", "dex"],
         "6": "dex"
       },
       "vars": [
@@ -22224,12 +25389,7 @@
         "a": {
           "1": {
             "1": 0,
-            "2": [
-              "index",
-              "middex",
-              "outdex",
-              "dex"
-            ]
+            "2": ["index", "middex", "outdex", "dex"]
           }
         }
       },
@@ -22242,28 +25402,13 @@
         },
         "2": {
           "1": 0,
-          "2": [
-            "index",
-            "middex",
-            "outdex",
-            "dex"
-          ]
+          "2": ["index", "middex", "outdex", "dex"]
         },
-        "4": [
-          "index",
-          "middex",
-          "outdex",
-          "dex"
-        ],
+        "4": ["index", "middex", "outdex", "dex"],
         "6": "index",
         "8": {
           "1": 0,
-          "2": [
-            "index",
-            "middex",
-            "outdex",
-            "dex"
-          ]
+          "2": ["index", "middex", "outdex", "dex"]
         }
       },
       "vars": [
@@ -22298,14 +25443,8 @@
     {
       "expr": "(a.size() != 0 ? a : b)[0]",
       "in": {
-        "a": [
-          "hello",
-          "world"
-        ],
-        "b": [
-          "world",
-          "hello"
-        ]
+        "a": ["hello", "world"],
+        "b": ["world", "hello"]
       },
       "out": {
         "$expr": "types.String(\"hello\")"
@@ -22658,15 +25797,11 @@
       }
     },
     {
-      "optQuals": [
-        1
-      ],
+      "optQuals": [1],
       "out": {
         "$expr": "types.OptionalNone"
       },
-      "quals": [
-        "b"
-      ],
+      "quals": ["b"],
       "varName": "a",
       "vars": {
         "a": {
@@ -22678,10 +25813,7 @@
       "err": {
         "$expr": "errors.New(\"no such key: 1\")"
       },
-      "quals": [
-        "b",
-        1
-      ],
+      "quals": ["b", 1],
       "varName": "a",
       "vars": {
         "a": {
@@ -22694,11 +25826,7 @@
         "$expr": "errors.New(\"index out of bounds: 1\")"
       },
       "optQuals": [],
-      "quals": [
-        "b",
-        1,
-        false
-      ],
+      "quals": ["b", 1, false],
       "varName": "a",
       "vars": {
         "a": {
@@ -22707,11 +25835,7 @@
       }
     },
     {
-      "optQuals": [
-        "b",
-        0,
-        false
-      ],
+      "optQuals": ["b", 0, false],
       "out": {
         "$expr": "types.OptionalNone"
       },
@@ -22725,16 +25849,11 @@
       }
     },
     {
-      "optQuals": [
-        true
-      ],
+      "optQuals": [true],
       "out": {
         "$expr": "types.OptionalNone"
       },
-      "quals": [
-        "b",
-        0
-      ],
+      "quals": ["b", 0],
       "varName": "a",
       "vars": {
         "a": {
@@ -22748,11 +25867,7 @@
       "err": {
         "$expr": "errors.New(\"no such key: true\")"
       },
-      "quals": [
-        "b",
-        0,
-        true
-      ],
+      "quals": ["b", 0, true],
       "varName": "a",
       "vars": {
         "a": {
@@ -22904,9 +26019,7 @@
       }
     },
     {
-      "optQuals": [
-        "single_int32"
-      ],
+      "optQuals": ["single_int32"],
       "out": {
         "$expr": "types.OptionalOf(reg.NativeToValue(1))"
       },
@@ -22918,9 +26031,7 @@
       }
     },
     {
-      "optQuals": [
-        "single_int32"
-      ],
+      "optQuals": ["single_int32"],
       "out": {
         "$expr": "types.OptionalNone"
       },
@@ -23069,60 +26180,39 @@
   ],
   "interpreter/frame_test.go/TestFrameCheckInterrupt": [
     {
-      "checks": [
-        false,
-        false
-      ],
+      "checks": [false, false],
       "name": "nil context"
     },
     {
-      "checks": [
-        false,
-        false
-      ],
+      "checks": [false, false],
       "name": "zero frequency not canceled",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tf.SetContext(ctx, 0)\n\t\t\t\treturn nil, nil\n\t\t\t}"
       }
     },
     {
-      "checks": [
-        false,
-        false
-      ],
+      "checks": [false, false],
       "name": "frequency one not canceled",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tf.SetContext(ctx, 1)\n\t\t\t\treturn nil, nil\n\t\t\t}"
       }
     },
     {
-      "checks": [
-        false,
-        true,
-        true
-      ],
+      "checks": [false, true, true],
       "name": "frequency one canceled dynamically",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tc, cancel := context.WithCancel(ctx)\n\t\t\t\tf.SetContext(c, 1)\n\t\t\t\treturn nil, func(step int) {\n\t\t\t\t\tif step == 1 {\n\t\t\t\t\t\tcancel()\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}"
       }
     },
     {
-      "checks": [
-        false,
-        false,
-        false
-      ],
+      "checks": [false, false, false],
       "name": "frequency two not canceled",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tf.SetContext(ctx, 2)\n\t\t\t\treturn nil, nil\n\t\t\t}"
       }
     },
     {
-      "checks": [
-        false,
-        true,
-        true
-      ],
+      "checks": [false, true, true],
       "name": "frequency two canceled dynamically",
       "setupCtx": {
         "$expr": "func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {\n\t\t\t\tc, cancel := context.WithCancel(ctx)\n\t\t\t\tf.SetContext(c, 2)\n\t\t\t\treturn nil, func(step int) {\n\t\t\t\t\tif step == 1 {\n\t\t\t\t\t\tcancel()\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}"
@@ -23543,9 +26633,7 @@
       "in": {
         "a": true,
         "b": 2.0,
-        "c": [
-          "hello"
-        ]
+        "c": ["hello"]
       },
       "name": "cond",
       "out": {
@@ -23567,9 +26655,7 @@
       "err": "index out of bounds: 1",
       "expr": "m[(x ? 0 : 1)] \u003e= 0",
       "in": {
-        "m": [
-          -1
-        ],
+        "m": [-1],
         "x": false
       },
       "name": "cond_attr_out_of_bounds_error",
@@ -23592,9 +26678,7 @@
         "b": {
           "$expr": "time.Millisecond"
         },
-        "m": [
-          1
-        ],
+        "m": [1],
         "x": false
       },
       "name": "cond_attr_qualify_bad_type_error",
@@ -23623,9 +26707,7 @@
         "b": {
           "$expr": "int32(2)"
         },
-        "m": [
-          1
-        ],
+        "m": [1],
         "x": false
       },
       "name": "cond_attr_qualify_bad_field_error",
@@ -23839,10 +26921,7 @@
       "in": {
         "m": {
           "0": 10,
-          "key": [
-            21,
-            42
-          ],
+          "key": [21, 42],
           "null": null
         }
       },
@@ -23981,11 +27060,7 @@
     {
       "expr": "[1, 2, 3]",
       "name": "literal_list",
-      "out": [
-        1,
-        2,
-        3
-      ]
+      "out": [1, 2, 3]
     },
     {
       "expr": "{'hi': 21, 'world': 42u}",
@@ -24157,10 +27232,7 @@
       "expr": "code == \"111\" \u0026\u0026 [\"a\", \"b\"].all(x, x in tags)\n\t\t\t\t|| code == \"222\" \u0026\u0026 [\"a\", \"b\"].all(x, x in tags)",
       "in": {
         "code": "222",
-        "tags": [
-          "a",
-          "b"
-        ]
+        "tags": ["a", "b"]
       },
       "name": "macro_all_non_strict_var",
       "vars": [
@@ -24209,11 +27281,7 @@
     {
       "expr": "[-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3].filter(x, x \u003e 0)",
       "name": "macro_filter",
-      "out": [
-        1,
-        2,
-        3
-      ]
+      "out": [1, 2, 3]
     },
     {
       "expr": "has({'a':1}.a) \u0026\u0026 !has({}.a)",
@@ -24653,40 +27721,17 @@
       "expr": "m.strList[0] == 'string'\n\t\t\t\t\u0026\u0026 m.floatList[0] == 1.5\n\t\t\t\t\u0026\u0026 m.doubleList[0] == -2.0\n\t\t\t\t\u0026\u0026 m.intList[0] == -3\n\t\t\t\t\u0026\u0026 m.int32List[0] == 4\n\t\t\t\t\u0026\u0026 m.int64List[0] == -5\n\t\t\t\t\u0026\u0026 m.uintList[0] == 6u\n\t\t\t\t\u0026\u0026 m.uint32List[0] == 7u\n\t\t\t\t\u0026\u0026 m.uint64List[0] == 8u\n\t\t\t\t\u0026\u0026 m.boolList[0] == true\n\t\t\t\t\u0026\u0026 m.boolList[1] != true\n\t\t\t\t\u0026\u0026 m.ifaceList[0] == {}",
       "in": {
         "m": {
-          "boolList": [
-            true,
-            false
-          ],
-          "doubleList": [
-            -2.0
-          ],
-          "floatList": [
-            1.5
-          ],
-          "ifaceList": [
-            {}
-          ],
-          "int32List": [
-            4
-          ],
-          "int64List": [
-            -5
-          ],
-          "intList": [
-            -3
-          ],
-          "strList": [
-            "string"
-          ],
-          "uint32List": [
-            7
-          ],
-          "uint64List": [
-            8
-          ],
-          "uintList": [
-            6
-          ]
+          "boolList": [true, false],
+          "doubleList": [-2.0],
+          "floatList": [1.5],
+          "ifaceList": [{}],
+          "int32List": [4],
+          "int64List": [-5],
+          "intList": [-3],
+          "strList": ["string"],
+          "uint32List": [7],
+          "uint64List": [8],
+          "uintList": [6]
         }
       },
       "name": "select_index",
@@ -24748,9 +27793,7 @@
       ]
     },
     {
-      "abbrevs": [
-        "google.protobuf.Int32Value"
-      ],
+      "abbrevs": ["google.protobuf.Int32Value"],
       "expr": "!has(a.single_int32_wrapper) \u0026\u0026 a.single_int32_wrapper == null\n\t\t\t\t\u0026\u0026 has(a.single_int64_wrapper) \u0026\u0026 a.single_int64_wrapper == 0\n\t\t\t\t\u0026\u0026 has(a.single_string_wrapper) \u0026\u0026 a.single_string_wrapper == \"hello\"\n\t\t\t\t\u0026\u0026 a.single_int64_wrapper == Int32Value{value: 0}",
       "in": {
         "a": {
@@ -24969,9 +28012,7 @@
     {
       "expr": "[?{}.?missing, ?{'present': 42u}.?present]",
       "name": "literal_list_optional_element",
-      "out": [
-        42
-      ]
+      "out": [42]
     },
     {
       "err": "cannot initialize optional list element from non-optional value 123",
@@ -26176,10 +29217,7 @@
     {
       "expr": "input",
       "in": {
-        "input": [
-          1,
-          2
-        ]
+        "input": [1, 2]
       },
       "name": "identity",
       "vars": [
@@ -26207,9 +29245,7 @@
     {
       "expr": "input[0]",
       "in": {
-        "input": [
-          "v"
-        ]
+        "input": ["v"]
       },
       "name": "select: array index",
       "vars": [
@@ -26252,9 +29288,7 @@
     {
       "expr": "input[3-3]",
       "in": {
-        "input": [
-          "v"
-        ]
+        "input": ["v"]
       },
       "name": "expr select: array index",
       "vars": [
@@ -30368,31 +33402,9 @@
       ],
       "configPath": "../../policy/testdata/restricted_destinations/config.yaml",
       "coveredBranchNodesComplete": [
-        1,
-        7,
-        11,
-        12,
-        19,
-        23,
-        28,
-        29,
-        30,
-        31,
-        32,
-        33,
-        34,
-        36,
-        37,
-        38,
-        39,
-        40,
-        42
+        1, 7, 11, 12, 19, 23, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 42
       ],
-      "coveredBranchNodesPartial": [
-        3,
-        13,
-        41
-      ],
+      "coveredBranchNodesPartial": [3, 13, 41],
       "name": "restricted destinations policy coverage",
       "testSuitePath": "../../policy/testdata/restricted_destinations/tests.yaml",
       "totalASTNodes": 44,
@@ -30407,31 +33419,11 @@
       ],
       "configPath": "../../policy/testdata/k8s/config.yaml",
       "coveredBranchNodesComplete": [],
-      "coveredBranchNodesPartial": [
-        8,
-        16,
-        17,
-        18,
-        19,
-        21,
-        22,
-        23,
-        24,
-        25,
-        26,
-        31
-      ],
+      "coveredBranchNodesPartial": [8, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 31],
       "name": "k8s policy coverage",
       "testSuitePath": "../../policy/testdata/k8s/tests.yaml",
       "totalASTNodes": 38,
-      "uncoveredNodes": [
-        5,
-        6,
-        7,
-        11,
-        12,
-        38
-      ]
+      "uncoveredNodes": [5, 6, 7, 11, 12, 38]
     },
     {
       "celExpr": "../../tools/celtest/testdata/custom_policy.celpolicy",
@@ -30443,12 +33435,7 @@
           "$expr": "compiler.PolicyMetadataEnvOption(ParsePolicyVariables)"
         }
       ],
-      "coveredBranchNodesComplete": [
-        1,
-        2,
-        3,
-        6
-      ],
+      "coveredBranchNodesComplete": [1, 2, 3, 6],
       "coveredBranchNodesPartial": [],
       "name": "policy with custom policy metadata coverage",
       "testSuitePath": "../../tools/celtest/testdata/custom_policy_tests.yaml",
@@ -30463,11 +33450,7 @@
         }
       ],
       "configPath": "../../tools/celtest/testdata/config.yaml",
-      "coveredBranchNodesComplete": [
-        1,
-        6,
-        8
-      ],
+      "coveredBranchNodesComplete": [1, 6, 8],
       "coveredBranchNodesPartial": [],
       "name": "raw expression file with unknowns test coverage",
       "testSuitePath": "../../tools/celtest/testdata/raw_expr_tests.yaml",

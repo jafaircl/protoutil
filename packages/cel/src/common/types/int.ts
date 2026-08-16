@@ -3,7 +3,7 @@ import { anyValueType } from "./any-value.js";
 import { False, True } from "./bool.js";
 import { compareIntDouble, compareIntUint } from "./compare.js";
 import { Double } from "./double.js";
-import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
+import { celErrTimestampOverflow, err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
 import {
   Int8NativeType,
   Int16NativeType,
@@ -20,6 +20,8 @@ import {
   addInt64Checked,
   divideInt64Checked,
   int64ToUint64Checked,
+  maxUnixTime,
+  minUnixTime,
   moduloInt64Checked,
   multiplyInt64Checked,
   negateInt64Checked,
@@ -136,6 +138,9 @@ export class Int implements Val, Adder, Comparer, Divider, Modder, Multiplier, N
       case DoubleType:
         return new Double(Number(this.value()));
       case TimestampType:
+        if (this.value() < minUnixTime || this.value() > maxUnixTime) {
+          return celErrTimestampOverflow;
+        }
         return timestampOf(this.value());
       case StringType:
         return new CelString(this.value().toString());

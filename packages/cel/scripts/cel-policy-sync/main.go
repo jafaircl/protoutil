@@ -16,7 +16,7 @@ import (
 
 const (
 	defaultRepoURL    = "https://github.com/cel-expr/cel-policy.git"
-	defaultRef        = "40bf3666e43e07eddbda0665fae95d33e52b11be"
+	defaultRef        = "c531abcf97d3bd910b8ac9a106eda42ce9d1bec9"
 	defaultRepoSubdir = "conformance/testdata"
 	defaultOutputDir  = "./testdata/policy"
 	defaultWorkdir    = "./.tmp/cel-policy-upstream"

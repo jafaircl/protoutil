@@ -1,0 +1,45 @@
+{
+  "path": "aggregate_nested_explicit_list_double_wrapping",
+  "files": {
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: aggregate_nested_explicit_list_double_wrapping\nrule:\n  aggregate:\n    - rule:\n        match:\n          - condition: \"true\"\n            output: \"['tag1', 'tag2']\"\n",
+      "value": {
+        "name": "aggregate_nested_explicit_list_double_wrapping",
+        "rule": {
+          "aggregate": [
+            {
+              "rule": {
+                "match": [
+                  {
+                    "condition": "true",
+                    "output": "['tag1', 'tag2']"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"aggregate_nested_explicit_list_double_wrapping\"\ndescription: \"Tests that aggregate policies cleanly support double-wrapped lists when a nested first_match rule returns an explicit list literal\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"nested_explicit_list\"\n    output:\n      value: [[\"tag1\", \"tag2\"]]\n",
+      "value": {
+        "description": "Tests that aggregate policies cleanly support double-wrapped lists when a nested first_match rule returns an explicit list literal",
+        "name": "aggregate_nested_explicit_list_double_wrapping",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "nested_explicit_list",
+                "output": {
+                  "value": [["tag1", "tag2"]]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

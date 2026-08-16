@@ -206,10 +206,14 @@ export class ConstantFoldingOptimizer implements ASTOptimizer {
       ast.referenceMap(),
       ast.source(),
     );
-    const result = context
-      .env()
-      .program(subAst)
-      .eval(this.knownValues ?? {});
+    let program: ReturnType<ReturnType<typeof context.env>["program"]>;
+    try {
+      program = context.env().program(subAst);
+    } catch {
+      // A subexpression the planner rejects simply cannot be folded; it is not an optimizer error.
+      return;
+    }
+    const result = program.eval(this.knownValues ?? {});
     if (result instanceof Err) {
       return;
     }
@@ -749,6 +753,16 @@ function constantCallMatcher(expression: ReturnType<typeof navigateAst>): boolea
     return true;
   }
   if (functionName === operators.Conditional && literalBoolean(children[0]!) !== undefined) {
+    return true;
+  }
+  // Concatenating two list literals folds structurally, so the elements themselves need not be
+  // constant.
+  if (
+    functionName === operators.Add &&
+    children.length === 2 &&
+    children[0]!.kind() === ExprKind.List &&
+    children[1]!.kind() === ExprKind.List
+  ) {
     return true;
   }
   if (functionName === operators.In) {

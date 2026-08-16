@@ -1,5 +1,11 @@
-import { AnySchema, anyPack, TimestampSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
-import { timestampToString } from "@protoutil/core/wkt";
+import {
+  AnySchema,
+  anyPack,
+  type Timestamp as TimestampMessage,
+  TimestampSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
+import { timestampFromString, timestampToString } from "@protoutil/core/wkt";
 import * as overloads from "../overloads.js";
 import { anyValueType } from "./any-value.js";
 import { Bool } from "./bool.js";
@@ -9,6 +15,8 @@ import { Int, IntNegOne, IntOne, IntZero } from "./int.js";
 import { nativeTypeName } from "./native.js";
 import {
   addTimeDurationChecked,
+  doubleToInt64Checked,
+  maxUnixTime,
   minUnixTime,
   subtractTimeChecked,
   subtractTimeDurationChecked,
@@ -249,6 +257,115 @@ export function timestampInTimezone(options: TimestampInTimezoneOptions): Timest
   return timestampOf(options.seconds, options.nanos).withTimezone(options.timezone);
 }
 
+/**
+ * isStrictRFC3339 reports whether a string satisfies CEL's strict RFC 3339 timestamp grammar.
+ *
+ * Calendar-specific validation remains delegated to the protobuf timestamp parser.
+ */
+export function isStrictRFC3339(value: string): boolean {
+  return /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])[Tt](?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(
+    value,
+  );
+}
+
+/**
+ * parseTimestamp parses a timestamp from the supported types and representations:
+ *
+ * - a CEL `Timestamp`, a `google.protobuf.Timestamp` message, or a native `Date`
+ * - RFC 3339 / RFC 3339 Nano strings (for example `"2023-01-01T00:00:00Z"`)
+ * - Unix epoch seconds as a `bigint`
+ * - Unix epoch seconds as a `number`, whose fractional part becomes nanoseconds
+ * - strings holding either of the two numeric forms
+ *
+ * Timestamps outside the supported range `[minUnixTime, maxUnixTime]` are rejected.
+ *
+ * This is the port of upstream's `ParseTimestamp`. Go's distinct `int`/`int32`/`int64` and
+ * `float32`/`float64` cases collapse into `bigint` and `number`, and `json.Number` has no
+ * TypeScript analogue — a numeric string reaches the same parsing path.
+ *
+ * @throws {Error} when the value is not a supported type, is malformed, or is out of range.
+ */
+export function parseTimestamp(value: unknown): Timestamp {
+  if (value === null || value === undefined) {
+    throw new Error("invalid timestamp: nil value");
+  }
+  if (value instanceof Timestamp) {
+    return validateTimestampRange(value);
+  }
+  if (value instanceof Date) {
+    const milliseconds = value.getTime();
+    if (Number.isNaN(milliseconds)) {
+      throw new Error("invalid timestamp: invalid Date");
+    }
+    // Date only carries millisecond resolution, and its epoch division must floor so that
+    // pre-epoch instants keep a non-negative nanosecond remainder.
+    const seconds = BigInt(Math.floor(milliseconds / 1000));
+    return validateTimestampRange(
+      timestampOf(seconds, Number(BigInt(milliseconds) - seconds * 1000n) * 1_000_000),
+    );
+  }
+  if (isTimestampMessage(value)) {
+    return validateTimestampRange(timestampOf(value.seconds, value.nanos));
+  }
+  if (typeof value === "bigint") {
+    return validateTimestampRange(timestampOf(value));
+  }
+  if (typeof value === "number") {
+    return timestampFromEpochSeconds(value);
+  }
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (text === "") {
+      throw new Error("invalid RFC 3339 timestamp: ''");
+    }
+    if (isStrictRFC3339(text)) {
+      const parsed = timestampFromString(text);
+      return validateTimestampRange(timestampOf(parsed.seconds, parsed.nanos));
+    }
+    if (/^[+-]?\d+$/.test(text)) {
+      return validateTimestampRange(timestampOf(BigInt(text)));
+    }
+    const epochSeconds = Number(text);
+    if (Number.isFinite(epochSeconds)) {
+      return timestampFromEpochSeconds(epochSeconds);
+    }
+    throw new Error(`unsupported timestamp format: "${text}"`);
+  }
+  throw new Error(`unsupported timestamp type: ${nativeTypeName(value)}`);
+}
+
+/**
+ * isTimestampMessage reports whether a value is a `google.protobuf.Timestamp` message.
+ */
+function isTimestampMessage(value: unknown): value is TimestampMessage {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "$typeName" in value &&
+    (value as { $typeName: unknown }).$typeName === TimestampSchema.typeName
+  );
+}
+
+/**
+ * timestampFromEpochSeconds splits fractional Unix epoch seconds into seconds and nanoseconds.
+ */
+function timestampFromEpochSeconds(value: number): Timestamp {
+  const seconds = doubleToInt64Checked(value);
+  const nanos = Math.trunc((value - Number(seconds)) * 1e9);
+  return validateTimestampRange(timestampOf(seconds, nanos));
+}
+
+/**
+ * validateTimestampRange rejects timestamps outside the range CEL can represent.
+ */
+function validateTimestampRange(value: Timestamp): Timestamp {
+  const seconds = value.seconds();
+  if (seconds < minUnixTime || seconds > maxUnixTime) {
+    throw new Error(`timestamp overflow: ${seconds}`);
+  }
+  return value;
+}
+
 function timestampZeroArg(options: TimestampZeroArgOptions): Val {
   switch (options.functionName) {
     case overloads.TimeGetFullYear:
@@ -400,8 +517,16 @@ function parseTimezoneOffsetMinutes(value: string): number {
   const sign = match[1] === "-" ? -1 : 1;
   const hours = Number(match[2]);
   const minutes = Number(match[3]);
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || minutes < 0 || minutes > 59) {
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
     throw new Error(`Invalid time zone specified: ${value}`);
+  }
+  // The regex captures the sign separately, so `hours` is an unsigned magnitude here and the
+  // upstream `hr < -23 || hr > 23` guard collapses to a single upper-bound check.
+  if (hours > 23) {
+    throw new Error(`timezone offset hours out of range [-23, 23]: ${value}`);
+  }
+  if (minutes < 0 || minutes > 59) {
+    throw new Error(`timezone offset minutes out of range [0, 59]: ${value}`);
   }
   return sign * (hours * 60 + minutes);
 }

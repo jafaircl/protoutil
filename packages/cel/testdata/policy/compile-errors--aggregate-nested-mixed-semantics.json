@@ -1,0 +1,69 @@
+{
+  "path": "compile_errors/aggregate_nested_mixed_semantics",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"aggregate_nested_mixed_semantics\"\nvariables:\n  - name: \"cond1\"\n    type_name: \"bool\"\n  - name: \"cond2\"\n    type_name: \"bool\"\n",
+      "value": {
+        "name": "aggregate_nested_mixed_semantics",
+        "variables": [
+          {
+            "name": "cond1",
+            "type_name": "bool"
+          },
+          {
+            "name": "cond2",
+            "type_name": "bool"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: aggregate_nested_mixed_semantics\nrule:\n  aggregate:\n    - condition: \"cond1\"\n      rule:\n        match:\n          - condition: \"cond2\"\n            rule:\n              aggregate:\n                - condition: \"true\"\n                  output: \"'nested'\"\n",
+      "value": {
+        "name": "aggregate_nested_mixed_semantics",
+        "rule": {
+          "aggregate": [
+            {
+              "condition": "cond1",
+              "rule": {
+                "match": [
+                  {
+                    "condition": "cond2",
+                    "rule": {
+                      "aggregate": [
+                        {
+                          "condition": "true",
+                          "output": "'nested'"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"aggregate_nested_mixed_semantics\"\ndescription: \"Tests that nested aggregate rules under an aggregate ancestor rule raise a compilation error\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"nested_aggregate_error\"\n    output:\n      error_set:\n      - \"nested aggregate rules are not allowed\"\n",
+      "value": {
+        "description": "Tests that nested aggregate rules under an aggregate ancestor rule raise a compilation error",
+        "name": "aggregate_nested_mixed_semantics",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "nested_aggregate_error",
+                "output": {
+                  "error_set": ["nested aggregate rules are not allowed"]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -180,6 +180,12 @@ export interface OptionalTypesOptions {
  */
 export type OptionalTypesLibrary = SingletonLibrary & LibraryAliaser & LibraryVersioner;
 
+/** UNUSED_ITER_VAR names the iteration variable of a comprehension used purely for binding. */
+const UNUSED_ITER_VAR = "#unused";
+
+/** TARGET_VAR names the variable an optional macro binds its non-ident target to. */
+const TARGET_VAR = "@target";
+
 /**
  * optionalMapMacro performs computation on an optional value and wraps the result.
  */
@@ -679,21 +685,38 @@ function expandOptionalMap(options: ExpandOptionalMapOptions): Expr | Error {
   }
   const variableName = variable.asIdent()!;
   const mapped = options.args[1]!;
+  // A non-ident target is bound to `@target` by an outer comprehension so that the target
+  // expression is evaluated once rather than expanded into both the hasValue() test and the
+  // value() call.
+  const bindsTarget = options.target.kind() !== ExprKind.Ident;
+  const targetIdent = bindsTarget ? options.helper.ident(TARGET_VAR) : options.target;
   const value = options.helper.comprehension(
     options.helper.list(),
-    "#unused",
+    UNUSED_ITER_VAR,
     variableName,
-    options.helper.memberCall("value", options.helper.copy(options.target)),
+    options.helper.memberCall("value", options.helper.copy(targetIdent)),
     options.helper.literal(false),
     options.helper.ident(variableName),
     mapped,
   );
 
-  return options.helper.call(
+  const result = options.helper.call(
     operators.Conditional,
-    options.helper.memberCall("hasValue", options.target),
+    options.helper.memberCall("hasValue", targetIdent),
     options.flat ? value : options.helper.call("optional.of", value),
     options.helper.call("optional.none"),
+  );
+  if (!bindsTarget) {
+    return result;
+  }
+  return options.helper.comprehension(
+    options.helper.list(),
+    UNUSED_ITER_VAR,
+    TARGET_VAR,
+    options.target,
+    options.helper.literal(false),
+    options.helper.ident(TARGET_VAR),
+    result,
   );
 }
 

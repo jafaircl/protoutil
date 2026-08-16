@@ -210,13 +210,7 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     for (const file of incoming.pbdbValue.fileDescriptions()) {
       next.registerDescriptor(file.fileDescriptor());
     }
-    for (const [name, descriptor] of incoming.nativeTypes) {
-      const existing = next.nativeTypes.get(name);
-      if (existing !== undefined && nativeDescriptorsEqual(existing, descriptor)) {
-        continue;
-      }
-      next.registerNativeTypes(descriptor);
-    }
+    next.ensureNativeTypes(...incoming.nativeTypes.values());
     next.registerType(...incoming.revTypeMap.values());
     return next;
   }
@@ -440,6 +434,24 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
       }
       this.nativeTypes.set(name, { ...descriptor, typeName: name });
       this.registerType(objectType(name));
+    }
+  }
+
+  /**
+   * ensureNativeTypes registers explicit TypeScript object descriptions, skipping any type name
+   * which is already registered with an identical description.
+   *
+   * Registering a *different* description of an already registered type name remains a conflict.
+   * This is the registration a library performs, where the same type may legitimately be described
+   * again by a second copy of that library.
+   */
+  public ensureNativeTypes(...descriptors: NativeObjectDescriptor[]): void {
+    for (const descriptor of descriptors) {
+      const existing = this.nativeTypes.get(stripLeadingDot(descriptor.typeName));
+      if (existing !== undefined && nativeDescriptorsEqual(existing, descriptor)) {
+        continue;
+      }
+      this.registerNativeTypes(descriptor);
     }
   }
 

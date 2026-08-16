@@ -12,7 +12,7 @@ import { Int } from "./int.js";
 import { nativeTypeName, packAnyString } from "./native.js";
 import { durationNanosChecked, maxUnixTime, minUnixTime } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
-import { timestampOf } from "./timestamp.js";
+import { isStrictRFC3339, timestampOf } from "./timestamp.js";
 import type { Adder, Comparer, Matcher, Receiver, Sizer } from "./traits/index.js";
 import {
   BoolType,
@@ -256,17 +256,6 @@ function parseDurationNanos(source: string): bigint | undefined {
  */
 export function compileRegexPattern(pattern: string): RE2JS {
   return RE2JS.compile(pattern);
-}
-
-/**
- * isStrictRFC3339 reports whether a string satisfies CEL's strict RFC 3339 timestamp grammar.
- *
- * Calendar-specific validation remains delegated to the protobuf timestamp parser.
- */
-function isStrictRFC3339(value: string): boolean {
-  return /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])[Tt](?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(
-    value,
-  );
 }
 
 /**

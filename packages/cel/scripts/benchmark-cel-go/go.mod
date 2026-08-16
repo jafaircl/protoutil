@@ -3,7 +3,7 @@ module github.com/jafaircl/protoutil/cel-benchmark
 go 1.23.0
 
 require (
-	github.com/google/cel-go v0.26.1
+	github.com/google/cel-go v0.31.0
 	github.com/google/cel-go/policy v0.0.0
 	go.yaml.in/yaml/v3 v3.0.4
 )

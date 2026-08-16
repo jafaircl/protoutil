@@ -2,7 +2,7 @@
 
 This glossary defines domain terms used across the project. Each entry names one concept; project artifacts MUST use these terms rather than paraphrasing them.
 
-Entries currently cover `packages/cel/src/composition/` (CEL environment and checked-expression composition) and `packages/celql/` (query translation). Add further sections here as later features introduce their own domain terms.
+Entries currently cover `packages/cel/src/composition/` (CEL environment and checked-expression composition), `packages/celql/` (query translation), and `packages/cel/src/policy/` (policy evaluation semantics). Add further sections here as later features introduce their own domain terms.
 
 ## CEL environment and checked-expression composition
 
@@ -225,3 +225,39 @@ Testing a profile by evaluating the checked expression with a CEL evaluator, exe
 
 - Prohibited alternatives: "round-trip test", "integration test".
 - Related concepts: [Profile conformance](#profile-conformance).
+
+## Policy evaluation semantics
+
+Terms used by `packages/cel/src/policy/`. `packages/cel/src/policy/README.md` gives the authoring-level description of the policy format.
+
+### Choice
+
+One entry in a rule's ordered list of alternatives: a condition together with either an output expression or a nested rule. A choice is the unit a rule's evaluation semantic combines.
+
+- Prohibited alternatives: "match" when the aggregate semantic is meant or when both semantics are meant; `match` is the name of the first-match block specifically.
+
+### Rule semantic
+
+How a rule combines the outcomes of its choices. A rule has exactly one semantic: [first-match](#first-match-semantic) or [aggregate](#aggregate-semantic).
+
+- Related concepts: [Choice](#choice).
+
+### First-match semantic
+
+The rule semantic in which choices are evaluated top-down and the first choice whose condition holds supplies the rule's single outcome. A rule which may match no choice has result type `optional_type(T)` and yields `optional.none()`. Written as a `match` block, and the default semantic.
+
+- Related concepts: [Aggregate semantic](#aggregate-semantic).
+
+### Aggregate semantic
+
+The rule semantic in which every choice is evaluated and the outcomes of the matching choices are collected, in declaration order, into one list. A rule with output type `T` has result type `list(T)` and yields `[]` when no choice matches. Written as an `aggregate` block. An aggregate rule may not be nested, directly or indirectly, inside another aggregate rule.
+
+- Prohibited alternatives: "collect semantics", "list rule".
+- Related concepts: [First-match semantic](#first-match-semantic), [Pruning](#pruning).
+
+### Pruning
+
+Omitting from an aggregate result the choices whose nested rule selected no outcome. Pruning applies to the absence of an outcome, not to its value: an `optional.none()` a nested rule authored as its own output is an outcome and is collected like any other value.
+
+- Prohibited alternatives: "filtering", "optional flattening".
+- Related concepts: [Aggregate semantic](#aggregate-semantic).

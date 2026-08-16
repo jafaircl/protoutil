@@ -282,7 +282,7 @@ const fixturesDirectory = resolve(import.meta.dirname, "../testdata/policy");
 const reportPath = join(fixturesDirectory, "policy.md");
 
 /** policyRevision is the pinned cel-policy revision synchronized by the Go command. */
-const policyRevision = "40bf3666e43e07eddbda0665fae95d33e52b11be";
+const policyRevision = "c531abcf97d3bd910b8ac9a106eda42ce9d1bec9";
 
 /** extensionOptions maps cel-policy configuration names to TypeScript CEL libraries. */
 const extensionOptions: Record<string, EnvOptions> = {

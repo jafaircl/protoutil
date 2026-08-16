@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { env, unwrapAst } from "../cel/env.js";
+import { astOutputType, env, unwrapAst } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
 import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
@@ -85,6 +85,23 @@ rule:
 /** policyEnvironment returns an environment with policy optional support. */
 function policyEnvironment() {
   return env({ libraries: [optionalTypes(), bindings()] });
+}
+
+/**
+ * evaluatesTo reports whether a composed policy evaluates to the result of a CEL expression.
+ *
+ * Comparing through CEL equality keeps the assertion independent of which list implementation a
+ * composed expression happens to produce.
+ */
+function evaluatesTo(
+  environment: ReturnType<typeof policyEnvironment>,
+  ast: Parameters<ReturnType<typeof policyEnvironment>["program"]>[0],
+  activation: object,
+  expected: string,
+): boolean {
+  const actual = environment.program(ast).eval(activation);
+  const want = environment.program(unwrapAst(environment.compile(expected))).eval({});
+  return actual.equal(want).value() === true;
 }
 
 /** parsed returns a successfully parsed policy fixture at an optional source location. */
@@ -277,5 +294,103 @@ describe("policy/compiler_test.go/TestWhitespaceHandlingErrorPresentation", () =
     expect(message).toContain("yaml_parsing_cel_error");
     expect(message).toContain('("bar" + 1)');
     expect(result.issues.errors()).toHaveLength(4);
+  });
+});
+
+describe("policy/compiler.go/aggregate", () => {
+  it("collects every matching choice into a list", () => {
+    const environment = policyEnvironment().extend({
+      variables: [variable("tag", StringType)],
+    });
+    const result = compile(
+      environment,
+      parsed(`rule:
+  aggregate:
+    - condition: "tag == 'pii'"
+      output: "'PII'"
+    - condition: "true"
+      output: "'ALWAYS'"
+`),
+    );
+
+    expect(result.issues.err()).toBeUndefined();
+    expect(astOutputType(result.ast!).toString()).toBe("list(string)");
+    expect(evaluatesTo(environment, result.ast!, { tag: "pii" }, "['PII', 'ALWAYS']")).toBe(true);
+    expect(evaluatesTo(environment, result.ast!, { tag: "other" }, "['ALWAYS']")).toBe(true);
+  });
+
+  it("yields an empty list when no choice matches", () => {
+    const environment = policyEnvironment();
+    const result = compile(
+      environment,
+      parsed(`rule:
+  aggregate:
+    - condition: "1 == 2"
+      output: "'NEVER'"
+`),
+    );
+
+    expect(result.issues.err()).toBeUndefined();
+    expect(evaluatesTo(environment, result.ast!, {}, "[]")).toBe(true);
+  });
+
+  it("rejects a rule which specifies both match and aggregate", () => {
+    const result = parse(
+      source(
+        `rule:
+  match:
+    - output: "'a'"
+  aggregate:
+    - output: "'b'"
+`,
+        "<input>",
+      ),
+    );
+
+    expect(result.issues.err()?.message).toContain(
+      "rule must specify only one of match or aggregate",
+    );
+  });
+
+  it("rejects an aggregate rule nested under another aggregate rule", () => {
+    const result = compileRule(
+      policyEnvironment(),
+      parsed(`rule:
+  aggregate:
+    - rule:
+        aggregate:
+          - output: "'nested'"
+`),
+    );
+
+    expect(result.issues.err()?.message).toContain("nested aggregate rules are not allowed");
+  });
+
+  it("rejects a choice which can never match", () => {
+    const result = compileRule(
+      policyEnvironment(),
+      parsed(`rule:
+  aggregate:
+    - condition: "false"
+      output: "'NEVER'"
+`),
+    );
+
+    expect(result.issues.err()?.message).toContain("condition is always false");
+  });
+
+  it("keeps an ordered choice from making a later choice unreachable", () => {
+    const result = compileRule(
+      policyEnvironment(),
+      parsed(`rule:
+  aggregate:
+    - condition: "true"
+      output: "'FIRST'"
+    - condition: "true"
+      output: "'SECOND'"
+`),
+    );
+
+    expect(result.issues.err()).toBeUndefined();
   });
 });

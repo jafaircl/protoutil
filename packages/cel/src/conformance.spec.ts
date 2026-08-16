@@ -36,6 +36,7 @@ import { isUnknown, type Unknown } from "./common/types/unknown.js";
 import {
   bindings,
   encoders,
+  lists,
   math,
   network,
   protos,
@@ -99,6 +100,7 @@ const extensionSuites = new Set([
   "bindings_ext",
   "block_ext",
   "encoders_ext",
+  "lists_ext",
   "macros2",
   "math_ext",
   "network_ext",
@@ -185,6 +187,9 @@ function conformanceLibraries(suite: string): Library[] {
       break;
     case "encoders_ext":
       libraries.push(encoders());
+      break;
+    case "lists_ext":
+      libraries.push(lists());
       break;
     case "macros2":
       libraries.push(twoVarComprehensions());

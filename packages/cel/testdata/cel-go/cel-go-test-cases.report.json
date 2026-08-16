@@ -1,10 +1,10 @@
 {
-  "testFilesScanned": 112,
-  "candidateTablesFound": 258,
-  "exportedTables": 251,
-  "rowsExported": 3771,
-  "structuredFields": 7903,
-  "fallbackFields": 3269,
+  "testFilesScanned": 117,
+  "candidateTablesFound": 319,
+  "exportedTables": 306,
+  "rowsExported": 4254,
+  "structuredFields": 8717,
+  "fallbackFields": 3821,
   "skippedTables": [],
   "unresolvedTableUsages": [
     {
@@ -161,6 +161,31 @@
       "file": "common/types/map_test.go",
       "test": "TestMapFold",
       "table": "foldKinds"
+    },
+    {
+      "file": "common/types/native_test.go",
+      "test": "TestNativeTypes",
+      "table": "asts"
+    },
+    {
+      "file": "common/types/native_test.go",
+      "test": "TestNativeTypesWithOptional",
+      "table": "asts"
+    },
+    {
+      "file": "common/types/native_test.go",
+      "test": "TestNativeTypesWithCELTypedFields",
+      "table": "asts"
+    },
+    {
+      "file": "common/types/native_test.go",
+      "test": "TestNativeStructEmbedded",
+      "table": "asts"
+    },
+    {
+      "file": "common/types/native_test.go",
+      "test": "TestNativeNestedStruct",
+      "table": "asts"
     },
     {
       "file": "common/types/pb/file_test.go",
@@ -361,6 +386,16 @@
       "file": "ext/regex_test.go",
       "test": "TestRegexCosts",
       "table": "asts"
+    },
+    {
+      "file": "ext/security/jwt/jwt_test.go",
+      "test": "TestJWTParsingErrorsAndEncodings",
+      "table": "requiredClaims"
+    },
+    {
+      "file": "ext/security/jwt/jwt_test.go",
+      "test": "TestJWTParsingErrorsAndEncodings",
+      "table": "validPayload"
     },
     {
       "file": "ext/sets_test.go",

@@ -30,6 +30,10 @@ the upstream `cel-go` test suite. See [conformance.md](./testdata/conformance/co
 the generated CEL dashboard and [policy.md](./testdata/policy/policy.md) for the
 cel-policy conformance results.
 
+The port currently tracks **`cel-go` v0.30.0** and **`cel-spec` v0.25.2**. See
+[UPSTREAM.md](./UPSTREAM.md) for the parity ledger, the commits adopted ahead of
+that pin, and the outstanding upstream deltas.
+
 ---
 
 - [Common Expression Language](#common-expression-language)

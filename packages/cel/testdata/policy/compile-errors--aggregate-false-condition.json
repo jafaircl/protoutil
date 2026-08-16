@@ -1,0 +1,39 @@
+{
+  "path": "compile_errors/aggregate_false_condition",
+  "files": {
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: aggregate_false_condition\nrule:\n  aggregate:\n    - condition: \"false\"\n      output: \"'FALSE'\"\n",
+      "value": {
+        "name": "aggregate_false_condition",
+        "rule": {
+          "aggregate": [
+            {
+              "condition": "false",
+              "output": "'FALSE'"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"aggregate_false_condition\"\ndescription: \"Tests for false condition in aggregate policy\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"false_condition\"\n    output:\n      error_set:\n      - \"condition is always false\"\n",
+      "value": {
+        "description": "Tests for false condition in aggregate policy",
+        "name": "aggregate_false_condition",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "false_condition",
+                "output": {
+                  "error_set": ["condition is always false"]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

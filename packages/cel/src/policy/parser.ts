@@ -171,9 +171,19 @@ export function rule(sourceId: number): Rule {
 }
 
 /**
+ * RuleSemantic selects how a rule combines the outcomes of its choices.
+ *
+ * `first-match` stops at the first choice whose condition holds and yields that choice's outcome.
+ * `aggregate` evaluates every choice and collects the matching outcomes into a list.
+ */
+export type RuleSemantic = "first-match" | "aggregate";
+
+/**
  * Rule declares an identifier, description, variables, and match statements.
  */
 export class Rule {
+  /** semanticValue stores how the rule combines its choices. */
+  private semanticValue: RuleSemantic = "first-match";
   /** idValue stores the optional rule identifier. */
   private idValue?: ValueString;
   /** descriptionValue stores the optional rule description. */
@@ -204,6 +214,16 @@ export class Rule {
   /** matches returns the ordered match declarations. */
   public matches(): Match[] {
     return [...this.matchesValue];
+  }
+
+  /** semantic returns how the rule combines the outcomes of its choices. */
+  public semantic(): RuleSemantic {
+    return this.semanticValue;
+  }
+
+  /** setSemantic configures how the rule combines the outcomes of its choices. */
+  public setSemantic(value: RuleSemantic): void {
+    this.semanticValue = value;
   }
 
   /** variables returns the ordered variable declarations. */
@@ -241,6 +261,7 @@ export class Rule {
     const explanation = new Rule(this.sourceIdValue);
     explanation.idValue = this.idValue;
     explanation.descriptionValue = this.descriptionValue;
+    explanation.semanticValue = this.semanticValue;
     explanation.addVariables(this.variables());
     for (const sourceMatch of this.matchesValue) {
       const target = match(sourceMatch.sourceId());
@@ -773,6 +794,16 @@ class ParserImplementation implements ParserContext {
           this.parseVariables(options.policy, parsedRule, fieldValue, fieldId);
           break;
         case "match":
+          if (parsedRule.semantic() === "aggregate") {
+            this.reportErrorAtId(fieldId, "rule must specify only one of match or aggregate");
+          }
+          this.parseMatches(options.policy, parsedRule, fieldValue, fieldId);
+          break;
+        case "aggregate":
+          if (parsedRule.matches().length > 0) {
+            this.reportErrorAtId(fieldId, "rule must specify only one of match or aggregate");
+          }
+          parsedRule.setSemantic("aggregate");
           this.parseMatches(options.policy, parsedRule, fieldValue, fieldId);
           break;
         default:

@@ -1,0 +1,123 @@
+{
+  "path": "first_match_nested_aggregate",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nvariables:\n  - name: cond1\n    type:\n      type_name: \"bool\"\n  - name: cond2\n    type:\n      type_name: \"bool\"\n  - name: cond3\n    type:\n      type_name: \"bool\"\n",
+      "value": {
+        "variables": [
+          {
+            "name": "cond1",
+            "type": {
+              "type_name": "bool"
+            }
+          },
+          {
+            "name": "cond2",
+            "type": {
+              "type_name": "bool"
+            }
+          },
+          {
+            "name": "cond3",
+            "type": {
+              "type_name": "bool"
+            }
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: first_match_nested_aggregate\nrule:\n  match:\n    - condition: \"cond1\"\n      rule:\n        aggregate:\n          - condition: \"cond2\"\n            output: \"'A'\"\n          - condition: \"cond3\"\n            output: \"'B'\"\n    - condition: \"true\"\n      output: \"['FALLBACK']\"\n",
+      "value": {
+        "name": "first_match_nested_aggregate",
+        "rule": {
+          "match": [
+            {
+              "condition": "cond1",
+              "rule": {
+                "aggregate": [
+                  {
+                    "condition": "cond2",
+                    "output": "'A'"
+                  },
+                  {
+                    "condition": "cond3",
+                    "output": "'B'"
+                  }
+                ]
+              }
+            },
+            {
+              "condition": "true",
+              "output": "['FALLBACK']"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: Bidirectional scoping conformance tests nesting aggregate inside first_match parent\nsection:\n  - name: \"basic\"\n    tests:\n      - name: \"all_true\"\n        input:\n          cond1:\n            value: true\n          cond2:\n            value: true\n          cond3:\n            value: true\n        output:\n          value: [\"A\", \"B\"]\n      - name: \"fallback_outer\"\n        input:\n          cond1:\n            value: false\n          cond2:\n            value: true\n          cond3:\n            value: true\n        output:\n          value: [\"FALLBACK\"]\n      - name: \"nested_failed_to_empty\"\n        input:\n          cond1:\n            value: true\n          cond2:\n            value: false\n          cond3:\n            value: false\n        output:\n          value: []\n",
+      "value": {
+        "description": "Bidirectional scoping conformance tests nesting aggregate inside first_match parent",
+        "section": [
+          {
+            "name": "basic",
+            "tests": [
+              {
+                "input": {
+                  "cond1": {
+                    "value": true
+                  },
+                  "cond2": {
+                    "value": true
+                  },
+                  "cond3": {
+                    "value": true
+                  }
+                },
+                "name": "all_true",
+                "output": {
+                  "value": ["A", "B"]
+                }
+              },
+              {
+                "input": {
+                  "cond1": {
+                    "value": false
+                  },
+                  "cond2": {
+                    "value": true
+                  },
+                  "cond3": {
+                    "value": true
+                  }
+                },
+                "name": "fallback_outer",
+                "output": {
+                  "value": ["FALLBACK"]
+                }
+              },
+              {
+                "input": {
+                  "cond1": {
+                    "value": true
+                  },
+                  "cond2": {
+                    "value": false
+                  },
+                  "cond3": {
+                    "value": false
+                  }
+                },
+                "name": "nested_failed_to_empty",
+                "output": {
+                  "value": []
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

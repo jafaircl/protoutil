@@ -1,6 +1,7 @@
 import { create, isMessage, type MessageShape } from "@bufbuild/protobuf";
 import type { ReflectList } from "@bufbuild/protobuf/reflect";
 import { AnySchema, anyPack, ListValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
+import type { AggregateSizer, AggregateSizeVisitor } from "./aggregate-sizer.js";
 import { anyValueType } from "./any-value.js";
 import { Bool, False, True } from "./bool.js";
 import { Double } from "./double.js";
@@ -9,6 +10,7 @@ import { formatVal } from "./format.js";
 import { Int } from "./int.js";
 import { BaseIterator } from "./iterator.js";
 import { JSONListType, JSONValueType } from "./json-value.js";
+import { safeAddUint32 } from "./overflow.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import type { Folder, Lister, MutableLister, Iterator as TraitIterator } from "./traits/index.js";
 import { ListType, TypeType } from "./types.js";
@@ -75,7 +77,10 @@ export function mutableList(adapter: TypeAdapter): MutableLister {
 /**
  * BaseList is an immutable list implementation used across CEL runtime values.
  */
-export class BaseList implements Lister {
+export class BaseList implements Lister, AggregateSizeVisitor {
+  /** aggregateSizeValue memoizes the recursive element count of an immutable list. */
+  protected aggregateSizeValue?: number;
+
   constructor(
     protected readonly adapter: TypeAdapter,
     protected readonly listValue: unknown,
@@ -199,6 +204,24 @@ export class BaseList implements Lister {
     return new Int(this.sizeValue);
   }
 
+  /**
+   * aggregateSize implements AggregateSizeVisitor.
+   *
+   * The result is memoized because immutable lists cannot change size; mutating subclasses clear
+   * the cache when their contents change.
+   */
+  public aggregateSize(sizer: AggregateSizer): number {
+    if (this.aggregateSizeValue !== undefined) {
+      return this.aggregateSizeValue;
+    }
+    let total = 1;
+    for (let index = 0; index < this.sizeValue; index += 1) {
+      total = safeAddUint32(total, sizer.aggregateSize(this.getter(index)));
+    }
+    this.aggregateSizeValue = total;
+    return total;
+  }
+
   public type(): RefType {
     return ListType;
   }
@@ -247,6 +270,7 @@ class MutableList extends BaseList implements MutableLister {
     if (other instanceof MutableList) {
       this.mutableValues.push(...other.mutableValues);
       this.sizeValue = this.mutableValues.length;
+      this.aggregateSizeValue = undefined;
       return this;
     }
     if (!isLister(other)) {
@@ -257,6 +281,7 @@ class MutableList extends BaseList implements MutableLister {
       this.mutableValues.push(otherList.get(new Int(index)));
     }
     this.sizeValue = this.mutableValues.length;
+    this.aggregateSizeValue = undefined;
     return this;
   }
 
@@ -295,6 +320,14 @@ class ConcatList extends BaseList implements Lister {
       return this.prevList.get(new Int(BigInt(ind)));
     }
     return this.nextList.get(new Int(BigInt(ind - prevSize)));
+  }
+
+  /**
+   * aggregateSize implements AggregateSizeVisitor by delegating to the concatenated segments,
+   * which avoids materializing the lazy concatenation.
+   */
+  public override aggregateSize(sizer: AggregateSizer): number {
+    return safeAddUint32(sizer.aggregateSize(this.prevList), sizer.aggregateSize(this.nextList));
   }
 
   public override size(): Val {

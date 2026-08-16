@@ -4,9 +4,9 @@ import { container } from "../common/containers.js";
 import { variable } from "../common/decls.js";
 import { errorsValue } from "../common/errors.js";
 import type { Type } from "../common/types/types.js";
-import { DynType, ErrorType } from "../common/types/types.js";
+import { DynType, ErrorType, listType } from "../common/types/types.js";
 import { composeRule } from "./composer.js";
-import type { Match, Policy, Rule, ValueString, Variable } from "./parser.js";
+import type { Match, Policy, Rule, RuleSemantic, ValueString, Variable } from "./parser.js";
 import type { RelativeSource } from "./source.js";
 
 /**
@@ -188,7 +188,13 @@ export class CompiledRule {
     private readonly idValue: ValueString,
     private readonly variablesValue: CompiledVariable[],
     private readonly matchesValue: CompiledMatch[],
+    private readonly semanticValue: RuleSemantic = "first-match",
   ) {}
+
+  /** semantic returns how the rule combines the outcomes of its choices. */
+  public semantic(): RuleSemantic {
+    return this.semanticValue;
+  }
 
   /** sourceId returns the source metadata identifier associated with the rule. */
   public sourceId(): number {
@@ -212,13 +218,19 @@ export class CompiledRule {
 
   /** outputType returns the output type shared by all match clauses. */
   public outputType(): Type {
-    return this.matchesValue[0]?.outputType() ?? DynType;
+    const elementType = this.matchesValue[0]?.outputType() ?? DynType;
+    return this.semanticValue === "aggregate" ? listType(elementType) : elementType;
   }
 
   /**
    * hasOptionalOutput reports whether some evaluation path may produce no value.
    */
   public hasOptionalOutput(): boolean {
+    // An aggregate rule always produces a list. Choices which do not match contribute nothing to
+    // it, so an unmatched aggregate is the empty list rather than an absent value.
+    if (this.semanticValue === "aggregate") {
+      return false;
+    }
     let optionalOutput = false;
     for (const compiledMatch of this.matchesValue) {
       const nested = compiledMatch.nestedRule();
@@ -314,6 +326,11 @@ export class CompiledMatch {
     return this.conditionSourceValue.trim() === "true";
   }
 
+  /** conditionIsFalse reports whether the condition is the literal false expression. */
+  public conditionIsFalse(): boolean {
+    return this.conditionSourceValue.trim() === "false";
+  }
+
   /** output returns the compiled output when set. */
   public output(): OutputValue | undefined {
     return this.outputValue;
@@ -360,12 +377,22 @@ interface CompileRuleOptions {
   state: CompileState;
   /** compilerOptions customizes match output compilation. */
   compilerOptions: CompilerOptions;
+  /** insideAggregate reports whether an enclosing rule already aggregates its choices. */
+  insideAggregate?: boolean;
 }
 
 /**
  * compileRuleGraph recursively compiles variables, conditions, outputs, and nested rules.
  */
 function compileRuleGraph(options: CompileRuleOptions): CompiledRule {
+  const semantic = options.rule.semantic();
+  const aggregate = semantic === "aggregate";
+  if (aggregate && options.insideAggregate) {
+    options.issues.reportErrorAtId({
+      id: options.rule.sourceId(),
+      message: "nested aggregate rules are not allowed",
+    });
+  }
   const variables: CompiledVariable[] = [];
   let activeEnv = options.env;
   for (const value of options.rule.variables()) {
@@ -420,7 +447,12 @@ function compileRuleGraph(options: CompileRuleOptions): CompiledRule {
         output = new OutputValue(value.output().id, compiledOutput.ast);
       }
     } else if (value.hasRule()) {
-      nested = compileRuleGraph({ ...options, env: activeEnv, rule: value.rule()! });
+      nested = compileRuleGraph({
+        ...options,
+        env: activeEnv,
+        rule: value.rule()!,
+        insideAggregate: options.insideAggregate || aggregate,
+      });
       incrementNesting(options, value.rule()!, "rule");
     }
     matches.push(
@@ -428,10 +460,56 @@ function compileRuleGraph(options: CompileRuleOptions): CompiledRule {
     );
   }
 
-  const compiled = new CompiledRule(options.rule.sourceId(), options.rule.id(), variables, matches);
+  const compiled = new CompiledRule(
+    options.rule.sourceId(),
+    options.rule.id(),
+    variables,
+    matches,
+    semantic,
+  );
+  if (aggregate) {
+    validateAggregateChoices(compiled, options.issues);
+    return compiled;
+  }
   validateMatchOutputTypes(compiled, options.issues);
   validateUnreachable(compiled, options.issues);
   return compiled;
+}
+
+/**
+ * validateAggregateChoices verifies the constraints an aggregate rule places on its choices.
+ *
+ * Every matching choice contributes an element to one list, so all choices must agree on the
+ * element type. A choice guarded by the constant `false` can never contribute and is rejected as
+ * dead code. Order does not select a single outcome, so no choice can render another unreachable.
+ */
+function validateAggregateChoices(rule: CompiledRule, diagnostics: Issues): void {
+  let previousType: Type | undefined;
+  for (const value of rule.matches()) {
+    if (value.conditionIsFalse()) {
+      diagnostics.reportErrorAtId({
+        id: value.sourceId(),
+        message: "condition is always false",
+      });
+    }
+    const choiceType = value.outputType();
+    if (choiceType === ErrorType) {
+      continue;
+    }
+    if (
+      previousType !== undefined &&
+      !previousType.isAssignableType(choiceType) &&
+      !choiceType.isAssignableType(previousType)
+    ) {
+      diagnostics.reportErrorAtId({
+        id: value.output()?.sourceId() ?? value.nestedRule()?.sourceId() ?? value.sourceId(),
+        message:
+          "incompatible output types: block has output type %s, but previous outputs have type %s",
+        args: [choiceType.toString(), previousType.toString()],
+      });
+    }
+    previousType = choiceType;
+  }
 }
 
 /**

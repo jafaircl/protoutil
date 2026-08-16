@@ -21,6 +21,7 @@ import {
   reflect,
 } from "@bufbuild/protobuf/reflect";
 import { AnySchema, anyPack } from "@bufbuild/protobuf/wkt";
+import type { AggregateSizer } from "./aggregate-sizer.js";
 import { anyValueType } from "./any-value.js";
 import { err, errFromString, maybeNoSuchOverloadErr } from "./err.js";
 import { formatVal } from "./format.js";
@@ -28,6 +29,7 @@ import { JSONValueType } from "./json-value.js";
 import { reflectedList } from "./list.js";
 import { reflectedMap } from "./map.js";
 import { NullValue } from "./null.js";
+import { safeAddUint32 } from "./overflow.js";
 import { DefaultTypeAdapter } from "./provider.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
@@ -192,6 +194,25 @@ export class protoObj implements Val, FieldTester, Indexer {
   }
   public value(): unknown {
     return this.pbValue;
+  }
+
+  /**
+   * aggregateSize implements AggregateSizeVisitor by summing the set fields of the message.
+   */
+  public aggregateSize(sizer: AggregateSizer): number {
+    let total = 1;
+    for (const field of this.typeDesc.fields) {
+      if (!this.reflectedValue.isSet(field)) {
+        continue;
+      }
+      // Size the adapted CEL value rather than the raw reflection handle so list and map
+      // fields route through their own aggregate-size implementations.
+      total = safeAddUint32(
+        total,
+        sizer.aggregateSize(protoFieldToValue(this.adapter, this.reflectedValue, field)),
+      );
+    }
+    return total;
   }
 
   /** format implements formattable. */

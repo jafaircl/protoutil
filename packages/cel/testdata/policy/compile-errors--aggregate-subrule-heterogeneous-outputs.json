@@ -1,0 +1,70 @@
+{
+  "path": "compile_errors/aggregate_subrule_heterogeneous_outputs",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nvariables:\n  - name: cond1\n    type:\n      type_name: \"bool\"\n  - name: cond2\n    type:\n      type_name: \"bool\"\n",
+      "value": {
+        "variables": [
+          {
+            "name": "cond1",
+            "type": {
+              "type_name": "bool"
+            }
+          },
+          {
+            "name": "cond2",
+            "type": {
+              "type_name": "bool"
+            }
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: aggregate_subrule_heterogeneous_outputs\nrule:\n  aggregate:\n    - rule:\n        match:\n          - condition: \"cond1\"\n            output: \"'PII'\"\n          - condition: \"cond2\"\n            output: \"403\"\n",
+      "value": {
+        "name": "aggregate_subrule_heterogeneous_outputs",
+        "rule": {
+          "aggregate": [
+            {
+              "rule": {
+                "match": [
+                  {
+                    "condition": "cond1",
+                    "output": "'PII'"
+                  },
+                  {
+                    "condition": "cond2",
+                    "output": "403"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"aggregate_subrule_heterogeneous_outputs\"\ndescription: \"Tests that nested first_match subrule under an aggregate outer rule correctly formats its type mismatch errors on raw unwrapped types instead of leaked list wrapper\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"mixed_semantics_type_error\"\n    output:\n      error_set:\n      - \"incompatible output types: block has output type int, but previous outputs have type string\"\n",
+      "value": {
+        "description": "Tests that nested first_match subrule under an aggregate outer rule correctly formats its type mismatch errors on raw unwrapped types instead of leaked list wrapper",
+        "name": "aggregate_subrule_heterogeneous_outputs",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "mixed_semantics_type_error",
+                "output": {
+                  "error_set": [
+                    "incompatible output types: block has output type int, but previous outputs have type string"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,6 +1,8 @@
 import { create, isMessage, type Message, type MessageShape, ScalarType } from "@bufbuild/protobuf";
 import type { ReflectMap } from "@bufbuild/protobuf/reflect";
 import { AnySchema, anyPack, StructSchema, ValueSchema } from "@bufbuild/protobuf/wkt";
+import type { AggregateSizer, AggregateSizeVisitor } from "./aggregate-sizer.js";
+import { FoldableAggregateSizer } from "./aggregate-sizer.js";
 import { anyValueType } from "./any-value.js";
 import { Bool, False, True } from "./bool.js";
 import { err, valOrErr } from "./err.js";
@@ -176,7 +178,10 @@ export function insertMapKeyValue(options: InsertMapKeyValueOptions): Val {
 /**
  * BaseMap is a generic immutable map implementation.
  */
-export class BaseMap implements Mapper {
+export class BaseMap implements Mapper, AggregateSizeVisitor {
+  /** aggregateSizeValue memoizes the recursive element count of an immutable map. */
+  protected aggregateSizeValue?: number;
+
   constructor(
     protected readonly adapter: TypeAdapter,
     protected readonly mapValue: unknown,
@@ -293,6 +298,22 @@ export class BaseMap implements Mapper {
 
   public size(): Val {
     return new Int(this.keys.length);
+  }
+
+  /**
+   * aggregateSize implements AggregateSizeVisitor.
+   *
+   * The result is memoized because immutable maps cannot change; mutating subclasses clear the
+   * cache when an entry is inserted.
+   */
+  public aggregateSize(sizer: AggregateSizer): number {
+    if (this.aggregateSizeValue !== undefined) {
+      return this.aggregateSizeValue;
+    }
+    const folder = new FoldableAggregateSizer(sizer);
+    this.fold(folder);
+    this.aggregateSizeValue = folder.total;
+    return folder.total;
   }
 
   public type(): RefType {
@@ -442,6 +463,7 @@ class MutableMap extends BaseMap implements MutableMapper {
     }
     this.mutableValues.set(k, v);
     this.keys.push(k);
+    this.aggregateSizeValue = undefined;
     return this;
   }
 

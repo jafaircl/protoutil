@@ -1,0 +1,50 @@
+{
+  "path": "compile_errors/unreachable_under_unconditional_aggregate_subrule",
+  "files": {
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: unreachable_under_unconditional_aggregate_subrule\nrule:\n  match:\n    - condition: \"true\"\n      rule:\n        aggregate:\n          - condition: \"1 == 2\"\n            output: \"'ADMIN'\"\n    - condition: \"true\"\n      output: \"['FALLBACK']\"\n",
+      "value": {
+        "name": "unreachable_under_unconditional_aggregate_subrule",
+        "rule": {
+          "match": [
+            {
+              "condition": "true",
+              "rule": {
+                "aggregate": [
+                  {
+                    "condition": "1 == 2",
+                    "output": "'ADMIN'"
+                  }
+                ]
+              }
+            },
+            {
+              "condition": "true",
+              "output": "['FALLBACK']"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"unreachable_under_unconditional_aggregate_subrule\"\ndescription: \"Tests that dead code is flagged when a first_match rule has an unconditional aggregate subrule followed by another match\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"unreachable_match\"\n    output:\n      error_set:\n      - \"rule creates unreachable outputs\"\n",
+      "value": {
+        "description": "Tests that dead code is flagged when a first_match rule has an unconditional aggregate subrule followed by another match",
+        "name": "unreachable_under_unconditional_aggregate_subrule",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "unreachable_match",
+                "output": {
+                  "error_set": ["rule creates unreachable outputs"]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1271,7 +1271,7 @@ class TypeDescParser {
   }
 
   public skipWhitespace(): void {
-    while (this.current() === " ") {
+    while (isWhitespace(this.current())) {
       this.pos += 1;
     }
   }
@@ -1369,6 +1369,10 @@ class TypeDescParser {
     }
     return char;
   }
+}
+
+function isWhitespace(char: string): boolean {
+  return char === " " || char === "\t" || char === "\n" || char === "\r";
 }
 
 function isAlpha(char: string): boolean {

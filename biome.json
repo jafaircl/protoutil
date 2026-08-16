@@ -7,6 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
+    "maxSize": 8388608,
     "includes": [
       "**",
       "!**/dist",

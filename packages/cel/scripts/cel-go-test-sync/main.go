@@ -21,7 +21,8 @@ import (
 
 const (
 	defaultRepoURL = "https://github.com/google/cel-go.git"
-	defaultRef     = "v0.30.0"
+	// Post-v0.31.0 master. See packages/cel/UPSTREAM.md for the parity ledger.
+	defaultRef     = "ef240479443ae9bbf89edd93430b1be2173350a7"
 	defaultOutPath = "packages/cel/testdata/cel-go/cel-go-test-cases.json"
 	defaultReport  = "packages/cel/testdata/cel-go/cel-go-test-cases.report.json"
 )

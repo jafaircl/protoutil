@@ -1,5 +1,7 @@
+import type { AggregateSizer } from "./aggregate-sizer.js";
 import { Bool, False } from "./bool.js";
 import { err } from "./err.js";
+import { safeAddUint32 } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { OptionalType, TypeType } from "./types.js";
 
@@ -60,6 +62,16 @@ export class Optional implements Val {
       return False;
     }
     return this.inner!.equal(other.inner!);
+  }
+
+  /**
+   * aggregateSize implements AggregateSizeVisitor. An empty optional contributes nothing.
+   */
+  public aggregateSize(sizer: AggregateSizer): number {
+    if (!this.hasValue()) {
+      return 0;
+    }
+    return safeAddUint32(1, sizer.aggregateSize(this.inner));
   }
 
   /** String returns the string representation of the optional. */

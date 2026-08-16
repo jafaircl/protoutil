@@ -35,7 +35,13 @@ import { type Errors, errorsValue, noLocation } from "../common/errors.js";
 import type { Source } from "../common/source.js";
 import { textSource } from "../common/source.js";
 import { standardFunctions, standardTypes } from "../common/stdlib.js";
-import { type Adapter, type Provider, type Registry, registry } from "../common/types/provider.js";
+import {
+  type Adapter,
+  type NativeObjectDescriptor,
+  type Provider,
+  type Registry,
+  registry,
+} from "../common/types/provider.js";
 import {
   ErrorType,
   exprTypeToType,
@@ -265,6 +271,15 @@ export interface EnvOptions {
    * types registers CEL runtime types with both the checker and type provider.
    */
   types?: Type[];
+
+  /**
+   * nativeTypes registers explicit TypeScript object descriptions with the type provider.
+   *
+   * A type name already registered with an identical description is left as it is, so a library
+   * which declares its own object types may be configured alongside a registry which already
+   * describes them.
+   */
+  nativeTypes?: NativeObjectDescriptor[];
 
   /**
    * functions declares custom function signatures and runtime bindings.
@@ -763,6 +778,7 @@ export class Env {
     }
     this.typesValue = [...(options.types ?? [])];
     this.registryValue.registerType(...this.typesValue);
+    this.registryValue.ensureNativeTypes(...(options.nativeTypes ?? []));
     const standardLibrarySubset =
       options.standardLibrary === false ? undefined : options.standardLibrary?.subset;
     const subsetError = standardLibrarySubset?.validate();
@@ -1848,6 +1864,7 @@ function mergeEnvOptions(options: MergeEnvOptions): EnvOptions {
     },
     validators: [...(options.base.validators ?? []), ...(options.override.validators ?? [])],
     types: [...(options.base.types ?? []), ...(options.override.types ?? [])],
+    nativeTypes: [...(options.base.nativeTypes ?? []), ...(options.override.nativeTypes ?? [])],
     variables: [...(options.base.variables ?? []), ...(options.override.variables ?? [])],
   };
 }

@@ -12,6 +12,9 @@ const MIN_INT64 = -9_223_372_036_854_775_808n;
 const MAX_UINT64 = 18_446_744_073_709_551_615n;
 const SECOND_NANOS = 1_000_000_000n;
 
+/** MAX_UINT32 is the saturation point for aggregate element counts. */
+export const MAX_UINT32 = 4_294_967_295;
+
 /**
  * Number of seconds between `0001-01-01T00:00:00Z` and the Unix epoch.
  */
@@ -338,4 +341,34 @@ export function subtractTimeDurationChecked(
   durationNanos: bigint,
 ): { seconds: bigint; nanos: number } {
   return addTimeDurationChecked(xSeconds, xNanos, negateDurationChecked(durationNanos));
+}
+
+/**
+ * safeAddUint32 adds two uint32 element counts, saturating at MAX_UINT32 instead of wrapping.
+ */
+export function safeAddUint32(lhs: number, rhs: number): number {
+  if (MAX_UINT32 - lhs < rhs) {
+    return MAX_UINT32;
+  }
+  return lhs + rhs;
+}
+
+/**
+ * safeUint32FromNumber clamps a native count into the uint32 range used by size calculations.
+ */
+export function safeUint32FromNumber(value: number): number {
+  if (!Number.isFinite(value) || value < 0) {
+    return MAX_UINT32;
+  }
+  return value > MAX_UINT32 ? MAX_UINT32 : Math.trunc(value);
+}
+
+/**
+ * safeUint32FromBigInt clamps a boxed CEL integer into the uint32 range.
+ */
+export function safeUint32FromBigInt(value: bigint): number {
+  if (value < 0n || value > BigInt(MAX_UINT32)) {
+    return MAX_UINT32;
+  }
+  return Number(value);
 }

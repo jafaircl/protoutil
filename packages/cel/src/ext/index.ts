@@ -15,6 +15,18 @@ export {
 } from "./encoders.js";
 export { extensionOptionFactory } from "./extension-option-factory.js";
 export {
+  type JwtLibrary,
+  type JwtOptions,
+  JwtTokenType,
+  JwtTokenTypeName,
+  jwt,
+  MaxTokenSize,
+  newToken,
+  parseToken,
+  Token,
+  type TokenOptions,
+} from "./jwt.js";
+export {
   type ListsLibrary,
   type ListsOptions,
   lists,
