@@ -61,7 +61,7 @@ import type { AsyncObserver } from "../interpreter/async.js";
 import { attributePattern, partialAttributeFactory } from "../interpreter/attribute-patterns.js";
 import { attributeFactory } from "../interpreter/attributes.js";
 import type { InterpretableDecoratorV2 } from "../interpreter/decorators.js";
-import { dispatcher } from "../interpreter/dispatcher.js";
+import { type Dispatcher, dispatcher } from "../interpreter/dispatcher.js";
 import type { PlannerConfig } from "../interpreter/interpreter.js";
 import {
   compileRegexConstantsConfig,
@@ -80,11 +80,8 @@ import {
   costTracker,
 } from "../interpreter/runtime-cost.js";
 import { AllMacros } from "../parser/macro.js";
-import { type Macro, macroKey, type ParserConfig, parserOptions } from "../parser/options.js";
-import {
-  parse as parseExpression,
-  parseSource as parseExpressionSource,
-} from "../parser/parser.js";
+import { type Macro, macroKey, type ParserConfig, type ParserOptions } from "../parser/options.js";
+import { type Parser, parser as parserValue } from "../parser/parser.js";
 import { astToString } from "./io.js";
 import { type Library, legacyTimeFunctions, optionalTypes } from "./library.js";
 import { type ASTOptimizer, staticOptimizer } from "./optimizer.js";
@@ -645,6 +642,23 @@ export class Env {
   private readonly functionsValue: FunctionDecl[];
 
   /**
+   * runtimeDispatcherValue caches the runtime overloads installed into every program planned by
+   * this environment. The declarations are fixed at construction and the planner only reads the
+   * dispatcher, so one instance is shared by every program.
+   */
+  private runtimeDispatcherValue?: Dispatcher;
+
+  /**
+   * hasAsyncValue caches whether any declaration contributes an asynchronous runtime binding.
+   */
+  private hasAsyncValue?: boolean;
+
+  /**
+   * parserValue caches the parser configured from this environment's parser configuration.
+   */
+  private parserValue?: Parser;
+
+  /**
    * variablesValue stores caller-provided declarations for environment extension.
    */
   private readonly variablesValue: VariableDecl[];
@@ -883,7 +897,7 @@ export class Env {
    * exceptional one.
    */
   public parse(source: string): CompileResult {
-    const result = parseExpression(source, this.parserConfigValue);
+    const result = this.parser().parse(source);
     return {
       ast: result.ast,
       errors:
@@ -897,7 +911,7 @@ export class Env {
    * parseSource parses a lower-level CEL source while preserving its description and locations.
    */
   public parseSource(source: Source): CompileResult {
-    const result = parseExpressionSource(source, this.parserConfigValue);
+    const result = this.parser().parseSource(source);
     return {
       ast: result.ast,
       errors:
@@ -1146,7 +1160,7 @@ export class Env {
    * macros returns the parser macros configured for the environment.
    */
   public macros(): Macro[] {
-    return [...parserOptions(this.parserConfigValue).macros.values()];
+    return [...this.parserOptions().macros.values()];
   }
 
   /**
@@ -1247,7 +1261,7 @@ export class Env {
    * expressionNodeLimitErrors reports an expression-count failure as structured compile issues.
    */
   private expressionNodeLimitErrors(astValue: AST, source: Source): Issues | undefined {
-    const limit = parserOptions(this.parserConfigValue).maxExpressionNodeCount;
+    const limit = this.parserOptions().maxExpressionNodeCount;
     const count = nodeCount(astValue);
     if (count <= limit) {
       return undefined;
@@ -1324,6 +1338,57 @@ export class Env {
   }
 
   /**
+   * parser returns the shared parser configured for this environment.
+   *
+   * Resolving a parser configuration builds the macro lookup table, and a parser keeps no state
+   * between parses, so one instance is built for the environment and reused.
+   */
+  private parser(): Parser {
+    if (this.parserValue === undefined) {
+      this.parserValue = parserValue(this.parserConfigValue);
+    }
+    return this.parserValue;
+  }
+
+  /**
+   * parserOptions returns this environment's resolved parser configuration.
+   */
+  private parserOptions(): ParserOptions {
+    return this.parser().parserOptions();
+  }
+
+  /**
+   * runtimeDispatcher returns the shared dispatcher holding this environment's runtime overloads.
+   *
+   * Building the overload set walks every declaration and materializes its guarded bindings, which
+   * dominates planning cost when it is repeated per program. The declarations are fixed once the
+   * environment is constructed and planning only reads the dispatcher, so the result is built once
+   * and shared.
+   */
+  private runtimeDispatcher(): Dispatcher {
+    if (this.runtimeDispatcherValue === undefined) {
+      const functions = dispatcher();
+      for (const declaration of this.functionsValue) {
+        functions.add({ overloads: declaration.bindings() });
+      }
+      this.runtimeDispatcherValue = functions;
+    }
+    return this.runtimeDispatcherValue;
+  }
+
+  /**
+   * hasAsync reports whether any declaration contributes an asynchronous runtime binding.
+   */
+  private hasAsync(): boolean {
+    if (this.hasAsyncValue === undefined) {
+      this.hasAsyncValue = this.functionsValue.some((declaration) =>
+        declaration.bindings().some((binding) => binding.async !== undefined),
+      );
+    }
+    return this.hasAsyncValue;
+  }
+
+  /**
    * program creates an evaluable program from a parsed or checked AST.
    */
   public program(ast: AST, options: ProgramOptions = {}): Program {
@@ -1334,12 +1399,8 @@ export class Env {
       base: this.programOptionDefaultsValue,
       override: options,
     });
-    const functions = dispatcher();
-    for (const declaration of this.functionsValue) {
-      functions.add({ overloads: declaration.bindings() });
-    }
     const runtime = interpreter({
-      dispatcher: functions,
+      dispatcher: this.runtimeDispatcher(),
       container: this.containerValue,
       provider: this.registryValue,
       adapter: this.registryValue,
@@ -1453,9 +1514,7 @@ export class Env {
             : activation({ bindings: resolvedOptions.globals }),
         interruptCheckFrequency: resolvedOptions.interruptCheckFrequency,
         jsonFieldNames: this.jsonFieldNamesValue,
-        hasAsync: this.functionsValue.some((declaration) =>
-          declaration.bindings().some((binding) => binding.async !== undefined),
-        ),
+        hasAsync: this.hasAsync(),
         stateSink,
       },
     );

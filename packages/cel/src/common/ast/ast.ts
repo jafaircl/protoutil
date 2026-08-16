@@ -479,6 +479,17 @@ export class AST {
   }
 
   /**
+   * ReferenceMapView returns the expression id to reference map without copying it.
+   *
+   * Copying the map is the dominant cost of planning a small expression once the runtime dispatcher
+   * is shared. Readers that never mutate the result and do not outlive the AST use this accessor;
+   * every other caller uses `referenceMap()`.
+   */
+  public referenceMapView(): ReadonlyMap<number, ReferenceInfo> {
+    return this.refMapValue;
+  }
+
+  /**
    * WithSource returns an equivalent AST bound to a source, sharing this AST's checked metadata.
    *
    * Rebuilding an AST through `typeMap()` and `referenceMap()` deep-copies both maps, and copying

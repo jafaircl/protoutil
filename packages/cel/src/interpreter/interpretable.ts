@@ -1357,9 +1357,6 @@ class UnaryCallInterpretable implements InterpretableCall {
     if (!this.nonStrictValue && isUnknownOrError(arg)) {
       return arg;
     }
-    if (!this.nonStrictValue && isUnknownOrError(arg)) {
-      return arg;
-    }
     if (
       this.implValue &&
       (this.operandTraitValue === 0 ||

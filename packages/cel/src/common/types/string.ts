@@ -8,7 +8,7 @@ import { Bytes } from "./bytes.js";
 import { Double } from "./double.js";
 import { durationOf } from "./duration.js";
 import { err, maybeNoSuchOverloadErr, wrapErr } from "./err.js";
-import { Int } from "./int.js";
+import { Int, IntNegOne, IntOne, IntZero } from "./int.js";
 import { nativeTypeName, packAnyString } from "./native.js";
 import { durationNanosChecked, maxUnixTime, minUnixTime } from "./overflow.js";
 import type { Type as RefType, Val } from "./ref/index.js";
@@ -50,12 +50,12 @@ export class String implements Val, Adder, Comparer, Matcher, Receiver, Sizer {
       return maybeNoSuchOverloadErr(other);
     }
     if (this.inner < other.inner) {
-      return new Int(-1n);
+      return IntNegOne;
     }
     if (this.inner > other.inner) {
-      return new Int(1n);
+      return IntOne;
     }
-    return new Int(0n);
+    return IntZero;
   }
   public convertToNative(typeDesc?: unknown): unknown {
     if (typeDesc === globalThis.String || typeDesc === undefined) {

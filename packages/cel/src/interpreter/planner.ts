@@ -88,9 +88,10 @@ export function planAst(options: { exprAst: AST; planner: PlannerState }): Inter
  */
 class PlanBuilder {
   /**
-   * refMapValue stores checked reference metadata keyed by expression id.
+   * refMapValue stores checked reference metadata keyed by expression id. Planning only reads it,
+   * so it shares the AST's map instead of copying it.
    */
-  private readonly refMapValue: Map<
+  private readonly refMapValue: ReadonlyMap<
     number,
     { name: string; value?: unknown; overloadIds: string[] }
   >;
@@ -113,7 +114,7 @@ class PlanBuilder {
     exprAst: AST,
   ) {
     this.exprAstValue = exprAst;
-    this.refMapValue = exprAst.referenceMap();
+    this.refMapValue = exprAst.referenceMapView();
   }
 
   /**

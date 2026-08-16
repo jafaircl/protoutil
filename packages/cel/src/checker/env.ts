@@ -1,7 +1,6 @@
 import type { Container } from "../common/containers.js";
 import { constant, type FunctionDecl, type VariableDecl, variable } from "../common/decls.js";
 import * as overloads from "../common/overloads.js";
-import { isError } from "../common/types/err.js";
 import { IntType } from "../common/types/index.js";
 import type { Registry } from "../common/types/provider.js";
 import type { Type } from "../common/types/types.js";
@@ -236,8 +235,8 @@ export class Env {
     if (structType) {
       return variable(candidate, structType);
     }
-    const enumValue = this.provider.enumValue(candidate);
-    if (!isError(enumValue)) {
+    const enumValue = this.provider.findEnumValue(candidate);
+    if (enumValue !== undefined) {
       return constant(
         candidate,
         "kind" in (enumValue.type() as object) ? (enumValue.type() as Type) : IntType,

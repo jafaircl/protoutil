@@ -17,6 +17,23 @@ export const MIN_INT64 = -9223372036854775808n;
 export const MAX_UINT64 = 18446744073709551615n;
 
 /**
+ * invertComparison reverses an ordering result.
+ *
+ * Comparison results are the shared `IntNegOne`, `IntZero`, and `IntOne` values, so reversing one
+ * maps between them rather than negating into a freshly allocated `Int`. Keeping every ordering
+ * result a shared value lets callers classify one by identity.
+ */
+function invertComparison(result: Int): Int {
+  if (result === IntNegOne) {
+    return IntOne;
+  }
+  if (result === IntOne) {
+    return IntNegOne;
+  }
+  return IntZero;
+}
+
+/**
  * compareDoubleInt orders a CEL double against a CEL int.
  */
 export function compareDoubleInt(d: Double, i: Int): Int {
@@ -33,7 +50,7 @@ export function compareDoubleInt(d: Double, i: Int): Int {
  * compareIntDouble orders a CEL int against a CEL double.
  */
 export function compareIntDouble(i: Int, d: Double): Int {
-  return compareDoubleInt(d, i).negate() as Int;
+  return invertComparison(compareDoubleInt(d, i));
 }
 
 /**
@@ -53,7 +70,7 @@ export function compareDoubleUint(d: Double, u: Uint): Int {
  * compareUintDouble orders a CEL uint against a CEL double.
  */
 export function compareUintDouble(u: Uint, d: Double): Int {
-  return compareDoubleUint(d, u).negate() as Int;
+  return invertComparison(compareDoubleUint(d, u));
 }
 
 /**
@@ -78,7 +95,7 @@ export function compareIntUint(i: Int, u: Uint): Int {
  * compareUintInt orders a CEL uint against a CEL int.
  */
 export function compareUintInt(u: Uint, i: Int): Int {
-  return compareIntUint(i, u).negate() as Int;
+  return invertComparison(compareIntUint(i, u));
 }
 
 /**

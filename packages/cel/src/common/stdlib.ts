@@ -37,7 +37,9 @@ import {
   durationGetSeconds,
   False,
   IndexerType,
-  Int,
+  IntNegOne,
+  IntOne,
+  IntZero,
   isBool,
   MatcherType,
   ModderType,
@@ -1087,21 +1089,21 @@ function isDoubleNaN(value: Val): boolean {
 /**
  * compareResultKind normalizes CEL comparison outputs so TypeScript object identity does not leak
  * into relational operator semantics.
+ *
+ * Every ordering result is one of the shared comparison values, so classifying one is an identity
+ * test. A comparison that could not be ordered returns an error instead and falls through.
  */
 function compareResultKind(value: Val): "less" | "equal" | "greater" | undefined {
-  if (!(value instanceof Int)) {
-    return undefined;
+  if (value === IntNegOne) {
+    return "less";
   }
-  switch (value.value()) {
-    case -1n:
-      return "less";
-    case 0n:
-      return "equal";
-    case 1n:
-      return "greater";
-    default:
-      return undefined;
+  if (value === IntZero) {
+    return "equal";
   }
+  if (value === IntOne) {
+    return "greater";
+  }
+  return undefined;
 }
 
 function indexBinding(lhs: Val, rhs: Val): Val {

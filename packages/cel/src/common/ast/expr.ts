@@ -461,14 +461,55 @@ export class BaseExpr implements Expr {
     }
   }
 
-  /** SetKindCase replaces the underlying protobuf expression. */
+  /**
+   * SetKindCase adopts another expression's kind and contents while keeping this node's id.
+   *
+   * The transfer reads the replacement through the `Expr` accessors rather than round-tripping it
+   * through protobuf. A round trip deep-copied the whole replacement subtree and then serialized it
+   * a second time into `this.proto`, whose kind payload no reader consults: `toProto()` rebuilds the
+   * message from the kind and variant below, and `this.proto` supplies only the id. Callers that
+   * need the replacement detached copy it themselves before calling, which is what the AST
+   * optimizer already does.
+   */
   public setKindCase(other?: Expr): void {
-    const id = this.id();
-    const replacement = protoToExpr(other?.toProto());
-    this.proto = replacement.toProto();
-    this.proto.id = BigInt(id);
-    this.exprKind = (replacement as BaseExpr).exprKind;
-    this.variant = (replacement as BaseExpr).variant;
+    switch (other?.kind()) {
+      case ExprKind.Call:
+        this.exprKind = ExprKind.Call;
+        this.variant = other.asCall();
+        return;
+      case ExprKind.Comprehension:
+        this.exprKind = ExprKind.Comprehension;
+        this.variant = other.asComprehension();
+        return;
+      case ExprKind.Ident:
+        this.exprKind = ExprKind.Ident;
+        this.variant = other.asIdent();
+        return;
+      case ExprKind.List:
+        this.exprKind = ExprKind.List;
+        this.variant = other.asList();
+        return;
+      case ExprKind.Literal:
+        this.exprKind = ExprKind.Literal;
+        this.variant = other.asLiteral();
+        return;
+      case ExprKind.Map:
+        this.exprKind = ExprKind.Map;
+        this.variant = other.asMap();
+        return;
+      case ExprKind.Select:
+        this.exprKind = ExprKind.Select;
+        this.variant = other.asSelect();
+        return;
+      case ExprKind.Struct:
+        this.exprKind = ExprKind.Struct;
+        this.variant = other.asStruct();
+        return;
+      default:
+        this.exprKind = ExprKind.Unspecified;
+        this.variant = undefined;
+        return;
+    }
   }
 
   /** ToProto converts the expression to protobuf form. */

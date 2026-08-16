@@ -31,6 +31,16 @@ export class Parser {
   }
 
   /**
+   * Returns the resolved options, including defaults and the macro table, for this parser.
+   *
+   * Resolving a configuration builds the macro lookup table, so callers that need one setting reuse
+   * a parser rather than resolving the configuration again.
+   */
+  public parserOptions(): ParserOptions {
+    return this.options;
+  }
+
+  /**
    * Parses source text into a CEL AST and source info.
    */
   public parse(source: string): ParseResult {

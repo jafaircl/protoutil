@@ -228,26 +228,29 @@ export class Registry implements Adapter, Provider, LegacyTypeRegistry {
     this.pbdbValue = next;
   }
 
-  public enumValue(enumName: string): Val {
+  /**
+   * FindEnumValue resolves a declared enum value by name, or undefined when the name is not one.
+   *
+   * Callers that probe a name they expect to miss use this rather than `enumValue`. `Err` extends
+   * the built-in `Error`, so constructing one captures a stack trace: fabricating an error per
+   * missed lookup dominated checking a qualified selection.
+   */
+  public findEnumValue(enumName: string): Val | undefined {
     const [enumVal, found] = this.pbdbValue.describeEnum(enumName);
-    return found && enumVal
-      ? this.strongEnumsValue
-        ? new ProtoEnum(enumVal.descriptor().parent, BigInt(enumVal.value()))
-        : new Int(BigInt(enumVal.value()))
-      : err("unknown enum name '%s'", enumName);
+    if (!found || !enumVal) {
+      return undefined;
+    }
+    return this.strongEnumsValue
+      ? new ProtoEnum(enumVal.descriptor().parent, BigInt(enumVal.value()))
+      : new Int(BigInt(enumVal.value()));
+  }
+
+  public enumValue(enumName: string): Val {
+    return this.findEnumValue(enumName) ?? err("unknown enum name '%s'", enumName);
   }
 
   public findIdent(identName: string): Val | undefined {
-    const type = this.revTypeMap.get(stripLeadingDot(identName));
-    if (type) {
-      return type;
-    }
-    const [enumVal, found] = this.pbdbValue.describeEnum(identName);
-    return found && enumVal
-      ? this.strongEnumsValue
-        ? new ProtoEnum(enumVal.descriptor().parent, BigInt(enumVal.value()))
-        : new Int(BigInt(enumVal.value()))
-      : undefined;
+    return this.revTypeMap.get(stripLeadingDot(identName)) ?? this.findEnumValue(identName);
   }
 
   /** enumValueOf creates an enum value from its signed number or declared symbolic name. */

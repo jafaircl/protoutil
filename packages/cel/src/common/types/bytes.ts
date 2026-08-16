@@ -2,7 +2,7 @@ import { AnySchema, BytesValueSchema, ValueSchema } from "@bufbuild/protobuf/wkt
 import { anyValueType } from "./any-value.js";
 import { Bool } from "./bool.js";
 import { err, maybeNoSuchOverloadErr } from "./err.js";
-import { Int } from "./int.js";
+import { Int, IntNegOne, IntOne, IntZero } from "./int.js";
 import { nativeTypeName, packAnyBytes } from "./native.js";
 import type { Type as RefType, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
@@ -34,13 +34,13 @@ export class Bytes implements Val, Adder, Comparer, Sizer {
     const min = Math.min(this.inner.length, other.inner.length);
     for (let i = 0; i < min; i++) {
       if (this.inner[i] !== other.inner[i]) {
-        return new Int(BigInt(this.inner[i]! < other.inner[i]! ? -1 : 1));
+        return this.inner[i]! < other.inner[i]! ? IntNegOne : IntOne;
       }
     }
     if (this.inner.length === other.inner.length) {
-      return new Int(0n);
+      return IntZero;
     }
-    return new Int(BigInt(this.inner.length < other.inner.length ? -1 : 1));
+    return this.inner.length < other.inner.length ? IntNegOne : IntOne;
   }
   public convertToNative(typeDesc?: unknown): unknown {
     if (typeDesc === Uint8Array || typeDesc === undefined) {
