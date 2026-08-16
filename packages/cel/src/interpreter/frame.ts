@@ -302,6 +302,14 @@ export class ExecutionFrame implements Activation {
   private parentFrameValue?: ExecutionFrame;
 
   /**
+   * rootFrameValue stores the root of this frame's hierarchy.
+   *
+   * A frame's root is fixed when the frame is configured, so it is resolved once here rather than
+   * by walking the parent chain. Observers consult it on every evaluated step.
+   */
+  private rootFrameValue?: ExecutionFrame;
+
+  /**
    * contextValue stores the shared interrupt state across a frame hierarchy.
    */
   private contextValue?: FrameContext;
@@ -332,6 +340,7 @@ export class ExecutionFrame implements Activation {
     this.activationValue = options.activation;
     this.inputActivationValue = options.inputActivation;
     this.parentFrameValue = options.parentFrame;
+    this.rootFrameValue = options.parentFrame?.root() ?? this;
     this.contextValue = options.context;
   }
 
@@ -347,6 +356,13 @@ export class ExecutionFrame implements Activation {
    */
   public parentFrame(): ExecutionFrame | undefined {
     return this.parentFrameValue;
+  }
+
+  /**
+   * root returns the root frame of this frame's hierarchy.
+   */
+  public root(): ExecutionFrame {
+    return this.rootFrameValue ?? this;
   }
 
   /**

@@ -186,7 +186,7 @@ class RefValStack {
   /**
    * values stores observed values in evaluation order.
    */
-  private values: StackValue[] = [];
+  private readonly values: StackValue[] = [];
 
   /**
    * push appends an observed value and expression identifier.
@@ -208,7 +208,9 @@ class RefValStack {
     for (const id of options.ids) {
       for (let index = this.values.length - 1; index >= 0; index -= 1) {
         if (this.values[index]!.id === id) {
-          this.values = this.values.slice(0, index);
+          // Truncating in place keeps the stack off the allocator: a fold drops values on every
+          // iteration, and the array never escapes this class.
+          this.values.length = index;
           break;
         }
       }
@@ -233,7 +235,7 @@ class RefValStack {
       for (let stackIndex = this.values.length - 1; stackIndex >= 0; stackIndex -= 1) {
         if (this.values[stackIndex]!.id === options.args[argumentIndex]!.id()) {
           const element = this.values[stackIndex]!;
-          this.values = this.values.slice(0, stackIndex);
+          this.values.length = stackIndex;
           result[argumentIndex] = element.value;
           found = true;
           break;
@@ -319,13 +321,65 @@ export class CostTracker {
    */
   public observe(options: { id: number; programStep: unknown; value: Val }): void {
     const { id, programStep, value } = options;
-    if (isObservedConstantQualifier(programStep)) {
-      // Identifiers are not yet pushed before their constant qualifiers, so this qualifier cannot
-      // use the ordinary qualifier pop path.
-      this.costValue += 1;
-    } else if (isObservedConst(programStep)) {
-      // Constants have zero direct runtime cost.
-    } else if (isObservedAttribute(programStep)) {
+    switch (stepKind(programStep)) {
+      case StepKind.ConstantQualifier:
+        // Identifiers are not yet pushed before their constant qualifiers, so this qualifier
+        // cannot use the ordinary qualifier pop path.
+        this.costValue += 1;
+        break;
+      case StepKind.Constant:
+        // Constants have zero direct runtime cost.
+        break;
+      case StepKind.Attribute:
+        this.observeAttribute(programStep as InterpretableAttribute);
+        break;
+      case StepKind.LogicalCall:
+        // The boolean operation implementations do not expose a separate shared interface in
+        // cel-go. Dropping every executed term preserves the same behavior for both
+        // short-circuit operators.
+        this.stackValue.drop({
+          ids: (programStep as InterpretableCall).args().map((arg) => arg.id()),
+        });
+        break;
+      case StepKind.Fold:
+        this.stackValue.drop({ ids: [(programStep as FoldStepShape).optionsValue.iterRange.id()] });
+        break;
+      case StepKind.Qualifier:
+        this.costValue += 1;
+        break;
+      case StepKind.Call: {
+        const call = programStep as InterpretableCall;
+        const dropped = this.stackValue.dropArgs({ args: call.args() });
+        if (dropped.found) {
+          this.costValue += this.costCall({ call, args: dropped.args, result: value });
+        }
+        break;
+      }
+      case StepKind.Constructor: {
+        const constructor = programStep as InterpretableConstructor;
+        this.stackValue.dropArgs({ args: constructor.initVals() });
+        if (constructor.type() === ListType) {
+          this.costValue += ListCreateBaseCost;
+        } else if (constructor.type() === MapType) {
+          this.costValue += MapCreateBaseCost;
+        } else {
+          this.costValue += StructCreateBaseCost;
+        }
+        break;
+      }
+    }
+    this.stackValue.push({ value, id });
+
+    if (this.limitValue !== undefined && this.costValue > this.limitValue) {
+      throw new CostLimitExceededError();
+    }
+  }
+
+  /**
+   * observeAttribute records the cost of a resolved attribute step.
+   */
+  private observeAttribute(programStep: InterpretableAttribute): void {
+    {
       const attr = programStep.attr();
       const conditionalParts = conditionalAttributeParts(attr);
       if (conditionalParts !== undefined) {
@@ -344,37 +398,6 @@ export class CostTracker {
       if (!this.presenceTestHasCostValue && isPresenceTest(programStep)) {
         this.costValue -= SelectAndIdentCost;
       }
-    } else if (isLogicalCall(programStep)) {
-      // The boolean operation implementations do not expose a separate shared interface in cel-go.
-      // Dropping every executed term preserves the same behavior for both short-circuit operators.
-      this.stackValue.drop({ ids: programStep.args().map((arg) => arg.id()) });
-    } else if (isFold(programStep)) {
-      this.stackValue.drop({ ids: [programStep.optionsValue.iterRange.id()] });
-    } else if (isObservedQualifier(programStep)) {
-      this.costValue += 1;
-    } else if (isObservedCall(programStep)) {
-      const dropped = this.stackValue.dropArgs({ args: programStep.args() });
-      if (dropped.found) {
-        this.costValue += this.costCall({
-          call: programStep,
-          args: dropped.args,
-          result: value,
-        });
-      }
-    } else if (isObservedConstructor(programStep)) {
-      this.stackValue.dropArgs({ args: programStep.initVals() });
-      if (programStep.type() === ListType) {
-        this.costValue += ListCreateBaseCost;
-      } else if (programStep.type() === MapType) {
-        this.costValue += MapCreateBaseCost;
-      } else {
-        this.costValue += StructCreateBaseCost;
-      }
-    }
-    this.stackValue.push({ value, id });
-
-    if (this.limitValue !== undefined && this.costValue > this.limitValue) {
-      throw new CostLimitExceededError();
     }
   }
 
@@ -496,7 +519,7 @@ class CostTrackerFactory implements StatefulObserver {
    */
   public initState(frame: ExecutionFrame): CostTracker {
     const tracker = this.trackerFactoryValue();
-    this.trackers.set(rootFrame(frame), tracker);
+    this.trackers.set(frame.root(), tracker);
     return tracker;
   }
 
@@ -504,7 +527,7 @@ class CostTrackerFactory implements StatefulObserver {
    * getState extracts the CostTracker from the evaluation frame.
    */
   public getState(frame: ExecutionFrame): CostTracker | undefined {
-    return this.trackers.get(rootFrame(frame));
+    return this.trackers.get(frame.root());
   }
 
   /**
@@ -547,14 +570,77 @@ function actualSize(value: Val): number {
 }
 
 /**
- * rootFrame returns the root of an execution frame hierarchy.
+ * StepKind identifies how a program step contributes to runtime cost.
  */
-function rootFrame(frame: ExecutionFrame): ExecutionFrame {
-  let current = frame;
-  while (current.parentFrame() !== undefined) {
-    current = current.parentFrame()!;
+const StepKind = {
+  Other: 0,
+  ConstantQualifier: 1,
+  Constant: 2,
+  Attribute: 3,
+  LogicalCall: 4,
+  Fold: 5,
+  Qualifier: 6,
+  Call: 7,
+  Constructor: 8,
+} as const;
+
+/**
+ * stepKinds caches each program step's classification.
+ *
+ * A planned program is built once and evaluated many times, and a step's shape never changes, so
+ * the structural probes below run once per step rather than once per step per evaluation. Keys are
+ * weak, so a discarded program's entries are collectable.
+ */
+const stepKinds = new WeakMap<object, number>();
+
+/**
+ * stepKind classifies a program step, reusing the classification across evaluations.
+ */
+function stepKind(programStep: unknown): number {
+  if (typeof programStep !== "object" || programStep === null) {
+    return StepKind.Other;
   }
-  return current;
+  const cached = stepKinds.get(programStep);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const kind = classifyStep(programStep);
+  stepKinds.set(programStep, kind);
+  return kind;
+}
+
+/**
+ * classifyStep determines a program step's cost classification.
+ *
+ * The order of these tests is significant: a step may satisfy more than one shape, and the first
+ * match decides its cost contribution.
+ */
+function classifyStep(programStep: object): number {
+  if (isObservedConstantQualifier(programStep)) {
+    return StepKind.ConstantQualifier;
+  }
+  if (isObservedConst(programStep)) {
+    return StepKind.Constant;
+  }
+  if (isObservedAttribute(programStep)) {
+    return StepKind.Attribute;
+  }
+  if (isLogicalCall(programStep)) {
+    return StepKind.LogicalCall;
+  }
+  if (isFold(programStep)) {
+    return StepKind.Fold;
+  }
+  if (isObservedQualifier(programStep)) {
+    return StepKind.Qualifier;
+  }
+  if (isObservedCall(programStep)) {
+    return StepKind.Call;
+  }
+  if (isObservedConstructor(programStep)) {
+    return StepKind.Constructor;
+  }
+  return StepKind.Other;
 }
 
 /**
