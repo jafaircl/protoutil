@@ -601,6 +601,14 @@ abstract class ConstantQualifierBase extends QualifierBase implements ConstantQu
   private readonly celValueValue: Val;
 
   /**
+   * propertyKeyValue stores the qualifier's object-property form.
+   *
+   * The qualifier is constant, so its property key is too. Deriving it once here keeps it off the
+   * per-access path, where every field selection in every evaluation would otherwise repeat it.
+   */
+  protected readonly propertyKeyValue: string;
+
+  /**
    * constructor initializes the constant qualifier state.
    */
   constructor(
@@ -613,6 +621,7 @@ abstract class ConstantQualifierBase extends QualifierBase implements ConstantQu
   ) {
     super(id, optional);
     this.celValueValue = celValueOverride ?? adapterValue.nativeToValue(rawValue);
+    this.propertyKeyValue = String(rawValue);
   }
 
   /**
@@ -630,15 +639,16 @@ abstract class ConstantQualifierBase extends QualifierBase implements ConstantQu
     obj: unknown,
     presenceOnly: boolean,
   ): unknown {
-    return qualifyConstantValue({
-      adapter: this.adapterValue,
+    return qualifyConstantValue(
+      this.adapterValue,
       obj,
-      rawQualifier: this.raw(),
-      key: this.value(),
-      presenceTest: true,
+      this.rawValue,
+      this.propertyKeyValue,
+      this.celValueValue,
+      true,
       presenceOnly,
-      errorOnBadPresenceTest: this.errorOnBadPresenceTest,
-    });
+      this.errorOnBadPresenceTest,
+    );
   }
 
   /**
@@ -652,16 +662,16 @@ abstract class ConstantQualifierBase extends QualifierBase implements ConstantQu
    * qualifyValue evaluates constant qualification and returns the resolved value.
    */
   protected qualifyValue(obj: unknown): unknown {
-    const value = qualifyConstantValue({
-      adapter: this.adapterValue,
+    return qualifyConstantValue(
+      this.adapterValue,
       obj,
-      rawQualifier: this.raw(),
-      key: this.value(),
-      presenceTest: false,
-      presenceOnly: false,
-      errorOnBadPresenceTest: this.errorOnBadPresenceTest,
-    });
-    return value;
+      this.rawValue,
+      this.propertyKeyValue,
+      this.celValueValue,
+      false,
+      false,
+      this.errorOnBadPresenceTest,
+    );
   }
 }
 
@@ -1409,52 +1419,23 @@ export function missingKey(keyValue: Val): ResolutionError {
 }
 
 /**
- * QualifyConstantOptions configures constant qualification against a target object.
- */
-interface QualifyConstantOptions {
-  /**
-   * adapter converts native runtime values into CEL values with the active registry context.
-   */
-  adapter: Adapter;
-
-  /**
-   * obj is the target object being qualified.
-   */
-  obj: unknown;
-
-  /**
-   * rawQualifier is the native qualifier value before CEL adaptation.
-   */
-  rawQualifier: boolean | number | bigint | string;
-
-  /**
-   * key is the CEL-adapted qualifier value.
-   */
-  key: Val;
-
-  /**
-   * presenceTest indicates whether missing values should be reported as absent instead of errors.
-   */
-  presenceTest: boolean;
-
-  /**
-   * presenceOnly indicates whether the caller only needs presence status.
-   */
-  presenceOnly: boolean;
-
-  /**
-   * errorOnBadPresenceTest indicates whether invalid presence lookups should raise an error.
-   */
-  errorOnBadPresenceTest: boolean;
-}
-
-/**
  * qualifyConstantValue applies a constant qualifier while preserving cel-go's native fast paths
  * and presence-test behavior.
+ *
+ * Every qualifier in an expression runs this per evaluation, so the qualifier state arrives as
+ * arguments rather than in an options object: a nested selection such as `a.b.c.d` would otherwise
+ * allocate one short-lived object per path segment per evaluation.
  */
-function qualifyConstantValue(options: QualifyConstantOptions): unknown {
-  const { adapter, obj, rawQualifier, key, presenceOnly, presenceTest, errorOnBadPresenceTest } =
-    options;
+function qualifyConstantValue(
+  adapter: Adapter,
+  obj: unknown,
+  rawQualifier: boolean | number | bigint | string,
+  propertyKey: string,
+  key: Val,
+  presenceTest: boolean,
+  presenceOnly: boolean,
+  errorOnBadPresenceTest: boolean,
+): unknown {
   if (obj instanceof Unknown) {
     return obj;
   }
@@ -1484,7 +1465,6 @@ function qualifyConstantValue(options: QualifyConstantOptions): unknown {
     throw missingKey(key);
   }
   if (isProtoMapValue(obj)) {
-    const propertyKey = String(rawQualifier);
     if (Object.hasOwn(obj.map, propertyKey)) {
       return presenceOnly ? undefined : obj.map[propertyKey];
     }
@@ -1493,10 +1473,14 @@ function qualifyConstantValue(options: QualifyConstantOptions): unknown {
     }
     throw missingKey(key);
   }
-  if (isNativeRecord(obj)) {
-    const propertyKey = String(rawQualifier);
-    if (Object.hasOwn(obj, propertyKey)) {
-      return presenceOnly ? undefined : obj[propertyKey];
+  // The branches above already ruled out lists, maps, and protobuf map wrappers, so the remaining
+  // record test only has to exclude CEL values and protobuf messages.
+  if (typeof obj === "object" && obj !== null && !isValLike(obj) && !isProtoMessage(obj)) {
+    // A present field is the common case, so read it first and only pay a separate presence check
+    // when the read is undefined, which cannot distinguish an absent key from a defined one.
+    const fieldValue = (obj as Record<string, unknown>)[propertyKey];
+    if (fieldValue !== undefined || Object.hasOwn(obj, propertyKey)) {
+      return presenceOnly ? undefined : fieldValue;
     }
     if (presenceTest) {
       return qualifierAbsent;
@@ -1647,21 +1631,6 @@ function isQualifier(value: unknown): value is Qualifier {
     typeof (value as { id?: unknown }).id === "function" &&
     "qualify" in value &&
     typeof (value as { qualify?: unknown }).qualify === "function"
-  );
-}
-
-/**
- * isNativeRecord returns whether the input is a plain JavaScript object record.
- */
-function isNativeRecord(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    !(value instanceof Map) &&
-    !isValLike(value) &&
-    !isProtoMessage(value) &&
-    !isProtoMapValue(value)
   );
 }
 

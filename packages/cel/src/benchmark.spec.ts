@@ -12,38 +12,44 @@ import {
   TestAllTypesSchema as Proto3TestAllTypesSchema,
 } from "@protoutil/testing/cel/proto3";
 import { describe, it } from "vitest";
+import { bindings, lists, sets, strings, twoVarComprehensions } from "../dist/ext/index.mjs";
 import {
+  type AST,
   type Env as CelEnv,
   type EnvOptions as CelEnvOptions,
   env as celEnv,
-  type ProgramOptions,
-  unwrapAst,
-} from "./cel/env.js";
-import { optionalTypes } from "./cel/library.js";
-import type { Program } from "./cel/program.js";
-import type { AST } from "./common/ast/index.js";
-import { variable } from "./common/decls.js";
-import { configFromYAML } from "./common/env/io.js";
-import { type Source, textSource } from "./common/source.js";
-import { isError } from "./common/types/err.js";
-import {
+  configFromYAML,
   IntType,
+  isError,
   listType,
   mapType,
   objectType,
+  optionalTypes,
+  type Program,
+  type ProgramOptions,
   registry,
+  type Source,
   StringType,
   type Type,
-} from "./common/types/index.js";
-import { bindings, lists, sets, strings, twoVarComprehensions } from "./ext/index.js";
-import { type Activation, activation, partialActivation } from "./interpreter/activation.js";
-import { attributePattern } from "./interpreter/attribute-patterns.js";
-import { matchesRegexOptimization } from "./interpreter/optimizations.js";
-import { unparse } from "./parser/unparser.js";
-import { compile as compilePolicy } from "./policy/compiler.js";
-import { fromConfig as policyFromConfig } from "./policy/config.js";
-import { type Policy, parse as parsePolicy } from "./policy/parser.js";
-import { source as policySource } from "./policy/source.js";
+  textSource,
+  unwrapAst,
+  variable,
+} from "../dist/index.mjs";
+import {
+  type Activation,
+  activation,
+  attributePattern,
+  matchesRegexOptimization,
+  partialActivation,
+} from "../dist/interpreter/index.mjs";
+import { unparse } from "../dist/parser/index.mjs";
+import {
+  compile as compilePolicy,
+  type Policy,
+  parse as parsePolicy,
+  fromConfig as policyFromConfig,
+  source as policySource,
+} from "../dist/policy/index.mjs";
 
 /**
  * BenchmarkOperation identifies the isolated CEL operation measured by a result row.
@@ -1709,7 +1715,7 @@ Generated at: \`${new Date().toISOString()}\`
 
 ## Methodology
 
-These are in-process microbenchmarks for the CEL frontend and public program API plus the \`cel-go\` reference implementation on the same machine. Core planning and evaluation reuse equivalent public programs and activations in both implementations. Diagnostic evaluation rows form a feature ladder from literals through activation lookup, dispatch, dynamic and protobuf attributes, indexing, and folds. Residual rows separately measure state-tracking partial evaluation, residual AST construction, and the combined round trip. Policy measurements use the same synchronized YAML sources and separately cover parsing, compilation and composition, optimized planning, and steady-state evaluation. Each policy program primes every prepared activation in round-robin order before policy evaluation samples begin. They are intended to provide a quick regression signal, not a universal cross-machine claim. Cross-runtime ratios are directional; changes in this package's own results over time are the primary regression signal.
+These are in-process microbenchmarks for the CEL frontend and public program API plus the \`cel-go\` reference implementation on the same machine. This package is measured through its **built output** in \`dist\`, the code published to consumers, rather than through its TypeScript sources: the test-time transform wraps every function in a name helper the shipped bundle does not carry, which understated evaluation throughput by roughly 1.8x. The benchmark script builds the package before running, so results always reflect the current sources. Core planning and evaluation reuse equivalent public programs and activations in both implementations. Diagnostic evaluation rows form a feature ladder from literals through activation lookup, dispatch, dynamic and protobuf attributes, indexing, and folds. Residual rows separately measure state-tracking partial evaluation, residual AST construction, and the combined round trip. Policy measurements use the same synchronized YAML sources and separately cover parsing, compilation and composition, optimized planning, and steady-state evaluation. Each policy program primes every prepared activation in round-robin order before policy evaluation samples begin. They are intended to provide a quick regression signal, not a universal cross-machine claim. Cross-runtime ratios are directional; changes in this package's own results over time are the primary regression signal.
 
 ### Reading these numbers
 

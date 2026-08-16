@@ -74,7 +74,7 @@
     "dev": "tsdown --watch",
     "pretest": "pnpm --filter @protoutil/testing build && node scripts/cel-coverage-ledger.mjs",
     "test": "vitest run --exclude src/benchmark.spec.ts",
-    "benchmark": "vitest run src/benchmark.spec.ts",
+    "benchmark": "pnpm run build && vitest run src/benchmark.spec.ts",
     "pretypecheck": "pnpm --filter @protoutil/testing build",
     "typecheck": "tsc --noEmit",
     "typecheck:spec": "tsc -p tsconfig.spec.json --noEmit",
