@@ -53,6 +53,14 @@ The bound pattern escapes backslash, percent, and underscore before adding the
 operation's leading or trailing wildcard. The profile MUST NOT interpolate the
 CEL pattern value into SQL text.
 
+That encoding depends on the server's backslash handling, so the caller MUST
+run the emitted condition on a connection whose `sql_mode` does not include
+`NO_BACKSLASH_ESCAPES`. Under that mode a backslash is an ordinary character,
+`'\\'` is a two-character string, and MySQL rejects the condition because an
+`ESCAPE` argument must be one character. The profile cannot detect the server
+mode, so a caller that requires `NO_BACKSLASH_ESCAPES` MUST NOT use the
+pattern operations of this profile.
+
 ## Case-insensitive string library
 
 The optional `protoutil.celql.case_insensitive_strings` major version 1 library

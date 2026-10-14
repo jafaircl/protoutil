@@ -1,6 +1,6 @@
 # CEL Conformance Report
 
-Generated from the synchronized fixtures in `testdata/conformance/*.textproto.json`.
+Generated from the synchronized fixtures in `testdata/conformance/*.textproto`.
 
 ## Summary
 

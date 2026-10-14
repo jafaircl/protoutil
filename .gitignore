@@ -58,3 +58,9 @@ docs/src/content/docs/api
 
 # build artifacts
 *.tgz
+
+# soda
+.soda
+# SODA generated state
+.soda/cache/
+.soda/audit.json

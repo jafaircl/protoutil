@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { create, type DescMessage } from "@bufbuild/protobuf";
 import { anyUnpack, DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
-import { Timestamp } from "@protoutil/cel";
+import { Timestamp, unwrapAst } from "@protoutil/cel";
 import Database from "better-sqlite3";
 import { type Document, Long, MongoClient } from "mongodb";
 import { type Connection, createConnection, type RowDataPacket } from "mysql2/promise";
@@ -627,7 +627,7 @@ describe("real database conformance", () => {
       if (input.case !== "celSource") throw new Error(`${execution.name} has no CEL source.`);
       const checkedExpression = compileConformanceCase(execution.suite, execution.testCase);
       const environment = createConformanceEnvironment(execution.suite, execution.testCase);
-      const program = environment.program(environment.compile(input.value));
+      const program = environment.program(unwrapAst(environment.compile(input.value)));
       const profile = resolveProfile(execution.expectation.profile);
       const translator = createTranslator(profile, {
         libraries: resolveLibraries(profile.capability.profile!, execution.expectation.libraries),

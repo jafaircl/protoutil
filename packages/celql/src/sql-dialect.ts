@@ -13,6 +13,28 @@ import type { ProfileContext } from "./types.js";
 
 const signedMaximum = 9_223_372_036_854_775_807n;
 
+const maximumSafeInteger = BigInt(Number.MAX_SAFE_INTEGER);
+
+/**
+ * Counts Unicode code points without materializing the string as an array.
+ *
+ * A surrogate pair encodes one code point in two UTF-16 units, so the count is
+ * the code-unit length less one for each pair.
+ */
+function codePointLength(value: string): number {
+  let count = value.length;
+  for (let index = 0; index < value.length; index += 1) {
+    const unit = value.charCodeAt(index);
+    if (unit < 0xd800 || unit > 0xdbff) continue;
+    const next = value.charCodeAt(index + 1);
+    if (next >= 0xdc00 && next <= 0xdfff) {
+      count -= 1;
+      index += 1;
+    }
+  }
+  return count;
+}
+
 const orderingOperators = new Map<string, string>([
   ["less_int64", "<"],
   ["less_uint64", "<"],
@@ -113,11 +135,25 @@ export abstract class SqlTranslationContext<
   /** Number of enclosing negations at the current visit position. */
   private negationDepth = 0;
 
+  /**
+   * UTF-16 length below which a fragment cannot exceed the output-growth limit.
+   *
+   * A string's code-unit length is never less than its code-point count, so a
+   * fragment that fits the limit in code units always fits it in code points.
+   * Comparing against this number keeps the per-fragment check off the
+   * traversal's hot path; only a fragment that fails it is counted exactly.
+   */
+  private readonly outputGrowthCodeUnitBound: number;
+
   /** Creates isolated SQL translation state for one operation. */
   public constructor(
     protected readonly context: ProfileContext,
     private readonly functions: ReadonlyMap<string, SqlTranslation<Context>>,
-  ) {}
+  ) {
+    const limit = context.limits.maxOutputGrowth;
+    this.outputGrowthCodeUnitBound =
+      limit > maximumSafeInteger ? Number.MAX_SAFE_INTEGER : Number(limit);
+  }
 
   /** Validates through the same complete traversal used by translation. */
   public validate(): void {
@@ -672,7 +708,8 @@ export abstract class SqlTranslationContext<
 
   /** Counts Unicode code points because that is the profile's declared growth unit. */
   protected enforceOutputGrowth(sql: string): void {
-    const observed = BigInt([...sql].length);
+    if (sql.length <= this.outputGrowthCodeUnitBound) return;
+    const observed = BigInt(codePointLength(sql));
     if (observed > this.context.limits.maxOutputGrowth) {
       throw new CelqlError(TranslationErrorCode.RESOURCE_LIMIT_EXCEEDED, {
         message: "The output-growth limit was exceeded.",

@@ -1,4 +1,5 @@
 import { clearField, clone, type DescMessage, type MessageShape } from "@bufbuild/protobuf";
+import { base64Encode } from "@bufbuild/protobuf/wire";
 import type { FieldMask } from "@bufbuild/protobuf/wkt";
 import { checksum } from "@protoutil/core";
 import { applyFieldMask, fieldMask } from "@protoutil/core/wkt";
@@ -31,6 +32,6 @@ export function etag<Desc extends DescMessage = DescMessage>(
   const isStrong = fm.paths.length === 1 && fm.paths[0] === "*";
   const updated = applyFieldMask(schema, cloned, fm, { inverse, strict: false });
   const crc = checksum(schema, updated);
-  const tag = Buffer.from(crc.toString()).toString("base64");
+  const tag = base64Encode(new TextEncoder().encode(crc.toString()));
   return isStrong ? tag : `W/"${tag}"`;
 }

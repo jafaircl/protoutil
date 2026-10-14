@@ -1,4 +1,12 @@
-import { astToCheckedExpr, DynType, env, listType, StringType, variable } from "@protoutil/cel";
+import {
+  astToCheckedExpr,
+  DynType,
+  env,
+  listType,
+  StringType,
+  unwrapAst,
+  variable,
+} from "@protoutil/cel";
 import { describe, expect, it } from "vitest";
 import { TranslationErrorCode } from "../gen/protoutil/celql/v1/celql_pb.js";
 import { createTranslator, FullTextIndexType } from "../index.js";
@@ -20,7 +28,7 @@ const fullText = env({
 
 describe("SQLite profile", () => {
   it("uses SQLite total equality", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name == "alice"'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name == "alice"')));
 
     const outcome = createTranslator(new SqliteProfile()).translate({ checkedExpression });
 
@@ -34,7 +42,7 @@ describe("SQLite profile", () => {
   });
 
   it("uses SQLite total inequality", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name != "alice"'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name != "alice"')));
 
     const outcome = createTranslator(new SqliteProfile()).translate({ checkedExpression });
 
@@ -45,7 +53,7 @@ describe("SQLite profile", () => {
   });
 
   it("emits a null literal without consuming a parameter position", () => {
-    const checkedExpression = astToCheckedExpr(dynamicStrings.compile("name == null"));
+    const checkedExpression = astToCheckedExpr(unwrapAst(dynamicStrings.compile("name == null")));
 
     const outcome = createTranslator(new SqliteProfile()).translate({ checkedExpression });
 
@@ -55,7 +63,9 @@ describe("SQLite profile", () => {
   });
 
   it("keeps literal pattern metacharacters in the bound value", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name.contains("%_\\\\")'));
+    const checkedExpression = astToCheckedExpr(
+      unwrapAst(strings.compile('name.contains("%_\\\\")')),
+    );
 
     const outcome = createTranslator(new SqliteProfile()).translate({ checkedExpression });
 
@@ -69,7 +79,7 @@ describe("SQLite profile", () => {
   });
 
   it("uses one ordered parameter for each literal membership value", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name in ["a", "b"]'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name in ["a", "b"]')));
 
     const outcome = createTranslator(new SqliteProfile()).translate({ checkedExpression });
 
@@ -87,7 +97,7 @@ describe("SQLite profile", () => {
 
   it("translates ASCII case-insensitive patterns through the selected library", () => {
     const checkedExpression = astToCheckedExpr(
-      caseInsensitiveString.compile('name.startsWithIgnoreCase("AdM%")'),
+      unwrapAst(caseInsensitiveString.compile('name.startsWithIgnoreCase("AdM%")')),
     );
     const outcome = createTranslator(new SqliteProfile(), {
       libraries: [caseInsensitiveStrings()],
@@ -103,7 +113,7 @@ describe("SQLite profile", () => {
   });
 
   it("uses json_each for a string constant in a JSON array field", () => {
-    const checkedExpression = astToCheckedExpr(stringArrays.compile('"admin" in tags'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(stringArrays.compile('"admin" in tags')));
     const outcome = createTranslator(new SqliteProfile()).translate({ checkedExpression });
 
     expect(outcome).toMatchObject({
@@ -117,7 +127,7 @@ describe("SQLite profile", () => {
 
   it("lowers equality-based exists over a JSON array field to json_each", () => {
     const checkedExpression = astToCheckedExpr(
-      stringArrays.compile('tags.exists(tag, tag == "admin")'),
+      unwrapAst(stringArrays.compile('tags.exists(tag, tag == "admin")')),
     );
     const outcome = createTranslator(new SqliteProfile()).translate({ checkedExpression });
 
@@ -131,7 +141,7 @@ describe("SQLite profile", () => {
 
   it("requires every full-text query term through one FTS5 phrase conjunction", () => {
     const checkedExpression = astToCheckedExpr(
-      fullText.compile('search.matchesText("error budget")'),
+      unwrapAst(fullText.compile('search.matchesText("error budget")')),
     );
     const outcome = createTranslator(new SqliteProfile(), {
       libraries: [fullTextSearch()],
@@ -148,7 +158,7 @@ describe("SQLite profile", () => {
 
   it("rejects a full-text match that a conjunction does not reach", () => {
     const checkedExpression = astToCheckedExpr(
-      fullText.compile('search.matchesText("error") || name == "alice"'),
+      unwrapAst(fullText.compile('search.matchesText("error") || name == "alice"')),
     );
     const translate = () =>
       createTranslator(new SqliteProfile(), { libraries: [fullTextSearch()] }).translate({

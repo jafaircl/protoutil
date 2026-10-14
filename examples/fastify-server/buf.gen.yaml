@@ -1,15 +1,26 @@
 version: v2
 clean: true
+# buf/validate is deliberately absent from the generated output: it is consumed
+# from @bufbuild/protovalidate via map_imports instead of being regenerated.
+# ../proto is listed last so protoc-gen-sql's aggregate schema.sql is written
+# from the library module rather than an import-only module.
 inputs:
+  - module: buf.build/googleapis/googleapis
+    paths:
+      - google/api/field_behavior.proto
+      - google/api/resource.proto
+  - module: buf.build/protoutil/sql
+    paths:
+      - protoutil/sql/v1/options.proto
   - directory: ../proto
 plugins:
   - local: ../../node_modules/.bin/protoc-gen-es
-    include_imports: true
     out: src/gen
     opt:
       - target=ts
       - import_extension=.js
       - ts_nocheck=false
+      - map_imports=buf/validate/:@bufbuild/protovalidate/gen
   - local: ['tsx', '../../packages/protoc-gen-sql/src/index.ts']
     out: src/gen/sqlite
     opt:

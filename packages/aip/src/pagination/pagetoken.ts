@@ -1,5 +1,6 @@
 import { type DescMessage, ScalarType } from "@bufbuild/protobuf";
 import { isScalarZeroValue } from "@bufbuild/protobuf/reflect";
+import { base64Decode, base64Encode } from "@bufbuild/protobuf/wire";
 import { InvalidArgumentError } from "../errors/errors.js";
 import { calculateRequestCheckSum, type RequestMessage } from "./request.js";
 
@@ -8,7 +9,7 @@ import { calculateRequestCheckSum, type RequestMessage } from "./request.js";
  */
 export function encode(struct: PageToken): string {
   const json = JSON.stringify(struct);
-  return Buffer.from(json).toString("base64");
+  return base64Encode(new TextEncoder().encode(json));
 }
 
 /**
@@ -16,7 +17,7 @@ export function encode(struct: PageToken): string {
  */
 export function decode(token: string): PageToken {
   try {
-    const str = Buffer.from(token, "base64").toString("utf8");
+    const str = new TextDecoder().decode(base64Decode(token));
     const json = JSON.parse(str);
     return new PageToken(json.offset, json.requestChecksum);
   } catch (e) {

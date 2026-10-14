@@ -61,16 +61,53 @@ export function isMongoDbRegex(pattern: string): boolean {
     if (character === "^" && index !== 0) return false;
     if (character === "*" || character === "+") {
       unboundedQuantifiers += 1;
-    } else if (character === "{" && /\d/.test(pattern[index + 1] ?? "")) {
-      const end = pattern.indexOf("}", index + 1);
-      if (end < 0) return false;
-      const bounds = pattern.slice(index + 1, end).split(",");
-      if (bounds.length === 2 && bounds[1] === "") unboundedQuantifiers += 1;
-      index = end;
+    } else if (character === "{") {
+      const bound = repetitionBound(pattern, index);
+      // A brace that begins no well-formed repetition is a literal brace, so
+      // scanning continues at the next character rather than jumping ahead.
+      if (bound === undefined) continue;
+      if (bound.maximum === undefined) unboundedQuantifiers += 1;
+      index = bound.end;
     }
     if (unboundedQuantifiers > 1) return false;
   }
   return !inCharacterClass;
+}
+
+/** Largest counted repetition that every target engine accepts. */
+const maximumRepetition = 255;
+
+/** One counted repetition parsed from a pattern. */
+interface RepetitionBound {
+  /** Index of the closing brace. */
+  end: number;
+  /** Lower bound of the repetition. */
+  minimum: number;
+  /** Upper bound, or undefined where the repetition is unbounded. */
+  maximum: number | undefined;
+}
+
+/**
+ * Parses a counted repetition that starts at an opening brace.
+ *
+ * Returns undefined when the brace does not begin a well-formed `{n}`, `{n,}`,
+ * or `{n,m}`, which every target engine reads as a literal brace. Scanning
+ * must then continue at the next character: a brace span that merely reaches
+ * some later `}` is not a repetition, and treating it as one would skip over
+ * the repetitions between them.
+ */
+function repetitionBound(pattern: string, start: number): RepetitionBound | undefined {
+  const end = pattern.indexOf("}", start + 1);
+  if (end < 0) return undefined;
+  const span = pattern.slice(start + 1, end);
+  const match = /^(\d+)(?:,(\d*))?$/.exec(span);
+  if (match === null) return undefined;
+  return {
+    end,
+    minimum: Number(match[1]),
+    maximum:
+      match[2] === undefined ? Number(match[1]) : match[2] === "" ? undefined : Number(match[2]),
+  };
 }
 
 /** Detects numeric bounds above the minimum limit accepted by every target. */
@@ -84,12 +121,12 @@ function hasOversizedQuantifier(pattern: string): boolean {
       isCharacterClass = true;
     } else if (character === "]") {
       isCharacterClass = false;
-    } else if (!isCharacterClass && character === "{" && /\d/.test(pattern[index + 1] ?? "")) {
-      const end = pattern.indexOf("}", index + 1);
-      if (end < 0) return false;
-      const bounds = pattern.slice(index + 1, end).split(",");
-      if (bounds.some((bound) => bound.length > 0 && Number(bound) > 255)) return true;
-      index = end;
+    } else if (!isCharacterClass && character === "{") {
+      const bound = repetitionBound(pattern, index);
+      if (bound === undefined) continue;
+      if (bound.minimum > maximumRepetition) return true;
+      if (bound.maximum !== undefined && bound.maximum > maximumRepetition) return true;
+      index = bound.end;
     }
   }
   return false;

@@ -67,6 +67,12 @@ export {
   isDistanceBound,
 } from "./geospatial.js";
 export {
+  type SqlOutcomeConditions,
+  type SqlPredicateShape,
+  sqlQuery,
+  sqlWhereClause,
+} from "./outcome.js";
+export {
   type BoundParameterValue,
   type ParameterValue,
   parameterValue,

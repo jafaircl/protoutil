@@ -4,6 +4,7 @@ import {
   IntType,
   StringType,
   TimestampType,
+  unwrapAst,
   variable,
 } from "@protoutil/cel";
 import { describe, expect, it } from "vitest";
@@ -23,7 +24,7 @@ const source = 'name == "alice" && age > 21 && created > timestamp("2024-01-01T0
 
 describe("predicate parameters", () => {
   it("converts every parameter to a JavaScript value in binding order", () => {
-    const checkedExpression = astToCheckedExpr(fields.compile(source));
+    const checkedExpression = astToCheckedExpr(unwrapAst(fields.compile(source)));
     const outcome = createTranslator(new AnsiSqlProfile()).translate({ checkedExpression });
 
     expect(outcome.case).toBe("predicate");
@@ -36,7 +37,7 @@ describe("predicate parameters", () => {
   });
 
   it("binds PostgreSQL values that the client accepts without conversion", () => {
-    const checkedExpression = astToCheckedExpr(fields.compile(source));
+    const checkedExpression = astToCheckedExpr(unwrapAst(fields.compile(source)));
     const outcome = createTranslator(new PostgreSqlProfile()).translate({ checkedExpression });
 
     expect(outcome.case).toBe("predicate");
@@ -50,7 +51,9 @@ describe("predicate parameters", () => {
   });
 
   it("converts a MongoDB predicate to a filter document", () => {
-    const checkedExpression = astToCheckedExpr(fields.compile('name == "alice" && age > 21'));
+    const checkedExpression = astToCheckedExpr(
+      unwrapAst(fields.compile('name == "alice" && age > 21')),
+    );
     const outcome = createTranslator(new MongoDbProfile()).translate({ checkedExpression });
 
     expect(outcome.case).toBe("predicate");

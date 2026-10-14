@@ -22,7 +22,7 @@ The refs above are hard-coded as `defaultRef` constants in the sync tools:
 
 - [scripts/cel-go-test-sync/main.go:25](scripts/cel-go-test-sync/main.go#L25) — cel-go `ef24047`
 - [scripts/cel-go-env-testdata-sync/main.go:19](scripts/cel-go-env-testdata-sync/main.go#L19) — cel-go `ef24047`
-- [scripts/cel-conformance-sync/main.go:25](scripts/cel-conformance-sync/main.go#L25) — cel-spec `v0.25.3`
+- [scripts/cel-conformance-sync/main.ts:15](scripts/cel-conformance-sync/main.ts#L15) — cel-spec `v0.25.3`
 - [scripts/cel-policy-sync/main.go:19](scripts/cel-policy-sync/main.go#L19) — cel-policy `c531abc`
 
 The policy conformance dashboard cites the same cel-policy revision from
@@ -228,6 +228,17 @@ Both were pre-existing defects in the port, not upstream changes.
   `cel-go-test-cases.json` is no longer skipped for size.
 - Root [go.mod](../../go.mod) no longer requires cel-go at all — `go mod tidy`
   showed nothing in that module depends on it.
+- **`cel-conformance-sync` is now TypeScript.** It existed in Go only because
+  TypeScript had no protobuf text format parser, so it shelled out to `buf
+  build` for a descriptor set and converted each `.textproto` to JSON via
+  `prototext` + `protojson`. `@bufbuild/protobuf/txtpb` (2.13.0) provides
+  `fromText`, so the fixtures are now copied verbatim and parsed directly by
+  [src/conformance.spec.ts](src/conformance.spec.ts); the generated
+  `*.textproto.json` intermediates are gone. All 31 fixtures were verified to
+  parse to semantically identical messages before the switch, and the
+  conformance report is unchanged at 2505/2505.
+  `google.golang.org/protobuf` stays in [go.mod](../../go.mod) for
+  `conformance/scripts/fixturegen`.
 
 ---
 

@@ -7,6 +7,7 @@ import {
   listType,
   StringType,
   UintType,
+  unwrapAst,
   variable,
 } from "@protoutil/cel";
 import { describe, expect, it } from "vitest";
@@ -40,7 +41,9 @@ const stringArrays = env({ variables: [variable("tags", listType(StringType))] }
 
 describe("MongoDB profile", () => {
   it("keeps CEL constants as typed structured values", () => {
-    const checkedExpression = astToCheckedExpr(fields.compile('name == "{ $ne: true }"'));
+    const checkedExpression = astToCheckedExpr(
+      unwrapAst(fields.compile('name == "{ $ne: true }"')),
+    );
     const outcome = createTranslator(new MongoDbProfile()).translate({ checkedExpression });
 
     expect(outcome.case).toBe("predicate");
@@ -67,7 +70,7 @@ describe("MongoDB profile", () => {
   });
 
   it("escapes CEL string-pattern data before it becomes a MongoDB regex", () => {
-    const checkedExpression = astToCheckedExpr(fields.compile('name.startsWith("a.*")'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(fields.compile('name.startsWith("a.*")')));
     const outcome = createTranslator(new MongoDbProfile()).translate({ checkedExpression });
 
     expect(outcome.case).toBe("predicate");
@@ -89,7 +92,7 @@ describe("MongoDB profile", () => {
   });
 
   it("rejects CEL null instead of merging it with a missing MongoDB field", () => {
-    const checkedExpression = astToCheckedExpr(dynamicFields.compile("value == null"));
+    const checkedExpression = astToCheckedExpr(unwrapAst(dynamicFields.compile("value == null")));
 
     expect(() => createTranslator(new MongoDbProfile()).translate({ checkedExpression })).toThrow(
       /not supported by the MongoDB profile/,
@@ -98,7 +101,7 @@ describe("MongoDB profile", () => {
 
   it("rejects a uint that cannot be represented as a signed BSON integer", () => {
     const checkedExpression = astToCheckedExpr(
-      unsignedFields.compile("count == 9223372036854775808u"),
+      unwrapAst(unsignedFields.compile("count == 9223372036854775808u")),
     );
 
     expect(() => createTranslator(new MongoDbProfile()).translate({ checkedExpression })).toThrow(
@@ -108,7 +111,7 @@ describe("MongoDB profile", () => {
 
   it("translates ASCII case-insensitive patterns through the selected library", () => {
     const checkedExpression = astToCheckedExpr(
-      caseInsensitiveFields.compile('name.endsWithIgnoreCase("AdM.*")'),
+      unwrapAst(caseInsensitiveFields.compile('name.endsWithIgnoreCase("AdM.*")')),
     );
     const outcome = createTranslator(new MongoDbProfile(), {
       libraries: [caseInsensitiveStrings()],
@@ -136,7 +139,7 @@ describe("MongoDB profile", () => {
   });
 
   it("uses BSON array equality for a string constant in an array field", () => {
-    const checkedExpression = astToCheckedExpr(stringArrays.compile('"admin" in tags'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(stringArrays.compile('"admin" in tags')));
     const outcome = createTranslator(new MongoDbProfile()).translate({ checkedExpression });
 
     expect(outcome.case).toBe("predicate");
@@ -159,7 +162,7 @@ describe("MongoDB profile", () => {
 
   it("lowers equality-based exists over a BSON array field to array equality", () => {
     const checkedExpression = astToCheckedExpr(
-      stringArrays.compile('tags.exists(tag, tag == "admin")'),
+      unwrapAst(stringArrays.compile('tags.exists(tag, tag == "admin")')),
     );
     const outcome = createTranslator(new MongoDbProfile()).translate({ checkedExpression });
 
@@ -167,7 +170,7 @@ describe("MongoDB profile", () => {
   });
 
   it("reverses an ordering comparison that places the constant on the left", () => {
-    const checkedExpression = astToCheckedExpr(fields.compile("1 < count"));
+    const checkedExpression = astToCheckedExpr(unwrapAst(fields.compile("1 < count")));
     const outcome = createTranslator(new MongoDbProfile()).translate({ checkedExpression });
 
     expect(outcome.case).toBe("predicate");
@@ -189,7 +192,7 @@ describe("MongoDB profile", () => {
   });
 
   it("encodes literal membership as a typed MongoDB list", () => {
-    const checkedExpression = astToCheckedExpr(fields.compile('name in ["a", "b"]'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(fields.compile('name in ["a", "b"]')));
     const outcome = createTranslator(new MongoDbProfile()).translate({ checkedExpression });
 
     expect(outcome.case).toBe("predicate");
@@ -216,7 +219,7 @@ describe("MongoDB profile", () => {
   });
 
   it("translates a documented RE2 and MongoDB regex subset", () => {
-    const checkedExpression = astToCheckedExpr(fields.compile('name.matches("^a")'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(fields.compile('name.matches("^a")')));
 
     const outcome = createTranslator(new MongoDbProfile()).translate({ checkedExpression });
 
@@ -255,7 +258,7 @@ describe("MongoDB profile", () => {
   for (const pattern of ["^a.*", "^[a-z]{1,5}", "^a\\.b+"]) {
     it(`accepts the bounded MongoDB regex form ${pattern}`, () => {
       const checkedExpression = astToCheckedExpr(
-        fields.compile(`name.matches(${JSON.stringify(pattern)})`),
+        unwrapAst(fields.compile(`name.matches(${JSON.stringify(pattern)})`)),
       );
 
       expect(createTranslator(new MongoDbProfile()).translate({ checkedExpression })).toMatchObject(
@@ -267,7 +270,7 @@ describe("MongoDB profile", () => {
   for (const pattern of ["^a+$", "(a|aa)+", "a.*b.*", "a\\q"]) {
     it(`rejects the MongoDB regex form ${pattern} outside the safe subset`, () => {
       const checkedExpression = astToCheckedExpr(
-        fields.compile(`name.matches(${JSON.stringify(pattern)})`),
+        unwrapAst(fields.compile(`name.matches(${JSON.stringify(pattern)})`)),
       );
 
       expect(() => createTranslator(new MongoDbProfile()).translate({ checkedExpression })).toThrow(
@@ -278,7 +281,7 @@ describe("MongoDB profile", () => {
 
   it("searches every full-text query term as one $text phrase", () => {
     const checkedExpression = astToCheckedExpr(
-      fullTextFields.compile('search.matchesText("error budget")'),
+      unwrapAst(fullTextFields.compile('search.matchesText("error budget")')),
     );
 
     const outcome = createTranslator(new MongoDbProfile(), {
@@ -307,7 +310,7 @@ describe("MongoDB profile", () => {
 
   it("rejects a $text search that a conjunction does not reach", () => {
     const checkedExpression = astToCheckedExpr(
-      fullTextFields.compile('!search.matchesText("error")'),
+      unwrapAst(fullTextFields.compile('!search.matchesText("error")')),
     );
 
     expect(() =>
@@ -319,7 +322,7 @@ describe("MongoDB profile", () => {
 
   it("bounds a distance with a centre sphere radius on the library's sphere", () => {
     const checkedExpression = astToCheckedExpr(
-      spatialFields.compile("location.geoWithinDistance(geoPoint(0.0, 0.0), 637810.0)"),
+      unwrapAst(spatialFields.compile("location.geoWithinDistance(geoPoint(0.0, 0.0), 637810.0)")),
     );
 
     const outcome = createTranslator(new MongoDbProfile(), {
@@ -369,7 +372,7 @@ describe("MongoDB profile", () => {
 
   it("rejects a position outside the WGS 84 coordinate ranges", () => {
     const checkedExpression = astToCheckedExpr(
-      spatialFields.compile("location.geoWithinDistance(geoPoint(181.0, 0.0), 1000.0)"),
+      unwrapAst(spatialFields.compile("location.geoWithinDistance(geoPoint(181.0, 0.0), 1000.0)")),
     );
 
     expect(() =>

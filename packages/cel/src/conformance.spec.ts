@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { createRegistry, fromJson } from "@bufbuild/protobuf";
+import { createRegistry } from "@bufbuild/protobuf";
+import { fromText } from "@bufbuild/protobuf/txtpb";
 import {
   file_google_protobuf_any,
   file_google_protobuf_duration,
@@ -89,7 +90,7 @@ interface SuiteSummary {
   conformant: number;
 }
 
-/** fixturesDirectory contains synchronized CEL spec conformance JSON. */
+/** fixturesDirectory contains synchronized CEL spec conformance fixtures. */
 const fixturesDirectory = resolve(import.meta.dirname, "../testdata/conformance");
 
 /** reportPath is the generated CEL conformance dashboard. */
@@ -344,12 +345,12 @@ function conformanceCases(): {
   const executions: ConformanceExecution[] = [];
   const skipped: Record<string, string> = {};
   const files = readdirSync(fixturesDirectory)
-    .filter((name) => name.endsWith(".textproto.json"))
+    .filter((name) => name.endsWith(".textproto"))
     .sort();
   for (const fileName of files) {
-    const file = fromJson(
+    const file = fromText(
       SimpleTestFileSchema,
-      JSON.parse(readFileSync(join(fixturesDirectory, fileName), "utf8")),
+      readFileSync(join(fixturesDirectory, fileName), "utf8"),
       { registry: protobufRegistry },
     );
     appendFileCases(executions, skipped, file);
@@ -712,7 +713,7 @@ function markdownReport(results: ConformanceResult[], skipped: Record<string, st
   const lines = [
     "# CEL Conformance Report",
     "",
-    "Generated from the synchronized fixtures in `testdata/conformance/*.textproto.json`.",
+    "Generated from the synchronized fixtures in `testdata/conformance/*.textproto`.",
     "",
     "## Summary",
     "",

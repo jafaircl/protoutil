@@ -1,5 +1,5 @@
 import { create, type MessageShape } from "@bufbuild/protobuf";
-import { astToCheckedExpr, BoolType, env, variable } from "@protoutil/cel";
+import { astToCheckedExpr, BoolType, env, unwrapAst, variable } from "@protoutil/cel";
 import { describe, expect, it } from "vitest";
 import { AnsiSqlPredicateSchema } from "./gen/protoutil/celql/ansisql/v1/ansisql_pb.js";
 import {
@@ -21,7 +21,7 @@ import { createTranslator } from "./translator.js";
 import type { Profile, ProfileContext, TranslationFunction, TranslationLibrary } from "./types.js";
 
 const checkedFlag = astToCheckedExpr(
-  env({ variables: [variable("flag", BoolType)] }).compile("flag"),
+  unwrapAst(env({ variables: [variable("flag", BoolType)] }).compile("flag")),
 );
 
 type TestTranslation = (context: ProfileContext) => string;

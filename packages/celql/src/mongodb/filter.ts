@@ -1,5 +1,6 @@
 import type { Value } from "../gen/cel/expr/value_pb.js";
 import type { MongoDbPredicate } from "../gen/protoutil/celql/mongodb/v1/mongodb_pb.js";
+import type { TranslationOutcome } from "../types.js";
 
 /** One value inside a MongoDB filter document. */
 export type MongoDbFilterValue =
@@ -57,5 +58,30 @@ function filterValue(value: Value): MongoDbFilterValue {
       throw new Error(
         `A MongoDB filter carries the unsupported value ${value.kind.case ?? "of no kind"}.`,
       );
+  }
+}
+
+/**
+ * Converts one outcome to the filter document that a MongoDB driver accepts.
+ *
+ * `matchAll` and `matchNone` are not predicates, so a caller that branches on
+ * the outcome by hand can reach an unfiltered `find` by forgetting one of
+ * them. `matchAll` becomes the empty filter, which selects every document, and
+ * `matchNone` becomes `$nor` over the empty filter, which selects none.
+ *
+ * Throws when the predicate carries a value that no profile emits.
+ *
+ * @param outcome Outcome that a MongoDB translator produced.
+ */
+export function mongoDbFilterForOutcome(
+  outcome: TranslationOutcome<MongoDbPredicate>,
+): Record<string, MongoDbFilterValue> {
+  switch (outcome.case) {
+    case "matchAll":
+      return {};
+    case "matchNone":
+      return { $nor: [{}] };
+    case "predicate":
+      return mongoDbFilter(outcome.value);
   }
 }

@@ -211,7 +211,15 @@ class MySqlTranslationContext
     return `\`${component.replaceAll("`", "``")}\``;
   }
 
-  /** Doubles the backslash inside MySQL's string literal while retaining one LIKE escape character. */
+  /**
+   * Doubles the backslash inside MySQL's string literal while retaining one LIKE escape character.
+   *
+   * This encoding assumes the server's default backslash handling. Under
+   * `sql_mode=NO_BACKSLASH_ESCAPES` the literal is two characters and MySQL
+   * rejects it, so the profile document requires a connection without that
+   * mode rather than emitting a condition that depends on an undetectable
+   * server setting.
+   */
   protected override likeEscapeClause(): string {
     return "ESCAPE '\\\\'";
   }

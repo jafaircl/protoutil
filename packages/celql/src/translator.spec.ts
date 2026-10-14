@@ -1,5 +1,5 @@
 import { create, type MessageShape } from "@bufbuild/protobuf";
-import { astToCheckedExpr, BoolType, env, variable } from "@protoutil/cel";
+import { astToCheckedExpr, BoolType, env, unwrapAst, variable } from "@protoutil/cel";
 import { describe, expect, it } from "vitest";
 import { AnsiSqlPredicateSchema, AnsiSqlProfile } from "./ansisql/index.js";
 import {
@@ -17,7 +17,7 @@ import {
 } from "./index.js";
 
 const checkedFlag = astToCheckedExpr(
-  env({ variables: [variable("flag", BoolType)] }).compile("flag"),
+  unwrapAst(env({ variables: [variable("flag", BoolType)] }).compile("flag")),
 );
 
 function customProfile(

@@ -6,7 +6,7 @@ This file is rewritten by:
 pnpm --filter @protoutil/cel run benchmark
 ```
 
-Generated at: `2026-08-16T19:58:40.522Z`
+Generated at: `2026-09-24T03:43:33.489Z`
 
 ## Methodology
 
@@ -21,7 +21,7 @@ These are in-process microbenchmarks for the CEL frontend and public program API
 - **The whole matrix moves together when the machine is busy.** Compare the `cel-go` columns across runs first; if they moved, the machine did, not the code.
 
 - Runtime: `node v22.15.0`
-- Go: `go1.26.0`
+- Go: `go1.26.2`
 - cel-go: `codelab/v0.31.0-6-gef24047 (local working copy)`
 - Platform: `darwin`
 - Arch: `arm64`
@@ -44,21 +44,21 @@ The widest cel-go gaps, worst first. These are where optimization work pays off.
 
 | Rank | Operation | Scenario | `@protoutil/cel` us/op | `cel-go` us/op | Slower by | Cost per op |
 | ---: | --- | --- | ---: | ---: | ---: | ---: |
-| 1 | `policy-eval` | nested_rule7 / valid / x=1 | 1.02 | 0.208 | 4.87x | +0.807 us |
-| 2 | `policy-eval` | nested_rule7 / valid / x=2 | 1.15 | 0.246 | 4.67x | +0.903 us |
-| 3 | `eval-details` | diagnostic / list index | 0.228 | 0.0490 | 4.65x | +0.179 us |
-| 4 | `eval` | constant regex / compiled regex | 1.05 | 0.239 | 4.40x | +0.815 us |
-| 5 | `eval` | diagnostic / list index | 0.221 | 0.0514 | 4.31x | +0.170 us |
-| 6 | `eval-details` | diagnostic / protobuf field | 0.611 | 0.146 | 4.19x | +0.465 us |
-| 7 | `policy-eval` | nested_rule7 / valid / x=3 | 0.485 | 0.119 | 4.09x | +0.367 us |
-| 8 | `policy-eval` | nested_rule7 / valid / x=4 | 0.488 | 0.119 | 4.09x | +0.368 us |
-| 9 | `unparse` | macro comprehension | 1.06 | 0.261 | 4.06x | +0.798 us |
-| 10 | `eval` | diagnostic / protobuf field | 0.602 | 0.149 | 4.04x | +0.453 us |
-| 11 | `eval` | protobuf field selection / baseline | 0.572 | 0.146 | 3.92x | +0.426 us |
-| 12 | `eval` | protobuf field selection / optimized | 0.571 | 0.147 | 3.89x | +0.424 us |
-| 13 | `eval` | constant regex / baseline | 7.50 | 2.04 | 3.67x | +5.46 us |
-| 14 | `unparse` | scalar arithmetic | 0.524 | 0.146 | 3.58x | +0.378 us |
-| 15 | `eval-details` | diagnostic / binary call | 0.154 | 0.0488 | 3.16x | +0.105 us |
+| 1 | `policy-eval` | nested_rule7 / valid / x=1 | 0.971 | 0.206 | 4.70x | +0.764 us |
+| 2 | `eval-details` | diagnostic / list index | 0.222 | 0.0486 | 4.57x | +0.173 us |
+| 3 | `policy-eval` | nested_rule7 / valid / x=2 | 1.10 | 0.247 | 4.47x | +0.856 us |
+| 4 | `eval` | diagnostic / list index | 0.214 | 0.0482 | 4.44x | +0.166 us |
+| 5 | `unparse` | macro comprehension | 1.10 | 0.249 | 4.41x | +0.848 us |
+| 6 | `eval` | constant regex / compiled regex | 1.07 | 0.252 | 4.25x ⚠ | +0.821 us |
+| 7 | `eval-details` | diagnostic / protobuf field | 0.598 | 0.144 | 4.14x | +0.454 us |
+| 8 | `eval` | diagnostic / protobuf field | 0.587 | 0.146 | 4.02x | +0.441 us |
+| 9 | `policy-eval` | nested_rule7 / valid / x=4 | 0.467 | 0.118 | 3.96x | +0.349 us |
+| 10 | `eval` | protobuf field selection / baseline | 0.567 | 0.145 | 3.91x | +0.422 us |
+| 11 | `policy-eval` | nested_rule7 / valid / x=3 | 0.472 | 0.121 | 3.90x | +0.351 us |
+| 12 | `eval` | protobuf field selection / optimized | 0.569 | 0.147 | 3.88x | +0.423 us |
+| 13 | `unparse` | scalar arithmetic | 0.504 | 0.142 | 3.55x | +0.362 us |
+| 14 | `eval` | constant regex / baseline | 6.89 | 1.99 | 3.45x | +4.89 us |
+| 15 | `eval-details` | diagnostic / binary call | 0.151 | 0.0484 | 3.12x | +0.103 us |
 
 ## Summary by operation
 
@@ -67,207 +67,207 @@ visible without reading the full matrix.
 
 | Operation | Scenarios | Median slower by | Best scenario | Worst scenario |
 | --- | ---: | ---: | --- | --- |
-| `unparse` | 4 | 3.13x slower | protobuf field selection (1.33x slower) | macro comprehension (4.06x slower) |
-| `eval-details` | 9 | 2.91x slower | diagnostic / literal (2.49x slower) | diagnostic / list index (4.65x slower) |
-| `eval` | 18 | 2.86x slower | diagnostic / literal (1.08x slower) | constant regex / compiled regex (4.40x slower) |
-| `policy-eval` | 13 | 2.68x slower | unnest / divisible by 2 / empty-set (2.28x slower) | nested_rule7 / valid / x=1 (4.87x slower) |
-| `plan` | 9 | 1.71x slower | constant regex / compiled regex (1.05x faster) | macro comprehension / runtime cost (2.52x slower) |
-| `check` | 4 | 1.64x slower | scalar arithmetic (1.40x slower) | macro comprehension (1.89x slower) |
-| `policy-plan` | 3 | 1.58x slower | unnest (1.19x slower) | nested_rule7 (2.46x slower) |
-| `partial-eval` | 3 | 1.41x slower | known branch pruning (1.07x slower) | macro pruning (1.66x slower) |
-| `eval-state` | 9 | 1.34x slower | diagnostic / literal (1.38x faster) | diagnostic / fold full scan (2.67x slower) |
-| `policy-compile` | 3 | 1.26x slower | nested_rule7 (1.10x faster) | unnest (1.47x slower) |
-| `residual-roundtrip` | 3 | 1.14x faster | qualified attribute pruning (1.15x faster) | macro pruning (1.08x slower) |
-| `residual` | 3 | 1.26x faster | known branch pruning (1.26x faster) | macro pruning (1.01x faster) |
-| `compile` | 4 | 1.58x faster | constant regex (1.94x faster) | macro comprehension (1.07x faster) |
-| `policy-parse` | 3 | 1.76x faster | unnest (1.76x faster) | required_labels (1.62x faster) |
-| `parse` | 4 | 3.21x faster | scalar arithmetic (4.34x faster) | macro comprehension (2.31x faster) |
+| `unparse` | 4 | 3.27x slower | protobuf field selection (1.31x slower) | macro comprehension (4.41x slower) |
+| `eval-details` | 9 | 2.95x slower | diagnostic / literal (2.56x slower) | diagnostic / list index (4.57x slower) |
+| `eval` | 18 | 2.86x slower | diagnostic / literal (1.13x slower) | diagnostic / list index (4.44x slower) |
+| `policy-eval` | 13 | 2.71x slower | unnest / divisible by 2 / empty-set (2.28x slower) | nested_rule7 / valid / x=1 (4.70x slower) |
+| `plan` | 9 | 1.79x slower | constant regex / compiled regex (1.07x faster) | macro comprehension / runtime cost (2.36x slower) |
+| `check` | 4 | 1.76x slower | protobuf field selection (1.54x slower) | constant regex (1.93x slower) |
+| `policy-plan` | 3 | 1.63x slower | unnest (1.18x slower) | nested_rule7 (2.51x slower) |
+| `partial-eval` | 3 | 1.46x slower | known branch pruning (1.04x slower) | macro pruning (1.63x slower) |
+| `eval-state` | 9 | 1.38x slower | diagnostic / literal (1.31x faster) | diagnostic / fold full scan (2.55x slower) |
+| `policy-compile` | 3 | 1.16x slower | nested_rule7 (1.18x faster) | unnest (1.32x slower) |
+| `residual-roundtrip` | 3 | 1.11x faster | qualified attribute pruning (1.18x faster) | macro pruning (1.10x slower) |
+| `residual` | 3 | 1.25x faster | known branch pruning (1.29x faster) | macro pruning (1.00x faster) |
+| `compile` | 4 | 1.49x faster | constant regex (1.86x faster) | macro comprehension (1.01x faster) |
+| `policy-parse` | 3 | 1.73x faster | nested_rule7 (1.89x faster) | required_labels (1.66x faster) |
+| `parse` | 4 | 3.30x faster | scalar arithmetic (4.30x faster) | macro comprehension (2.24x faster) |
 
 ## Results
 
 | Operation | Scenario | Implementation | Iterations | Median us/op | Mean us/op | Std dev us/op | Spread | Relative | Notes |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| `check` | constant regex | `@protoutil/cel` | 3840 | 2.62 | 2.63 | 0.0506 | 1.9% | 1.81x slower | Reuses one parsed AST and public environment to isolate checker cost. |
-| `check` | constant regex | `cel-go` | 9629 | 1.45 | 1.45 | 0.0201 | 1.4% | baseline | Reuses one parsed AST and public environment to isolate checker cost. |
-| `check` | macro comprehension | `@protoutil/cel` | 515 | 17.04 | 17.06 | 0.178 | 1.0% | 1.89x slower | Reuses one parsed AST and public environment to isolate checker cost. |
-| `check` | macro comprehension | `cel-go` | 1592 | 9.00 | 8.96 | 0.159 | 1.8% | baseline | Reuses one parsed AST and public environment to isolate checker cost. |
-| `check` | protobuf field selection | `@protoutil/cel` | 1137 | 5.65 | 5.69 | 0.196 | 3.4% | 1.50x slower | Reuses one parsed AST and public environment to isolate checker cost. |
-| `check` | protobuf field selection | `cel-go` | 3917 | 3.76 | 3.77 | 0.0606 | 1.6% | baseline | Reuses one parsed AST and public environment to isolate checker cost. |
-| `check` | scalar arithmetic | `@protoutil/cel` | 428 | 5.92 | 5.91 | 0.300 | 5.1% | 1.40x slower | Reuses one parsed AST and public environment to isolate checker cost. |
-| `check` | scalar arithmetic | `cel-go` | 2843 | 4.23 | 4.27 | 0.114 | 2.7% | baseline | Reuses one parsed AST and public environment to isolate checker cost. |
-| `compile` | constant regex | `@protoutil/cel` | 1852 | 6.51 | 6.52 | 0.0948 | 1.5% | 1.94x faster | Runs parse plus check through one public environment. |
-| `compile` | constant regex | `cel-go` | 1203 | 12.61 | 12.62 | 0.221 | 1.7% | baseline | Runs parse plus check through one public environment. |
-| `compile` | macro comprehension | `@protoutil/cel` | 377 | 26.03 | 26.17 | 0.398 | 1.5% | 1.07x faster | Runs parse plus check through one public environment. |
-| `compile` | macro comprehension | `cel-go` | 517 | 27.72 | 27.84 | 0.378 | 1.4% | baseline | Runs parse plus check through one public environment. |
-| `compile` | protobuf field selection | `@protoutil/cel` | 1323 | 11.33 | 11.31 | 0.311 | 2.7% | 1.52x faster | Runs parse plus check through one public environment. |
-| `compile` | protobuf field selection | `cel-go` | 820 | 17.22 | 17.22 | 0.207 | 1.2% | baseline | Runs parse plus check through one public environment. |
-| `compile` | scalar arithmetic | `@protoutil/cel` | 1800 | 8.16 | 8.24 | 0.201 | 2.4% | 1.63x faster | Runs parse plus check through one public environment. |
-| `compile` | scalar arithmetic | `cel-go` | 1181 | 13.33 | 13.40 | 0.337 | 2.5% | baseline | Runs parse plus check through one public environment. |
-| `eval-details` | diagnostic / binary call | `@protoutil/cel` | 94611 | 0.154 | 0.154 | 0.0013 | 0.9% | 3.16x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / binary call | `cel-go` | 297936 | 0.0488 | 0.0487 | 0.0003 | 0.6% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-details` | diagnostic / dynamic map selection | `@protoutil/cel` | 61205 | 0.242 | 0.242 | 0.0032 | 1.3% | 2.75x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / dynamic map selection | `cel-go` | 180662 | 0.0881 | 0.0881 | 0.0006 | 0.7% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-details` | diagnostic / fold early exit | `@protoutil/cel` | 682 | 18.13 | 18.24 | 0.298 | 1.6% | 2.79x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / fold early exit | `cel-go` | 2219 | 6.50 | 6.49 | 0.0854 | 1.3% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-details` | diagnostic / fold full scan | `@protoutil/cel` | 439 | 34.46 | 34.49 | 0.242 | 0.7% | 2.91x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / fold full scan | `cel-go` | 1300 | 11.84 | 11.86 | 0.119 | 1.0% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-details` | diagnostic / identifier | `@protoutil/cel` | 127351 | 0.113 | 0.113 | 0.0013 | 1.2% | 3.15x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / identifier | `cel-go` | 416682 | 0.0358 | 0.0358 | 0.0002 | 0.6% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-details` | diagnostic / list index | `@protoutil/cel` | 53564 | 0.228 | 0.228 | 0.0031 | 1.3% | 4.65x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / list index | `cel-go` | 310107 | 0.0490 | 0.0490 | 0.0003 | 0.6% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-details` | diagnostic / literal | `@protoutil/cel` | 290532 | 0.0481 | 0.0481 | 0.0006 | 1.2% | 2.49x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / literal | `cel-go` | 732997 | 0.0193 | 0.0192 | 0.0001 | 0.8% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-details` | diagnostic / member call | `@protoutil/cel` | 73738 | 0.201 | 0.201 | 0.0021 | 1.1% | 2.84x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / member call | `cel-go` | 211021 | 0.0709 | 0.0707 | 0.0010 | 1.4% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-details` | diagnostic / protobuf field | `@protoutil/cel` | 24102 | 0.611 | 0.613 | 0.0076 | 1.2% | 4.19x slower | Reuses one baseline program and activation while allocating public evaluation details. |
-| `eval-details` | diagnostic / protobuf field | `cel-go` | 98299 | 0.146 | 0.146 | 0.0009 | 0.6% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
-| `eval-state` | diagnostic / binary call | `@protoutil/cel` | 30796 | 0.308 | 0.309 | 0.0071 | 2.3% | 1.27x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / binary call | `cel-go` | 47790 | 0.243 | 0.243 | 0.0019 | 0.8% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / dynamic map selection | `@protoutil/cel` | 23041 | 0.427 | 0.427 | 0.0035 | 0.8% | 1.34x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / dynamic map selection | `cel-go` | 52888 | 0.320 | 0.323 | 0.0077 | 2.4% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / fold early exit | `@protoutil/cel` | 212 | 31.25 | 31.17 | 0.271 | 0.9% | 2.58x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / fold early exit | `cel-go` | 1220 | 12.10 | 12.14 | 0.125 | 1.0% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / fold full scan | `@protoutil/cel` | 259 | 59.66 | 59.81 | 0.712 | 1.2% | 2.67x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / fold full scan | `cel-go` | 686 | 22.38 | 22.52 | 0.409 | 1.8% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / identifier | `@protoutil/cel` | 33195 | 0.212 | 0.212 | 0.0046 | 2.2% | 1.02x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / identifier | `cel-go` | 53500 | 0.207 | 0.207 | 0.0035 | 1.7% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / list index | `@protoutil/cel` | 27068 | 0.453 | 0.453 | 0.0053 | 1.2% | 1.73x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / list index | `cel-go` | 48616 | 0.262 | 0.262 | 0.0043 | 1.6% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / literal | `@protoutil/cel` | 22002 | 0.135 | 0.137 | 0.0055 | 4.0% | 1.38x faster | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / literal | `cel-go` | 72152 | 0.187 | 0.188 | 0.0038 | 2.0% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / member call | `@protoutil/cel` | 44427 | 0.357 | 0.357 | 0.0044 | 1.2% | 1.34x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / member call | `cel-go` | 55711 | 0.266 | 0.266 | 0.0047 | 1.8% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / protobuf field | `@protoutil/cel` | 11836 | 1.11 | 1.10 | 0.0159 | 1.4% | 2.26x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval-state` | diagnostic / protobuf field | `cel-go` | 27009 | 0.491 | 0.490 | 0.0075 | 1.5% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
-| `eval` | constant regex / baseline | `@protoutil/cel` | 226 | 7.50 | 7.51 | 0.576 | 7.7% | 3.67x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | constant regex / baseline | `cel-go` | 7887 | 2.04 | 2.04 | 0.0395 | 1.9% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `eval` | constant regex / compiled regex | `@protoutil/cel` | 9449 | 1.05 | 1.06 | 0.0167 | 1.6% | 4.40x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | constant regex / compiled regex | `cel-go` | 48202 | 0.239 | 0.242 | 0.0062 | 2.6% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `eval` | diagnostic / binary call | `@protoutil/cel` | 103393 | 0.150 | 0.151 | 0.0015 | 1.0% | 3.07x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / binary call | `cel-go` | 311458 | 0.0490 | 0.0491 | 0.0003 | 0.5% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / dynamic map selection | `@protoutil/cel` | 22048 | 0.232 | 0.233 | 0.0057 | 2.5% | 2.65x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / dynamic map selection | `cel-go` | 148544 | 0.0876 | 0.0876 | 0.0009 | 1.1% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / fold early exit | `@protoutil/cel` | 514 | 18.21 | 18.17 | 0.203 | 1.1% | 2.81x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / fold early exit | `cel-go` | 2343 | 6.49 | 6.48 | 0.121 | 1.9% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / fold full scan | `@protoutil/cel` | 436 | 34.60 | 34.56 | 0.241 | 0.7% | 2.91x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / fold full scan | `cel-go` | 1322 | 11.90 | 11.93 | 0.183 | 1.5% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / identifier | `@protoutil/cel` | 49430 | 0.108 | 0.109 | 0.0031 | 2.9% | 3.05x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / identifier | `cel-go` | 422162 | 0.0356 | 0.0356 | 0.0003 | 0.7% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / list index | `@protoutil/cel` | 25568 | 0.221 | 0.224 | 0.0079 | 3.5% | 4.31x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / list index | `cel-go` | 291923 | 0.0514 | 0.0512 | 0.0008 | 1.5% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / literal | `@protoutil/cel` | 230959 | 0.0207 | 0.0207 | 0.0010 | 4.7% | 1.08x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / literal | `cel-go` | 802400 | 0.0192 | 0.0192 | 0.0001 | 0.5% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / member call | `@protoutil/cel` | 30213 | 0.196 | 0.197 | 0.0054 | 2.7% | 2.79x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / member call | `cel-go` | 225615 | 0.0703 | 0.0705 | 0.0009 | 1.3% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / protobuf field | `@protoutil/cel` | 11533 | 0.602 | 0.605 | 0.0196 | 3.2% | 4.04x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | diagnostic / protobuf field | `cel-go` | 100426 | 0.149 | 0.149 | 0.0025 | 1.7% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
-| `eval` | macro comprehension / baseline | `@protoutil/cel` | 146 | 17.06 | 17.31 | 0.621 | 3.6% | 2.63x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | macro comprehension / baseline | `cel-go` | 2275 | 6.49 | 6.51 | 0.130 | 2.0% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `eval` | macro comprehension / optimized | `@protoutil/cel` | 684 | 17.43 | 17.42 | 0.249 | 1.4% | 2.67x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | macro comprehension / optimized | `cel-go` | 2272 | 6.54 | 6.51 | 0.0878 | 1.3% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `eval` | macro comprehension / runtime cost | `@protoutil/cel` | 34 | 92.70 | 94.33 | 2.83 | 3.0% | 2.79x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | macro comprehension / runtime cost | `cel-go` | 465 | 33.26 | 33.39 | 0.712 | 2.1% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `eval` | protobuf field selection / baseline | `@protoutil/cel` | 4990 | 0.572 | 0.576 | 0.0222 | 3.8% | 3.92x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | protobuf field selection / baseline | `cel-go` | 99035 | 0.146 | 0.146 | 0.0010 | 0.7% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `eval` | protobuf field selection / optimized | `@protoutil/cel` | 25217 | 0.571 | 0.572 | 0.0066 | 1.2% | 3.89x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | protobuf field selection / optimized | `cel-go` | 105249 | 0.147 | 0.146 | 0.0009 | 0.6% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `eval` | scalar arithmetic / baseline | `@protoutil/cel` | 18252 | 0.128 | 0.127 | 0.0055 | 4.3% | 2.62x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | scalar arithmetic / baseline | `cel-go` | 316650 | 0.0488 | 0.0487 | 0.0004 | 0.8% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `eval` | scalar arithmetic / optimized | `@protoutil/cel` | 121186 | 0.124 | 0.124 | 0.0006 | 0.5% | 2.54x slower | Reuses one public program and activation to isolate steady-state evaluation. |
-| `eval` | scalar arithmetic / optimized | `cel-go` | 313999 | 0.0488 | 0.0492 | 0.0012 | 2.5% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
-| `parse` | constant regex | `@protoutil/cel` | 1986 | 3.22 | 3.21 | 0.0584 | 1.8% | 3.39x faster | Reuses one public environment to isolate steady-state parse throughput. |
-| `parse` | constant regex | `cel-go` | 1426 | 10.90 | 10.88 | 0.0836 | 0.8% | baseline | Reuses one public environment to isolate steady-state parse throughput. |
-| `parse` | macro comprehension | `@protoutil/cel` | 763 | 7.98 | 7.90 | 0.262 | 3.3% | 2.31x faster | Reuses one public environment to isolate steady-state parse throughput. |
-| `parse` | macro comprehension | `cel-go` | 698 | 18.40 | 18.39 | 0.626 | 3.4% | baseline | Reuses one public environment to isolate steady-state parse throughput. |
-| `parse` | protobuf field selection | `@protoutil/cel` | 1866 | 4.16 | 4.15 | 0.102 | 2.5% | 3.03x faster | Reuses one public environment to isolate steady-state parse throughput. |
-| `parse` | protobuf field selection | `cel-go` | 1149 | 12.62 | 12.55 | 0.202 | 1.6% | baseline | Reuses one public environment to isolate steady-state parse throughput. |
-| `parse` | scalar arithmetic | `@protoutil/cel` | 934 | 1.86 | 1.98 | 0.164 | 8.3% | 4.34x faster | Reuses one public environment to isolate steady-state parse throughput. |
-| `parse` | scalar arithmetic | `cel-go` | 792 | 8.09 | 8.16 | 0.208 | 2.5% | baseline | Reuses one public environment to isolate steady-state parse throughput. |
-| `partial-eval` | known branch pruning | `@protoutil/cel` | 3615 | 1.13 | 1.13 | 0.0414 | 3.7% | 1.07x slower | Reuses one state-tracking partial program and inferred unknown activation. |
-| `partial-eval` | known branch pruning | `cel-go` | 14405 | 1.05 | 1.05 | 0.0195 | 1.8% | baseline | Reuses one state-tracking partial program and inferred unknown activation. |
-| `partial-eval` | macro pruning | `@protoutil/cel` | 847 | 5.34 | 5.34 | 0.176 | 3.3% | 1.66x slower | Reuses one state-tracking partial program and inferred unknown activation. |
-| `partial-eval` | macro pruning | `cel-go` | 4204 | 3.22 | 3.21 | 0.0600 | 1.9% | baseline | Reuses one state-tracking partial program and inferred unknown activation. |
-| `partial-eval` | qualified attribute pruning | `@protoutil/cel` | 3204 | 1.83 | 1.85 | 0.0453 | 2.4% | 1.41x slower | Reuses one state-tracking partial program and inferred unknown activation. |
-| `partial-eval` | qualified attribute pruning | `cel-go` | 9941 | 1.30 | 1.30 | 0.0291 | 2.2% | baseline | Reuses one state-tracking partial program and inferred unknown activation. |
-| `plan` | constant regex / baseline | `@protoutil/cel` | 6507 | 0.940 | 0.948 | 0.0269 | 2.8% | 1.88x slower | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | constant regex / baseline | `cel-go` | 28448 | 0.500 | 0.498 | 0.0092 | 1.8% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `plan` | constant regex / compiled regex | `@protoutil/cel` | 3406 | 2.70 | 2.72 | 0.0834 | 3.1% | 1.05x faster | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | constant regex / compiled regex | `cel-go` | 5461 | 2.83 | 2.84 | 0.0351 | 1.2% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `plan` | macro comprehension / baseline | `@protoutil/cel` | 2094 | 2.01 | 2.01 | 0.0664 | 3.3% | 1.37x slower | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | macro comprehension / baseline | `cel-go` | 10070 | 1.47 | 1.47 | 0.0348 | 2.4% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `plan` | macro comprehension / optimized | `@protoutil/cel` | 3601 | 3.22 | 3.23 | 0.0518 | 1.6% | 1.89x slower | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | macro comprehension / optimized | `cel-go` | 8702 | 1.71 | 1.70 | 0.0115 | 0.7% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `plan` | macro comprehension / runtime cost | `@protoutil/cel` | 1443 | 5.37 | 5.41 | 0.264 | 4.9% | 2.52x slower | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | macro comprehension / runtime cost | `cel-go` | 6864 | 2.14 | 2.13 | 0.0456 | 2.1% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `plan` | protobuf field selection / baseline | `@protoutil/cel` | 4610 | 1.37 | 1.35 | 0.0320 | 2.4% | 1.45x slower | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | protobuf field selection / baseline | `cel-go` | 13322 | 0.939 | 0.951 | 0.0343 | 3.6% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `plan` | protobuf field selection / optimized | `@protoutil/cel` | 6706 | 1.95 | 1.94 | 0.0257 | 1.3% | 1.77x slower | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | protobuf field selection / optimized | `cel-go` | 10834 | 1.10 | 1.12 | 0.0344 | 3.1% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `plan` | scalar arithmetic / baseline | `@protoutil/cel` | 12 | 0.590 | 0.592 | 0.0067 | 1.1% | 1.20x slower | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | scalar arithmetic / baseline | `cel-go` | 28955 | 0.493 | 0.490 | 0.0108 | 2.2% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `plan` | scalar arithmetic / optimized | `@protoutil/cel` | 4927 | 1.07 | 1.07 | 0.0174 | 1.6% | 1.71x slower | Reuses one checked AST and environment to isolate public program planning cost. |
-| `plan` | scalar arithmetic / optimized | `cel-go` | 22758 | 0.625 | 0.626 | 0.0071 | 1.1% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
-| `policy-compile` | nested_rule7 | `@protoutil/cel` | 57 | 213.54 | 212.88 | 5.22 | 2.5% | 1.10x faster | Reuses one parsed policy and configured environment to isolate policy compilation. |
-| `policy-compile` | nested_rule7 | `cel-go` | 58 | 234.36 | 236.41 | 4.66 | 2.0% | baseline | Reuses one parsed policy and configured environment to isolate policy compilation. |
-| `policy-compile` | required_labels | `@protoutil/cel` | 8 | 1,281.35 | 1,259.44 | 72.19 | 5.7% | 1.26x slower | Reuses one parsed policy and configured environment to isolate policy compilation. |
-| `policy-compile` | required_labels | `cel-go` | 15 | 1,013.69 | 1,015.55 | 18.85 | 1.9% | baseline | Reuses one parsed policy and configured environment to isolate policy compilation. |
-| `policy-compile` | unnest | `@protoutil/cel` | 5 | 1,351.33 | 1,361.38 | 84.84 | 6.2% | 1.47x slower | Reuses one parsed policy and configured environment to isolate policy compilation. |
-| `policy-compile` | unnest | `cel-go` | 15 | 918.68 | 923.64 | 17.25 | 1.9% | baseline | Reuses one parsed policy and configured environment to isolate policy compilation. |
-| `policy-eval` | nested_rule7 / valid / x=1 | `@protoutil/cel` | 13690 | 1.02 | 1.02 | 0.0126 | 1.2% | 4.87x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | nested_rule7 / valid / x=1 | `cel-go` | 71356 | 0.208 | 0.208 | 0.0022 | 1.0% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | nested_rule7 / valid / x=2 | `@protoutil/cel` | 13487 | 1.15 | 1.15 | 0.0155 | 1.3% | 4.67x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | nested_rule7 / valid / x=2 | `cel-go` | 60599 | 0.246 | 0.245 | 0.0035 | 1.4% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | nested_rule7 / valid / x=3 | `@protoutil/cel` | 31751 | 0.485 | 0.486 | 0.0035 | 0.7% | 4.09x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | nested_rule7 / valid / x=3 | `cel-go` | 133125 | 0.119 | 0.119 | 0.0022 | 1.9% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | nested_rule7 / valid / x=4 | `@protoutil/cel` | 31051 | 0.488 | 0.488 | 0.0037 | 0.8% | 4.09x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | nested_rule7 / valid / x=4 | `cel-go` | 108995 | 0.119 | 0.120 | 0.0025 | 2.1% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | required_labels / invalid / env | `@protoutil/cel` | 1961 | 7.92 | 7.94 | 0.0735 | 0.9% | 2.73x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | required_labels / invalid / env | `cel-go` | 4736 | 2.90 | 2.89 | 0.0669 | 2.3% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | required_labels / missing / env | `@protoutil/cel` | 3349 | 4.22 | 4.23 | 0.106 | 2.5% | 2.63x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | required_labels / missing / env | `cel-go` | 8010 | 1.61 | 1.61 | 0.0226 | 1.4% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | required_labels / missing / experiment | `@protoutil/cel` | 3524 | 4.23 | 4.22 | 0.0741 | 1.8% | 2.63x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | required_labels / missing / experiment | `cel-go` | 10037 | 1.61 | 1.61 | 0.0225 | 1.4% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | required_labels / valid / matching | `@protoutil/cel` | 2359 | 6.42 | 6.43 | 0.106 | 1.6% | 2.70x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | required_labels / valid / matching | `cel-go` | 6926 | 2.38 | 2.40 | 0.0828 | 3.5% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / divisible by 2 / empty-set | `@protoutil/cel` | 2194 | 6.76 | 6.75 | 0.0710 | 1.1% | 2.28x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / divisible by 2 / empty-set | `cel-go` | 5140 | 2.96 | 2.95 | 0.0419 | 1.4% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / divisible by 2 / false | `@protoutil/cel` | 1241 | 11.98 | 12.00 | 0.0506 | 0.4% | 2.66x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / divisible by 2 / false | `cel-go` | 3658 | 4.51 | 4.49 | 0.0945 | 2.1% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / divisible by 2 / true | `@protoutil/cel` | 3722 | 3.80 | 3.80 | 0.0686 | 1.8% | 2.68x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / divisible by 2 / true | `cel-go` | 8962 | 1.41 | 1.42 | 0.0544 | 3.8% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / divisible by 4 / true | `@protoutil/cel` | 2069 | 6.33 | 6.29 | 0.120 | 1.9% | 2.55x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / divisible by 4 / true | `cel-go` | 5803 | 2.49 | 2.47 | 0.0389 | 1.6% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / power of 6 / true | `@protoutil/cel` | 1601 | 9.21 | 9.22 | 0.111 | 1.2% | 2.45x slower | Reuses one optimized policy program and prepared activation. |
-| `policy-eval` | unnest / power of 6 / true | `cel-go` | 3750 | 3.76 | 3.77 | 0.0615 | 1.6% | baseline | Reuses one optimized policy program and prepared activation. |
-| `policy-parse` | nested_rule7 | `@protoutil/cel` | 590 | 19.83 | 19.89 | 0.387 | 1.9% | 1.76x faster | Parses the synchronized upstream YAML policy source. |
-| `policy-parse` | nested_rule7 | `cel-go` | 423 | 34.89 | 34.77 | 0.720 | 2.1% | baseline | Parses the synchronized upstream YAML policy source. |
-| `policy-parse` | required_labels | `@protoutil/cel` | 212 | 23.84 | 23.67 | 0.563 | 2.4% | 1.62x faster | Parses the synchronized upstream YAML policy source. |
-| `policy-parse` | required_labels | `cel-go` | 390 | 38.68 | 38.78 | 0.294 | 0.8% | baseline | Parses the synchronized upstream YAML policy source. |
-| `policy-parse` | unnest | `@protoutil/cel` | 120 | 19.43 | 19.49 | 0.966 | 5.0% | 1.76x faster | Parses the synchronized upstream YAML policy source. |
-| `policy-parse` | unnest | `cel-go` | 234 | 34.28 | 34.76 | 1.09 | 3.1% | baseline | Parses the synchronized upstream YAML policy source. |
-| `policy-plan` | nested_rule7 | `@protoutil/cel` | 1567 | 9.38 | 9.33 | 0.149 | 1.6% | 2.46x slower | Reuses one compiled policy AST and environment to isolate optimized planning. |
-| `policy-plan` | nested_rule7 | `cel-go` | 3975 | 3.81 | 3.81 | 0.0533 | 1.4% | baseline | Reuses one compiled policy AST and environment to isolate optimized planning. |
-| `policy-plan` | required_labels | `@protoutil/cel` | 392 | 25.88 | 25.70 | 0.651 | 2.5% | 1.58x slower | Reuses one compiled policy AST and environment to isolate optimized planning. |
-| `policy-plan` | required_labels | `cel-go` | 743 | 16.39 | 16.38 | 0.211 | 1.3% | baseline | Reuses one compiled policy AST and environment to isolate optimized planning. |
-| `policy-plan` | unnest | `@protoutil/cel` | 145 | 33.48 | 33.41 | 1.40 | 4.2% | 1.19x slower | Reuses one compiled policy AST and environment to isolate optimized planning. |
-| `policy-plan` | unnest | `cel-go` | 478 | 28.24 | 28.21 | 0.371 | 1.3% | baseline | Reuses one compiled policy AST and environment to isolate optimized planning. |
-| `residual-roundtrip` | known branch pruning | `@protoutil/cel` | 1076 | 13.88 | 14.98 | 3.21 | 21.5% ⚠ | 1.14x faster | Measures partial evaluation followed by residual AST construction. |
-| `residual-roundtrip` | known branch pruning | `cel-go` | 798 | 15.87 | 15.88 | 0.226 | 1.4% | baseline | Measures partial evaluation followed by residual AST construction. |
-| `residual-roundtrip` | macro pruning | `@protoutil/cel` | 351 | 40.03 | 39.85 | 1.08 | 2.7% | 1.08x slower | Measures partial evaluation followed by residual AST construction. |
-| `residual-roundtrip` | macro pruning | `cel-go` | 397 | 37.01 | 36.94 | 0.827 | 2.2% | baseline | Measures partial evaluation followed by residual AST construction. |
-| `residual-roundtrip` | qualified attribute pruning | `@protoutil/cel` | 787 | 20.45 | 20.44 | 0.626 | 3.1% | 1.15x faster | Measures partial evaluation followed by residual AST construction. |
-| `residual-roundtrip` | qualified attribute pruning | `cel-go` | 535 | 23.50 | 23.43 | 0.485 | 2.1% | baseline | Measures partial evaluation followed by residual AST construction. |
-| `residual` | known branch pruning | `@protoutil/cel` | 713 | 11.49 | 11.59 | 0.481 | 4.1% | 1.26x faster | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
-| `residual` | known branch pruning | `cel-go` | 800 | 14.51 | 14.59 | 0.580 | 4.0% | baseline | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
-| `residual` | macro pruning | `@protoutil/cel` | 246 | 32.73 | 33.26 | 1.23 | 3.7% | 1.01x faster | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
-| `residual` | macro pruning | `cel-go` | 462 | 33.06 | 32.92 | 0.623 | 1.9% | baseline | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
-| `residual` | qualified attribute pruning | `@protoutil/cel` | 443 | 17.09 | 16.97 | 0.594 | 3.5% | 1.26x faster | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
-| `residual` | qualified attribute pruning | `cel-go` | 888 | 21.55 | 21.67 | 0.274 | 1.3% | baseline | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
-| `unparse` | constant regex | `@protoutil/cel` | 9824 | 0.766 | 0.768 | 0.0122 | 1.6% | 2.78x slower | Reuses one parsed AST to isolate unparser cost. |
-| `unparse` | constant regex | `cel-go` | 61167 | 0.276 | 0.275 | 0.0051 | 1.9% | baseline | Reuses one parsed AST to isolate unparser cost. |
-| `unparse` | macro comprehension | `@protoutil/cel` | 6097 | 1.06 | 1.06 | 0.0206 | 1.9% | 4.06x slower | Reuses one parsed AST to isolate unparser cost. |
-| `unparse` | macro comprehension | `cel-go` | 48016 | 0.261 | 0.260 | 0.0067 | 2.6% | baseline | Reuses one parsed AST to isolate unparser cost. |
-| `unparse` | protobuf field selection | `@protoutil/cel` | 8711 | 0.871 | 0.870 | 0.0145 | 1.7% | 1.33x slower | Reuses one parsed AST to isolate unparser cost. |
-| `unparse` | protobuf field selection | `cel-go` | 23099 | 0.657 | 0.657 | 0.0073 | 1.1% | baseline | Reuses one parsed AST to isolate unparser cost. |
-| `unparse` | scalar arithmetic | `@protoutil/cel` | 6420 | 0.524 | 0.526 | 0.0205 | 3.9% | 3.58x slower | Reuses one parsed AST to isolate unparser cost. |
-| `unparse` | scalar arithmetic | `cel-go` | 68336 | 0.146 | 0.147 | 0.0015 | 1.0% | baseline | Reuses one parsed AST to isolate unparser cost. |
+| `check` | constant regex | `@protoutil/cel` | 3474 | 2.76 | 3.12 | 0.704 | 22.6% ⚠ | 1.93x slower | Reuses one parsed AST and public environment to isolate checker cost. |
+| `check` | constant regex | `cel-go` | 9053 | 1.43 | 1.45 | 0.0391 | 2.7% | baseline | Reuses one parsed AST and public environment to isolate checker cost. |
+| `check` | macro comprehension | `@protoutil/cel` | 526 | 16.88 | 16.82 | 0.408 | 2.4% | 1.91x slower | Reuses one parsed AST and public environment to isolate checker cost. |
+| `check` | macro comprehension | `cel-go` | 1999 | 8.84 | 8.86 | 0.207 | 2.3% | baseline | Reuses one parsed AST and public environment to isolate checker cost. |
+| `check` | protobuf field selection | `@protoutil/cel` | 1234 | 5.63 | 5.65 | 0.132 | 2.3% | 1.54x slower | Reuses one parsed AST and public environment to isolate checker cost. |
+| `check` | protobuf field selection | `cel-go` | 4008 | 3.65 | 3.66 | 0.0675 | 1.8% | baseline | Reuses one parsed AST and public environment to isolate checker cost. |
+| `check` | scalar arithmetic | `@protoutil/cel` | 503 | 6.83 | 6.98 | 0.436 | 6.2% | 1.64x slower | Reuses one parsed AST and public environment to isolate checker cost. |
+| `check` | scalar arithmetic | `cel-go` | 3281 | 4.17 | 4.17 | 0.0712 | 1.7% | baseline | Reuses one parsed AST and public environment to isolate checker cost. |
+| `compile` | constant regex | `@protoutil/cel` | 2060 | 6.62 | 6.71 | 0.371 | 5.5% | 1.86x faster | Runs parse plus check through one public environment. |
+| `compile` | constant regex | `cel-go` | 1245 | 12.33 | 12.25 | 0.217 | 1.8% | baseline | Runs parse plus check through one public environment. |
+| `compile` | macro comprehension | `@protoutil/cel` | 419 | 26.63 | 26.69 | 1.34 | 5.0% | 1.01x faster | Runs parse plus check through one public environment. |
+| `compile` | macro comprehension | `cel-go` | 645 | 26.81 | 26.82 | 0.558 | 2.1% | baseline | Runs parse plus check through one public environment. |
+| `compile` | protobuf field selection | `@protoutil/cel` | 1311 | 11.19 | 11.06 | 0.227 | 2.0% | 1.49x faster | Runs parse plus check through one public environment. |
+| `compile` | protobuf field selection | `cel-go` | 851 | 16.69 | 16.66 | 0.467 | 2.8% | baseline | Runs parse plus check through one public environment. |
+| `compile` | scalar arithmetic | `@protoutil/cel` | 1466 | 8.59 | 9.55 | 2.01 | 21.1% ⚠ | 1.49x faster | Runs parse plus check through one public environment. |
+| `compile` | scalar arithmetic | `cel-go` | 914 | 12.75 | 12.78 | 0.363 | 2.8% | baseline | Runs parse plus check through one public environment. |
+| `eval-details` | diagnostic / binary call | `@protoutil/cel` | 94003 | 0.151 | 0.152 | 0.0017 | 1.1% | 3.12x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / binary call | `cel-go` | 310311 | 0.0484 | 0.0485 | 0.0003 | 0.6% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-details` | diagnostic / dynamic map selection | `@protoutil/cel` | 65779 | 0.234 | 0.236 | 0.0030 | 1.3% | 2.71x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / dynamic map selection | `cel-go` | 181764 | 0.0863 | 0.0881 | 0.0040 | 4.5% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-details` | diagnostic / fold early exit | `@protoutil/cel` | 883 | 17.60 | 17.60 | 0.0841 | 0.5% | 2.74x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / fold early exit | `cel-go` | 2270 | 6.42 | 6.43 | 0.0755 | 1.2% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-details` | diagnostic / fold full scan | `@protoutil/cel` | 155 | 34.11 | 34.38 | 1.92 | 5.6% | 2.87x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / fold full scan | `cel-go` | 1284 | 11.89 | 11.90 | 0.118 | 1.0% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-details` | diagnostic / identifier | `@protoutil/cel` | 121480 | 0.110 | 0.111 | 0.0020 | 1.8% | 3.11x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / identifier | `cel-go` | 424212 | 0.0354 | 0.0354 | 0.0002 | 0.7% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-details` | diagnostic / list index | `@protoutil/cel` | 69350 | 0.222 | 0.222 | 0.0018 | 0.8% | 4.57x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / list index | `cel-go` | 308703 | 0.0486 | 0.0487 | 0.0004 | 0.8% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-details` | diagnostic / literal | `@protoutil/cel` | 308445 | 0.0505 | 0.0505 | 0.0008 | 1.7% | 2.56x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / literal | `cel-go` | 785149 | 0.0197 | 0.0197 | 0.0002 | 1.0% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-details` | diagnostic / member call | `@protoutil/cel` | 76868 | 0.201 | 0.201 | 0.0016 | 0.8% | 2.95x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / member call | `cel-go` | 224285 | 0.0681 | 0.0684 | 0.0009 | 1.3% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-details` | diagnostic / protobuf field | `@protoutil/cel` | 25664 | 0.598 | 0.597 | 0.0031 | 0.5% | 4.14x slower | Reuses one baseline program and activation while allocating public evaluation details. |
+| `eval-details` | diagnostic / protobuf field | `cel-go` | 104125 | 0.144 | 0.145 | 0.0009 | 0.6% | baseline | Reuses one baseline program and activation while returning public evaluation details. |
+| `eval-state` | diagnostic / binary call | `@protoutil/cel` | 28650 | 0.308 | 0.309 | 0.0023 | 0.7% | 1.30x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / binary call | `cel-go` | 60933 | 0.237 | 0.238 | 0.0037 | 1.6% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / dynamic map selection | `@protoutil/cel` | 24963 | 0.432 | 0.433 | 0.0033 | 0.8% | 1.38x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / dynamic map selection | `cel-go` | 45262 | 0.312 | 0.313 | 0.0041 | 1.3% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / fold early exit | `@protoutil/cel` | 218 | 30.79 | 30.70 | 0.266 | 0.9% | 2.53x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / fold early exit | `cel-go` | 1225 | 12.17 | 12.13 | 0.172 | 1.4% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / fold full scan | `@protoutil/cel` | 269 | 57.00 | 57.19 | 0.371 | 0.6% | 2.55x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / fold full scan | `cel-go` | 670 | 22.39 | 22.37 | 0.313 | 1.4% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / identifier | `@protoutil/cel` | 35173 | 0.210 | 0.212 | 0.0030 | 1.4% | 1.03x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / identifier | `cel-go` | 71968 | 0.204 | 0.205 | 0.0030 | 1.5% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / list index | `@protoutil/cel` | 29655 | 0.446 | 0.448 | 0.0070 | 1.6% | 1.72x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / list index | `cel-go` | 57680 | 0.259 | 0.259 | 0.0067 | 2.6% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / literal | `@protoutil/cel` | 22280 | 0.147 | 0.145 | 0.0040 | 2.8% | 1.31x faster | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / literal | `cel-go` | 80041 | 0.192 | 0.193 | 0.0060 | 3.1% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / member call | `@protoutil/cel` | 42913 | 0.359 | 0.358 | 0.0029 | 0.8% | 1.37x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / member call | `cel-go` | 54754 | 0.262 | 0.263 | 0.0047 | 1.8% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / protobuf field | `@protoutil/cel` | 11428 | 1.08 | 1.08 | 0.0100 | 0.9% | 2.27x slower | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval-state` | diagnostic / protobuf field | `cel-go` | 27426 | 0.477 | 0.477 | 0.0017 | 0.4% | baseline | Reuses one state-tracking program and activation to isolate observer overhead. |
+| `eval` | constant regex / baseline | `@protoutil/cel` | 217 | 6.89 | 7.20 | 0.474 | 6.6% | 3.45x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | constant regex / baseline | `cel-go` | 8045 | 1.99 | 1.99 | 0.0440 | 2.2% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `eval` | constant regex / compiled regex | `@protoutil/cel` | 8891 | 1.07 | 1.08 | 0.0142 | 1.3% | 4.25x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | constant regex / compiled regex | `cel-go` | 56252 | 0.252 | 0.308 | 0.0888 | 28.8% ⚠ | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `eval` | diagnostic / binary call | `@protoutil/cel` | 103724 | 0.145 | 0.145 | 0.0013 | 0.9% | 2.99x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / binary call | `cel-go` | 307132 | 0.0485 | 0.0484 | 0.0002 | 0.5% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / dynamic map selection | `@protoutil/cel` | 21239 | 0.225 | 0.228 | 0.0077 | 3.4% | 2.59x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / dynamic map selection | `cel-go` | 183551 | 0.0869 | 0.0873 | 0.0017 | 1.9% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / fold early exit | `@protoutil/cel` | 535 | 17.78 | 17.76 | 0.187 | 1.1% | 2.74x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / fold early exit | `cel-go` | 2323 | 6.48 | 6.49 | 0.0849 | 1.3% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / fold full scan | `@protoutil/cel` | 440 | 33.30 | 35.63 | 6.14 | 17.2% ⚠ | 2.80x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / fold full scan | `cel-go` | 1268 | 11.90 | 11.91 | 0.140 | 1.2% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / identifier | `@protoutil/cel` | 50335 | 0.104 | 0.107 | 0.0047 | 4.4% | 2.95x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / identifier | `cel-go` | 412854 | 0.0352 | 0.0353 | 0.0004 | 1.1% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / list index | `@protoutil/cel` | 23725 | 0.214 | 0.216 | 0.0058 | 2.7% | 4.44x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / list index | `cel-go` | 311212 | 0.0482 | 0.0483 | 0.0002 | 0.4% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / literal | `@protoutil/cel` | 231304 | 0.0214 | 0.0216 | 0.0012 | 5.8% | 1.13x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / literal | `cel-go` | 787246 | 0.0189 | 0.0189 | 0.0001 | 0.4% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / member call | `@protoutil/cel` | 36348 | 0.195 | 0.195 | 0.0042 | 2.2% | 2.80x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / member call | `cel-go` | 221822 | 0.0697 | 0.0696 | 0.0010 | 1.5% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / protobuf field | `@protoutil/cel` | 11982 | 0.587 | 0.598 | 0.0229 | 3.8% | 4.02x slower | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | diagnostic / protobuf field | `cel-go` | 102039 | 0.146 | 0.146 | 0.0007 | 0.5% | baseline | Reuses one baseline program and activation to expose incremental runtime feature cost. |
+| `eval` | macro comprehension / baseline | `@protoutil/cel` | 151 | 16.15 | 16.28 | 0.433 | 2.7% | 2.50x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | macro comprehension / baseline | `cel-go` | 2264 | 6.45 | 6.44 | 0.0775 | 1.2% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `eval` | macro comprehension / optimized | `@protoutil/cel` | 701 | 16.23 | 16.26 | 0.184 | 1.1% | 2.51x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | macro comprehension / optimized | `cel-go` | 2283 | 6.47 | 6.47 | 0.0657 | 1.0% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `eval` | macro comprehension / runtime cost | `@protoutil/cel` | 38 | 96.18 | 97.98 | 5.15 | 5.3% | 2.92x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | macro comprehension / runtime cost | `cel-go` | 467 | 32.89 | 32.85 | 0.798 | 2.4% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `eval` | protobuf field selection / baseline | `@protoutil/cel` | 4773 | 0.567 | 0.570 | 0.0188 | 3.3% | 3.91x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | protobuf field selection / baseline | `cel-go` | 102762 | 0.145 | 0.145 | 0.0009 | 0.6% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `eval` | protobuf field selection / optimized | `@protoutil/cel` | 27034 | 0.569 | 0.572 | 0.0088 | 1.5% | 3.88x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | protobuf field selection / optimized | `cel-go` | 102279 | 0.147 | 0.147 | 0.0010 | 0.7% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `eval` | scalar arithmetic / baseline | `@protoutil/cel` | 16878 | 0.113 | 0.115 | 0.0072 | 6.3% | 2.34x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | scalar arithmetic / baseline | `cel-go` | 309989 | 0.0483 | 0.0483 | 0.0002 | 0.5% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `eval` | scalar arithmetic / optimized | `@protoutil/cel` | 120476 | 0.125 | 0.126 | 0.0027 | 2.1% | 2.58x slower | Reuses one public program and activation to isolate steady-state evaluation. |
+| `eval` | scalar arithmetic / optimized | `cel-go` | 310740 | 0.0483 | 0.0485 | 0.0003 | 0.7% | baseline | Reuses one planned program and activation to isolate steady-state evaluation. |
+| `parse` | constant regex | `@protoutil/cel` | 2059 | 3.07 | 3.08 | 0.0146 | 0.5% | 3.39x faster | Reuses one public environment to isolate steady-state parse throughput. |
+| `parse` | constant regex | `cel-go` | 1450 | 10.40 | 10.40 | 0.177 | 1.7% | baseline | Reuses one public environment to isolate steady-state parse throughput. |
+| `parse` | macro comprehension | `@protoutil/cel` | 557 | 7.75 | 7.79 | 0.243 | 3.1% | 2.24x faster | Reuses one public environment to isolate steady-state parse throughput. |
+| `parse` | macro comprehension | `cel-go` | 949 | 17.37 | 17.39 | 0.266 | 1.5% | baseline | Reuses one public environment to isolate steady-state parse throughput. |
+| `parse` | protobuf field selection | `@protoutil/cel` | 2128 | 4.01 | 4.03 | 0.0972 | 2.4% | 3.22x faster | Reuses one public environment to isolate steady-state parse throughput. |
+| `parse` | protobuf field selection | `cel-go` | 1233 | 12.90 | 13.25 | 1.01 | 7.6% | baseline | Reuses one public environment to isolate steady-state parse throughput. |
+| `parse` | scalar arithmetic | `@protoutil/cel` | 906 | 1.78 | 1.86 | 0.104 | 5.6% | 4.30x faster | Reuses one public environment to isolate steady-state parse throughput. |
+| `parse` | scalar arithmetic | `cel-go` | 922 | 7.67 | 7.59 | 0.156 | 2.1% | baseline | Reuses one public environment to isolate steady-state parse throughput. |
+| `partial-eval` | known branch pruning | `@protoutil/cel` | 3516 | 1.09 | 1.09 | 0.0328 | 3.0% | 1.04x slower | Reuses one state-tracking partial program and inferred unknown activation. |
+| `partial-eval` | known branch pruning | `cel-go` | 13512 | 1.05 | 1.05 | 0.0269 | 2.6% | baseline | Reuses one state-tracking partial program and inferred unknown activation. |
+| `partial-eval` | macro pruning | `@protoutil/cel` | 741 | 5.16 | 5.22 | 0.161 | 3.1% | 1.63x slower | Reuses one state-tracking partial program and inferred unknown activation. |
+| `partial-eval` | macro pruning | `cel-go` | 4263 | 3.16 | 3.18 | 0.0482 | 1.5% | baseline | Reuses one state-tracking partial program and inferred unknown activation. |
+| `partial-eval` | qualified attribute pruning | `@protoutil/cel` | 3068 | 1.84 | 1.82 | 0.0418 | 2.3% | 1.46x slower | Reuses one state-tracking partial program and inferred unknown activation. |
+| `partial-eval` | qualified attribute pruning | `cel-go` | 13424 | 1.26 | 1.26 | 0.0265 | 2.1% | baseline | Reuses one state-tracking partial program and inferred unknown activation. |
+| `plan` | constant regex / baseline | `@protoutil/cel` | 8133 | 0.945 | 0.944 | 0.0128 | 1.4% | 1.95x slower | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | constant regex / baseline | `cel-go` | 28204 | 0.485 | 0.486 | 0.0104 | 2.1% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `plan` | constant regex / compiled regex | `@protoutil/cel` | 3185 | 2.71 | 2.71 | 0.0509 | 1.9% | 1.07x faster | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | constant regex / compiled regex | `cel-go` | 5576 | 2.89 | 2.87 | 0.0744 | 2.6% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `plan` | macro comprehension / baseline | `@protoutil/cel` | 2127 | 2.05 | 2.03 | 0.0486 | 2.4% | 1.48x slower | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | macro comprehension / baseline | `cel-go` | 9998 | 1.39 | 1.39 | 0.0237 | 1.7% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `plan` | macro comprehension / optimized | `@protoutil/cel` | 3502 | 3.24 | 3.25 | 0.0331 | 1.0% | 1.95x slower | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | macro comprehension / optimized | `cel-go` | 9007 | 1.66 | 1.66 | 0.0313 | 1.9% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `plan` | macro comprehension / runtime cost | `@protoutil/cel` | 905 | 5.04 | 5.01 | 0.421 | 8.4% | 2.36x slower | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | macro comprehension / runtime cost | `cel-go` | 6608 | 2.14 | 2.13 | 0.0483 | 2.3% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `plan` | protobuf field selection / baseline | `@protoutil/cel` | 4690 | 1.35 | 1.35 | 0.0282 | 2.1% | 1.45x slower | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | protobuf field selection / baseline | `cel-go` | 13795 | 0.932 | 0.929 | 0.0179 | 1.9% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `plan` | protobuf field selection / optimized | `@protoutil/cel` | 6881 | 1.96 | 1.95 | 0.0364 | 1.9% | 1.79x slower | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | protobuf field selection / optimized | `cel-go` | 11330 | 1.09 | 1.10 | 0.0345 | 3.1% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `plan` | scalar arithmetic / baseline | `@protoutil/cel` | 12 | 0.668 | 0.675 | 0.0185 | 2.7% | 1.41x slower | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | scalar arithmetic / baseline | `cel-go` | 27783 | 0.473 | 0.471 | 0.0074 | 1.6% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `plan` | scalar arithmetic / optimized | `@protoutil/cel` | 4784 | 1.13 | 1.13 | 0.0177 | 1.6% | 1.89x slower | Reuses one checked AST and environment to isolate public program planning cost. |
+| `plan` | scalar arithmetic / optimized | `cel-go` | 25932 | 0.601 | 0.600 | 0.0103 | 1.7% | baseline | Reuses one checked AST and environment to isolate program planning cost. |
+| `policy-compile` | nested_rule7 | `@protoutil/cel` | 60 | 200.83 | 203.01 | 5.53 | 2.7% | 1.18x faster | Reuses one parsed policy and configured environment to isolate policy compilation. |
+| `policy-compile` | nested_rule7 | `cel-go` | 51 | 237.29 | 238.33 | 5.36 | 2.2% | baseline | Reuses one parsed policy and configured environment to isolate policy compilation. |
+| `policy-compile` | required_labels | `@protoutil/cel` | 8 | 1,147.86 | 1,156.57 | 46.96 | 4.1% | 1.16x slower | Reuses one parsed policy and configured environment to isolate policy compilation. |
+| `policy-compile` | required_labels | `cel-go` | 14 | 990.35 | 992.51 | 15.30 | 1.5% | baseline | Reuses one parsed policy and configured environment to isolate policy compilation. |
+| `policy-compile` | unnest | `@protoutil/cel` | 5 | 1,207.75 | 1,237.10 | 65.46 | 5.3% | 1.32x slower | Reuses one parsed policy and configured environment to isolate policy compilation. |
+| `policy-compile` | unnest | `cel-go` | 16 | 917.58 | 915.81 | 12.45 | 1.4% | baseline | Reuses one parsed policy and configured environment to isolate policy compilation. |
+| `policy-eval` | nested_rule7 / valid / x=1 | `@protoutil/cel` | 14611 | 0.971 | 0.977 | 0.0111 | 1.1% | 4.70x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | nested_rule7 / valid / x=1 | `cel-go` | 72126 | 0.206 | 0.207 | 0.0014 | 0.7% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | nested_rule7 / valid / x=2 | `@protoutil/cel` | 13712 | 1.10 | 1.10 | 0.0096 | 0.9% | 4.47x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | nested_rule7 / valid / x=2 | `cel-go` | 63702 | 0.247 | 0.247 | 0.0067 | 2.7% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | nested_rule7 / valid / x=3 | `@protoutil/cel` | 32777 | 0.472 | 0.471 | 0.0050 | 1.1% | 3.90x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | nested_rule7 / valid / x=3 | `cel-go` | 123232 | 0.121 | 0.121 | 0.0022 | 1.8% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | nested_rule7 / valid / x=4 | `@protoutil/cel` | 31611 | 0.467 | 0.467 | 0.0042 | 0.9% | 3.96x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | nested_rule7 / valid / x=4 | `cel-go` | 128850 | 0.118 | 0.119 | 0.0026 | 2.2% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | required_labels / invalid / env | `@protoutil/cel` | 1951 | 7.84 | 7.88 | 0.171 | 2.2% | 2.74x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | required_labels / invalid / env | `cel-go` | 4971 | 2.86 | 2.87 | 0.0445 | 1.6% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | required_labels / missing / env | `@protoutil/cel` | 3739 | 4.15 | 4.17 | 0.0972 | 2.3% | 2.62x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | required_labels / missing / env | `cel-go` | 10619 | 1.58 | 1.58 | 0.0118 | 0.7% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | required_labels / missing / experiment | `@protoutil/cel` | 2996 | 4.12 | 4.12 | 0.0512 | 1.2% | 2.61x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | required_labels / missing / experiment | `cel-go` | 8316 | 1.58 | 1.58 | 0.0188 | 1.2% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | required_labels / valid / matching | `@protoutil/cel` | 2417 | 6.29 | 6.30 | 0.0866 | 1.4% | 2.76x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | required_labels / valid / matching | `cel-go` | 6435 | 2.28 | 2.29 | 0.0298 | 1.3% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / divisible by 2 / empty-set | `@protoutil/cel` | 2296 | 6.59 | 6.60 | 0.0902 | 1.4% | 2.28x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / divisible by 2 / empty-set | `cel-go` | 4910 | 2.90 | 2.90 | 0.0508 | 1.8% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / divisible by 2 / false | `@protoutil/cel` | 1306 | 11.79 | 11.84 | 0.165 | 1.4% | 2.71x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / divisible by 2 / false | `cel-go` | 3790 | 4.35 | 4.35 | 0.0570 | 1.3% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / divisible by 2 / true | `@protoutil/cel` | 4095 | 3.71 | 3.70 | 0.0533 | 1.4% | 2.71x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / divisible by 2 / true | `cel-go` | 12400 | 1.37 | 1.36 | 0.0160 | 1.2% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / divisible by 4 / true | `@protoutil/cel` | 2530 | 5.99 | 5.99 | 0.0634 | 1.1% | 2.49x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / divisible by 4 / true | `cel-go` | 5592 | 2.41 | 2.41 | 0.0281 | 1.2% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / power of 6 / true | `@protoutil/cel` | 1673 | 8.88 | 8.87 | 0.120 | 1.4% | 2.44x slower | Reuses one optimized policy program and prepared activation. |
+| `policy-eval` | unnest / power of 6 / true | `cel-go` | 3940 | 3.64 | 3.67 | 0.0875 | 2.4% | baseline | Reuses one optimized policy program and prepared activation. |
+| `policy-parse` | nested_rule7 | `@protoutil/cel` | 469 | 19.54 | 19.55 | 0.252 | 1.3% | 1.89x faster | Parses the synchronized upstream YAML policy source. |
+| `policy-parse` | nested_rule7 | `cel-go` | 533 | 36.90 | 36.93 | 0.884 | 2.4% | baseline | Parses the synchronized upstream YAML policy source. |
+| `policy-parse` | required_labels | `@protoutil/cel` | 238 | 23.02 | 23.09 | 0.509 | 2.2% | 1.66x faster | Parses the synchronized upstream YAML policy source. |
+| `policy-parse` | required_labels | `cel-go` | 400 | 38.19 | 38.32 | 0.938 | 2.4% | baseline | Parses the synchronized upstream YAML policy source. |
+| `policy-parse` | unnest | `@protoutil/cel` | 108 | 19.87 | 19.77 | 1.05 | 5.3% | 1.73x faster | Parses the synchronized upstream YAML policy source. |
+| `policy-parse` | unnest | `cel-go` | 430 | 34.45 | 34.49 | 0.291 | 0.8% | baseline | Parses the synchronized upstream YAML policy source. |
+| `policy-plan` | nested_rule7 | `@protoutil/cel` | 1367 | 9.49 | 9.50 | 0.170 | 1.8% | 2.51x slower | Reuses one compiled policy AST and environment to isolate optimized planning. |
+| `policy-plan` | nested_rule7 | `cel-go` | 3174 | 3.78 | 3.78 | 0.0533 | 1.4% | baseline | Reuses one compiled policy AST and environment to isolate optimized planning. |
+| `policy-plan` | required_labels | `@protoutil/cel` | 398 | 25.85 | 25.89 | 0.495 | 1.9% | 1.63x slower | Reuses one compiled policy AST and environment to isolate optimized planning. |
+| `policy-plan` | required_labels | `cel-go` | 832 | 15.90 | 15.87 | 0.228 | 1.4% | baseline | Reuses one compiled policy AST and environment to isolate optimized planning. |
+| `policy-plan` | unnest | `@protoutil/cel` | 123 | 33.25 | 33.61 | 1.18 | 3.5% | 1.18x slower | Reuses one compiled policy AST and environment to isolate optimized planning. |
+| `policy-plan` | unnest | `cel-go` | 495 | 28.07 | 28.16 | 0.484 | 1.7% | baseline | Reuses one compiled policy AST and environment to isolate optimized planning. |
+| `residual-roundtrip` | known branch pruning | `@protoutil/cel` | 1105 | 14.03 | 14.19 | 0.581 | 4.1% | 1.11x faster | Measures partial evaluation followed by residual AST construction. |
+| `residual-roundtrip` | known branch pruning | `cel-go` | 904 | 15.63 | 15.72 | 0.378 | 2.4% | baseline | Measures partial evaluation followed by residual AST construction. |
+| `residual-roundtrip` | macro pruning | `@protoutil/cel` | 406 | 39.21 | 39.60 | 1.02 | 2.6% | 1.10x slower | Measures partial evaluation followed by residual AST construction. |
+| `residual-roundtrip` | macro pruning | `cel-go` | 419 | 35.76 | 35.92 | 0.378 | 1.1% | baseline | Measures partial evaluation followed by residual AST construction. |
+| `residual-roundtrip` | qualified attribute pruning | `@protoutil/cel` | 717 | 19.80 | 19.91 | 0.300 | 1.5% | 1.18x faster | Measures partial evaluation followed by residual AST construction. |
+| `residual-roundtrip` | qualified attribute pruning | `cel-go` | 679 | 23.35 | 23.32 | 0.351 | 1.5% | baseline | Measures partial evaluation followed by residual AST construction. |
+| `residual` | known branch pruning | `@protoutil/cel` | 717 | 11.46 | 11.46 | 0.261 | 2.3% | 1.29x faster | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
+| `residual` | known branch pruning | `cel-go` | 1085 | 14.73 | 14.85 | 0.206 | 1.4% | baseline | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
+| `residual` | macro pruning | `@protoutil/cel` | 289 | 32.20 | 32.17 | 0.279 | 0.9% | 1.00x faster | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
+| `residual` | macro pruning | `cel-go` | 460 | 32.26 | 32.02 | 0.554 | 1.7% | baseline | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
+| `residual` | qualified attribute pruning | `@protoutil/cel` | 572 | 16.67 | 16.71 | 0.593 | 3.6% | 1.25x faster | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
+| `residual` | qualified attribute pruning | `cel-go` | 611 | 20.79 | 20.83 | 0.307 | 1.5% | baseline | Reuses one evaluated state to isolate prune, render, parse, and re-check cost. |
+| `unparse` | constant regex | `@protoutil/cel` | 9499 | 0.799 | 0.980 | 0.316 | 32.3% ⚠ | 3.03x slower | Reuses one parsed AST to isolate unparser cost. |
+| `unparse` | constant regex | `cel-go` | 60604 | 0.264 | 0.264 | 0.0033 | 1.2% | baseline | Reuses one parsed AST to isolate unparser cost. |
+| `unparse` | macro comprehension | `@protoutil/cel` | 5951 | 1.10 | 1.10 | 0.0260 | 2.4% | 4.41x slower | Reuses one parsed AST to isolate unparser cost. |
+| `unparse` | macro comprehension | `cel-go` | 59089 | 0.249 | 0.250 | 0.0031 | 1.3% | baseline | Reuses one parsed AST to isolate unparser cost. |
+| `unparse` | protobuf field selection | `@protoutil/cel` | 9318 | 0.857 | 0.852 | 0.0165 | 1.9% | 1.31x slower | Reuses one parsed AST to isolate unparser cost. |
+| `unparse` | protobuf field selection | `cel-go` | 22628 | 0.656 | 0.660 | 0.0172 | 2.6% | baseline | Reuses one parsed AST to isolate unparser cost. |
+| `unparse` | scalar arithmetic | `@protoutil/cel` | 5809 | 0.504 | 0.504 | 0.0180 | 3.6% | 3.55x slower | Reuses one parsed AST to isolate unparser cost. |
+| `unparse` | scalar arithmetic | `cel-go` | 108328 | 0.142 | 0.143 | 0.0030 | 2.1% | baseline | Reuses one parsed AST to isolate unparser cost. |

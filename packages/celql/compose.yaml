@@ -37,7 +37,7 @@ services:
     tmpfs:
       - /var/lib/mysql
   mongodb:
-    image: ${CELQL_MONGODB_IMAGE:-mongo:8.0}
+    image: ${CELQL_MONGODB_IMAGE:-mongo:8.2}
     environment:
       MONGO_INITDB_ROOT_USERNAME: celql
       MONGO_INITDB_ROOT_PASSWORD: celql

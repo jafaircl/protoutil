@@ -1,8 +1,15 @@
 import { create } from "@bufbuild/protobuf";
 import { anyPack, EmptySchema } from "@bufbuild/protobuf/wkt";
-import { astToCheckedExpr, env, StringType, variable } from "@protoutil/cel";
+import { astToCheckedExpr, env, StringType, unwrapAst, variable } from "@protoutil/cel";
 import { describe, expect, it } from "vitest";
-import { createTranslator, TranslationErrorCode } from "../index.js";
+import {
+  CheckedExprSchema,
+  ReferenceSchema,
+  Type_PrimitiveType,
+  TypeSchema,
+} from "../gen/cel/expr/checked_pb.js";
+import { Expr_IdentSchema } from "../gen/cel/expr/syntax_pb.js";
+import { createTranslator, TranslationErrorCode, TranslationLimitsSchema } from "../index.js";
 import { AnsiSqlProfile } from "./index.js";
 
 const strings = env({
@@ -12,7 +19,7 @@ const strings = env({
 describe("ANSI SQL profile", () => {
   it("binds constants instead of placing them in SQL", () => {
     const checkedExpression = astToCheckedExpr(
-      strings.compile('name == "Robert\'); DROP TABLE users;--"'),
+      unwrapAst(strings.compile('name == "Robert\'); DROP TABLE users;--"')),
     );
 
     const outcome = createTranslator(new AnsiSqlProfile()).translate({
@@ -29,7 +36,7 @@ describe("ANSI SQL profile", () => {
   });
 
   it("compares a query field with a non-null constant through indexable equality", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name == "alice"'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name == "alice"')));
 
     const outcome = createTranslator(new AnsiSqlProfile()).translate({ checkedExpression });
 
@@ -37,7 +44,7 @@ describe("ANSI SQL profile", () => {
   });
 
   it("keeps distinctness comparison where both operands can be null", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile("name == nickname"));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile("name == nickname")));
 
     const outcome = createTranslator(new AnsiSqlProfile()).translate({ checkedExpression });
 
@@ -48,7 +55,7 @@ describe("ANSI SQL profile", () => {
   });
 
   it("keeps distinctness comparison under negation so a null field stays selected", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('!(name == "alice")'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('!(name == "alice")')));
 
     const outcome = createTranslator(new AnsiSqlProfile()).translate({ checkedExpression });
 
@@ -59,7 +66,7 @@ describe("ANSI SQL profile", () => {
   });
 
   it("keeps distinctness comparison for inequality so a null field stays selected", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name != "alice"'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name != "alice"')));
 
     const outcome = createTranslator(new AnsiSqlProfile()).translate({ checkedExpression });
 
@@ -70,7 +77,9 @@ describe("ANSI SQL profile", () => {
   });
 
   it("escapes LIKE metacharacters inside the bound pattern", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name.contains("%_\\\\")'));
+    const checkedExpression = astToCheckedExpr(
+      unwrapAst(strings.compile('name.contains("%_\\\\")')),
+    );
 
     const outcome = createTranslator(new AnsiSqlProfile()).translate({
       checkedExpression,
@@ -86,7 +95,7 @@ describe("ANSI SQL profile", () => {
   });
 
   it("rejects operations outside the dialect fragment during validation", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name.matches("^a")'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name.matches("^a")')));
 
     expect(() => createTranslator(new AnsiSqlProfile()).validate({ checkedExpression })).toThrow(
       expect.objectContaining({ code: TranslationErrorCode.UNSUPPORTED_OVERLOAD }),
@@ -94,7 +103,7 @@ describe("ANSI SQL profile", () => {
   });
 
   it("rejects dialect configuration because ANSI SQL has none", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name == "alice"'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name == "alice"')));
 
     expect(() =>
       createTranslator(new AnsiSqlProfile()).translate({
@@ -104,5 +113,42 @@ describe("ANSI SQL profile", () => {
     ).toThrow(
       expect.objectContaining({ code: TranslationErrorCode.INVALID_PROFILE_CONFIGURATION }),
     );
+  });
+});
+
+describe("output growth", () => {
+  // The growth limit counts Unicode code points, not UTF-16 code units. An
+  // astral identifier separates the two: the emitted condition is 14 code
+  // points but 15 code units, so a code-unit count would reject it at 14.
+  const astralField = create(CheckedExprSchema, {
+    expr: {
+      id: 1n,
+      exprKind: { case: "identExpr", value: create(Expr_IdentSchema, { name: "na\u{1F600}me" }) },
+    },
+    typeMap: {
+      "1": create(TypeSchema, { typeKind: { case: "primitive", value: Type_PrimitiveType.BOOL } }),
+    },
+    referenceMap: { "1": create(ReferenceSchema, { name: "na\u{1F600}me" }) },
+  });
+
+  it("counts an astral character as one code point", () => {
+    const outcome = createTranslator(new AnsiSqlProfile()).translate({
+      checkedExpression: astralField,
+      limits: create(TranslationLimitsSchema, { maxOutputGrowth: 14n }),
+    });
+
+    expect(outcome).toMatchObject({
+      case: "predicate",
+      value: { sql: '"na\u{1F600}me" = TRUE' },
+    });
+  });
+
+  it("rejects the same condition one code point below its length", () => {
+    expect(() =>
+      createTranslator(new AnsiSqlProfile()).translate({
+        checkedExpression: astralField,
+        limits: create(TranslationLimitsSchema, { maxOutputGrowth: 13n }),
+      }),
+    ).toThrowError(expect.objectContaining({ code: TranslationErrorCode.RESOURCE_LIMIT_EXCEEDED }));
   });
 });

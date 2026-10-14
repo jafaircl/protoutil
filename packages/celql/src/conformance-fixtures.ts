@@ -15,6 +15,7 @@ import {
   declarationFromProto,
   env,
   type FunctionDecl,
+  unwrapAst,
   VariableDecl,
   variable,
 } from "@protoutil/cel";
@@ -89,7 +90,7 @@ export function compileConformanceCase(suite: ConformanceSuite, testCase: Confor
     throw new Error(`${suite.name}/${testCase.name} has no fixture input`);
   }
   return astToCheckedExpr(
-    createConformanceEnvironment(suite, testCase).compile(testCase.input.value),
+    unwrapAst(createConformanceEnvironment(suite, testCase).compile(testCase.input.value)),
   );
 }
 

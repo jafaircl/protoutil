@@ -62,6 +62,10 @@
       "require": "./dist/gen/cel/expr/value_pb.cjs",
       "import": "./dist/gen/cel/expr/value_pb.mjs"
     },
+    "./gen/*.js": {
+      "require": "./dist/gen/*.cjs",
+      "import": "./dist/gen/*.mjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.cts",
@@ -78,7 +82,7 @@
     "pretypecheck": "pnpm --filter @protoutil/testing build",
     "typecheck": "tsc --noEmit",
     "typecheck:spec": "tsc -p tsconfig.spec.json --noEmit",
-    "sync:conformance-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-conformance-sync -proto ../testing -out ./testdata/conformance -workdir ./.tmp/cel-spec-upstream",
+    "sync:conformance-testdata": "tsx ./scripts/cel-conformance-sync/main.ts --out ./testdata/conformance --workdir ./.tmp/cel-spec-upstream",
     "sync:policy-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-policy-sync -out ./testdata/policy -workdir ./.tmp/cel-policy-upstream",
     "sync:cel-go-file-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-env-testdata-sync -workdir ./.tmp/cel-go-upstream",
     "sync:cel-go-tests": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-test-sync -out ./testdata/cel-go/cel-go-test-cases.json -report ./testdata/cel-go/cel-go-test-cases.report.json -workdir ./.tmp/cel-go-upstream",
@@ -90,14 +94,14 @@
   "devDependencies": {
     "@protoutil/testing": "workspace:*",
     "@types/node": "^25.0.3",
-    "tsdown": "^0.18.1",
+    "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@bufbuild/re2": "^0.6.0",
+    "@bufbuild/re2": "^0.6.1",
     "@protoutil/core": "workspace:*",
-    "@bufbuild/protobuf": "^2.11.0",
+    "@bufbuild/protobuf": "^2.15.0",
     "js-yaml": "^4.1.1"
   },
   "main": "./dist/index.cjs",

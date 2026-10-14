@@ -15,8 +15,8 @@
   },
   "exports": {
     ".": {
-      "require": "./dist/index.cjs",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -35,9 +35,9 @@
   "devDependencies": {
     "@types/node": "^25.0.3",
     "@protoutil/cel": "workspace:*",
-    "tsdown": "^0.18.1",
+    "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.18"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

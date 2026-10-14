@@ -1,6 +1,6 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: tests will catch any runtime errors */
 import { ident, STRING } from "@protoutil/aip/filtering";
-import { astToAlphaCheckedExpr, env, StringType, variable } from "@protoutil/cel";
+import { astToAlphaCheckedExpr, env, StringType, unwrapAst, variable } from "@protoutil/cel";
 import { describe, expect, it } from "vitest";
 import { agoDecl } from "../ago.js";
 import { checked, fuzzyDecls } from "../test-helpers.js";
@@ -30,7 +30,7 @@ describe("postgres — CEL alpha checked expression", () => {
       variables: [variable("title", StringType)],
     });
 
-    expect(postgres(astToAlphaCheckedExpr(celEnv.compile('title == "Dune"')))).toEqual({
+    expect(postgres(astToAlphaCheckedExpr(unwrapAst(celEnv.compile('title == "Dune"'))))).toEqual({
       sql: `"title" = $1`,
       params: ["Dune"],
     });

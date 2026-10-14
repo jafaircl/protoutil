@@ -11,7 +11,7 @@ This package does not parse CEL source text, check it, evaluate it, or execute q
 Declare the query fields in a CEL environment, select a profile, and translate the checked expression:
 
 ```ts
-import { astToCheckedExpr, env, IntType, StringType, variable } from "@protoutil/cel";
+import { astToCheckedExpr, env, IntType, StringType, unwrapAst, variable } from "@protoutil/cel";
 import { createTranslator } from "@protoutil/celql";
 import { caseInsensitiveStrings, PostgreSqlProfile } from "@protoutil/celql/postgresql";
 
@@ -25,9 +25,13 @@ const translator = createTranslator(new PostgreSqlProfile(), {
   libraries: [caseInsensitive],
 });
 
-const ast = cel.compile('name.startsWithIgnoreCase("ali") && age > 21');
+const ast = unwrapAst(cel.compile('name.startsWithIgnoreCase("ali") && age > 21'));
 const outcome = translator.translate({ checkedExpression: astToCheckedExpr(ast) });
 ```
+
+`env.compile` returns the AST together with any diagnostics, so `unwrapAst`
+takes the AST and throws where the expression did not compile. A service that
+reports a compile error to its caller reads `result.errors` instead.
 
 `outcome` is `match_all`, `match_none`, or a predicate. The predicate above holds:
 
@@ -81,43 +85,54 @@ language boundaries and keeps every CEL type exactly. A 64-bit integer survives
 that trip; a JavaScript number would not. Unwrap the parameters when the
 predicate reaches the client that runs the query.
 
-`postgreSqlParameters` returns values that `pg` binds without further
-conversion. It is positional, so element `n` binds `$n + 1`:
+`sqlQuery` resolves all three outcomes at once. It pairs the search condition
+with the parameters the profile bound, substituting a condition that selects
+every record for `match_all` and one that selects no record for `match_none`,
+so the emitted query stays restricted without a branch of your own:
 
 ```ts
+import { sqlQuery } from "@protoutil/celql";
 import { postgreSqlParameters } from "@protoutil/celql/postgresql";
 
-if (outcome.case === "predicate") {
-  const { rows } = await client.query(
-    `SELECT id FROM records WHERE ${outcome.value.sql}`,
-    postgreSqlParameters(outcome.value),
-  );
-}
+const { sql, parameters } = sqlQuery(outcome, postgreSqlParameters);
+const { rows } = await client.query(`SELECT id FROM records WHERE ${sql}`, parameters);
 ```
 
-`mongoDbFilter` returns the filter document that a driver accepts:
+`postgreSqlParameters` returns values that `pg` binds without further
+conversion. It is positional, so element `n` binds `$n + 1`.
 
-```ts
-import { mongoDbFilter } from "@protoutil/celql/mongodb";
-
-if (outcome.case === "predicate") {
-  const documents = await collection.find(mongoDbFilter(outcome.value)).toArray();
-}
-```
-
-MySQL and SQLite emit `AnsiSqlPredicate` with `?` markers. `parameterValues`
+MySQL and SQLite emit `AnsiSqlPredicate` with `?` markers, and `parameterValues`
 returns each value in binding order:
 
 ```ts
-import { parameterValues } from "@protoutil/celql";
+import { parameterValues, sqlQuery } from "@protoutil/celql";
 
-if (outcome.case === "predicate") {
-  const [rows] = await connection.execute(
-    `SELECT id FROM records WHERE ${outcome.value.sql}`,
-    parameterValues(outcome.value.parameters),
-  );
-}
+const { sql, parameters } = sqlQuery(outcome, (predicate) =>
+  parameterValues(predicate.parameters),
+);
+const [rows] = await connection.execute(`SELECT id FROM records WHERE ${sql}`, parameters);
 ```
+
+The default conditions are `TRUE` and `FALSE`. A target without Boolean
+literals supplies its own with `sqlQuery(outcome, bind, { matchAll: "1 = 1",
+matchNone: "1 = 0" })`. `sqlWhereClause` returns the condition alone where the
+caller binds parameters separately.
+
+`mongoDbFilterForOutcome` returns the filter document that a driver accepts,
+mapping `match_all` to the empty filter and `match_none` to one that selects no
+document:
+
+```ts
+import { mongoDbFilterForOutcome } from "@protoutil/celql/mongodb";
+
+const documents = await collection.find(mongoDbFilterForOutcome(outcome)).toArray();
+```
+
+Branch on `outcome.case` directly where an application does something other
+than run a query for a constant outcome, such as skipping the round trip
+entirely for `match_none`. `mongoDbFilter` and the parameter converters take a
+predicate for that case. A caller that branches by hand MUST NOT run an
+unrestricted query after `match_none` or after an error.
 
 `parameterValues` returns `null`, `boolean`, `bigint`, `number`, `string`,
 `Uint8Array`, an array of those, or a `google.protobuf.Timestamp` or
@@ -174,6 +189,8 @@ The profile also accepts equality membership over one-dimensional PostgreSQL arr
 
 MySQL and SQLite accept the ANSI SQL version 1 fragment and keep its typed positional parameter output. MySQL emits backtick-delimited identifiers, and `<=>` with its negation, for CEL total equality. SQLite emits double-quoted identifiers, and `IS` with `IS NOT`, for the same reason. Both accept a `list(string)` query field over declared JSON storage.
 
+MySQL pattern operations emit `ESCAPE '\\'`, which the server reads as one backslash only under its default backslash handling. Run the predicate on a connection whose `sql_mode` omits `NO_BACKSLASH_ESCAPES`; under that mode MySQL rejects the condition, and the profile cannot detect the setting to warn about it.
+
 ### MongoDB version 1
 
 MongoDB emits a typed `MongoDbPredicate` envelope rather than a driver object, so query structure never travels as text:
@@ -229,7 +246,7 @@ Libraries compose without inheritance. Construction rejects a missing dependency
 A library can define an opaque CEL type for a query field whose storage its target owns, such as a full-text index or a stored position. Declare the field with that type in the CEL environment, and select the target binding in the translator:
 
 ```ts
-import { astToCheckedExpr, env, variable } from "@protoutil/cel";
+import { astToCheckedExpr, env, unwrapAst, variable } from "@protoutil/cel";
 import {
   createTranslator,
   FullTextIndexType,
@@ -247,8 +264,10 @@ const translator = createTranslator(new MySqlProfile(), {
   libraries: [fullTextSearch(), geospatial()],
 });
 
-const ast = cel.compile(
-  'search.matchesText("error budget") && location.geoWithinDistance(geoPoint(-73.9, 40.7), 5000.0)',
+const ast = unwrapAst(
+  cel.compile(
+    'search.matchesText("error budget") && location.geoWithinDistance(geoPoint(-73.9, 40.7), 5000.0)',
+  ),
 );
 const outcome = translator.translate({ checkedExpression: astToCheckedExpr(ast) });
 ```

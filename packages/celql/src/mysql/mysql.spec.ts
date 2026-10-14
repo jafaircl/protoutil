@@ -1,4 +1,12 @@
-import { astToCheckedExpr, DynType, env, listType, StringType, variable } from "@protoutil/cel";
+import {
+  astToCheckedExpr,
+  DynType,
+  env,
+  listType,
+  StringType,
+  unwrapAst,
+  variable,
+} from "@protoutil/cel";
 import { describe, expect, it } from "vitest";
 import { TranslationErrorCode } from "../gen/protoutil/celql/v1/celql_pb.js";
 import { createTranslator, FullTextIndexType, GeoPointType } from "../index.js";
@@ -34,14 +42,14 @@ describe("MySQL profile", () => {
       }
     }
 
-    const checkedExpression = astToCheckedExpr(strings.compile('name == "alice"'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name == "alice"')));
     const outcome = createTranslator(new CustomMySqlProfile()).translate({ checkedExpression });
 
     expect(outcome).toMatchObject({ case: "predicate", value: { sql: "custom(`name` <=> ?)" } });
   });
 
   it("uses backtick-delimited identifiers and null-safe equality", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name == "alice"'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name == "alice"')));
 
     const outcome = createTranslator(new MySqlProfile()).translate({ checkedExpression });
 
@@ -55,7 +63,7 @@ describe("MySQL profile", () => {
   });
 
   it("uses the complement of null-safe equality for inequality", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name != "alice"'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name != "alice"')));
 
     const outcome = createTranslator(new MySqlProfile()).translate({ checkedExpression });
 
@@ -66,7 +74,7 @@ describe("MySQL profile", () => {
   });
 
   it("emits a null literal without consuming a parameter position", () => {
-    const checkedExpression = astToCheckedExpr(dynamicStrings.compile("name == null"));
+    const checkedExpression = astToCheckedExpr(unwrapAst(dynamicStrings.compile("name == null")));
 
     const outcome = createTranslator(new MySqlProfile()).translate({ checkedExpression });
 
@@ -76,7 +84,9 @@ describe("MySQL profile", () => {
   });
 
   it("keeps literal pattern metacharacters in the bound value", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name.contains("%_\\\\")'));
+    const checkedExpression = astToCheckedExpr(
+      unwrapAst(strings.compile('name.contains("%_\\\\")')),
+    );
 
     const outcome = createTranslator(new MySqlProfile()).translate({ checkedExpression });
 
@@ -90,7 +100,7 @@ describe("MySQL profile", () => {
   });
 
   it("uses one ordered parameter for each literal membership value", () => {
-    const checkedExpression = astToCheckedExpr(strings.compile('name in ["a", "b"]'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(strings.compile('name in ["a", "b"]')));
 
     const outcome = createTranslator(new MySqlProfile()).translate({ checkedExpression });
 
@@ -108,7 +118,7 @@ describe("MySQL profile", () => {
 
   it("translates ASCII case-insensitive patterns through the selected library", () => {
     const checkedExpression = astToCheckedExpr(
-      caseInsensitiveString.compile('name.containsIgnoreCase("AdM%")'),
+      unwrapAst(caseInsensitiveString.compile('name.containsIgnoreCase("AdM%")')),
     );
     const outcome = createTranslator(new MySqlProfile(), {
       libraries: [caseInsensitiveStrings()],
@@ -124,7 +134,7 @@ describe("MySQL profile", () => {
   });
 
   it("uses JSON_CONTAINS for a string constant in a JSON array field", () => {
-    const checkedExpression = astToCheckedExpr(stringArrays.compile('"admin" in tags'));
+    const checkedExpression = astToCheckedExpr(unwrapAst(stringArrays.compile('"admin" in tags')));
     const outcome = createTranslator(new MySqlProfile()).translate({ checkedExpression });
 
     expect(outcome).toMatchObject({
@@ -138,7 +148,7 @@ describe("MySQL profile", () => {
 
   it("requires every full-text query term through a boolean-mode index match", () => {
     const checkedExpression = astToCheckedExpr(
-      fullText.compile('search.matchesText("error budget")'),
+      unwrapAst(fullText.compile('search.matchesText("error budget")')),
     );
     const outcome = createTranslator(new MySqlProfile(), {
       libraries: [fullTextSearch()],
@@ -154,7 +164,9 @@ describe("MySQL profile", () => {
   });
 
   it("rejects a full-text query outside the lowercase term domain", () => {
-    const checkedExpression = astToCheckedExpr(fullText.compile('search.matchesText("Error!")'));
+    const checkedExpression = astToCheckedExpr(
+      unwrapAst(fullText.compile('search.matchesText("Error!")')),
+    );
     const translate = () =>
       createTranslator(new MySqlProfile(), { libraries: [fullTextSearch()] }).translate({
         checkedExpression,
@@ -167,7 +179,7 @@ describe("MySQL profile", () => {
 
   it("lowers equality-based exists over a JSON array field to JSON_CONTAINS", () => {
     const checkedExpression = astToCheckedExpr(
-      stringArrays.compile('tags.exists(tag, tag == "admin")'),
+      unwrapAst(stringArrays.compile('tags.exists(tag, tag == "admin")')),
     );
     const outcome = createTranslator(new MySqlProfile()).translate({ checkedExpression });
 
@@ -179,8 +191,10 @@ describe("MySQL profile", () => {
 
   it("emits closed polygon containment as a spatial intersection", () => {
     const checkedExpression = astToCheckedExpr(
-      spatial.compile(
-        "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(20.0, 0.0), geoPoint(20.0, 30.0), geoPoint(0.0, 30.0), geoPoint(0.0, 0.0)]))",
+      unwrapAst(
+        spatial.compile(
+          "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(20.0, 0.0), geoPoint(20.0, 30.0), geoPoint(0.0, 30.0), geoPoint(0.0, 0.0)]))",
+        ),
       ),
     );
     const outcome = createTranslator(new MySqlProfile(), { libraries: [geospatial()] }).translate({
@@ -204,7 +218,7 @@ describe("MySQL profile", () => {
 
   it("prefilters a distance bound with an index-usable bounding rectangle", () => {
     const checkedExpression = astToCheckedExpr(
-      spatial.compile("location.geoWithinDistance(geoPoint(0.0, 0.0), 637810.0)"),
+      unwrapAst(spatial.compile("location.geoWithinDistance(geoPoint(0.0, 0.0), 637810.0)")),
     );
     const outcome = createTranslator(new MySqlProfile(), { libraries: [geospatial()] }).translate({
       checkedExpression,
@@ -222,8 +236,10 @@ describe("MySQL profile", () => {
 
   it("rejects a polygon ring that is not convex and counterclockwise", () => {
     const checkedExpression = astToCheckedExpr(
-      spatial.compile(
-        "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(0.0, 30.0), geoPoint(20.0, 30.0), geoPoint(20.0, 0.0), geoPoint(0.0, 0.0)]))",
+      unwrapAst(
+        spatial.compile(
+          "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(0.0, 30.0), geoPoint(20.0, 30.0), geoPoint(20.0, 0.0), geoPoint(0.0, 0.0)]))",
+        ),
       ),
     );
     const translate = () =>

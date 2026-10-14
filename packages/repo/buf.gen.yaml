@@ -5,8 +5,10 @@ inputs:
 plugins:
   - local: ../../node_modules/.bin/protoc-gen-es
     out: src/gen
-    include_imports: true
     opt:
       - target=ts
       - import_extension=.js
       - ts_nocheck=false
+      # google/api/field_behavior is consumed from @protoutil/aip rather than
+      # regenerated, so both packages share one descriptor registration.
+      - map_imports=google/api/:@protoutil/aip/gen
