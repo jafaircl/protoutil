@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/aipql",
   "type": "module",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Translate AIP-160 filter expressions into SQL and MongoDB queries.",
   "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",

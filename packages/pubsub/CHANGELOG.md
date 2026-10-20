@@ -1,5 +1,11 @@
 # @protoutil/pubsub
 
+## 0.3.3
+
+### Patch Changes
+
+- Align transport-neutral Pub/Sub packages with the current protobuf runtime and update package metadata.
+
 ## 0.3.2
 
 ### Patch Changes

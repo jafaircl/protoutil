@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/pubsub",
   "type": "module",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Transport-neutral protobuf pub/sub on CloudEvents.",
   "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",

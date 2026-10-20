@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/testing",
   "type": "module",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Test-only protobuf schemas and utilities for protoutil packages.",
   "license": "MIT",
   "files": [

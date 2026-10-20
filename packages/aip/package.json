@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/aip",
   "type": "module",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "TypeScript utilities for implementing Google API Improvement Proposals",
   "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",
@@ -48,7 +48,6 @@
     },
     "./package.json": "./package.json"
   },
-  "types": "./dist/index.d.cts",
   "files": [
     "dist"
   ],
@@ -70,8 +69,6 @@
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
   "dependencies": {
     "@bufbuild/protobuf": "^2.15.0",
     "@protoutil/core": "workspace:*"

@@ -1,5 +1,15 @@
 # @protoutil/celql
 
+## 0.3.3
+
+### Patch Changes
+
+- Release checked-CEL query translation with dialect profiles, parameterized predicates, and composable translation libraries.
+- Updated dependencies
+- Updated dependencies
+  - @protoutil/cel@0.3.3
+  - @protoutil/core@0.3.3
+
 ## 0.3.2
 
 ### Minor Changes

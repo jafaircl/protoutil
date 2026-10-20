@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/cel",
   "type": "module",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "TypeScript utilities and generated protobuf types for CEL expressions.",
   "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",

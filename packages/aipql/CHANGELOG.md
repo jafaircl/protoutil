@@ -1,5 +1,15 @@
 # @protoutil/aipql
 
+## 0.3.3
+
+### Patch Changes
+
+- Update query translation for the shared protobuf runtime and improve typed errors and dialect handling.
+- Updated dependencies
+- Updated dependencies
+  - @protoutil/aip@0.3.3
+  - @protoutil/core@0.3.3
+
 ## 0.3.2
 
 ### Patch Changes
