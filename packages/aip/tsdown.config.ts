@@ -4,7 +4,6 @@ export default defineConfig({
   entry: [
     "!src/*.spec.ts",
     "!src/**/*.spec.ts",
-    "src/index.ts",
     "src/errors/index.ts",
     "src/etag/index.ts",
     "src/fieldbehavior/index.ts",
@@ -12,10 +11,11 @@ export default defineConfig({
     "src/orderby/index.ts",
     "src/pagination/index.ts",
     "src/resourcename/index.ts",
-    "src/unittest/*.ts",
-    "src/wkt/index.ts",
+    "src/gen/google/api/field_behavior_pb.ts",
   ],
-  exports: true,
+  // Hand-managed so the ./gen/*.js wildcard (used by map_imports in
+  // dependent packages) survives a build.
+  exports: false,
   format: ["esm", "cjs"],
   dts: true,
   clean: true,

@@ -1,0 +1,93 @@
+{
+  "path": "pb",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"pb\"\ncontainer: \"cel.expr.conformance.proto3\"\nextensions:\n  - name: \"strings\"\n    version: 2\nvariables:\n  - name: \"spec\"\n    type_name: \"cel.expr.conformance.proto3.TestAllTypes\"\n",
+      "value": {
+        "container": "cel.expr.conformance.proto3",
+        "extensions": [
+          {
+            "name": "strings",
+            "version": 2
+          }
+        ],
+        "name": "pb",
+        "variables": [
+          {
+            "name": "spec",
+            "type_name": "cel.expr.conformance.proto3.TestAllTypes"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"pb\"\n\nimports:\n   - name: cel.expr.conformance.proto3.TestAllTypes\n   - name: cel.expr.conformance.proto3.TestAllTypes.NestedEnum\n   - name: cel.expr.conformance.proto3.GlobalEnum\n\nrule:\n  match:\n    - condition: \u003e\n        spec.single_int32 \u003e cel.expr.conformance.proto3.TestAllTypes{single_int64: 10}.single_int64\n      output: |\n        \"invalid spec, got single_int32=\" + string(spec.single_int32) + \", wanted \u003c= 10\"\n    - condition: \u003e\n        spec.standalone_enum == NestedEnum.BAR ||\n        NestedEnum.BAZ in spec.repeated_nested_enum ||\n        GlobalEnum.GAR == GlobalEnum.GOO\n      output: |\n        \"invalid spec, neither nested nor repeated enums may refer to BAR or BAZ\"\n",
+      "value": {
+        "imports": [
+          {
+            "name": "cel.expr.conformance.proto3.TestAllTypes"
+          },
+          {
+            "name": "cel.expr.conformance.proto3.TestAllTypes.NestedEnum"
+          },
+          {
+            "name": "cel.expr.conformance.proto3.GlobalEnum"
+          }
+        ],
+        "name": "pb",
+        "rule": {
+          "match": [
+            {
+              "condition": "spec.single_int32 \u003e cel.expr.conformance.proto3.TestAllTypes{single_int64: 10}.single_int64\n",
+              "output": "\"invalid spec, got single_int32=\" + string(spec.single_int32) + \", wanted \u003c= 10\"\n"
+            },
+            {
+              "condition": "spec.standalone_enum == NestedEnum.BAR || NestedEnum.BAZ in spec.repeated_nested_enum || GlobalEnum.GAR == GlobalEnum.GOO\n",
+              "output": "\"invalid spec, neither nested nor repeated enums may refer to BAR or BAZ\"\n"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: \"Protobuf input tests\"\nsection:\n  - name: \"valid\"\n    tests:\n      - name: \"good spec\"\n        input:\n          spec:\n            expr: \u003e\n              cel.expr.conformance.proto3.TestAllTypes{single_int32: 10}\n        output:\n          expr: \"optional.none()\"\n  - name: \"invalid\"\n    tests:\n      - name: \"bad spec\"\n        input:\n          spec:\n            expr: \u003e\n              cel.expr.conformance.proto3.TestAllTypes{single_int32: 11}\n        output:\n          value: \"invalid spec, got single_int32=11, wanted \u003c= 10\"\n",
+      "value": {
+        "description": "Protobuf input tests",
+        "section": [
+          {
+            "name": "valid",
+            "tests": [
+              {
+                "input": {
+                  "spec": {
+                    "expr": "cel.expr.conformance.proto3.TestAllTypes{single_int32: 10}\n"
+                  }
+                },
+                "name": "good spec",
+                "output": {
+                  "expr": "optional.none()"
+                }
+              }
+            ]
+          },
+          {
+            "name": "invalid",
+            "tests": [
+              {
+                "input": {
+                  "spec": {
+                    "expr": "cel.expr.conformance.proto3.TestAllTypes{single_int32: 11}\n"
+                  }
+                },
+                "name": "bad spec",
+                "output": {
+                  "value": "invalid spec, got single_int32=11, wanted \u003c= 10"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

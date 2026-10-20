@@ -1,7 +1,7 @@
 import { create, equals } from "@bufbuild/protobuf";
 import { compileMessage } from "@bufbuild/protocompile";
-import { TestAllTypesSchema } from "@protoutil/core/unittest/proto3";
 import { fieldMask } from "@protoutil/core/wkt";
+import { TestAllTypesSchema } from "@protoutil/testing/unittest/proto3";
 import { describe, expect, it } from "vitest";
 import { etag } from "./etag.js";
 

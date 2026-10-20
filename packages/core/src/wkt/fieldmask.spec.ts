@@ -1,14 +1,11 @@
 import { create, type MessageInitShape, toJsonString } from "@bufbuild/protobuf";
 import { FieldMaskSchema } from "@bufbuild/protobuf/wkt";
-import { describe, expect, it } from "vitest";
-import {
-  NestedTestAllTypesSchema,
-  TestAllTypesSchema,
-} from "../gen/google/protobuf/unittest_proto3_pb.js";
+import { NestedTestAllTypesSchema, TestAllTypesSchema } from "@protoutil/testing/unittest/proto3";
 import {
   NestedUnittestMessageSchema,
   UnittestMessageSchema,
-} from "./../gen/protoutil/core/v1/unittest_pb.js";
+} from "@protoutil/testing/unittest/protoutil-core";
+import { describe, expect, it } from "vitest";
 import {
   applyFieldMask,
   fieldMask,

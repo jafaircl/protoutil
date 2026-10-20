@@ -1,0 +1,68 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+
+name: "celql-profile-mongodb"
+specification_version: "0.12"
+level: CONFORMANCE_LEVEL_PROFILE
+
+environment {
+  declarations { name: "name" ident { type { primitive: STRING } } }
+  declarations { name: "count" ident { type { primitive: INT64 } } }
+  declarations { name: "active" ident { type { primitive: BOOL } } }
+}
+
+cases {
+  name: "end_anchor_is_rejected"
+  description: "The end anchor is outside the subset because RE2 and PCRE2 differ for a final newline."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"^a+$\")"
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "multiple_unbounded_quantifiers_are_rejected"
+  description: "The subset permits at most one unbounded quantifier so PCRE2 cannot multiply attacker-controlled backtracking paths."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"a.*b.*\")"
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "engine_specific_regex_is_rejected"
+  description: "Lookahead has no shared RE2 and PCRE2 meaning in this profile."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"a(?=b)\")"
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "regex_pattern_limit_is_enforced"
+  description: "MongoDB checks the configured portable-pattern byte limit before target execution."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"^abc\")"
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    limits { max_regex_pattern_bytes: 3 }
+    error { code: TRANSLATION_ERROR_CODE_RESOURCE_LIMIT_EXCEEDED }
+  }
+}
+
+cases {
+  name: "configuration_is_rejected"
+  description: "The profile has no trusted configuration schema."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "active"
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    profile_configuration { [type.googleapis.com/google.protobuf.Empty] {} }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_PROFILE_CONFIGURATION }
+  }
+}

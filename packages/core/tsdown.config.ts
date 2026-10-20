@@ -8,9 +8,11 @@ export default defineConfig({
     "src/google/type/index.ts",
     "src/index.ts",
     "src/wkt/index.ts",
-    "src/unittest/*.ts",
+    "src/gen/google/rpc/**/*.ts",
   ],
-  exports: true,
+  // Hand-managed so the ./gen/*.js wildcard (used by map_imports in
+  // dependent packages) survives a build.
+  exports: false,
   format: ["esm", "cjs"],
   dts: true,
   clean: true,

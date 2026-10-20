@@ -1,0 +1,149 @@
+{
+  "path": "unconditional_rules",
+  "files": {
+    "config.yaml": {
+      "source": "name: unconditional_rules\nvariables:\n  - name: a\n    type_name: bool\n  - name: b\n    type_name: bool\n  - name: c\n    type_name: bool\n",
+      "value": {
+        "name": "unconditional_rules",
+        "variables": [
+          {
+            "name": "a",
+            "type_name": "bool"
+          },
+          {
+            "name": "b",
+            "type_name": "bool"
+          },
+          {
+            "name": "c",
+            "type_name": "bool"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: unconditional_rules\nrule:\n  match:\n    - condition: \"a\"\n      rule:\n        match:\n          - rule:\n              match:\n                - condition: \"b\"\n                  output: \"1\"\n          - output: \"2\"\n    - rule:\n        match:\n          - condition: \"c\"\n            output: \"3\"\n    - output: \"4\"\n",
+      "value": {
+        "name": "unconditional_rules",
+        "rule": {
+          "match": [
+            {
+              "condition": "a",
+              "rule": {
+                "match": [
+                  {
+                    "rule": {
+                      "match": [
+                        {
+                          "condition": "b",
+                          "output": "1"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "output": "2"
+                  }
+                ]
+              }
+            },
+            {
+              "rule": {
+                "match": [
+                  {
+                    "condition": "c",
+                    "output": "3"
+                  }
+                ]
+              }
+            },
+            {
+              "output": "4"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: Unconditional rules propagation conformance tests\nsection:\n  - name: \"composition\"\n    tests:\n      - name: \"case_a_true_b_true\"\n        input:\n          a:\n            expr: \"true\"\n          b:\n            expr: \"true\"\n          c:\n            expr: \"true\"\n        output:\n          expr: \"1\"\n      - name: \"case_a_true_b_false\"\n        input:\n          a:\n            expr: \"true\"\n          b:\n            expr: \"false\"\n          c:\n            expr: \"true\"\n        output:\n          expr: \"2\"\n      - name: \"case_a_false_c_true\"\n        input:\n          a:\n            expr: \"false\"\n          b:\n            expr: \"false\"\n          c:\n            expr: \"true\"\n        output:\n          expr: \"3\"\n      - name: \"case_a_false_c_false\"\n        input:\n          a:\n            expr: \"false\"\n          b:\n            expr: \"false\"\n          c:\n            expr: \"false\"\n        output:\n          expr: \"4\"\n",
+      "value": {
+        "description": "Unconditional rules propagation conformance tests",
+        "section": [
+          {
+            "name": "composition",
+            "tests": [
+              {
+                "input": {
+                  "a": {
+                    "expr": "true"
+                  },
+                  "b": {
+                    "expr": "true"
+                  },
+                  "c": {
+                    "expr": "true"
+                  }
+                },
+                "name": "case_a_true_b_true",
+                "output": {
+                  "expr": "1"
+                }
+              },
+              {
+                "input": {
+                  "a": {
+                    "expr": "true"
+                  },
+                  "b": {
+                    "expr": "false"
+                  },
+                  "c": {
+                    "expr": "true"
+                  }
+                },
+                "name": "case_a_true_b_false",
+                "output": {
+                  "expr": "2"
+                }
+              },
+              {
+                "input": {
+                  "a": {
+                    "expr": "false"
+                  },
+                  "b": {
+                    "expr": "false"
+                  },
+                  "c": {
+                    "expr": "true"
+                  }
+                },
+                "name": "case_a_false_c_true",
+                "output": {
+                  "expr": "3"
+                }
+              },
+              {
+                "input": {
+                  "a": {
+                    "expr": "false"
+                  },
+                  "b": {
+                    "expr": "false"
+                  },
+                  "c": {
+                    "expr": "false"
+                  }
+                },
+                "name": "case_a_false_c_false",
+                "output": {
+                  "expr": "4"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

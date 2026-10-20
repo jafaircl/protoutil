@@ -1,0 +1,14 @@
+version: v2
+clean: true
+inputs:
+  - directory: proto
+plugins:
+  - local: ../../node_modules/.bin/protoc-gen-es
+    out: src/gen
+    opt:
+      - target=ts
+      - import_extension=.js
+      - ts_nocheck=false
+      # cel/expr/* is consumed from @protoutil/cel rather than regenerated, so
+      # the cel <-> celql boundary shares one descriptor registration.
+      - map_imports=cel/expr/:@protoutil/cel/gen

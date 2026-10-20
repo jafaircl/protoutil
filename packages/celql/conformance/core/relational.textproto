@@ -1,0 +1,112 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+#
+# One CEL source form appears once. Each exact expectation records the
+# predicate emitted by every compatible profile. Target-local suites contain
+# only behavior that cannot be stated in this shared relational domain.
+
+name: "celql-core-relational"
+specification_version: "0.12"
+level: CONFORMANCE_LEVEL_CORE
+
+environment {
+  declarations { name: "name" ident { type { primitive: STRING } } }
+  declarations { name: "count" ident { type { primitive: INT64 } } }
+  declarations { name: "active" ident { type { primitive: BOOL } } }
+}
+
+cases {
+  name: "hostile_string_equality"
+  description: "Every relational profile keeps hostile text in typed predicate data."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name == \"Robert'); DROP TABLE users;--\""
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"name\" = ?" parameters { cel_type { primitive: STRING } value { string_value: "Robert'); DROP TABLE users;--" } } } } } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] { sql: "\"name\" = $1" parameters { cel_type { primitive: STRING } value { string_value: "Robert'); DROP TABLE users;--" } } } } } }
+  expected { profile { name: "protoutil.celql.mysql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "`name` <=> ?" parameters { cel_type { primitive: STRING } value { string_value: "Robert'); DROP TABLE users;--" } } } } } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"name\" IS ?" parameters { cel_type { primitive: STRING } value { string_value: "Robert'); DROP TABLE users;--" } } } } } }
+  expected { profile { name: "protoutil.celql.mongodb" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+    filter { map_value { entries {
+      key { string_value: "name" }
+      value { map_value { entries { key { string_value: "$eq" } value { string_value: "Robert'); DROP TABLE users;--" } } } }
+    } } }
+  } } } }
+}
+
+cases {
+  name: "inequality"
+  description: "Every relational profile preserves the total CEL complement of equality."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name != \"alice\""
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"name\" IS DISTINCT FROM ?" parameters { cel_type { primitive: STRING } value { string_value: "alice" } } } } } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] { sql: "\"name\" IS DISTINCT FROM $1" parameters { cel_type { primitive: STRING } value { string_value: "alice" } } } } } }
+  expected { profile { name: "protoutil.celql.mysql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "NOT (`name` <=> ?)" parameters { cel_type { primitive: STRING } value { string_value: "alice" } } } } } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"name\" IS NOT ?" parameters { cel_type { primitive: STRING } value { string_value: "alice" } } } } } }
+  expected { profile { name: "protoutil.celql.mongodb" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+    filter { map_value { entries {
+      key { string_value: "name" }
+      value { map_value { entries { key { string_value: "$ne" } value { string_value: "alice" } } } }
+    } } }
+  } } } }
+}
+
+cases {
+  name: "null_equality"
+  description: "SQL profiles make a CEL null test total; MongoDB rejects it because BSON null merges with absence."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name == null"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"name\" IS NULL" } } } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] { sql: "\"name\" IS NULL" } } } }
+  expected { profile { name: "protoutil.celql.mysql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "`name` <=> NULL" } } } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"name\" IS NULL" } } } }
+  expected { profile { name: "protoutil.celql.mongodb" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION } }
+}
+
+cases {
+  name: "literal_contains"
+  description: "Target pattern metacharacters remain literal data in each profile."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.contains(\"%_\\\\\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"name\" LIKE ? ESCAPE '\\'" parameters { cel_type { primitive: STRING } value { string_value: "%\\%\\_\\\\%" } } } } } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] { sql: "\"name\" LIKE $1 ESCAPE '\\'" parameters { cel_type { primitive: STRING } value { string_value: "%\\%\\_\\\\%" } } } } } }
+  expected { profile { name: "protoutil.celql.mysql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "`name` LIKE ? ESCAPE '\\\\'" parameters { cel_type { primitive: STRING } value { string_value: "%\\%\\_\\\\%" } } } } } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"name\" LIKE ? ESCAPE '\\'" parameters { cel_type { primitive: STRING } value { string_value: "%\\%\\_\\\\%" } } } } } }
+  expected { profile { name: "protoutil.celql.mongodb" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+    filter { map_value { entries {
+      key { string_value: "name" }
+      value { map_value { entries { key { string_value: "$regex" } value { string_value: "%_\\\\" } } } }
+    } } }
+  } } } }
+}
+
+cases {
+  name: "literal_membership"
+  description: "Membership preserves element order and each target's typed-list representation."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name in [\"a\", \"b\"]"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "(\"name\" IS NOT NULL AND \"name\" IN (?, ?))" parameters { cel_type { primitive: STRING } value { string_value: "a" } } parameters { cel_type { primitive: STRING } value { string_value: "b" } } } } } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] { sql: "(\"name\" IS NOT NULL AND \"name\" IN ($1, $2))" parameters { cel_type { primitive: STRING } value { string_value: "a" } } parameters { cel_type { primitive: STRING } value { string_value: "b" } } } } } }
+  expected { profile { name: "protoutil.celql.mysql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "(`name` IS NOT NULL AND `name` IN (?, ?))" parameters { cel_type { primitive: STRING } value { string_value: "a" } } parameters { cel_type { primitive: STRING } value { string_value: "b" } } } } } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "(\"name\" IS NOT NULL AND \"name\" IN (?, ?))" parameters { cel_type { primitive: STRING } value { string_value: "a" } } parameters { cel_type { primitive: STRING } value { string_value: "b" } } } } } }
+  expected { profile { name: "protoutil.celql.mongodb" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+    filter { map_value { entries {
+      key { string_value: "name" }
+      value { map_value { entries { key { string_value: "$in" } value { list_value { values { string_value: "a" } values { string_value: "b" } } } } } }
+    } } }
+  } } } }
+}
+
+cases {
+  name: "boolean_condition"
+  description: "A Boolean query field remains a Boolean condition in each target language."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "active"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"active\" = TRUE" } } } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] { sql: "\"active\" = TRUE" } } } }
+  expected { profile { name: "protoutil.celql.mysql" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "`active` = TRUE" } } } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] { sql: "\"active\" = TRUE" } } } }
+  expected { profile { name: "protoutil.celql.mongodb" major_version: 1 } success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+    filter { map_value { entries {
+      key { string_value: "active" }
+      value { map_value { entries { key { string_value: "$eq" } value { bool_value: true } } } }
+    } } }
+  } } } }
+}

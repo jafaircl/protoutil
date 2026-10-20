@@ -1,0 +1,49 @@
+{
+  "path": "compile_errors/syntax",
+  "files": {
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_syntax\"\nrule:\n  variables:\n    - name: missing\n      expression: \"variables.want.filter(l, !(lin resource.labels))\"\n    - name: bad_data\n      expression: \"{1:305 2:569}\"\n  match:\n    - condition: \"true\"\n      output: \"variables.missing]\"\n",
+      "value": {
+        "name": "errors_syntax",
+        "rule": {
+          "match": [
+            {
+              "condition": "true",
+              "output": "variables.missing]"
+            }
+          ],
+          "variables": [
+            {
+              "expression": "variables.want.filter(l, !(lin resource.labels))",
+              "name": "missing"
+            },
+            {
+              "expression": "{1:305 2:569}",
+              "name": "bad_data"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_syntax\"\ndescription: \"Tests for syntax errors in policy compilation\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"syntax_error\"\n    output:\n      error_set:\n      # Java: mismatched input 'resource' expecting {'==', '!=', 'in', '\u003c', '\u003c=', '\u003e=', '\u003e', '\u0026\u0026', '||', '[', ')', '.', '-', '?', '+', '*', '/', '%%'}\n      # Go: Syntax error: mismatched input 'resource' expecting ')'\n      - \"mismatched input 'resource'\"\n",
+      "value": {
+        "description": "Tests for syntax errors in policy compilation",
+        "name": "errors_syntax",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "syntax_error",
+                "output": {
+                  "error_set": ["mismatched input 'resource'"]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

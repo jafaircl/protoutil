@@ -7,11 +7,13 @@
   },
   "files": {
     "ignoreUnknown": false,
+    "maxSize": 8388608,
     "includes": [
       "**",
       "!**/dist",
       "!**/gen",
       "!**/node_modules",
+      "!packages/cel/src/parser/generated-parser.ts",
       "!examples/angular-client/**/*.html",
       "!packages/angular/**/*.html",
       "!docs/**/*.astro"

@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.3.2",
   "description": "TypeScript utilities for implementing Google API Improvement Proposals",
-  "author": "Author Name <author.name@mail.com>",
+  "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",
   "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/aip#readme",
   "repository": {
@@ -14,37 +14,37 @@
     "url": "https://github.com/jafaircl/protoutil/issues"
   },
   "exports": {
-    ".": {
-      "require": "./dist/index.cjs",
-      "import": "./dist/index.mjs"
-    },
     "./errors": {
-      "require": "./dist/errors/index.cjs",
-      "import": "./dist/errors/index.mjs"
+      "import": "./dist/errors/index.mjs",
+      "require": "./dist/errors/index.cjs"
     },
     "./etag": {
-      "require": "./dist/etag/index.cjs",
-      "import": "./dist/etag/index.mjs"
+      "import": "./dist/etag/index.mjs",
+      "require": "./dist/etag/index.cjs"
     },
     "./fieldbehavior": {
-      "require": "./dist/fieldbehavior/index.cjs",
-      "import": "./dist/fieldbehavior/index.mjs"
+      "import": "./dist/fieldbehavior/index.mjs",
+      "require": "./dist/fieldbehavior/index.cjs"
     },
     "./filtering": {
-      "require": "./dist/filtering/index.cjs",
-      "import": "./dist/filtering/index.mjs"
+      "import": "./dist/filtering/index.mjs",
+      "require": "./dist/filtering/index.cjs"
     },
     "./orderby": {
-      "require": "./dist/orderby/index.cjs",
-      "import": "./dist/orderby/index.mjs"
+      "import": "./dist/orderby/index.mjs",
+      "require": "./dist/orderby/index.cjs"
     },
     "./pagination": {
-      "require": "./dist/pagination/index.cjs",
-      "import": "./dist/pagination/index.mjs"
+      "import": "./dist/pagination/index.mjs",
+      "require": "./dist/pagination/index.cjs"
     },
     "./resourcename": {
-      "require": "./dist/resourcename/index.cjs",
-      "import": "./dist/resourcename/index.mjs"
+      "import": "./dist/resourcename/index.mjs",
+      "require": "./dist/resourcename/index.cjs"
+    },
+    "./gen/*.js": {
+      "require": "./dist/gen/*.cjs",
+      "import": "./dist/gen/*.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -55,22 +55,25 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "pretest": "pnpm --filter @protoutil/testing build",
     "test": "vitest run",
+    "pretypecheck": "pnpm --filter @protoutil/testing build",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build",
     "protogen": "buf generate"
   },
   "devDependencies": {
+    "@protoutil/testing": "workspace:*",
     "@bufbuild/protocompile": "^0.0.1",
     "@types/node": "^25.0.3",
-    "tsdown": "^0.18.1",
+    "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.18"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "dependencies": {
-    "@bufbuild/protobuf": "^2.11.0",
+    "@bufbuild/protobuf": "^2.15.0",
     "@protoutil/core": "workspace:*"
   }
 }

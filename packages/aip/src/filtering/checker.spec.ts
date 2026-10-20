@@ -6,7 +6,7 @@ import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 import {
   TestAllTypes_NestedMessageSchema,
   TestAllTypesSchema,
-} from "@protoutil/core/unittest/proto3";
+} from "@protoutil/testing/unittest/proto3";
 import { assert, describe, it } from "vitest";
 import type { Decl } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
 import { check, outputType } from "./checker.js";

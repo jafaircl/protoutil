@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.3.2",
   "description": "AIP-style protobuf repositories for SQLite, Postgres, MySQL, and MongoDB.",
-  "author": "Author Name <author.name@mail.com>",
+  "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",
   "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/repo#readme",
   "repository": {
@@ -15,24 +15,24 @@
   },
   "exports": {
     ".": {
-      "require": "./dist/index.cjs",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     },
     "./mongodb": {
-      "require": "./dist/mongodb/index.cjs",
-      "import": "./dist/mongodb/index.mjs"
+      "import": "./dist/mongodb/index.mjs",
+      "require": "./dist/mongodb/index.cjs"
     },
     "./mysql": {
-      "require": "./dist/mysql/index.cjs",
-      "import": "./dist/mysql/index.mjs"
+      "import": "./dist/mysql/index.mjs",
+      "require": "./dist/mysql/index.cjs"
     },
     "./postgres": {
-      "require": "./dist/postgres/index.cjs",
-      "import": "./dist/postgres/index.mjs"
+      "import": "./dist/postgres/index.mjs",
+      "require": "./dist/postgres/index.cjs"
     },
     "./sqlite": {
-      "require": "./dist/sqlite/index.cjs",
-      "import": "./dist/sqlite/index.mjs"
+      "import": "./dist/sqlite/index.mjs",
+      "require": "./dist/sqlite/index.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -72,21 +72,21 @@
     }
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/pg": "^8.11.6",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/pg": "^8.18.0",
     "@types/node": "^25.0.3",
     "better-sqlite3": "^12.6.2",
     "mongodb": "^6.16.0",
     "mysql2": "^3.14.0",
     "pg": "^8.13.1",
-    "tsdown": "^0.18.1",
+    "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.18"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "dependencies": {
-    "@bufbuild/protobuf": "^2.11.0",
+    "@bufbuild/protobuf": "^2.15.0",
     "@protoutil/aip": "workspace:*",
     "@protoutil/aipql": "workspace:*",
     "@protoutil/core": "workspace:*"

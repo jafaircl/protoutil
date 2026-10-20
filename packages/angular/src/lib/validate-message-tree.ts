@@ -10,7 +10,7 @@ import { getOption, type Message } from "@bufbuild/protobuf";
 import type { GenMessage } from "@bufbuild/protobuf/codegenv2";
 import type { Path } from "@bufbuild/protobuf/reflect";
 import type { Validator, Violation } from "@bufbuild/protovalidate";
-import { type FieldRules, field } from "./gen/buf/validate/validate_pb";
+import { type FieldRules, field } from "@bufbuild/protovalidate/gen/buf/validate/validate_pb.js";
 
 /**
  * Converts a protobuf path to a schema path tree. This is used to map protobuf

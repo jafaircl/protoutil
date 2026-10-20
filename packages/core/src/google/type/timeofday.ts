@@ -1,5 +1,4 @@
 import { create } from "@bufbuild/protobuf";
-import { Temporal } from "temporal-polyfill";
 import { OutOfRangeError } from "../../errors.js";
 import { type TimeOfDay, TimeOfDaySchema } from "../../gen/google/type/timeofday_pb.js";
 import { assertValidInt32 } from "../../int32.js";
@@ -98,34 +97,4 @@ export function timeOfDayToString(value: TimeOfDay) {
   ].join(":");
   const fractional = value.nanos === 0 ? "" : `.${trimTrailingZeros(padNumber(value.nanos, 9))}`;
   return `${timePart}${fractional}`;
-}
-
-/**
- * Converts a `Temporal.PlainTime` input into a `google.type.TimeOfDay`.
- */
-export function timeOfDayFromPlainTime(
-  value: Temporal.PlainTime | Temporal.PlainTimeLike | string,
-) {
-  const plainTime = Temporal.PlainTime.from(value);
-  return timeOfDay(
-    plainTime.hour,
-    plainTime.minute,
-    plainTime.second,
-    plainTime.millisecond * 1_000_000 + plainTime.microsecond * 1_000 + plainTime.nanosecond,
-  );
-}
-
-/**
- * Converts a `google.type.TimeOfDay` into `Temporal.PlainTime`.
- */
-export function timeOfDayPlainTime(value: TimeOfDay) {
-  assertValidTimeOfDay(value);
-  return new Temporal.PlainTime(
-    value.hours,
-    value.minutes,
-    value.seconds,
-    Math.trunc(value.nanos / 1_000_000),
-    Math.trunc((value.nanos % 1_000_000) / 1_000),
-    value.nanos % 1_000,
-  );
 }

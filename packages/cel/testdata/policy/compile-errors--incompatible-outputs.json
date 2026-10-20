@@ -1,0 +1,43 @@
+{
+  "path": "compile_errors/incompatible_outputs",
+  "files": {
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_incompatible_outputs\"\nrule:\n  match:\n    - condition: \"1 \u003e 0\"\n      output: \"true\"\n    - condition: \"1 \u003c 0\"\n      output: \"'false'\"\n",
+      "value": {
+        "name": "errors_incompatible_outputs",
+        "rule": {
+          "match": [
+            {
+              "condition": "1 \u003e 0",
+              "output": "true"
+            },
+            {
+              "condition": "1 \u003c 0",
+              "output": "'false'"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_incompatible_outputs\"\ndescription: \"Tests for incompatible outputs in policy compilation\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"incompatible_output_types\"\n    output:\n      error_set:\n      # Java: incompatible output types: block has output type optional_type(string), but previous outputs have type bool\n      # Go: incompatible output types: block has output type string, but previous outputs have type bool\n      - \"incompatible output types: block has output type\"\n",
+      "value": {
+        "description": "Tests for incompatible outputs in policy compilation",
+        "name": "errors_incompatible_outputs",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "incompatible_output_types",
+                "output": {
+                  "error_set": ["incompatible output types: block has output type"]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

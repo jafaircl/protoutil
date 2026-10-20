@@ -1,0 +1,557 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+#
+# Membership, reached two ways. The CEL `in` operator lowers to `in_list`. The
+# `exists` macro over a list literal lowers to a comprehension. Both state that
+# a column equals one of a fixed set of values, so both emit the same SQL.
+#
+# CEL membership is total: `null in ['a']` is false, never an error. SQL
+# `NULL IN ('a')` is unknown, so the emitted condition carries a null guard.
+#
+# The near-miss comprehension cases build their structure directly. A parser
+# would never emit a fold that differs from the macro it came from, and proving
+# the profile refuses a near miss is the point of those cases.
+
+name: "celql-core-sql-membership"
+specification_version: "0.11"
+level: CONFORMANCE_LEVEL_CORE
+
+environment {
+  declarations { name: "status" ident { type { primitive: STRING } } }
+  declarations { name: "code" ident { type { primitive: INT64 } } }
+  declarations { name: "age" ident { type { primitive: INT64 } } }
+  declarations { name: "tags" ident { type { list_type { elem_type { primitive: STRING } } } } }
+}
+cases {
+  name: "in_list_emits_guarded_membership"
+  description: "A membership test binds one value per element and guards against null, because CEL membership is false for a null column while unguarded SQL membership is unknown."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "status in [\"active\", \"pending\"]"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN (?, ?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "pending" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN ($1, $2))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "pending" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(`status` IS NOT NULL AND `status` IN (?, ?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "pending" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN (?, ?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "pending" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "status" } value { map_value { entries { key { string_value: "$in" } value { list_value { values { string_value: "active" } values { string_value: "pending" } } } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "in_list_single_element"
+  description: "A one-element list still emits a membership test rather than an equality, so the emission stays uniform."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "status in [\"active\"]"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN (?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN ($1))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(`status` IS NOT NULL AND `status` IN (?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN (?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "status" } value { map_value { entries { key { string_value: "$in" } value { list_value { values { string_value: "active" } } } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "in_list_binds_duplicate_elements_separately"
+  description: "A repeated element still produces its own marker, because markers bind by position."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "code in [7, 7]"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"code\" IS NOT NULL AND \"code\" IN (?, ?))"
+      parameters { cel_type { primitive: INT64 } value { int64_value: 7 } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 7 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"code\" IS NOT NULL AND \"code\" IN ($1, $2))"
+      parameters { cel_type { primitive: INT64 } value { int64_value: 7 } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 7 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(`code` IS NOT NULL AND `code` IN (?, ?))"
+      parameters { cel_type { primitive: INT64 } value { int64_value: 7 } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 7 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"code\" IS NOT NULL AND \"code\" IN (?, ?))"
+      parameters { cel_type { primitive: INT64 } value { int64_value: 7 } }
+      parameters { cel_type { primitive: INT64 } value { int64_value: 7 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "code" } value { map_value { entries { key { string_value: "$in" } value { list_value { values { int64_value: 7 } values { int64_value: 7 } } } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "empty_list_membership_rejected"
+  description: "ISO/IEC 9075 has no empty parenthesized list, so the profile refuses rather than inventing a substitute condition."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "status in []"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 3 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 3 }
+  }
+}
+
+cases {
+  name: "membership_over_a_column_rejected"
+  description: "Core ISO/IEC 9075 has no array-valued column, so a membership test against one has nothing to search."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "\"a\" in tags"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD expression_node_id: 2 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "CASE WHEN \"tags\" IS NULL THEN NULL ELSE array_position(\"tags\", $1) IS NOT NULL END"
+      parameters { cel_type { primitive: STRING } value { string_value: "a" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "JSON_CONTAINS(`tags`, JSON_ARRAY(?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "a" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "EXISTS (SELECT 1 FROM json_each(\"tags\") AS \"__celql_element\" WHERE \"__celql_element\".value IS ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "a" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "tags" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "a" } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "exists_over_constant_list_emits_membership"
+  description: "A lowered exists whose predicate compares the iteration variable to a column states that the column equals one of the listed values, which SQL expresses as a membership test."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "[\"active\", \"pending\"].exists(x, x == status)"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN (?, ?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "pending" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN ($1, $2))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "pending" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(`status` IS NOT NULL AND `status` IN (?, ?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "pending" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(\"status\" IS NOT NULL AND \"status\" IN (?, ?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "active" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "pending" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 16 }
+  }
+}
+
+cases {
+  name: "exists_over_column_rejected"
+  description: "Iterating a stored array is outside core SQL. A target with array columns needs an extending profile."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "tags.exists(x, x == \"a\")"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 14 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "CASE WHEN \"tags\" IS NULL THEN NULL ELSE array_position(\"tags\", $1) IS NOT NULL END"
+      parameters { cel_type { primitive: STRING } value { string_value: "a" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "JSON_CONTAINS(`tags`, JSON_ARRAY(?))"
+      parameters { cel_type { primitive: STRING } value { string_value: "a" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "EXISTS (SELECT 1 FROM json_each(\"tags\") AS \"__celql_element\" WHERE \"__celql_element\".value IS ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "a" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "tags" } value { map_value { entries { key { string_value: "$eq" } value { string_value: "a" } } } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "exists_with_non_equality_predicate_rejected"
+  description: "Only an equality predicate corresponds to a membership test. An ordering predicate would need a disjunction the profile does not declare."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "[1].exists(x, x < age)"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+}
+
+cases {
+  name: "exists_over_empty_list_rejected"
+  description: "An empty range would emit an empty parenthesized list, which ISO/IEC 9075 does not permit."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "[].exists(x, x == status)"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 14 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 14 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 14 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 14 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 14 }
+  }
+}
+
+cases {
+  name: "all_macro_rejected"
+  description: "A lowered all macro is a different fold. Translating it as exists would invert the meaning, so the profile refuses it."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "[\"a\", \"b\"].all(x, x == status)"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 15 }
+  }
+}
+
+cases {
+  name: "near_miss_fold_operator_rejected"
+  description: "A structure that matches the exists shape except for its fold operator is refused rather than guessed. No parser emits this; it is built directly to prove the profile validates the whole structure."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 comprehension_expr {
+      iter_var: "x"
+      iter_range { id: 2 list_expr { elements { id: 3 const_expr { string_value: "a" } } } }
+      accu_var: "__result__"
+      accu_init { id: 4 const_expr { bool_value: false } }
+      loop_condition { id: 5 call_expr { function: "@not_strictly_false" args { id: 6 call_expr { function: "!_" args { id: 7 ident_expr { name: "__result__" } } } } } }
+      loop_step { id: 8 call_expr { function: "_&&_" args { id: 9 ident_expr { name: "__result__" } } args { id: 10 call_expr { function: "_==_" args { id: 11 ident_expr { name: "x" } } args { id: 12 ident_expr { name: "status" } } } } } }
+      result { id: 13 ident_expr { name: "__result__" } }
+    } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { list_type { elem_type { primitive: STRING } } } }
+    type_map { key: 3 value { primitive: STRING } }
+    type_map { key: 4 value { primitive: BOOL } }
+    type_map { key: 5 value { primitive: BOOL } }
+    type_map { key: 6 value { primitive: BOOL } }
+    type_map { key: 7 value { primitive: BOOL } }
+    type_map { key: 8 value { primitive: BOOL } }
+    type_map { key: 9 value { primitive: BOOL } }
+    type_map { key: 10 value { primitive: BOOL } }
+    type_map { key: 11 value { primitive: STRING } }
+    type_map { key: 12 value { primitive: STRING } }
+    type_map { key: 13 value { primitive: BOOL } }
+    reference_map { key: 5 value { name: "@not_strictly_false" overload_id: "not_strictly_false" } }
+    reference_map { key: 6 value { name: "!_" overload_id: "logical_not" } }
+    reference_map { key: 7 value { name: "__result__" } }
+    reference_map { key: 8 value { name: "_&&_" overload_id: "logical_and" } }
+    reference_map { key: 9 value { name: "__result__" } }
+    reference_map { key: 10 value { name: "_==_" overload_id: "equals" } }
+    reference_map { key: 11 value { name: "x" } }
+    reference_map { key: 12 value { name: "status" } }
+    reference_map { key: 13 value { name: "__result__" } }
+  }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+}
+
+cases {
+  name: "near_miss_accumulator_initializer_rejected"
+  description: "A structure that matches the exists shape except for its accumulator initializer is refused. Built directly, because no macro produces this combination."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 comprehension_expr {
+      iter_var: "x"
+      iter_range { id: 2 list_expr { elements { id: 3 const_expr { string_value: "a" } } } }
+      accu_var: "__result__"
+      accu_init { id: 4 const_expr { bool_value: true } }
+      loop_condition { id: 5 call_expr { function: "@not_strictly_false" args { id: 6 call_expr { function: "!_" args { id: 7 ident_expr { name: "__result__" } } } } } }
+      loop_step { id: 8 call_expr { function: "_||_" args { id: 9 ident_expr { name: "__result__" } } args { id: 10 call_expr { function: "_==_" args { id: 11 ident_expr { name: "x" } } args { id: 12 ident_expr { name: "status" } } } } } }
+      result { id: 13 ident_expr { name: "__result__" } }
+    } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { list_type { elem_type { primitive: STRING } } } }
+    type_map { key: 3 value { primitive: STRING } }
+    type_map { key: 4 value { primitive: BOOL } }
+    type_map { key: 5 value { primitive: BOOL } }
+    type_map { key: 6 value { primitive: BOOL } }
+    type_map { key: 7 value { primitive: BOOL } }
+    type_map { key: 8 value { primitive: BOOL } }
+    type_map { key: 9 value { primitive: BOOL } }
+    type_map { key: 10 value { primitive: BOOL } }
+    type_map { key: 11 value { primitive: STRING } }
+    type_map { key: 12 value { primitive: STRING } }
+    type_map { key: 13 value { primitive: BOOL } }
+    reference_map { key: 5 value { name: "@not_strictly_false" overload_id: "not_strictly_false" } }
+    reference_map { key: 6 value { name: "!_" overload_id: "logical_not" } }
+    reference_map { key: 7 value { name: "__result__" } }
+    reference_map { key: 8 value { name: "_||_" overload_id: "logical_or" } }
+    reference_map { key: 9 value { name: "__result__" } }
+    reference_map { key: 10 value { name: "_==_" overload_id: "equals" } }
+    reference_map { key: 11 value { name: "x" } }
+    reference_map { key: 12 value { name: "status" } }
+    reference_map { key: 13 value { name: "__result__" } }
+  }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+}
+
+cases {
+  name: "iteration_variable_shadowing_accumulator_rejected"
+  description: "An iteration variable named like the accumulator makes every reference in the loop ambiguous, so the form is refused rather than resolved by precedence. A checker would reject this name, so the structure is built directly."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  checked_expression {
+    expr { id: 1 comprehension_expr {
+      iter_var: "__result__"
+      iter_range { id: 2 list_expr { elements { id: 3 const_expr { string_value: "a" } } } }
+      accu_var: "__result__"
+      accu_init { id: 4 const_expr { bool_value: false } }
+      loop_condition { id: 5 call_expr { function: "@not_strictly_false" args { id: 6 call_expr { function: "!_" args { id: 7 ident_expr { name: "__result__" } } } } } }
+      loop_step { id: 8 call_expr { function: "_||_" args { id: 9 ident_expr { name: "__result__" } } args { id: 10 call_expr { function: "_==_" args { id: 11 ident_expr { name: "__result__" } } args { id: 12 ident_expr { name: "status" } } } } } }
+      result { id: 13 ident_expr { name: "__result__" } }
+    } }
+    type_map { key: 1 value { primitive: BOOL } }
+    type_map { key: 2 value { list_type { elem_type { primitive: STRING } } } }
+    type_map { key: 3 value { primitive: STRING } }
+    type_map { key: 4 value { primitive: BOOL } }
+    type_map { key: 5 value { primitive: BOOL } }
+    type_map { key: 6 value { primitive: BOOL } }
+    type_map { key: 7 value { primitive: BOOL } }
+    type_map { key: 8 value { primitive: BOOL } }
+    type_map { key: 9 value { primitive: BOOL } }
+    type_map { key: 10 value { primitive: BOOL } }
+    type_map { key: 11 value { primitive: STRING } }
+    type_map { key: 12 value { primitive: STRING } }
+    type_map { key: 13 value { primitive: BOOL } }
+    reference_map { key: 5 value { name: "@not_strictly_false" overload_id: "not_strictly_false" } }
+    reference_map { key: 6 value { name: "!_" overload_id: "logical_not" } }
+    reference_map { key: 7 value { name: "__result__" } }
+    reference_map { key: 8 value { name: "_||_" overload_id: "logical_or" } }
+    reference_map { key: 9 value { name: "__result__" } }
+    reference_map { key: 10 value { name: "_==_" overload_id: "equals" } }
+    reference_map { key: 11 value { name: "__result__" } }
+    reference_map { key: 12 value { name: "status" } }
+    reference_map { key: 13 value { name: "__result__" } }
+  }
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION expression_node_id: 1 }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "path": "compile_errors/aggregate_heterogeneous_outputs",
+  "files": {
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: aggregate_heterogeneous_outputs\nrule:\n  aggregate:\n    - condition: \"true\"\n      output: \"'PII'\"\n    - condition: \"true\"\n      output: \"403\"\n    - condition: \"true\"\n      output: \"{'reason': 'blocked'}\"\n",
+      "value": {
+        "name": "aggregate_heterogeneous_outputs",
+        "rule": {
+          "aggregate": [
+            {
+              "condition": "true",
+              "output": "'PII'"
+            },
+            {
+              "condition": "true",
+              "output": "403"
+            },
+            {
+              "condition": "true",
+              "output": "{'reason': 'blocked'}"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"aggregate_heterogeneous_outputs\"\ndescription: \"Tests for heterogeneous outputs in aggregate policy\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"incompatible_types\"\n    output:\n      error_set:\n      - \"incompatible output types: block has output type map(string, string), but previous outputs have type int\"\n",
+      "value": {
+        "description": "Tests for heterogeneous outputs in aggregate policy",
+        "name": "aggregate_heterogeneous_outputs",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "incompatible_types",
+                "output": {
+                  "error_set": [
+                    "incompatible output types: block has output type map(string, string), but previous outputs have type int"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

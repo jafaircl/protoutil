@@ -1,5 +1,4 @@
 import { create } from "@bufbuild/protobuf";
-import { Temporal } from "temporal-polyfill";
 import { InvalidValueError } from "../../errors.js";
 import { DateSchema, type Date as GoogleTypeDate } from "../../gen/google/type/date_pb.js";
 import { assertValidInt32 } from "../../int32.js";
@@ -126,25 +125,4 @@ export function dateToString(value: GoogleTypeDate) {
     return `${padNumber(value.year, 4)}-${padNumber(value.month)}`;
   }
   return `${padNumber(value.year, 4)}-${padNumber(value.month)}-${padNumber(value.day)}`;
-}
-
-/**
- * Converts a `Temporal.PlainDate` input into a `google.type.Date`.
- */
-export function dateFromPlainDate(value: Temporal.PlainDate | Temporal.PlainDateLike | string) {
-  const plainDate = Temporal.PlainDate.from(value);
-  return date(plainDate.year, plainDate.month, plainDate.day);
-}
-
-/**
- * Converts a full `google.type.Date` into `Temporal.PlainDate`.
- *
- * Partial dates cannot be converted and will throw.
- */
-export function datePlainDate(value: GoogleTypeDate) {
-  assertValidDate(value);
-  if (value.year === 0 || value.month === 0 || value.day === 0) {
-    throw new InvalidValueError("partial dates cannot be converted to Temporal.PlainDate", value);
-  }
-  return new Temporal.PlainDate(value.year, value.month, value.day);
 }

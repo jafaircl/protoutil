@@ -1,0 +1,110 @@
+{
+  "name": "@protoutil/cel",
+  "type": "module",
+  "version": "0.3.2",
+  "description": "TypeScript utilities and generated protobuf types for CEL expressions.",
+  "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
+  "license": "MIT",
+  "homepage": "https://github.com/jafaircl/protoutil/tree/main/packages/cel#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jafaircl/protoutil.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jafaircl/protoutil/issues"
+  },
+  "exports": {
+    ".": {
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.mjs"
+    },
+    "./parser": {
+      "require": "./dist/parser/index.cjs",
+      "import": "./dist/parser/index.mjs"
+    },
+    "./checker": {
+      "require": "./dist/checker/index.cjs",
+      "import": "./dist/checker/index.mjs"
+    },
+    "./interpreter": {
+      "require": "./dist/interpreter/index.cjs",
+      "import": "./dist/interpreter/index.mjs"
+    },
+    "./composition": {
+      "require": "./dist/composition/index.cjs",
+      "import": "./dist/composition/index.mjs"
+    },
+    "./ext": {
+      "require": "./dist/ext/index.cjs",
+      "import": "./dist/ext/index.mjs"
+    },
+    "./policy": {
+      "require": "./dist/policy/index.cjs",
+      "import": "./dist/policy/index.mjs"
+    },
+    "./runtime": {
+      "require": "./dist/runtime.cjs",
+      "import": "./dist/runtime.mjs"
+    },
+    "./expr/checked": {
+      "require": "./dist/gen/cel/expr/checked_pb.cjs",
+      "import": "./dist/gen/cel/expr/checked_pb.mjs"
+    },
+    "./expr/eval": {
+      "require": "./dist/gen/cel/expr/eval_pb.cjs",
+      "import": "./dist/gen/cel/expr/eval_pb.mjs"
+    },
+    "./expr/syntax": {
+      "require": "./dist/gen/cel/expr/syntax_pb.cjs",
+      "import": "./dist/gen/cel/expr/syntax_pb.mjs"
+    },
+    "./expr/value": {
+      "require": "./dist/gen/cel/expr/value_pb.cjs",
+      "import": "./dist/gen/cel/expr/value_pb.mjs"
+    },
+    "./gen/*.js": {
+      "require": "./dist/gen/*.cjs",
+      "import": "./dist/gen/*.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "pretest": "pnpm --filter @protoutil/testing build",
+    "test": "vitest run --exclude src/benchmark.spec.ts",
+    "benchmark": "pnpm run build && vitest run src/benchmark.spec.ts",
+    "pretypecheck": "pnpm --filter @protoutil/testing build",
+    "typecheck": "tsc --noEmit",
+    "typecheck:spec": "tsc -p tsconfig.spec.json --noEmit",
+    "sync:conformance-testdata": "tsx ./scripts/cel-conformance-sync/main.ts --out ./testdata/conformance --workdir ./.tmp/cel-spec-upstream",
+    "sync:policy-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-policy-sync -out ./testdata/policy -workdir ./.tmp/cel-policy-upstream",
+    "sync:cel-go-file-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-env-testdata-sync -workdir ./.tmp/cel-go-upstream",
+    "sync:cel-go-tests": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-test-sync -out ./testdata/cel-go/cel-go-test-cases.json -report ./testdata/cel-go/cel-go-test-cases.report.json -workdir ./.tmp/cel-go-upstream",
+    "sync:testdata": "pnpm run sync:conformance-testdata && pnpm run sync:policy-testdata && pnpm run sync:cel-go-file-testdata && pnpm run sync:cel-go-tests && pnpm run sync:format",
+    "sync:coverage-ledger": "node scripts/cel-coverage-ledger.mjs",
+    "sync:format": "pnpm exec biome format --write ./testdata",
+    "prepublishOnly": "pnpm run build",
+    "protogen": "buf generate"
+  },
+  "devDependencies": {
+    "@protoutil/testing": "workspace:*",
+    "@types/node": "^25.0.3",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@bufbuild/re2": "^0.6.1",
+    "@protoutil/core": "workspace:*",
+    "@bufbuild/protobuf": "^2.15.0",
+    "js-yaml": "^4.1.1"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs"
+}

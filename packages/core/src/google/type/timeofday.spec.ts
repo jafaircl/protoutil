@@ -1,14 +1,11 @@
 import { create } from "@bufbuild/protobuf";
-import { Temporal } from "temporal-polyfill";
 import { describe, expect, it } from "vitest";
 import { TimeOfDaySchema } from "../../gen/google/type/timeofday_pb.js";
 import {
   assertValidTimeOfDay,
   isValidTimeOfDay,
   timeOfDay,
-  timeOfDayFromPlainTime,
   timeOfDayFromString,
-  timeOfDayPlainTime,
   timeOfDayToString,
 } from "./timeofday.js";
 
@@ -81,27 +78,6 @@ describe("google/type timeofday helpers", () => {
 
     for (const tc of cases) {
       expect(timeOfDayFromString(timeOfDayToString(tc))).toEqual(tc);
-    }
-  });
-
-  it("converts to and from Temporal.PlainTime", () => {
-    const cases = [
-      {
-        input: new Temporal.PlainTime(8, 48, 1, 123, 456, 789),
-        expectedValue: {
-          hours: 8,
-          minutes: 48,
-          seconds: 1,
-          nanos: 123_456_789,
-        },
-        expectedString: "08:48:01.123456789",
-      },
-    ];
-
-    for (const tc of cases) {
-      const value = timeOfDayFromPlainTime(tc.input);
-      expect(value).toMatchObject(tc.expectedValue);
-      expect(timeOfDayPlainTime(value).toString()).toBe(tc.expectedString);
     }
   });
 

@@ -1,14 +1,8 @@
 import { create } from "@bufbuild/protobuf";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { Temporal } from "temporal-polyfill";
 import { InvalidValueError } from "../../errors.js";
 import { type Interval, IntervalSchema } from "../../gen/google/type/interval_pb.js";
-import {
-  assertValidTimestamp,
-  timestampFromInstant,
-  timestampInstant,
-  timestampNanos,
-} from "../../wkt/timestamp.js";
+import { assertValidTimestamp, timestampNanos } from "../../wkt/timestamp.js";
 
 /**
  * Creates a validated `google.type.Interval` value.
@@ -54,31 +48,4 @@ export function isValidInterval(value: Interval): value is Interval {
   } catch {
     return false;
   }
-}
-
-/**
- * Converts `Temporal.Instant` inputs into a validated `google.type.Interval`.
- */
-export function intervalFromInstants(
-  startTime?: Temporal.Instant | string,
-  endTime?: Temporal.Instant | string,
-) {
-  return interval(
-    startTime === undefined ? undefined : timestampFromInstant(Temporal.Instant.from(startTime)),
-    endTime === undefined ? undefined : timestampFromInstant(Temporal.Instant.from(endTime)),
-  );
-}
-
-/**
- * Converts a `google.type.Interval` into `Temporal.Instant` bounds.
- *
- * `start` is inclusive and `end` is exclusive. Unspecified bounds remain
- * `undefined`.
- */
-export function intervalInstants(value: Interval) {
-  assertValidInterval(value);
-  return {
-    start: value.startTime === undefined ? undefined : timestampInstant(value.startTime),
-    end: value.endTime === undefined ? undefined : timestampInstant(value.endTime),
-  };
 }

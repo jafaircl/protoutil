@@ -1,0 +1,202 @@
+{
+  "path": "required_labels",
+  "files": {
+    "config.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"labels\"\nextensions:\n  - name: \"strings\"\n    version: 2\n  - name: \"two-var-comprehensions\"\nvariables:\n  - name: \"spec\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\n  - name: \"resource\"\n    type_name: \"map\"\n    params:\n      - type_name: \"string\"\n      - type_name: \"dyn\"\nstdlib:\n  include_macros:\n    - \"filter\"\n",
+      "value": {
+        "extensions": [
+          {
+            "name": "strings",
+            "version": 2
+          },
+          {
+            "name": "two-var-comprehensions"
+          }
+        ],
+        "name": "labels",
+        "stdlib": {
+          "include_macros": ["filter"]
+        },
+        "variables": [
+          {
+            "name": "spec",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          },
+          {
+            "name": "resource",
+            "params": [
+              {
+                "type_name": "string"
+              },
+              {
+                "type_name": "dyn"
+              }
+            ],
+            "type_name": "map"
+          }
+        ]
+      }
+    },
+    "policy.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"required_labels\"\nrule:\n  variables:\n    - name: want\n      expression: spec.labels\n    - name: missing\n      expression: variables.want.filter(l, !(l in resource.labels))\n    - name: invalid\n      expression: \u003e\n        resource.labels.transformList(l, value,\n          l in variables.want \u0026\u0026 value != variables.want[l], l)\n  match:\n    - condition: variables.missing.size() \u003e 0\n      output: |\n        'missing one or more required labels: [\"' + variables.missing.join('\", \"') + '\"]'\n    - condition: variables.invalid.size() \u003e 0\n      output: |\n        'invalid values provided on one or more labels: [\"' + variables.invalid.join('\", \"') + '\"]'\n",
+      "value": {
+        "name": "required_labels",
+        "rule": {
+          "match": [
+            {
+              "condition": "variables.missing.size() \u003e 0",
+              "output": "'missing one or more required labels: [\"' + variables.missing.join('\", \"') + '\"]'\n"
+            },
+            {
+              "condition": "variables.invalid.size() \u003e 0",
+              "output": "'invalid values provided on one or more labels: [\"' + variables.invalid.join('\", \"') + '\"]'\n"
+            }
+          ],
+          "variables": [
+            {
+              "expression": "spec.labels",
+              "name": "want"
+            },
+            {
+              "expression": "variables.want.filter(l, !(l in resource.labels))",
+              "name": "missing"
+            },
+            {
+              "expression": "resource.labels.transformList(l, value,\n  l in variables.want \u0026\u0026 value != variables.want[l], l)\n",
+              "name": "invalid"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2024 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\ndescription: \"Required labels conformance tests\"\nsection:\n  - name: \"valid\"\n    tests:\n      - name: \"matching\"\n        input:\n          spec:\n            value:\n              labels:\n                env: prod\n                experiment: \"group b\"\n          resource:\n            value:\n              labels:\n                env: prod\n                experiment: \"group b\"\n                release: \"v0.1.0\"\n        output:\n          expr: \"optional.none()\"\n  - name: \"missing\"\n    tests:\n      - name: \"env\"\n        input:\n          spec:\n            value:\n              labels:\n                env: prod\n                experiment: \"group b\"\n          resource:\n            value:\n              labels:\n                experiment: \"group b\"\n                release: \"v0.1.0\"\n        output:\n          value: \"missing one or more required labels: [\\\"env\\\"]\"\n      - name: \"experiment\"\n        input:\n          spec:\n            value:\n              labels:\n                env: prod\n                experiment: \"group b\"\n          resource:\n            value:\n              labels:\n                env: staging\n                release: \"v0.1.0\"\n        output:\n          value: \"missing one or more required labels: [\\\"experiment\\\"]\"\n  - name: \"invalid\"\n    tests:\n      - name: \"env\"\n        input:\n          spec:\n            value:\n              labels:\n                env: prod\n                experiment: \"group b\"\n          resource:\n            value:\n              labels:\n                env: staging\n                experiment: \"group b\"\n                release: \"v0.1.0\"\n        output:\n          value: \"invalid values provided on one or more labels: [\\\"env\\\"]\"\n",
+      "value": {
+        "description": "Required labels conformance tests",
+        "section": [
+          {
+            "name": "valid",
+            "tests": [
+              {
+                "input": {
+                  "resource": {
+                    "value": {
+                      "labels": {
+                        "env": "prod",
+                        "experiment": "group b",
+                        "release": "v0.1.0"
+                      }
+                    }
+                  },
+                  "spec": {
+                    "value": {
+                      "labels": {
+                        "env": "prod",
+                        "experiment": "group b"
+                      }
+                    }
+                  }
+                },
+                "name": "matching",
+                "output": {
+                  "expr": "optional.none()"
+                }
+              }
+            ]
+          },
+          {
+            "name": "missing",
+            "tests": [
+              {
+                "input": {
+                  "resource": {
+                    "value": {
+                      "labels": {
+                        "experiment": "group b",
+                        "release": "v0.1.0"
+                      }
+                    }
+                  },
+                  "spec": {
+                    "value": {
+                      "labels": {
+                        "env": "prod",
+                        "experiment": "group b"
+                      }
+                    }
+                  }
+                },
+                "name": "env",
+                "output": {
+                  "value": "missing one or more required labels: [\"env\"]"
+                }
+              },
+              {
+                "input": {
+                  "resource": {
+                    "value": {
+                      "labels": {
+                        "env": "staging",
+                        "release": "v0.1.0"
+                      }
+                    }
+                  },
+                  "spec": {
+                    "value": {
+                      "labels": {
+                        "env": "prod",
+                        "experiment": "group b"
+                      }
+                    }
+                  }
+                },
+                "name": "experiment",
+                "output": {
+                  "value": "missing one or more required labels: [\"experiment\"]"
+                }
+              }
+            ]
+          },
+          {
+            "name": "invalid",
+            "tests": [
+              {
+                "input": {
+                  "resource": {
+                    "value": {
+                      "labels": {
+                        "env": "staging",
+                        "experiment": "group b",
+                        "release": "v0.1.0"
+                      }
+                    }
+                  },
+                  "spec": {
+                    "value": {
+                      "labels": {
+                        "env": "prod",
+                        "experiment": "group b"
+                      }
+                    }
+                  }
+                },
+                "name": "env",
+                "output": {
+                  "value": "invalid values provided on one or more labels: [\"env\"]"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

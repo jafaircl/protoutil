@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "NODE_OPTIONS=--max-old-space-size=8192 astro dev",
     "build": "astro build",
     "preview": "astro preview"
   },

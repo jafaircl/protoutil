@@ -1,0 +1,33 @@
+// Output and configuration schemas for the PostgreSQL dialect profile.
+
+syntax = "proto3";
+
+package protoutil.celql.postgresql.v1;
+
+import "cel/expr/checked.proto";
+import "cel/expr/value.proto";
+
+// Configuration for composing generated placeholders with an outer query.
+message PostgreSqlConfiguration {
+  // Number of the first generated placeholder. Zero is invalid. When the
+  // configuration is absent, numbering starts at one.
+  uint64 start_position = 1;
+}
+
+// One value bound to a numbered PostgreSQL placeholder.
+message PostgreSqlParameter {
+  // The CEL type of the value.
+  cel.expr.Type cel_type = 1;
+
+  // The value to bind. It never appears in `PostgreSqlPredicate.sql`.
+  cel.expr.Value value = 2;
+}
+
+// One PostgreSQL Boolean expression and its parameters.
+message PostgreSqlPredicate {
+  // A complete Boolean expression containing `$n` placeholders.
+  string sql = 1;
+
+  // Values in increasing placeholder order.
+  repeated PostgreSqlParameter parameters = 2;
+}

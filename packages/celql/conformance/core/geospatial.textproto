@@ -1,0 +1,368 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+
+name: "celql-core-geospatial"
+specification_version: "0.12"
+level: CONFORMANCE_LEVEL_CORE
+
+environment {
+  declarations {
+    name: "location"
+    ident { type { abstract_type { name: "protoutil.celql.GeoPoint" } } }
+  }
+  declarations {
+    name: "geoPoint"
+    function {
+      overloads {
+        overload_id: "geo_point"
+        params { primitive: DOUBLE }
+        params { primitive: DOUBLE }
+        result_type { abstract_type { name: "protoutil.celql.GeoPoint" } }
+      }
+    }
+  }
+  declarations {
+    name: "geoPolygon"
+    function {
+      overloads {
+        overload_id: "geo_polygon"
+        params { list_type { elem_type { abstract_type { name: "protoutil.celql.GeoPoint" } } } }
+        result_type { abstract_type { name: "protoutil.celql.GeoPolygon" } }
+      }
+    }
+  }
+  declarations {
+    name: "geoWithin"
+    function {
+      overloads {
+        overload_id: "geo_point_within_polygon"
+        params { abstract_type { name: "protoutil.celql.GeoPoint" } }
+        params { abstract_type { name: "protoutil.celql.GeoPolygon" } }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+  declarations {
+    name: "geoIntersects"
+    function {
+      overloads {
+        overload_id: "geo_point_intersects_polygon"
+        params { abstract_type { name: "protoutil.celql.GeoPoint" } }
+        params { abstract_type { name: "protoutil.celql.GeoPolygon" } }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+  declarations {
+    name: "geoWithinDistance"
+    function {
+      overloads {
+        overload_id: "geo_point_within_distance"
+        params { abstract_type { name: "protoutil.celql.GeoPoint" } }
+        params { abstract_type { name: "protoutil.celql.GeoPoint" } }
+        params { primitive: DOUBLE }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+}
+
+cases {
+  name: "geo_within_polygon_is_closed_containment"
+  description: "Each spatial target selects a stored position inside a constant ring or on it."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(20.0, 0.0), geoPoint(20.0, 30.0), geoPoint(0.0, 30.0), geoPoint(0.0, 0.0)]))"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.mysql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.mongodb" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "ST_Intersects(`location`, ST_GeomFromText(?, 4326, 'axis-order=long-lat'))"
+      parameters { cel_type { primitive: STRING } value { string_value: "POLYGON((0 0, 20 0, 20 30, 0 30, 0 0))" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "location" } value { map_value {
+        entries { key { string_value: "$geoWithin" } value { map_value {
+          entries { key { string_value: "$geometry" } value { map_value {
+            entries { key { string_value: "type" } value { string_value: "Polygon" } }
+            entries { key { string_value: "coordinates" } value { list_value { values { list_value {
+              values { list_value { values { double_value: 0 } values { double_value: 0 } } }
+              values { list_value { values { double_value: 20 } values { double_value: 0 } } }
+              values { list_value { values { double_value: 20 } values { double_value: 30 } } }
+              values { list_value { values { double_value: 0 } values { double_value: 30 } } }
+              values { list_value { values { double_value: 0 } values { double_value: 0 } } }
+            } } } } }
+          } } }
+        } } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "geo_intersects_polygon_shares_a_position"
+  description: "Each spatial target selects a stored position that shares a position with a ring."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoIntersects(geoPolygon([geoPoint(0.0, 0.0), geoPoint(20.0, 0.0), geoPoint(20.0, 30.0), geoPoint(0.0, 30.0), geoPoint(0.0, 0.0)]))"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "ST_Intersects(`location`, ST_GeomFromText(?, 4326, 'axis-order=long-lat'))"
+      parameters { cel_type { primitive: STRING } value { string_value: "POLYGON((0 0, 20 0, 20 30, 0 30, 0 0))" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "location" } value { map_value {
+        entries { key { string_value: "$geoIntersects" } value { map_value {
+          entries { key { string_value: "$geometry" } value { map_value {
+            entries { key { string_value: "type" } value { string_value: "Polygon" } }
+            entries { key { string_value: "coordinates" } value { list_value { values { list_value {
+              values { list_value { values { double_value: 0 } values { double_value: 0 } } }
+              values { list_value { values { double_value: 20 } values { double_value: 0 } } }
+              values { list_value { values { double_value: 20 } values { double_value: 30 } } }
+              values { list_value { values { double_value: 0 } values { double_value: 30 } } }
+              values { list_value { values { double_value: 0 } values { double_value: 0 } } }
+            } } } } }
+          } } }
+        } } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "geo_within_distance_bounds_a_great_circle_distance"
+  description: "Each spatial target selects a stored position within a metre bound of a constant position."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithinDistance(geoPoint(0.0, 0.0), 637810.0)"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "(MBRIntersects(`location`, ST_GeomFromText(?, 4326, 'axis-order=long-lat')) AND ST_Distance_Sphere(`location`, ST_GeomFromText(?, 4326, 'axis-order=long-lat'), 6378100) <= ?)"
+      parameters { cel_type { primitive: STRING } value { string_value: "POLYGON((-5.729579951308232 -5.729578951308232, 5.729579951308232 -5.729578951308232, 5.729579951308232 5.729578951308232, -5.729579951308232 5.729578951308232, -5.729579951308232 -5.729578951308232))" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "POINT(0 0)" } }
+      parameters { cel_type { primitive: DOUBLE } value { double_value: 637810 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "location" } value { map_value {
+        entries { key { string_value: "$geoWithin" } value { map_value {
+          entries { key { string_value: "$centerSphere" } value { list_value {
+            values { list_value { values { double_value: 0 } values { double_value: 0 } } }
+            values { double_value: 0.1 }
+          } } }
+        } } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "geo_within_distance_spans_the_antimeridian"
+  description: "A distance bound that crosses the antimeridian selects positions on both sides of it."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithinDistance(geoPoint(179.95, 0.0), 200000.0)"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "ST_Distance_Sphere(`location`, ST_GeomFromText(?, 4326, 'axis-order=long-lat'), 6378100) <= ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "POINT(179.95 0)" } }
+      parameters { cel_type { primitive: DOUBLE } value { double_value: 200000 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "location" } value { map_value {
+        entries { key { string_value: "$geoWithin" } value { map_value {
+          entries { key { string_value: "$centerSphere" } value { list_value {
+            values { list_value { values { double_value: 179.95 } values { double_value: 0 } } }
+            values { double_value: 0.031357300763550276 }
+          } } }
+        } } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "geo_within_distance_reaches_a_pole"
+  description: "A distance bound that reaches a pole selects positions at every longitude inside it."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithinDistance(geoPoint(0.0, 89.95), 200000.0)"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "ST_Distance_Sphere(`location`, ST_GeomFromText(?, 4326, 'axis-order=long-lat'), 6378100) <= ?"
+      parameters { cel_type { primitive: STRING } value { string_value: "POINT(0 89.95)" } }
+      parameters { cel_type { primitive: DOUBLE } value { double_value: 200000 } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "location" } value { map_value {
+        entries { key { string_value: "$geoWithin" } value { map_value {
+          entries { key { string_value: "$centerSphere" } value { list_value {
+            values { list_value { values { double_value: 0 } values { double_value: 89.95 } } }
+            values { double_value: 0.031357300763550276 }
+          } } }
+        } } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "geo_polygon_open_ring_rejected"
+  description: "Every spatial binding rejects a ring that does not end with its first position."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(20.0, 0.0), geoPoint(20.0, 30.0), geoPoint(0.0, 30.0)]))"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "geo_polygon_clockwise_ring_rejected"
+  description: "Every spatial binding rejects a ring that is not counterclockwise."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(0.0, 30.0), geoPoint(20.0, 30.0), geoPoint(20.0, 0.0), geoPoint(0.0, 0.0)]))"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "geo_polygon_non_convex_ring_rejected"
+  description: "Every spatial binding rejects a ring that is not convex."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(20.0, 0.0), geoPoint(10.0, 10.0), geoPoint(20.0, 30.0), geoPoint(0.0, 30.0), geoPoint(0.0, 0.0)]))"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "geo_point_latitude_out_of_range_rejected"
+  description: "Every spatial binding rejects a position outside the WGS 84 coordinate ranges."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithinDistance(geoPoint(0.0, 91.0), 1000.0)"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "geo_within_distance_negative_bound_rejected"
+  description: "Every spatial binding rejects a distance bound below zero metres."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithinDistance(geoPoint(0.0, 0.0), -1.0)"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "geo_point_constructor_alone_rejected"
+  description: "Every spatial binding rejects a constructor that no spatial operation consumes."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "location.geoWithin(geoPolygon([geoPoint(0.0, 0.0), geoPoint(20.0, 0.0), geoPoint(20.0, 30.0), geoPoint(0.0, 30.0), geoPoint(0.0, 0.0)])) && geoPoint(0.0, 0.0) == geoPoint(0.0, 0.0)"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.postgresql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected { profile { name: "protoutil.celql.sqlite" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.geospatial" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}

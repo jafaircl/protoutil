@@ -5,12 +5,8 @@ import { duration } from "../../wkt/duration.js";
 import {
   assertValidDateTime,
   dateTime,
-  dateTimeFromPlainDateTime,
   dateTimeFromString,
-  dateTimeFromZonedDateTime,
-  dateTimePlainDateTime,
   dateTimeToString,
-  dateTimeZonedDateTime,
   isValidDateTime,
 } from "./datetime.js";
 
@@ -292,31 +288,7 @@ describe("google/type datetime helpers", () => {
     }
   });
 
-  it("converts to and from Temporal values where supported", () => {
-    const cases = [
-      {
-        value: dateTimeFromPlainDateTime("2024-03-02T08:48:00.123456789"),
-        convert: dateTimePlainDateTime,
-        expected: "2024-03-02T08:48:00.123456789",
-      },
-      {
-        value: dateTimeFromZonedDateTime("2024-03-02T08:48:00-05:00[America/New_York]"),
-        convert: dateTimeZonedDateTime,
-        expectedSubstring: "[America/New_York]",
-      },
-    ];
-
-    for (const tc of cases) {
-      const result = tc.convert(tc.value).toString();
-      if ("expected" in tc) {
-        expect(result).toBe(tc.expected);
-      } else {
-        expect(result).toContain(tc.expectedSubstring);
-      }
-    }
-  });
-
-  it("uses Temporal compatible disambiguation for named time zones", () => {
+  it("uses compatible disambiguation for named time zones", () => {
     const cases = [
       {
         value: dateTime({

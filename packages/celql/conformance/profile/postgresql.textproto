@@ -1,0 +1,299 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+
+name: "celql-profile-postgresql"
+specification_version: "0.12"
+level: CONFORMANCE_LEVEL_PROFILE
+
+environment {
+  declarations { name: "name" ident { type { primitive: STRING } } }
+  declarations { name: "age" ident { type { primitive: INT64 } } }
+  declarations { name: "active" ident { type { primitive: BOOL } } }
+  declarations { name: "tags" ident { type { list_type { elem_type { primitive: STRING } } } } }
+  declarations {
+    name: "activeWindow"
+    ident { type { abstract_type { name: "protoutil.celql.TimestampRange" } } }
+  }
+  declarations {
+    name: "timestampRange"
+    function {
+      overloads {
+        overload_id: "timestamp_range"
+        params { well_known: TIMESTAMP }
+        params { well_known: TIMESTAMP }
+        result_type { abstract_type { name: "protoutil.celql.TimestampRange" } }
+      }
+    }
+  }
+  declarations {
+    name: "contains"
+    function {
+      overloads {
+        overload_id: "timestamp_range_contains_timestamp"
+        params { abstract_type { name: "protoutil.celql.TimestampRange" } }
+        params { well_known: TIMESTAMP }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+  declarations {
+    name: "overlaps"
+    function {
+      overloads {
+        overload_id: "timestamp_range_overlaps_timestamp_range"
+        params { abstract_type { name: "protoutil.celql.TimestampRange" } }
+        params { abstract_type { name: "protoutil.celql.TimestampRange" } }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+  declarations {
+    name: "startsWithIgnoreCase"
+    function {
+      overloads {
+        overload_id: "starts_with_ignore_case_string"
+        params { primitive: STRING }
+        params { primitive: STRING }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+  declarations {
+    name: "endsWithIgnoreCase"
+    function {
+      overloads {
+        overload_id: "ends_with_ignore_case_string"
+        params { primitive: STRING }
+        params { primitive: STRING }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+  declarations {
+    name: "containsIgnoreCase"
+    function {
+      overloads {
+        overload_id: "contains_ignore_case_string"
+        params { primitive: STRING }
+        params { primitive: STRING }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+}
+
+cases {
+  name: "array_exists_starts_with"
+  description: "A string-array exists predicate uses unnest and an escaped LIKE pattern."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "tags.exists(tag, tag.startsWith(\"adm%\"))"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "CASE WHEN \"tags\" IS NULL THEN NULL ELSE EXISTS (SELECT 1 FROM unnest(\"tags\") AS \"__celql_element\" WHERE \"__celql_element\" LIKE $1 ESCAPE '\\') END"
+      parameters { cel_type { primitive: STRING } value { string_value: "adm\\%%" } }
+    } } }
+  }
+}
+
+cases {
+  name: "timestamp_range_library_contains"
+  description: "The timestamp-range library translates containment in a tstzrange field."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "activeWindow.contains(timestamp(\"2024-01-01T00:00:00Z\"))"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.timestamp_ranges" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"activeWindow\" @> $1::timestamptz"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "timestamp_range_library_overlaps"
+  description: "The timestamp-range library uses a half-open tstzrange constructor for overlap."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "activeWindow.overlaps(timestampRange(timestamp(\"2024-01-01T00:00:00Z\"), timestamp(\"2024-02-01T00:00:00Z\")))"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.timestamp_ranges" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "\"activeWindow\" && tstzrange($1, $2, '[)')"
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1704067200 } } } }
+      parameters { cel_type { well_known: TIMESTAMP } value { object_value { [type.googleapis.com/google.protobuf.Timestamp] { seconds: 1706745600 } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "timestamp_range_library_inverted_bounds_rejected"
+  description: "The timestamp-range library rejects a range whose start is after its end."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "activeWindow.overlaps(timestampRange(timestamp(\"2024-02-01T00:00:00Z\"), timestamp(\"2024-01-01T00:00:00Z\")))"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.timestamp_ranges" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "case_insensitive_library_starts_with"
+  description: "The library translates starts-with calls with ASCII case-insensitive matching."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.startsWithIgnoreCase(\"ALI\")"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "lower(\"name\") LIKE $1 ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "ali%" } }
+    } } }
+  }
+}
+
+cases {
+  name: "case_insensitive_library_ends_with"
+  description: "The library translates ends-with calls with ASCII case-insensitive matching."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.endsWithIgnoreCase(\"Bob\")"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "lower(\"name\") LIKE $1 ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%bob" } }
+    } } }
+  }
+}
+
+cases {
+  name: "case_insensitive_library_selection"
+  description: "The case-insensitive overload requires its selected library, escapes patterns, and composes with base LIKE operations."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.contains(\"ALI\") || name.containsIgnoreCase(\"%_\\\\\")"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"name\" LIKE $1 ESCAPE '\\' OR lower(\"name\") LIKE $2 ESCAPE '\\')"
+      parameters { cel_type { primitive: STRING } value { string_value: "%ALI%" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "%\\%\\_\\\\%" } }
+    } } }
+  }
+}
+
+cases {
+  name: "case_insensitive_library_non_ascii_pattern_rejected"
+  description: "The PostgreSQL binding rejects a pattern outside its ASCII semantic domain."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.containsIgnoreCase(\"é\")"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "regex_lookaround_rejected"
+  description: "A construct outside the shared RE2 and PostgreSQL subset is rejected."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"a(?=b)\")"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "regex_quantifier_above_postgresql_limit_rejected"
+  description: "A quantifier outside PostgreSQL's supported range is rejected before execution."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.matches(\"a{256}\")"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_EXPRESSION }
+  }
+}
+
+cases {
+  name: "extended_and_baseline_forms_compose"
+  description: "PostgreSQL-specific and baseline forms share one parameter sequence."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name == \"alice\" && \"admin\" in tags"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "(\"name\" = $1 AND CASE WHEN \"tags\" IS NULL THEN NULL ELSE array_position(\"tags\", $2) IS NOT NULL END)"
+      parameters { cel_type { primitive: STRING } value { string_value: "alice" } }
+      parameters { cel_type { primitive: STRING } value { string_value: "admin" } }
+    } } }
+  }
+}
+
+cases {
+  name: "boolean_literal_root_rejects_invalid_postgresql_configuration"
+  description: "Profile configuration is validated before a Boolean literal reduces to an unconditional outcome."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "true"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    profile_configuration { [type.googleapis.com/google.protobuf.Empty] {} }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_PROFILE_CONFIGURATION }
+  }
+}
+
+cases {
+  name: "boolean_literal_validation_rejects_invalid_postgresql_configuration"
+  description: "Validation applies the selected profile's configuration rules to a Boolean literal root."
+  operation: CONFORMANCE_OPERATION_VALIDATE
+  cel_source: "true"
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    profile_configuration { [type.googleapis.com/google.protobuf.Empty] {} }
+    error { code: TRANSLATION_ERROR_CODE_INVALID_PROFILE_CONFIGURATION }
+  }
+}

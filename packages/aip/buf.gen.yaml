@@ -1,12 +1,22 @@
 version: v2
 clean: true
+# google/rpc/* is consumed from @protoutil/core via map_imports rather than
+# regenerated here, so both packages share one descriptor registration.
+# The googleapis paths still generated locally have no published home.
+# proto is listed last so per-input plugin output is written from this module.
 inputs:
+  - module: buf.build/googleapis/googleapis
+    paths:
+      - google/api/expr/v1alpha1/checked.proto
+      - google/api/expr/v1alpha1/syntax.proto
+      - google/api/field_behavior.proto
+      - google/api/resource.proto
   - directory: proto
 plugins:
   - local: ../../node_modules/.bin/protoc-gen-es
     out: src/gen
-    include_imports: true
     opt:
       - target=ts
       - import_extension=.js
       - ts_nocheck=false
+      - map_imports=google/rpc/:@protoutil/core/gen

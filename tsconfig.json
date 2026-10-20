@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "./packages/cel" },
     { "path": "./packages/aip" },
     { "path": "./packages/core" },
     { "path": "./examples/fastify-server" },

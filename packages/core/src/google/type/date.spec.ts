@@ -1,16 +1,7 @@
 import { create } from "@bufbuild/protobuf";
-import { Temporal } from "temporal-polyfill";
 import { describe, expect, it } from "vitest";
 import { DateSchema } from "../../gen/google/type/date_pb.js";
-import {
-  assertValidDate,
-  date,
-  dateFromPlainDate,
-  dateFromString,
-  datePlainDate,
-  dateToString,
-  isValidDate,
-} from "./date.js";
+import { assertValidDate, date, dateFromString, dateToString, isValidDate } from "./date.js";
 
 interface InvalidDateCase {
   year: number;
@@ -93,15 +84,6 @@ describe("google/type date helpers", () => {
     for (const tc of cases) {
       expect(dateFromString(dateToString(tc))).toEqual(tc);
     }
-  });
-
-  it("converts to and from Temporal.PlainDate for full dates", () => {
-    const plainDate = new Temporal.PlainDate(2024, 3, 2);
-    expect(dateFromPlainDate(plainDate)).toMatchObject({ year: 2024, month: 3, day: 2 });
-    expect(datePlainDate(date(2024, 3, 2))).toEqual(plainDate);
-    expect(() => datePlainDate(date(2024, 3, 0))).toThrow(
-      "partial dates cannot be converted to Temporal.PlainDate",
-    );
   });
 
   it("validates raw generated messages separately from helper construction", () => {

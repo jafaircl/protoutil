@@ -1,0 +1,164 @@
+# proto-message: protoutil.celql.conformance.v1.ConformanceSuite
+
+name: "celql-core-case-insensitive-strings"
+specification_version: "0.12"
+level: CONFORMANCE_LEVEL_CORE
+
+environment {
+  declarations { name: "name" ident { type { primitive: STRING } } }
+  declarations {
+    name: "startsWithIgnoreCase"
+    function { overloads { overload_id: "starts_with_ignore_case_string" params { primitive: STRING } params { primitive: STRING } result_type { primitive: BOOL } is_instance_function: true } }
+  }
+  declarations {
+    name: "endsWithIgnoreCase"
+    function { overloads { overload_id: "ends_with_ignore_case_string" params { primitive: STRING } params { primitive: STRING } result_type { primitive: BOOL } is_instance_function: true } }
+  }
+  declarations {
+    name: "containsIgnoreCase"
+    function {
+      overloads {
+        overload_id: "contains_ignore_case_string"
+        params { primitive: STRING }
+        params { primitive: STRING }
+        result_type { primitive: BOOL }
+        is_instance_function: true
+      }
+    }
+  }
+}
+
+cases {
+  name: "ascii_starts_with_ignore_case"
+  description: "The selected library folds ASCII prefixes and escapes literal LIKE and regex metacharacters."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.startsWithIgnoreCase(\"AdM%\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "lower(\"name\") LIKE $1 ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "adm\\%%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "LOWER(`name`) LIKE ? ESCAPE '\\\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "adm\\%%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" LIKE ? ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "AdM\\%%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "name" } value { map_value {
+        entries { key { string_value: "$regex" } value { string_value: "^AdM%" } }
+        entries { key { string_value: "$options" } value { string_value: "i" } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "ascii_ends_with_ignore_case"
+  description: "The selected library folds ASCII suffixes and escapes literal LIKE and regex metacharacters."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.endsWithIgnoreCase(\"AdM%\")"
+  expected { profile { name: "protoutil.celql.ansisql" major_version: 1 } error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD } }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "lower(\"name\") LIKE $1 ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%adm\\%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "LOWER(`name`) LIKE ? ESCAPE '\\\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%adm\\%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" LIKE ? ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%AdM\\%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries { key { string_value: "name" } value { map_value {
+        entries { key { string_value: "$regex" } value { string_value: "AdM%$" } }
+        entries { key { string_value: "$options" } value { string_value: "i" } }
+      } } } } }
+    } } }
+  }
+}
+
+cases {
+  name: "ascii_contains_ignore_case"
+  description: "The selected library folds ASCII letters only and preserves literal LIKE and regex metacharacters."
+  operation: CONFORMANCE_OPERATION_TRANSLATE
+  cel_source: "name.containsIgnoreCase(\"AdM%\")"
+  expected {
+    profile { name: "protoutil.celql.ansisql" major_version: 1 }
+    error { code: TRANSLATION_ERROR_CODE_UNSUPPORTED_OVERLOAD }
+  }
+  expected {
+    profile { name: "protoutil.celql.postgresql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.postgresql.v1.PostgreSqlPredicate] {
+      sql: "lower(\"name\") LIKE $1 ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%adm\\%%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mysql" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "LOWER(`name`) LIKE ? ESCAPE '\\\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%adm\\%%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.sqlite" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.ansisql.v1.AnsiSqlPredicate] {
+      sql: "\"name\" LIKE ? ESCAPE '\\'"
+      parameters { cel_type { primitive: STRING } value { string_value: "%AdM\\%%" } }
+    } } }
+  }
+  expected {
+    profile { name: "protoutil.celql.mongodb" major_version: 1 }
+    libraries { name: "protoutil.celql.case_insensitive_strings" major_version: 1 }
+    success { exact_predicate { [type.googleapis.com/protoutil.celql.mongodb.v1.MongoDbPredicate] {
+      filter { map_value { entries {
+        key { string_value: "name" }
+        value { map_value { entries {
+          key { string_value: "$regex" }
+          value { string_value: "AdM%" }
+        } entries {
+          key { string_value: "$options" }
+          value { string_value: "i" }
+        } } }
+      } } }
+    } } }
+  }
+}

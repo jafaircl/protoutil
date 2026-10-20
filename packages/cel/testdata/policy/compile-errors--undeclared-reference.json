@@ -1,0 +1,45 @@
+{
+  "path": "compile_errors/undeclared_reference",
+  "files": {
+    "policy.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_undeclared_reference\"\nrule:\n  variables:\n    - name: val\n      expression: spec.labels\n  match:\n    - condition: \"true\"\n      output: |\n        \"invalid: %s\".format([variables.val])\n",
+      "value": {
+        "name": "errors_undeclared_reference",
+        "rule": {
+          "match": [
+            {
+              "condition": "true",
+              "output": "\"invalid: %s\".format([variables.val])\n"
+            }
+          ],
+          "variables": [
+            {
+              "expression": "spec.labels",
+              "name": "val"
+            }
+          ]
+        }
+      }
+    },
+    "tests.yaml": {
+      "source": "# Copyright 2026 Google LLC\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#    https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n\nname: \"errors_undeclared_reference\"\ndescription: \"Tests for undeclared references in policy compilation\"\nsections:\n- name: \"compile\"\n  tests:\n  - name: \"undeclared_reference\"\n    output:\n      error_set:\n      # Tolerate either 'spec' or 'spec.field'\n      - \"undeclared reference to 'spec\"\n",
+      "value": {
+        "description": "Tests for undeclared references in policy compilation",
+        "name": "errors_undeclared_reference",
+        "sections": [
+          {
+            "name": "compile",
+            "tests": [
+              {
+                "name": "undeclared_reference",
+                "output": {
+                  "error_set": ["undeclared reference to 'spec"]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
