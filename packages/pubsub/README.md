@@ -87,7 +87,7 @@ when you use portable features like delayed publish, retry delay, dead-letter,
 or `maxAttempts`.
 
 This is the same layering you would use in an application server such as the
-Fastify example under [`examples/fastify-server`](../../examples/fastify-server).
+Fastify example under [`examples/fastify-server`](https://github.com/jafaircl/protoutil/tree/main/examples/fastify-server).
 
 ## Transport Notes
 

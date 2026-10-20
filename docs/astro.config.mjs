@@ -44,6 +44,9 @@ const [typeDocCelChecker, typeDocCelCheckerSidebar] = createStarlightTypeDocPlug
 const [typeDocCelInterpreter, typeDocCelInterpreterSidebar] = createStarlightTypeDocPlugin();
 const [typeDocCelExt, typeDocCelExtSidebar] = createStarlightTypeDocPlugin();
 const [typeDocCelPolicy, typeDocCelPolicySidebar] = createStarlightTypeDocPlugin();
+const [typeDocCelComposition, typeDocCelCompositionSidebar] = createStarlightTypeDocPlugin();
+const [typeDocCelRuntime, typeDocCelRuntimeSidebar] = createStarlightTypeDocPlugin();
+const [typeDocCelql, typeDocCelqlSidebar] = createStarlightTypeDocPlugin();
 
 const commonTypeDocOptions = {
   disableSources: true,
@@ -469,6 +472,51 @@ export default defineConfig({
             readme: "../packages/cel/README.md",
           },
         }),
+        typeDocCelComposition({
+          entryPoints: ["../packages/cel/src/composition/index.ts"],
+          tsconfig: "../packages/cel/tsconfig.json",
+          output: "api/cel/composition",
+          sidebar: { label: "cel/composition", collapsed: true },
+          watch: watchTypeDoc,
+          typeDoc: {
+            ...commonTypeDocOptions,
+            exclude: ["**/gen/**", "**/*.spec.ts"],
+            entryFileName: "index",
+          },
+        }),
+        typeDocCelRuntime({
+          entryPoints: ["../packages/cel/src/runtime.ts"],
+          tsconfig: "../packages/cel/tsconfig.json",
+          output: "api/cel/runtime",
+          sidebar: { label: "cel/runtime", collapsed: true },
+          watch: watchTypeDoc,
+          typeDoc: {
+            ...commonTypeDocOptions,
+            exclude: ["**/gen/**", "**/*.spec.ts"],
+            entryFileName: "index",
+          },
+        }),
+        typeDocCelql({
+          entryPoints: [
+            "../packages/celql/src/index.ts",
+            "../packages/celql/src/ansisql/index.ts",
+            "../packages/celql/src/mongodb/index.ts",
+            "../packages/celql/src/mysql/index.ts",
+            "../packages/celql/src/postgresql/index.ts",
+            "../packages/celql/src/sqlite/index.ts",
+          ],
+          tsconfig: "../packages/celql/tsconfig.json",
+          output: "api/celql",
+          sidebar: { label: "celql", collapsed: true },
+          watch: watchTypeDoc,
+          typeDoc: {
+            ...commonTypeDocOptions,
+            exclude: ["**/gen/**", "**/*.spec.ts"],
+            entryFileName: "index",
+            mergeReadme: true,
+            readme: "../packages/celql/README.md",
+          },
+        }),
         typeDocCelCommon({
           entryPoints: ["../packages/cel/src/common/index.ts"],
           tsconfig: "../packages/cel/tsconfig.json",
@@ -737,6 +785,8 @@ export default defineConfig({
                   label: "Overview",
                   slug: "api/cel",
                 },
+                { label: "Composition", slug: "api/cel/composition" },
+                { label: "Runtime", slug: "api/cel/runtime" },
                 {
                   label: "Common",
                   slug: "api/cel/common",
@@ -762,6 +812,11 @@ export default defineConfig({
                   slug: "api/cel/policy",
                 },
               ],
+            },
+            {
+              label: "celql",
+              collapsed: true,
+              items: [{ label: "Overview", slug: "api/celql" }],
             },
           ],
         },
@@ -798,6 +853,9 @@ export default defineConfig({
             typeDocAngularSidebar,
 
             typeDocCelSidebar,
+            typeDocCelCompositionSidebar,
+            typeDocCelRuntimeSidebar,
+            typeDocCelqlSidebar,
             typeDocCelCommonSidebar,
             typeDocCelParserSidebar,
             typeDocCelCheckerSidebar,

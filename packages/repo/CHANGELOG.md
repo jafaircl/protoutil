@@ -1,5 +1,17 @@
 # @protoutil/repo
 
+## 0.3.3
+
+### Patch Changes
+
+- Update repository integration with the shared AIP, query, and protobuf runtimes and shared test schemas.
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+  - @protoutil/aip@0.3.3
+  - @protoutil/aipql@0.3.3
+  - @protoutil/core@0.3.3
+
 ## 0.3.2
 
 ### Patch Changes

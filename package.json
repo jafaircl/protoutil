@@ -5,6 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build:docs": "pnpm --filter @protoutil/docs run build",
     "changeset": "changeset",
     "bump": "changeset version",
     "release": "pnpm -r --filter='./packages/*' run build && changeset publish"

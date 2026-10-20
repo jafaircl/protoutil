@@ -1,10 +1,10 @@
 ---
 title: protoutil
-description: TypeScript utilities for Protocol Buffers and Google AIP
+description: TypeScript utilities for Protocol Buffers, Google AIP, and CEL
 template: splash
 hero:
   title: protoutil
-  tagline: TypeScript utilities for Protocol Buffers and Google API Improvement Proposals
+  tagline: TypeScript utilities for Protocol Buffers, Google API Improvement Proposals, and CEL
   actions:
     - text: Get Started
       link: /guides/introduction/
@@ -49,5 +49,9 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
   <Card title="@protoutil/cel" icon="seti:html">
     A TypeScript implementation of the Common Expression Language (CEL), ported from cel-go.
     [Learn more →](/api/cel/)
+  </Card>
+  <Card title="@protoutil/celql" icon="seti:db">
+    Translate checked CEL expressions into SQL and MongoDB predicates with composable dialect profiles.
+    [Learn more →](/api/celql/)
   </Card>
 </CardGrid>

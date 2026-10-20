@@ -43,6 +43,12 @@ npm install @protoutil/aip
 # AIP-160 to SQL/MongoDB translation
 npm install @protoutil/aipql
 
+# Common Expression Language runtime
+npm install @protoutil/cel
+
+# CEL to SQL/MongoDB translation
+npm install @protoutil/celql
+
 # Database repository layer
 npm install @protoutil/repo
 

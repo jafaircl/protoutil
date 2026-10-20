@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS=--max-old-space-size=8192 astro dev",
-    "build": "astro build",
+    "build": "pnpm --dir .. -r --filter='@protoutil/*' --filter='!@protoutil/docs' --filter='!@protoutil/protoc-gen-sql' --filter='!@protoutil/conformance-runner' run build && astro build",
     "preview": "astro preview"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 {
   "name": "@protoutil/repo",
   "type": "module",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "AIP-style protobuf repositories for SQLite, Postgres, MySQL, and MongoDB.",
   "author": "Jonathan Faircloth <jonathan@faircloth.xyz>",
   "license": "MIT",
