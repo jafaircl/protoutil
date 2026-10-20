@@ -5,11 +5,13 @@ import type { AggregateSizer, AggregateSizeVisitor } from "./aggregate-sizer.js"
 import { FoldableAggregateSizer } from "./aggregate-sizer.js";
 import { anyValueType } from "./any-value.js";
 import { Bool, False, True } from "./bool.js";
+import { Double } from "./double.js";
 import { err, valOrErr } from "./err.js";
 import { formatVal } from "./format.js";
 import { Int } from "./int.js";
 import { BaseIterator } from "./iterator.js";
 import { JSONStructType, JSONValueType } from "./json-value.js";
+import { scalarFieldToValue } from "./pb/scalar.js";
 import type { FieldDescription } from "./pb/type.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
@@ -24,15 +26,7 @@ import { equal } from "./util.js";
 export function dynamicMap(adapter: TypeAdapter, value: unknown): Mapper {
   if (isProtoStruct(value)) {
     return new BaseMap(adapter, value, Object.keys(value.fields ?? {}), (key) => {
-      const stringKey = key instanceof CelString ? key.value() : String(key.value());
-      return value.fields[stringKey];
-    });
-  }
-  if (isRecord(value)) {
-    const keys = Object.keys(value);
-    return new BaseMap(adapter, value, keys, (key) => {
-      const stringKey = normalizeRecordKey(key);
-      return value[stringKey];
+      return recordValue(value.fields, key);
     });
   }
   if (value instanceof Map) {
@@ -40,11 +34,18 @@ export function dynamicMap(adapter: TypeAdapter, value: unknown): Mapper {
     return new BaseMap(adapter, value, keys, (key) => {
       const normalized = key.value();
       for (const mapKey of keys) {
-        if (normalized === mapKey) {
+        const same = equal(adapter.nativeToValue(mapKey), key);
+        if (normalized === mapKey || (same instanceof Bool && same.value())) {
           return value.get(mapKey);
         }
       }
       return undefined;
+    });
+  }
+  if (isRecord(value)) {
+    const keys = Object.keys(value);
+    return new BaseMap(adapter, value, keys, (key) => {
+      return recordValue(value, key);
     });
   }
   return new BaseMap(adapter, value, [], () => undefined);
@@ -57,11 +58,8 @@ export function jsonStructMap(
   adapter: TypeAdapter,
   value: MessageShape<typeof StructSchema>,
 ): Mapper {
-  return new BaseMap(
-    adapter,
-    value,
-    Object.keys(value.fields),
-    (key) => value.fields[normalizeRecordKey(key)],
+  return new BaseMap(adapter, value, Object.keys(value.fields), (key) =>
+    recordValue(value.fields, key),
   );
 }
 
@@ -83,26 +81,21 @@ export function refValMap(
       return undefined;
     });
   }
-  return new BaseMap(
-    adapter,
-    value,
-    Object.keys(value),
-    (key) => value[normalizeRecordKey(key)] as Val,
-  );
+  return new BaseMap(adapter, value, Object.keys(value), (key) => recordValue(value, key));
 }
 
 /**
  * stringInterfaceMap returns a specialized mapper with string keys and interface values.
  */
 export function stringInterfaceMap(adapter: TypeAdapter, value: Record<string, unknown>): Mapper {
-  return new BaseMap(adapter, value, Object.keys(value), (key) => value[normalizeRecordKey(key)]);
+  return new BaseMap(adapter, value, Object.keys(value), (key) => recordValue(value, key));
 }
 
 /**
  * stringStringMap returns a specialized mapper with string keys and values.
  */
 export function stringStringMap(adapter: TypeAdapter, value: Record<string, string>): Mapper {
-  return new BaseMap(adapter, value, Object.keys(value), (key) => value[normalizeRecordKey(key)]);
+  return new BaseMap(adapter, value, Object.keys(value), (key) => recordValue(value, key));
 }
 
 /**
@@ -126,7 +119,24 @@ export function reflectedMap(adapter: TypeAdapter, value: ReflectMap): Mapper {
     adapter,
     value,
     [...value.keys()].map((key) => reflectedMapKey(key, field.mapKey)),
-    (key) => value.get(key.value()),
+    (key) => {
+      const validKey =
+        field.mapKey === ScalarType.STRING
+          ? key instanceof CelString
+          : field.mapKey === ScalarType.BOOL
+            ? key instanceof Bool
+            : key instanceof Int ||
+              key instanceof Uint ||
+              (key instanceof Double && Number.isInteger(key.value()));
+      // ReflectMap.get reads its backing record directly; presence must be checked first.
+      if (!validKey || !value.has(key.value())) {
+        return undefined;
+      }
+      const element = value.get(key.value());
+      return element !== undefined && field.mapKind === "scalar"
+        ? scalarFieldToValue(element, field.scalar)
+        : element;
+    },
   );
 }
 
@@ -212,26 +222,33 @@ export class BaseMap implements Mapper, AggregateSizeVisitor {
       if (isProtoStruct(this.mapValue)) {
         return this.mapValue;
       }
+      // CEL string keys such as __proto__ must remain data rather than changing the record prototype.
       const fields: Record<string, MessageShape<typeof ValueSchema>> = {};
       for (const rawKey of this.keys) {
-        const key = this.adapter
-          .nativeToValue(rawKey)
-          .convertToType(new CelString("").type()) as CelString;
-        fields[key.value()] = this.get(key).convertToNative(ValueSchema) as MessageShape<
-          typeof ValueSchema
-        >;
+        const key = this.adapter.nativeToValue(rawKey);
+        if (!(key instanceof CelString)) {
+          throw new Error("bad key type: JSON object keys must be strings");
+        }
+        Object.defineProperty(fields, key.value(), {
+          value: this.get(key).convertToNative(ValueSchema),
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
       }
-      return create(StructSchema, { fields });
+      // Preserve the dictionary directly: copying message-valued maps can invoke __proto__ setters.
+      const result = create(StructSchema);
+      result.fields = fields;
+      return result;
     }
     if (Array.isArray(typeDesc)) {
       throw new Error(`unsupported native conversion from '${MapType}' to an array`);
     }
     return Object.fromEntries(
       this.keys.map((rawKey) => {
-        const key = this.adapter
-          .nativeToValue(rawKey)
-          .convertToType(new CelString("").type()) as CelString;
-        return [key.value(), this.get(key).value()];
+        const key = this.adapter.nativeToValue(rawKey);
+        const name = key.convertToType(new CelString("").type()) as CelString;
+        return [name.value(), this.get(key).value()];
       }),
     );
   }
@@ -374,7 +391,10 @@ class ProtoMap extends BaseMap implements Mapper {
       adapter,
       value,
       Object.keys(value).map((key) => protoMapKey(key, keyType)),
-      (key) => value[normalizeRecordKey(key)],
+      (key) => {
+        const name = normalizeRecordKey(key);
+        return Object.hasOwn(value, name) ? value[name] : undefined;
+      },
     );
   }
 
@@ -492,6 +512,13 @@ class MapIterator extends BaseIterator implements TraitIterator {
   public next(): Val {
     return this.adapter.nativeToValue(this.keys[this.index++]!);
   }
+}
+
+// JavaScript records have string keys; coercing other CEL keys changes map membership.
+function recordValue(value: Record<string, unknown>, key: Val): unknown {
+  return key instanceof CelString && Object.hasOwn(value, key.value())
+    ? value[key.value()]
+    : undefined;
 }
 
 function normalizeRecordKey(key: Val): string {

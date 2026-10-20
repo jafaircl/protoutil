@@ -509,9 +509,25 @@ function interpreterActivation(testCase: SyncedInterpreterCase): Activation {
       unknowns: [attributePattern("a").qualInt(0)],
     });
   }
-  return activation({
-    bindings: normalizeInterpreterBindings(testCase.in ?? {}),
-  });
+  const bindings = normalizeInterpreterBindings(testCase.in ?? {}) as Record<string, unknown>;
+  restoreInterpreterMapKeys(testCase.name, bindings);
+  return activation({ bindings });
+}
+
+/** Restore typed Go map keys erased by JSON serialization in these upstream cases. */
+function restoreInterpreterMapKeys(name: string, bindings: Record<string, unknown>): void {
+  if (name !== "select_bool_key" && name !== "select_uint_key") {
+    return;
+  }
+  const maps = bindings.m as Record<string, Record<string, unknown>>;
+  for (const [field, entries] of Object.entries(maps)) {
+    (maps as Record<string, unknown>)[field] = new Map(
+      Object.entries(entries).map(([key, value]) => [
+        name === "select_bool_key" ? key === "true" : BigInt(key),
+        value,
+      ]),
+    );
+  }
 }
 
 /**

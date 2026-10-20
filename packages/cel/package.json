@@ -76,7 +76,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "pretest": "pnpm --filter @protoutil/testing build && node scripts/cel-coverage-ledger.mjs",
+    "pretest": "pnpm --filter @protoutil/testing build",
     "test": "vitest run --exclude src/benchmark.spec.ts",
     "benchmark": "pnpm run build && vitest run src/benchmark.spec.ts",
     "pretypecheck": "pnpm --filter @protoutil/testing build",
@@ -87,6 +87,7 @@
     "sync:cel-go-file-testdata": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-env-testdata-sync -workdir ./.tmp/cel-go-upstream",
     "sync:cel-go-tests": "GOCACHE=$PWD/../../.tmp/go-build go run ./scripts/cel-go-test-sync -out ./testdata/cel-go/cel-go-test-cases.json -report ./testdata/cel-go/cel-go-test-cases.report.json -workdir ./.tmp/cel-go-upstream",
     "sync:testdata": "pnpm run sync:conformance-testdata && pnpm run sync:policy-testdata && pnpm run sync:cel-go-file-testdata && pnpm run sync:cel-go-tests && pnpm run sync:format",
+    "sync:coverage-ledger": "node scripts/cel-coverage-ledger.mjs",
     "sync:format": "pnpm exec biome format --write ./testdata",
     "prepublishOnly": "pnpm run build",
     "protogen": "buf generate"

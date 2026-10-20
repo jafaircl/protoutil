@@ -10,7 +10,6 @@ import {
   type MessageShape,
   equals as protobufEquals,
   type Registry,
-  ScalarType,
   toJson,
 } from "@bufbuild/protobuf";
 import {
@@ -30,12 +29,11 @@ import { reflectedList } from "./list.js";
 import { reflectedMap } from "./map.js";
 import { NullValue } from "./null.js";
 import { safeAddUint32 } from "./overflow.js";
-import { DefaultTypeAdapter } from "./provider.js";
+import { scalarFieldToValue } from "./pb/scalar.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import { String as CelString } from "./string.js";
 import type { FieldTester, Indexer } from "./traits/index.js";
 import { TypeType } from "./types.js";
-import { Uint } from "./uint.js";
 
 const registryMap = new WeakMap<DescMessage, Registry>();
 const fieldMap = new WeakMap<
@@ -319,7 +317,11 @@ function jsonFieldNamesEnabled(adapter: TypeAdapter): boolean {
 /**
  * protoFieldToValue converts a protobuf field into its CEL value while preserving protobuf scalar semantics.
  */
-function protoFieldToValue(adapter: TypeAdapter, message: ReflectMessage, field: DescField): Val {
+export function protoFieldToValue(
+  adapter: TypeAdapter,
+  message: ReflectMessage,
+  field: DescField,
+): Val {
   const value = message.get(field);
   switch (field.fieldKind) {
     case "enum":
@@ -337,31 +339,6 @@ function protoFieldToValue(adapter: TypeAdapter, message: ReflectMessage, field:
       return scalarFieldToValue(value, field.scalar);
     default:
       return adapter.nativeToValue(value);
-  }
-}
-
-/**
- * scalarFieldToValue converts a protobuf scalar field into the CEL numeric family expected by cel-go.
- */
-function scalarFieldToValue(
-  value: unknown,
-  scalar: Extract<DescField, { fieldKind: "scalar" }>["scalar"],
-): Val {
-  switch (scalar) {
-    case ScalarType.BOOL:
-    case ScalarType.STRING:
-    case ScalarType.BYTES:
-      return DefaultTypeAdapter.nativeToValue(value);
-    case ScalarType.DOUBLE:
-    case ScalarType.FLOAT:
-      return DefaultTypeAdapter.nativeToValue(Number(value ?? 0));
-    case ScalarType.UINT32:
-    case ScalarType.UINT64:
-    case ScalarType.FIXED32:
-    case ScalarType.FIXED64:
-      return new Uint(BigInt((value as number) ?? 0));
-    default:
-      return DefaultTypeAdapter.nativeToValue(BigInt((value as number) ?? 0));
   }
 }
 

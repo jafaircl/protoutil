@@ -23,6 +23,7 @@ import {
 } from "../common/types/index.js";
 import type { MapValue } from "../common/types/pb/type.js";
 import type { FieldTester, Indexer } from "../common/types/traits/index.js";
+import { equal } from "../common/types/util.js";
 import { type Activation, activationNameAbsent } from "./activation.js";
 import type { ExecutionFrame } from "./frame.js";
 
@@ -1418,6 +1419,27 @@ export function missingKey(keyValue: Val): ResolutionError {
   return new ResolutionError(undefined, `no such key: ${formatQualifierValue(keyValue)}`);
 }
 
+/** Preserve native map values while comparing numeric keys using CEL equality. */
+function nativeMapValue(
+  adapter: Adapter,
+  map: Map<unknown, unknown>,
+  rawKey: boolean | number | bigint | string,
+  key: Val,
+): unknown {
+  if (map.has(rawKey)) {
+    return map.get(rawKey);
+  }
+  if (typeof rawKey !== "string") {
+    for (const [nativeKey, value] of map) {
+      const same = equal(adapter.nativeToValue(nativeKey), key);
+      if (same instanceof Bool && same.value()) {
+        return value;
+      }
+    }
+  }
+  return qualifierAbsent;
+}
+
 /**
  * qualifyConstantValue applies a constant qualifier while preserving cel-go's native fast paths
  * and presence-test behavior.
@@ -1456,8 +1478,9 @@ function qualifyConstantValue(
     throw missingIndex(key);
   }
   if (obj instanceof Map) {
-    if (obj.has(rawQualifier)) {
-      return presenceOnly ? undefined : obj.get(rawQualifier);
+    const value = nativeMapValue(adapter, obj, rawQualifier, key);
+    if (value !== qualifierAbsent) {
+      return presenceOnly ? undefined : value;
     }
     if (presenceTest) {
       return qualifierAbsent;
@@ -1476,11 +1499,9 @@ function qualifyConstantValue(
   // The branches above already ruled out lists, maps, and protobuf map wrappers, so the remaining
   // record test only has to exclude CEL values and protobuf messages.
   if (typeof obj === "object" && obj !== null && !isValLike(obj) && !isProtoMessage(obj)) {
-    // A present field is the common case, so read it first and only pay a separate presence check
-    // when the read is undefined, which cannot distinguish an absent key from a defined one.
-    const fieldValue = (obj as Record<string, unknown>)[propertyKey];
-    if (fieldValue !== undefined || Object.hasOwn(obj, propertyKey)) {
-      return presenceOnly ? undefined : fieldValue;
+    // Records represent string-keyed CEL maps; inherited JavaScript properties are not entries.
+    if (typeof rawQualifier === "string" && Object.hasOwn(obj, propertyKey)) {
+      return presenceOnly ? undefined : (obj as Record<string, unknown>)[propertyKey];
     }
     if (presenceTest) {
       return qualifierAbsent;

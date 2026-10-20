@@ -24,15 +24,16 @@ A CEL "program" is a single expression.
 CEL is ideal for lightweight expression evaluation when a fully sandboxed
 scripting language is too resource intensive.
 
-`@protoutil/cel` is a TypeScript port of [cel-go][7], and is, to our knowledge,
-the only TypeScript implementation of CEL with full conformance parity against
-the upstream `cel-go` test suite. See [conformance.md](./testdata/conformance/conformance.md) for
-the generated CEL dashboard and [policy.md](./testdata/policy/policy.md) for the
-cel-policy conformance results.
+`@protoutil/cel` is a TypeScript port of [cel-go][7]. The synchronized CEL
+conformance suite passes all executed cases, with documented skips; this does
+not imply complete coverage of the upstream cel-go implementation tests.
+See [conformance.md](./testdata/conformance/conformance.md),
+[policy.md](./testdata/policy/policy.md), and the
+[upstream test coverage ledger](./testdata/cel-go/coverage-ledger.md).
 
-The port currently tracks **`cel-go` v0.30.0** and **`cel-spec` v0.25.2**. See
-[UPSTREAM.md](./UPSTREAM.md) for the parity ledger, the commits adopted ahead of
-that pin, and the outstanding upstream deltas.
+The port currently tracks **`cel-go` `ef24047` (post-v0.31.0)** and
+**`cel-spec` v0.25.3**. See [UPSTREAM.md](./UPSTREAM.md) for the parity ledger
+and outstanding upstream deltas.
 
 ---
 
@@ -91,17 +92,20 @@ that schema; CEL creates the field bindings automatically.
 
 ```ts
 import { create } from "@bufbuild/protobuf";
-import { env } from "@protoutil/cel";
+import { env, unwrapAst } from "@protoutil/cel";
 import { RequestSchema } from "./gen/request_pb.js";
 
 const celEnv = env({ contextProto: RequestSchema });
-const program = celEnv.program(celEnv.compile("user == 'alice'"));
+const program = celEnv.program(unwrapAst(celEnv.compile("user == 'alice'")));
 
 const result = program.eval(create(RequestSchema, { user: "alice" }));
 ```
 
 Set `jsonFieldNames: true` on `env()` to use protobuf JSON field names instead
 of protobuf field names.
+
+Protobuf expression IDs must be within JavaScript's safe integer range; imports
+reject larger IDs instead of silently rounding them.
 
 ### Runtime-Only Evaluation
 
@@ -373,8 +377,63 @@ runtime bindings and error handling to do the right thing.
 
 ## License
 
-Released under the [Apache License](LICENSE).
+Released under the [MIT License](LICENSE).
 
 [1]: https://github.com/google/cel-spec
 [4]: https://github.com/jafaircl/protoutil/issues
 [7]: https://github.com/google/cel-go
+
+## Evaluating untrusted expressions
+
+Set parser, regex-program, and evaluation-cost limits for your workload:
+
+```ts
+import { env, IntType, listType, unwrapAst, variable } from "@protoutil/cel";
+
+const cel = env({
+  variables: [variable("items", listType(IntType))],
+  parser: {
+    expressionSizeCodePointLimit: 10_000,
+    maxExpressionNodeCount: 10_000,
+    maxRecursionDepth: 100,
+  },
+  regexProgramSizeLimit: 1_000,
+});
+const program = cel.program(unwrapAst(cel.compile("items.all(x, x > 0)")), {
+  costTracking: { limit: 10_000 },
+  interruptCheckFrequency: 100,
+});
+const result = program.eval({ items: [1n, 2n, 3n] });
+```
+
+Bound input data sizes before evaluation as well. Cost and cancellation checks
+are cooperative; they cannot interrupt a synchronous host function while it is
+running. Bind functions whose resource use you control.
+
+Protobuf AST imports reject nesting at depth 250 or beyond, counting the root
+at depth zero, and more than 100,000 expression nodes across the expression and
+macro metadata. Validation runs before recursive conversion. These import
+limits apply to both parsed and checked expressions.
+
+### Regex extraction and replacement
+
+CEL's `matches()` uses `@bufbuild/re2`. The optional `regex()` extension currently
+uses JavaScript's native matcher for capture extraction and replacement, which
+can backtrack without a runtime bound. Until the RE2 dependency supports captures,
+`regex.extract`, `regex.extractAll`, and both `regex.replace` overloads return CEL
+errors by default, before invoking native matching.
+
+For trusted patterns **and** trusted input strings only, the host can explicitly
+use `regex({ allowUnsafeNativeRegex: true })` from `@protoutil/cel/ext` together
+with the optional-type library. This opt-in preserves the existing native
+compatibility implementation; it does not provide RE2's execution guarantees.
+The unsafe opt-in is not restored by serialized environment configuration.
+Upstream regex compatibility tests explicitly enable it for their trusted fixtures.
+
+## Development checks
+
+Run `pnpm test` and `pnpm typecheck` from this package after installing workspace
+dependencies. Ordinary tests use checked-in fixtures and do not require upstream
+repositories. To regenerate the upstream test coverage ledger, first synchronize
+the cel-go checkout with `pnpm sync:cel-go-tests`, then run
+`pnpm sync:coverage-ledger`.

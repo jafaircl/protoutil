@@ -1,10 +1,73 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { env, unwrapAst } from "../cel/env.js";
 import { optionalTypes } from "../cel/library.js";
 import { variable } from "../common/decls.js";
 import { syncedCases } from "../common/spec-helpers.js";
+import { Err } from "../common/types/err.js";
 import { StringType } from "../common/types/types.js";
 import { regex } from "./regex.js";
+
+describe("regex execution safety", () => {
+  it("rejects every native overload by default before executing an adversarial pattern", () => {
+    const cel = env({
+      libraries: [optionalTypes(), regex()],
+      variables: [variable("input", StringType), variable("pattern", StringType)],
+    });
+    const programs = [
+      "regex.extract(input, pattern)",
+      "regex.extractAll(input, pattern)",
+      "regex.replace(input, pattern, 'x')",
+      "regex.replace(input, pattern, 'x', 1)",
+    ].map((expression) => cel.program(unwrapAst(cel.compile(expression))));
+    const pattern = "(a+)+$";
+    const exec = RegExp.prototype.exec;
+    // Fail immediately if the dangerous matcher is reached, rather than hanging a regression run.
+    const spy = vi.spyOn(RegExp.prototype, "exec").mockImplementation(function (
+      this: RegExp,
+      input,
+    ) {
+      if (this.source === pattern) {
+        throw new Error("unsafe native matcher reached");
+      }
+      return exec.call(this, input);
+    });
+    try {
+      for (const program of programs) {
+        const result = program.eval({ input: `${"a".repeat(100_000)}!`, pattern });
+        expect(result).toBeInstanceOf(Err);
+        expect((result as Err).message).toContain(
+          "native regex extraction and replacement are disabled",
+        );
+      }
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("continues to execute CEL matches through RE2", () => {
+    const cel = env({
+      libraries: [optionalTypes(), regex()],
+      variables: [variable("input", StringType)],
+    });
+    const program = cel.program(unwrapAst(cel.compile("input.matches('(a+)+$')")));
+    expect(program.eval({ input: `${"a".repeat(100_000)}!` }).value()).toBe(false);
+  });
+
+  it("does not restore unsafe native execution from a serialized environment", () => {
+    const original = regexEnv();
+    const restored = env({
+      configuration: {
+        config: original.toConfig("trusted"),
+        extensions: { regex: { libraries: [regex()] } },
+      },
+    });
+    const result = restored
+      .program(unwrapAst(restored.compile("regex.extract('abc', 'a')")))
+      .eval({});
+    expect(result).toBeInstanceOf(Err);
+    expect((result as Err).message).toContain("disabled");
+  });
+});
 
 /** RegexCase describes a synchronized regular-expression expression. */
 interface RegexCase {
@@ -128,9 +191,9 @@ describe("ext/regex_test.go/TestRegexProgramSizeLimit", () => {
   });
 });
 
-/** regexEnv creates the optional-enabled regular-expression environment. */
+/** Run upstream compatibility fixtures with explicitly trusted patterns and inputs. */
 function regexEnv(version?: number) {
   return env({
-    libraries: [optionalTypes(), regex({ version })],
+    libraries: [optionalTypes(), regex({ version, allowUnsafeNativeRegex: true })],
   });
 }

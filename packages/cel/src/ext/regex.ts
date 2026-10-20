@@ -19,6 +19,12 @@ const regexExtractAll = "regex.extractAll";
 
 /** RegexOptions configures the regular-expression extension library. */
 export interface RegexOptions {
+  /**
+   * Enables native JavaScript extraction and replacement for trusted patterns and inputs only.
+   * Native matching can backtrack without a runtime bound and cannot be interrupted by CEL cost limits.
+   * Defaults to false until capture-capable RE2 execution is available.
+   */
+  readonly allowUnsafeNativeRegex?: boolean;
   /** version records the selected extension version. */
   readonly version?: number;
 }
@@ -30,9 +36,11 @@ export type RegexLibrary = SingletonLibrary & LibraryAliaser & LibraryVersioner;
  * regex configures namespaced RE2-compatible replacement and extraction functions.
  *
  * This library depends on the CEL optional type library.
+ * Extraction and replacement return errors unless unsafe native execution is explicitly enabled.
  */
 export function regex(options: RegexOptions = {}): RegexLibrary {
   const version = options.version ?? Number.MAX_SAFE_INTEGER;
+  const allowNative = options.allowUnsafeNativeRegex === true;
   return {
     libraryAlias: "regex",
     libraryName: "cel.lib.ext.regex",
@@ -46,7 +54,7 @@ export function regex(options: RegexOptions = {}): RegexLibrary {
               "regex_extract_string_string",
               [StringType, StringType],
               optionalType(StringType),
-              { binaryBinding: extract },
+              { binaryBinding: allowNative ? extract : nativeRegexDisabled },
             ),
           ],
         }),
@@ -56,7 +64,7 @@ export function regex(options: RegexOptions = {}): RegexLibrary {
               "regex_extractAll_string_string",
               [StringType, StringType],
               listType(StringType),
-              { binaryBinding: extractAll },
+              { binaryBinding: allowNative ? extractAll : nativeRegexDisabled },
             ),
           ],
         }),
@@ -67,13 +75,15 @@ export function regex(options: RegexOptions = {}): RegexLibrary {
               [StringType, StringType, StringType],
               StringType,
               {
-                functionBinding: (...args) =>
-                  replaceRegex({
-                    count: -1,
-                    pattern: args[1]!,
-                    replacement: args[2]!,
-                    target: args[0]!,
-                  }),
+                functionBinding: allowNative
+                  ? (...args) =>
+                      replaceRegex({
+                        count: -1,
+                        pattern: args[1]!,
+                        replacement: args[2]!,
+                        target: args[0]!,
+                      })
+                  : nativeRegexDisabled,
               },
             ),
             overload(
@@ -81,13 +91,15 @@ export function regex(options: RegexOptions = {}): RegexLibrary {
               [StringType, StringType, StringType, IntType],
               StringType,
               {
-                functionBinding: (...args) =>
-                  replaceRegex({
-                    count: Number((args[3] as Int).value()),
-                    pattern: args[1]!,
-                    replacement: args[2]!,
-                    target: args[0]!,
-                  }),
+                functionBinding: allowNative
+                  ? (...args) =>
+                      replaceRegex({
+                        count: Number((args[3] as Int).value()),
+                        pattern: args[1]!,
+                        replacement: args[2]!,
+                        target: args[0]!,
+                      })
+                  : nativeRegexDisabled,
               },
             ),
           ],
@@ -96,6 +108,13 @@ export function regex(options: RegexOptions = {}): RegexLibrary {
     },
     programOptions: {},
   };
+}
+
+/** Fail closed before native matching; RE2 syntax validation cannot bound JavaScript backtracking. */
+function nativeRegexDisabled(): Val {
+  return err(
+    "native regex extraction and replacement are disabled; allowUnsafeNativeRegex requires trusted patterns and inputs",
+  );
 }
 
 /** extract returns the first whole match or sole capture group as an optional string. */

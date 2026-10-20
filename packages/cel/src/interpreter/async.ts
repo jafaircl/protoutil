@@ -198,9 +198,11 @@ export class AsyncCallTracker {
   private launch(state: AsyncCallState): void {
     state.started = true;
     this.activeCountValue++;
-    this.options.observer?.onCallStarted?.(state, [...state.args]);
     void Promise.resolve()
-      .then(() => this.invoke(state))
+      .then(() => {
+        this.options.observer?.onCallStarted?.(state, [...state.args]);
+        return this.invoke(state);
+      })
       .then(
         (result) => {
           state.resultValue = result;
@@ -211,7 +213,12 @@ export class AsyncCallTracker {
       )
       .finally(() => {
         this.activeCountValue--;
-        this.options.observer?.onCallFinished?.(state, state.resultValue!);
+        // Observer failures become evaluation errors without stranding queued calls or waiters.
+        try {
+          this.options.observer?.onCallFinished?.(state, state.resultValue!);
+        } catch (cause) {
+          state.resultValue = cause instanceof Err ? cause : wrapErr(cause);
+        }
         this.launchQueued();
         for (const waiter of [...this.waiters]) {
           waiter();

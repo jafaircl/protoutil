@@ -16,6 +16,8 @@ A CEL environment: the state needed to parse, check, validate, plan, and evaluat
 
 ### Checked expression
 
+Protobuf expression IDs must fit JavaScript’s safe integer range when imported into the local AST; larger IDs are rejected to preserve node identity.
+
 A standard checked CEL AST: an expression tree plus checked type metadata, reference and overload metadata, and source metadata when available.
 
 - Prohibited alternatives: "checked AST" when the code means the wrapper type generically rather than this specific concept; use "checked expression" for the concept, `AST` for the TypeScript type.
@@ -261,3 +263,9 @@ Omitting from an aggregate result the choices whose nested rule selected no outc
 
 - Prohibited alternatives: "filtering", "optional flattening".
 - Related concepts: [Aggregate semantic](#aggregate-semantic).
+
+## Regular-expression execution
+
+### Native regex execution
+
+Capture extraction and replacement performed by JavaScript's built-in regular-expression engine after RE2 syntax validation. This execution is disabled by default because syntax validation does not prevent native backtracking. A host may explicitly enable it only for trusted patterns and input strings; serialized environments do not grant this capability.

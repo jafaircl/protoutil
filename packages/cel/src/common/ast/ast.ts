@@ -9,7 +9,13 @@ import type {
 import { type Location, NO_LOCATION, SourceLocation } from "../location.js";
 import { infoSource, type Source } from "../source.js";
 import type { EntryExpr, Expr, IdGenerator } from "./expr.js";
-import { constantToVal, entryExprToProto, protoToExpr, valToConstant } from "./expr.js";
+import {
+  constantToVal,
+  entryExprToProto,
+  protoExprId,
+  protoToExpr,
+  valToConstant,
+} from "./expr.js";
 
 /**
  * OffsetRange represents the source offset span for an expression id.
@@ -384,10 +390,10 @@ export function protoToSourceInfo(sourceInfo?: ProtoSourceInfo): SourceInfo {
     }),
   );
   for (const [id, offset] of Object.entries(sourceInfo?.positions ?? {})) {
-    info.setOffsetRange(Number(id), { start: offset, stop: offset });
+    info.setOffsetRange(protoExprId(id), { start: offset, stop: offset });
   }
   for (const [id, expr] of Object.entries(sourceInfo?.macroCalls ?? {})) {
-    info.setMacroCall(Number(id), protoToExpr(expr));
+    info.setMacroCall(protoExprId(id), protoToExpr(expr));
   }
   return info;
 }
@@ -717,11 +723,11 @@ export function toProto(ast: AST): CheckedExpr {
 export function toAst(checked: CheckedExpr): AST {
   const refMap = new Map<number, ReferenceInfo>();
   for (const [id, reference] of Object.entries(checked.referenceMap)) {
-    refMap.set(Number(id), protoToReferenceInfo(reference));
+    refMap.set(protoExprId(id), protoToReferenceInfo(reference));
   }
   const typeMap = new Map<number, Type>();
   for (const [id, type] of Object.entries(checked.typeMap)) {
-    typeMap.set(Number(id), structuredClone(type));
+    typeMap.set(protoExprId(id), structuredClone(type));
   }
   return new AST(protoToExpr(checked.expr), protoToSourceInfo(checked.sourceInfo), typeMap, refMap);
 }

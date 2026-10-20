@@ -12,12 +12,16 @@ tasks:
   sync-testdata:
     command: 'pnpm run sync:testdata'
     inputs:
-    - 'scripts/cel-conformance-sync/**/*.go'
+    - 'scripts/cel-conformance-sync/**/*.ts'
+    - 'scripts/cel-policy-sync/**/*.go'
+    - 'scripts/cel-go-env-testdata-sync/**/*.go'
     - 'scripts/cel-go-test-sync/**/*.go'
     outputs:
     - 'testdata/cel-go/cel-go-test-cases.json'
     - 'testdata/cel-go/cel-go-test-cases.report.json'
-    - 'testdata/conformance/*.json'
+    - 'testdata/conformance/*'
+    - 'testdata/policy/*'
+    - 'testdata/cel-go/*.json'
   typecheck:
     command: 'pnpm run typecheck'
     dependsOn:
@@ -39,7 +43,6 @@ tasks:
   test:
     command: 'pnpm run test'
     dependsOn:
-    - sync-testdata
     - format
     - typecheck
     - check

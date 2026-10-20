@@ -393,18 +393,6 @@ function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
   return true;
 }
 
-function sameMembers<T>(a: Set<T>, b: Set<T>): boolean {
-  if (a.size !== b.size) {
-    return false;
-  }
-  for (const value of a) {
-    if (!b.has(value)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 /**
  * assignableEnvironment reports whether every checked expression `source` can produce can be
  * planned and evaluated by `target` without being checked again.

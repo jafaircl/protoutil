@@ -398,7 +398,7 @@ export class BaseExpr implements Expr {
 
   /** Id returns the expression id. */
   public id(): number {
-    return Number(this.proto.id ?? 0n);
+    return protoExprId(this.proto.id ?? 0n);
   }
 
   /** Kind returns the active expression kind. */
@@ -991,6 +991,15 @@ export function entryExprToProto(entry: EntryExpr): Expr_CreateStruct_Entry {
   return (entry as BaseEntryExpr).toProto();
 }
 
+/** Reject IDs the local number-based AST cannot represent without merging distinct nodes. */
+export function protoExprId(id: bigint | string): number {
+  const value = Number(id);
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`expression id is outside the safe integer range: ${id}`);
+  }
+  return value;
+}
+
 /**
  * ProtoToEntryExpr converts a protobuf entry to the local representation.
  */
@@ -1000,14 +1009,14 @@ export function protoToEntryExpr(entry?: Expr_CreateStruct_Entry): EntryExpr {
   }
   if (entry.keyKind.case === "fieldKey") {
     return structFieldExpr(
-      Number(entry.id),
+      protoExprId(entry.id),
       entry.keyKind.value,
       protoToExpr(entry.value),
       entry.optionalEntry,
     );
   }
   return mapEntryExpr(
-    Number(entry.id),
+    protoExprId(entry.id),
     protoToExpr(entry.keyKind.value),
     protoToExpr(entry.value),
     entry.optionalEntry,
@@ -1023,50 +1032,50 @@ export function protoToExpr(expr?: ProtoExpr): Expr {
   }
   switch (expr.exprKind.case) {
     case "identExpr":
-      return identExpr(Number(expr.id), expr.exprKind.value.name);
+      return identExpr(protoExprId(expr.id), expr.exprKind.value.name);
     case "constExpr":
       if (expr.exprKind.value.constantKind.case === "uint64Value") {
-        return literalExpr(Number(expr.id), structuredClone(expr.exprKind.value));
+        return literalExpr(protoExprId(expr.id), structuredClone(expr.exprKind.value));
       }
       {
         const value = protoConstantToValue(expr.exprKind.value);
-        return literalExpr(Number(expr.id), value === undefined ? expr.exprKind.value : value);
+        return literalExpr(protoExprId(expr.id), value === undefined ? expr.exprKind.value : value);
       }
     case "callExpr":
       return callExpr(
-        Number(expr.id),
+        protoExprId(expr.id),
         expr.exprKind.value.function,
         expr.exprKind.value.args.map((arg) => protoToExpr(arg)),
         expr.exprKind.value.target ? protoToExpr(expr.exprKind.value.target) : undefined,
       );
     case "selectExpr":
       return selectExpr(
-        Number(expr.id),
+        protoExprId(expr.id),
         protoToExpr(expr.exprKind.value.operand),
         expr.exprKind.value.field,
         expr.exprKind.value.testOnly,
       );
     case "listExpr":
       return listExpr(
-        Number(expr.id),
+        protoExprId(expr.id),
         expr.exprKind.value.elements.map((element) => protoToExpr(element)),
         [...expr.exprKind.value.optionalIndices],
       );
     case "structExpr":
       if (expr.exprKind.value.messageName) {
         return structExpr(
-          Number(expr.id),
+          protoExprId(expr.id),
           expr.exprKind.value.messageName,
           expr.exprKind.value.entries.map((entry) => protoToEntryExpr(entry)),
         );
       }
       return mapExpr(
-        Number(expr.id),
+        protoExprId(expr.id),
         expr.exprKind.value.entries.map((entry) => protoToEntryExpr(entry)),
       );
     case "comprehensionExpr":
       return comprehensionExpr(
-        Number(expr.id),
+        protoExprId(expr.id),
         protoToExpr(expr.exprKind.value.iterRange),
         expr.exprKind.value.iterVar,
         expr.exprKind.value.iterVar2,
@@ -1077,6 +1086,6 @@ export function protoToExpr(expr?: ProtoExpr): Expr {
         protoToExpr(expr.exprKind.value.result),
       );
     default:
-      return unspecifiedExpr(Number(expr.id));
+      return unspecifiedExpr(protoExprId(expr.id));
   }
 }

@@ -128,6 +128,27 @@ describe("interpreter/async_test.go/TestTrackerRegistrationLookup", () => {
 });
 
 describe("interpreter/async_test.go/TestAsyncObserverLifecycle", () => {
+  it.each([
+    "onCallStarted",
+    "onCallFinished",
+  ] as const)("settles calls when %s throws", async (event) => {
+    const tracker = new AsyncCallTracker({
+      maxConcurrency: 1,
+      observer: {
+        [event]: () => {
+          throw new Error("observer failed");
+        },
+      },
+      signal: new AbortController().signal,
+    });
+    const first = tracker.computeResult(asyncResultOptions(1n));
+    const second = tracker.computeResult(asyncResultOptions(2n));
+    await tracker.waitForAny(asyncIds(first));
+    await tracker.waitForAny(asyncIds(second));
+    expect(tracker.computeResult(asyncResultOptions(1n))).toBeInstanceOf(Err);
+    expect(tracker.computeResult(asyncResultOptions(2n))).toBeInstanceOf(Err);
+  });
+
   it("notifies an observer when a call starts and finishes", async () => {
     const events: string[] = [];
     const tracker = new AsyncCallTracker({

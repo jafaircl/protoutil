@@ -61,7 +61,7 @@ import type {
 } from "./ref/provider.js";
 import type { Type as RefType, Val } from "./ref/reference.js";
 import { String as CelString } from "./string.js";
-import { Timestamp, timestampOf } from "./timestamp.js";
+import { parseTimestamp, Timestamp, timestampOf } from "./timestamp.js";
 import type { FieldTester, Indexer } from "./traits/index.js";
 import {
   AnyType,
@@ -1099,10 +1099,11 @@ function nativeToValue(adapter: Adapter, value: unknown): Val | undefined {
     case value instanceof Uint8Array:
       return new Bytes(value);
     case value instanceof Date:
-      return timestampOf(
-        BigInt(Math.trunc(value.getTime() / 1000)),
-        (value.getTime() % 1000) * 1_000_000,
-      );
+      try {
+        return parseTimestamp(value);
+      } catch (cause) {
+        return err((cause as Error).message);
+      }
     case Array.isArray(value):
       return dynamicList(adapter, value);
     case message !== undefined && message.$typeName === DurationSchema.typeName: {
@@ -1470,7 +1471,13 @@ function msgSetMapField(
       if (nativeValue === undefined || nativeValue === null) {
         continue;
       }
-      mapped[String(nativeKey)] = normalizeMapValue(field.valueType!, nativeValue);
+      // Map keys are data, including names that are setters on Object.prototype.
+      Object.defineProperty(mapped, String(nativeKey), {
+        value: normalizeMapValue(field.valueType!, nativeValue),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
     } catch (cause) {
       return fieldTypeConversionError(field, cause as Error);
     }

@@ -2,14 +2,7 @@ import { create, type MessageInitShape, type MessageShape } from "@bufbuild/prot
 import { AnySchema, NullValue as ProtoNullValue } from "@bufbuild/protobuf/wkt";
 import { Code } from "@protoutil/core/google/rpc";
 import type { Expr, SourceInfo } from "../common/ast/index.js";
-import {
-  AST,
-  ast,
-  exceedsDepth,
-  protoToExpr,
-  protoToSourceInfo,
-  toAst,
-} from "../common/ast/index.js";
+import { AST, ast, protoToExpr, protoToSourceInfo, toAst } from "../common/ast/index.js";
 import type { Source } from "../common/source.js";
 import { Bool } from "../common/types/bool.js";
 import { Bytes } from "../common/types/bytes.js";
@@ -88,6 +81,7 @@ export function checkedExprToAst(checkedExpr: CheckedExpr): AST {
  * Prefer {@link checkedExprToAst} when loading expressions from storage.
  */
 export function checkedExprToAstWithSource(checkedExpr: CheckedExpr, source?: Source): AST {
+  assertProtoAstLimits(checkedExpr.expr, checkedExpr.sourceInfo?.macroCalls);
   const checked = toAst(checkedExpr);
   const loaded = new AST(
     checked.expr(),
@@ -96,7 +90,6 @@ export function checkedExprToAstWithSource(checkedExpr: CheckedExpr, source?: So
     checked.referenceMap(),
     source,
   );
-  assertLoadedAstDepth(loaded);
   return loaded;
 }
 
@@ -143,22 +136,76 @@ export function parsedExprToAst(parsedExpr: ParsedExpr): AST {
  * Prefer {@link parsedExprToAst} when loading expressions from storage.
  */
 export function parsedExprToAstWithSource(parsedExpr: ParsedExpr, source?: Source): AST {
+  assertProtoAstLimits(parsedExpr.expr, parsedExpr.sourceInfo?.macroCalls);
   const loaded = ast(
     protoToExpr(parsedExpr.expr),
     protoToSourceInfo(parsedExpr.sourceInfo),
     source,
   );
-  assertLoadedAstDepth(loaded);
   return loaded;
 }
 
-/**
- * assertLoadedAstDepth guards protobuf-loaded ASTs which bypass parser recursion limits.
- */
-function assertLoadedAstDepth(astValue: AST): void {
-  const defaultMaxAstDepth = 250;
-  if (exceedsDepth(astValue, defaultMaxAstDepth)) {
-    throw new Error(`input exceeds maximum expression nesting depth: ${defaultMaxAstDepth}`);
+/** Validate external trees before recursive conversion, including expressions in macro metadata. */
+function assertProtoAstLimits(expr?: ProtoExpr, macroCalls: Record<string, ProtoExpr> = {}): void {
+  const maxDepth = 250;
+  const maxNodes = 100_000;
+  const pending: Array<{ expression: ProtoExpr; depth: number }> = [];
+  let nodes = 0;
+  const enqueue = (expression: ProtoExpr | undefined, depth: number): void => {
+    if (expression === undefined) {
+      return;
+    }
+    if (depth >= maxDepth) {
+      throw new Error(`input exceeds maximum expression nesting depth: ${maxDepth}`);
+    }
+    if (++nodes > maxNodes) {
+      throw new Error(`input exceeds maximum expression node count: ${maxNodes}`);
+    }
+    pending.push({ expression, depth });
+  };
+  enqueue(expr, 0);
+  for (const id in macroCalls) {
+    if (Object.hasOwn(macroCalls, id)) {
+      enqueue(macroCalls[id], 0);
+    }
+  }
+  while (pending.length > 0) {
+    const { expression, depth } = pending.pop()!;
+    for (const child of protoChildren(expression)) {
+      enqueue(child, depth + 1);
+    }
+  }
+}
+
+/** Enumerate protobuf children without recursion or copying attacker-controlled arrays. */
+function* protoChildren(expr: ProtoExpr): Generator<ProtoExpr | undefined> {
+  const kind = expr.exprKind;
+  switch (kind.case) {
+    case "callExpr":
+      yield kind.value.target;
+      yield* kind.value.args;
+      break;
+    case "selectExpr":
+      yield kind.value.operand;
+      break;
+    case "listExpr":
+      yield* kind.value.elements;
+      break;
+    case "structExpr":
+      for (const entry of kind.value.entries) {
+        if (entry.keyKind.case === "mapKey") {
+          yield entry.keyKind.value;
+        }
+        yield entry.value;
+      }
+      break;
+    case "comprehensionExpr":
+      yield kind.value.iterRange;
+      yield kind.value.accuInit;
+      yield kind.value.loopCondition;
+      yield kind.value.loopStep;
+      yield kind.value.result;
+      break;
   }
 }
 

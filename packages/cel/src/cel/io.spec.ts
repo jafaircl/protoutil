@@ -1,11 +1,16 @@
-import type { DescEnum, DescField, DescMessage } from "@bufbuild/protobuf";
+import { create, type DescEnum, type DescField, type DescMessage } from "@bufbuild/protobuf";
 import { TestAllTypesSchema } from "@protoutil/testing/cel/proto3";
 import { describe, expect, it } from "vitest";
 import { syncedCases } from "../common/spec-helpers.js";
 import { resolveSyncedExpr, resolveSyncedVal } from "../common/types/spec-helpers.js";
 import { CheckedExprSchema, Type_PrimitiveType } from "../gen/cel/expr/checked_pb.js";
 import { ExprValueSchema } from "../gen/cel/expr/eval_pb.js";
-import { ExprSchema, ParsedExprSchema, type Expr as ProtoExpr } from "../gen/cel/expr/syntax_pb.js";
+import {
+  ExprSchema,
+  ParsedExprSchema,
+  type Expr as ProtoExpr,
+  SourceInfoSchema,
+} from "../gen/cel/expr/syntax_pb.js";
 import { CheckedExprSchema as AlphaCheckedExprSchema } from "../gen/google/api/expr/v1alpha1/checked_pb.js";
 import { ExprValueSchema as AlphaExprValueSchema } from "../gen/google/api/expr/v1alpha1/eval_pb.js";
 import {
@@ -465,7 +470,7 @@ describe("cel/io_test.go/TestLoadedAstDepthLimit", () => {
     expect(() => celEnv.check(shallow, textSource("1 + 2"))).not.toThrow();
     expect(() => celEnv.program(shallow)).not.toThrow();
 
-    const deepExpr = deepBoolExpr(300);
+    const deepExpr = deepBoolExpr(10_000);
     expect(() =>
       parsedExprToAst({
         $typeName: "cel.expr.ParsedExpr",
@@ -484,7 +489,7 @@ describe("cel/io_test.go/TestLoadedAstDepthLimit", () => {
 
     // Embedders in full control of their AST inputs can skip the check by building the AST
     // through the common AST package directly rather than the CEL conversion helpers.
-    const bypass = ast(protoToExpr(deepExpr));
+    const bypass = ast(protoToExpr(deepBoolExpr(300)));
     expect(() => celEnv.program(bypass)).not.toThrow();
   });
 });
@@ -497,5 +502,34 @@ describe("cel/io_test.go/TestExpressionNestingDepthLimitConfigRoundTrip", () => 
       name: "cel.limit.max_ast_depth",
       value: 128,
     });
+  });
+});
+
+describe("external protobuf AST resource limits", () => {
+  it("checks macro metadata before recursively converting it", () => {
+    const sourceInfo = create(SourceInfoSchema);
+    sourceInfo.macroCalls["1"] = deepBoolExpr(10_000);
+    const parsed = create(ParsedExprSchema);
+    parsed.expr = deepBoolExpr(0);
+    parsed.sourceInfo = sourceInfo;
+    const checked = create(CheckedExprSchema);
+    checked.expr = parsed.expr;
+    checked.sourceInfo = sourceInfo;
+    expect(() => parsedExprToAst(parsed)).toThrow("maximum expression nesting depth");
+    expect(() => checkedExprToAstWithSource(checked)).toThrow("maximum expression nesting depth");
+  });
+
+  it("bounds wide trees and cycles before recursive conversion", () => {
+    const parsed = create(ParsedExprSchema);
+    parsed.expr = create(ExprSchema, {
+      exprKind: { case: "listExpr", value: { elements: new Array(100_000).fill(deepBoolExpr(0)) } },
+    });
+    expect(() => parsedExprToAst(parsed)).toThrow("maximum expression node count");
+    const cycle = deepBoolExpr(1);
+    if (cycle.exprKind.case === "callExpr") {
+      cycle.exprKind.value.args = [cycle];
+    }
+    parsed.expr = cycle;
+    expect(() => parsedExprToAst(parsed)).toThrow("maximum expression nesting depth");
   });
 });

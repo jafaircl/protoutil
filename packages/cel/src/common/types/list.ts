@@ -11,6 +11,7 @@ import { Int } from "./int.js";
 import { BaseIterator } from "./iterator.js";
 import { JSONListType, JSONValueType } from "./json-value.js";
 import { safeAddUint32 } from "./overflow.js";
+import { scalarFieldToValue } from "./pb/scalar.js";
 import type { Type as RefType, TypeAdapter, Val } from "./ref/index.js";
 import type { Folder, Lister, MutableLister, Iterator as TraitIterator } from "./traits/index.js";
 import { ListType, TypeType } from "./types.js";
@@ -40,7 +41,11 @@ export function dynamicList(adapter: TypeAdapter, value: unknown): Lister {
  * reflectedList adapts a Protobuf-ES reflected list without copying its values.
  */
 export function reflectedList(adapter: TypeAdapter, value: ReflectList): Lister {
-  return new BaseList(adapter, value, value.size, (index) => value.get(index));
+  const field = value.field();
+  return new BaseList(adapter, value, value.size, (index) => {
+    const element = value.get(index);
+    return field.listKind === "scalar" ? scalarFieldToValue(element, field.scalar) : element;
+  });
 }
 
 /**

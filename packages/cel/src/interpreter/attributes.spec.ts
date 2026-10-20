@@ -465,22 +465,35 @@ function resolveFixtureScalar(value: unknown): unknown {
   return resolveSyncedExpr({ $expr: expr.startsWith("types.") ? expr.slice(6) : expr });
 }
 
+// The sync format erases Go map key types; restore them before exercising native qualifiers.
+function fixtureMap(
+  entries: Array<readonly [unknown, unknown]>,
+): Record<string, unknown> | Map<unknown, unknown> {
+  return entries.some(([key]) => typeof key !== "string")
+    ? new Map(entries)
+    : Object.fromEntries(entries);
+}
+
 /**
  * resolveGoMapKey converts the small set of synced Go map-key expressions into JavaScript property keys.
  */
-function resolveGoMapKey(source: string): string {
+function resolveGoMapKey(source: string): string | bigint | boolean | number {
   const trimmed = source.trim().replace(/,$/, "");
   if (/^"(?:[^"\\]|\\.)*"$/.test(trimmed)) {
     return unquoteFixtureString(trimmed.slice(1, -1));
   }
   if (trimmed === "true" || trimmed === "false") {
-    return trimmed;
+    return trimmed === "true";
+  }
+  if (/^-?\d+$/.test(trimmed)) {
+    return BigInt(trimmed);
   }
   if (trimmed.startsWith("types.String(") && trimmed.endsWith(")")) {
     return (resolveFixtureScalar({ $expr: trimmed }) as CelString).value();
   }
   if (/^(?:int|uint|float)\d*\(/.test(trimmed)) {
-    return String(resolveFixtureScalar({ $expr: trimmed }));
+    const number = Number(trimmed.slice(trimmed.indexOf("(") + 1, -1));
+    return Number.isInteger(number) ? BigInt(number) : number;
   }
   return trimmed;
 }
@@ -521,7 +534,7 @@ function resolveGoNativeLiteral(source: string): unknown {
         }),
       );
     }
-    return Object.fromEntries(
+    return fixtureMap(
       splitFixtureArgs(body).map((entry) => {
         const separator = entry.indexOf(":");
         const keySource = entry.slice(0, separator);
@@ -648,7 +661,7 @@ function resolveStateValue(value: unknown): unknown {
     return value.map(resolveStateValue);
   }
   if (value && typeof value === "object" && !("$expr" in (value as Record<string, unknown>))) {
-    return Object.fromEntries(
+    return fixtureMap(
       Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
         resolveGoMapKey(key),
         resolveStateValue(entry),
@@ -669,9 +682,9 @@ function resolveFixtureValueTree(value: unknown): unknown {
     if ("$expr" in (value as Record<string, unknown>)) {
       return resolveFixtureScalar(value);
     }
-    return Object.fromEntries(
+    return fixtureMap(
       Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-        key,
+        resolveGoMapKey(key),
         resolveFixtureValueTree(entry),
       ]),
     );
@@ -693,7 +706,7 @@ function resolveAttributeStateCases(): AttributeStateCase[] {
       typeof testCase.in === "object" &&
       "$expr" in (testCase.in as Record<string, unknown>)
         ? resolveFixtureScalar(testCase.in)
-        : resolveSyncedExpr(testCase.in),
+        : resolveFixtureValueTree(testCase.in),
     out: resolveFixtureScalar(testCase.out) as Val,
     state: Object.fromEntries(
       Object.entries((testCase.state as Record<string, unknown>) ?? {}).map(([id, value]) => [
@@ -752,7 +765,7 @@ function resolveQualifyIfPresentObject(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return value;
   }
-  return Object.fromEntries(
+  return fixtureMap(
     Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
       resolveGoMapKey(key),
       entry,
@@ -791,11 +804,7 @@ describe("interpreter/attributes_test.go", () => {
       const vars = activation({
         bindings: {
           "acme.a": {
-            b: {
-              4: {
-                false: "success",
-              },
-            },
+            b: new Map([[4n, new Map([[false, "success"]])]]),
           },
         },
       });
@@ -853,9 +862,7 @@ describe("interpreter/attributes_test.go", () => {
         provider: protoTestRegistry,
       });
       const data = {
-        a: {
-          [-1]: [2, 42],
-        },
+        a: new Map([[-1n, [2, 42]]]),
         b: 1,
       };
       const vars = activation({ bindings: data });
@@ -881,9 +888,7 @@ describe("interpreter/attributes_test.go", () => {
         provider: protoTestRegistry,
       });
       const data = {
-        a: {
-          [-1]: [2, 42],
-        },
+        a: new Map([[-1n, [2, 42]]]),
         "acme.b": 1,
       };
       const vars = activation({ bindings: data });
@@ -909,9 +914,7 @@ describe("interpreter/attributes_test.go", () => {
         provider: protoTestRegistry,
       });
       const data = {
-        a: {
-          [-1]: [2, 42],
-        },
+        a: new Map([[-1n, [2, 42]]]),
         b: [0, 1],
         c: [1, 0],
       };
@@ -945,21 +948,15 @@ describe("interpreter/attributes_test.go", () => {
         provider: protoTestRegistry,
       });
       const data = {
-        a: {
-          [-1]: {
-            first: 1n,
-            second: 2n,
-            third: 3n,
-          },
-        },
+        a: new Map([[-1n, { first: 1n, second: 2n, third: 3n }]]),
         b: 2n,
       };
       const vars = activation({ bindings: data });
-      const mp = {
-        1: "first",
-        2: "second",
-        3: "third",
-      };
+      const mp = new Map([
+        [1n, "first"],
+        [2n, "second"],
+        [3n, "third"],
+      ]);
       const relAttr = attrs.relativeAttribute(
         4,
         constValue({ id: 4, value: protoTestRegistry.nativeToValue(mp) }),
@@ -1013,13 +1010,9 @@ describe("interpreter/attributes_test.go", () => {
       });
       const vars = activation({
         bindings: {
-          a: {
-            [-1]: [2, 42],
-          },
+          a: new Map([[-1n, [2, 42]]]),
           b: {
-            c: {
-              [-1]: [2n, 42n],
-            },
+            c: new Map([[-1n, [2n, 42n]]]),
           },
         },
       });
@@ -1045,13 +1038,9 @@ describe("interpreter/attributes_test.go", () => {
       });
       const vars = activation({
         bindings: {
-          a: {
-            [-1]: [2, 42],
-          },
+          a: new Map([[-1n, [2, 42]]]),
           b: {
-            c: {
-              [-1]: [2n, 42n],
-            },
+            c: new Map([[-1n, [2n, 42n]]]),
           },
         },
       });

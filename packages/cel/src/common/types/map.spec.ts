@@ -32,6 +32,18 @@ import type { Mapper } from "./traits/index.js";
 import { ListType, MapType, TypeType } from "./types.js";
 
 describe("map", () => {
+  it("preserves __proto__ as data when converting a CEL map to protobuf Struct", () => {
+    const map = stringInterfaceMap(registry(), JSON.parse('{"__proto__":true}'));
+    const converted = map.convertToNative(StructSchema) as ReturnType<typeof jsonStruct>;
+    expect(Object.hasOwn(converted.fields, "__proto__")).toBe(true);
+    expect(converted.fields.__proto__!.kind).toEqual({ case: "boolValue", value: true });
+  });
+
+  it("rejects non-string JSON object keys rather than silently stringifying them", () => {
+    const map = dynamicMap(registry(), new Map([[1n, "uno"]]));
+    expect(() => map.convertToNative(StructSchema)).toThrow("bad key type");
+  });
+
   it("common/types/map_test.go/TestStringMapContains", () => {
     const mapVal = dynamicMap(registry(), { first: "hello", second: "world" });
     expect(mapVal.contains(new CelString("first"))).toEqual(True);
@@ -41,8 +53,20 @@ describe("map", () => {
 
   it("common/types/map_test.go/TestMapContains", () => {
     const reg = registry([createMessage(Proto3TestAllTypesSchema), Proto3TestAllTypesSchema]);
-    const reflectMap = dynamicMap(reg, { 1: "hello", 2: "world" });
-    const refValMap = dynamicMap(reg, { 1: "hello", 2: "world" });
+    const reflectMap = dynamicMap(
+      reg,
+      new Map([
+        [1n, "hello"],
+        [2n, "world"],
+      ]),
+    );
+    const refValMap = dynamicMap(
+      reg,
+      new Map([
+        [1n, "hello"],
+        [2n, "world"],
+      ]),
+    );
     const protoObject = reg.nativeToValue(
       createMessage(Proto3TestAllTypesSchema, {
         mapInt64NestedType: {
@@ -273,7 +297,10 @@ describe("map", () => {
   it("common/types/map_test.go/TestDynamicMapGet", () => {
     expectNestedMapLookups(
       dynamicMap(registry(), {
-        nested: { 1: new Double(-1), 2: new Double(2) },
+        nested: new Map([
+          [1n, new Double(-1)],
+          [2n, new Double(2)],
+        ]),
         empty: {},
       }),
     );
@@ -282,7 +309,10 @@ describe("map", () => {
   it("common/types/map_test.go/TestStringIfaceMapGet", () => {
     expectNestedMapLookups(
       stringInterfaceMap(registry(), {
-        nested: { 1: new Double(-1), 2: new Double(2) },
+        nested: new Map([
+          [1n, new Double(-1)],
+          [2n, new Double(2)],
+        ]),
         empty: {},
       }),
     );

@@ -1,6 +1,7 @@
-import { type DescMessage, isMessage, type MessageShape } from "@bufbuild/protobuf";
-import { getField } from "@protoutil/core";
-import type { Adapter } from "../common/types/provider.js";
+import { type DescMessage, isMessage } from "@bufbuild/protobuf";
+import { reflect } from "@bufbuild/protobuf/reflect";
+import { protoFieldToValue } from "../common/types/object.js";
+import { type Adapter, DefaultTypeAdapter } from "../common/types/provider.js";
 import type { Val } from "../common/types/ref/reference.js";
 import { Unknown } from "../common/types/unknown.js";
 import type { Activation } from "../interpreter/activation.js";
@@ -403,9 +404,11 @@ export class EvalProgram implements Program {
       );
     }
     const bindings: Record<string, unknown> = {};
+    const message = reflect(schema, input);
     for (const field of schema.fields) {
-      bindings[this.options.jsonFieldNames ? field.jsonName : field.name] = getField(
-        input as MessageShape<typeof schema>,
+      bindings[this.options.jsonFieldNames ? field.jsonName : field.name] = protoFieldToValue(
+        this.options.adapter ?? DefaultTypeAdapter,
+        message,
         field,
       );
     }

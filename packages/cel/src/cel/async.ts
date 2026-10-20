@@ -90,32 +90,33 @@ export function drainReady(debounceMs: number): DrainStrategy {
  */
 export function timeout(options: TimeoutOptions): AsyncOp {
   return async (signal, ...args) => {
+    if (signal.aborted) {
+      return new Err("operation cancelled");
+    }
     const controller = new AbortController();
     const abort = () => controller.abort(signal.reason);
+    let onAbort: () => void;
+    // Install cancellation before invoking user code, which may synchronously abort its caller.
+    const cancelled = new Promise<Val>((resolve) => {
+      onAbort = () => {
+        const message = signal.aborted
+          ? "operation cancelled"
+          : `operation timed out after ${options.timeoutMs}ms`;
+        resolve(new Err(message));
+      };
+      controller.signal.addEventListener("abort", onAbort, { once: true });
+    });
     signal.addEventListener("abort", abort, { once: true });
     const timer = globalThis.setTimeout(
       () => controller.abort(new Error("operation timed out")),
       options.timeoutMs,
     );
     try {
-      return await Promise.race([
-        options.binding(controller.signal, ...args),
-        new Promise<Val>((resolve) => {
-          controller.signal.addEventListener(
-            "abort",
-            () => {
-              const message = signal.aborted
-                ? "operation cancelled"
-                : `operation timed out after ${options.timeoutMs}ms`;
-              resolve(new Err(message));
-            },
-            { once: true },
-          );
-        }),
-      ]);
+      return await Promise.race([options.binding(controller.signal, ...args), cancelled]);
     } finally {
       globalThis.clearTimeout(timer);
       signal.removeEventListener("abort", abort);
+      controller.signal.removeEventListener("abort", onAbort!);
     }
   };
 }
@@ -134,6 +135,9 @@ export function retry(options: RetryOptions): AsyncOp {
         if (cancelled) {
           return new Err("operation cancelled during retry");
         }
+      }
+      if (signal.aborted) {
+        return new Err("operation cancelled during retry");
       }
       last = await options.binding(signal, ...args);
       if (!isError(last)) {
