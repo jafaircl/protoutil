@@ -93,6 +93,16 @@ pnpm --filter @protoutil/core run build
 pnpm -r run build
 ```
 
+### Documentation builds
+
+From the repository root, build the documentation and its workspace prerequisites:
+
+```sh
+pnpm build:docs
+```
+
+For Cloudflare Pages, use `pnpm build:docs` as the build command, the repository root as the root directory, and `docs/dist` as the build output directory. The command includes CEL and CELQL and runs package builds in dependency order. Cloudflare already installs dependencies before running the build command.
+
 ### Moon Tasks
 
 This project uses [Moon](https://moonrepo.dev/) as a task runner. Common tasks available per package:

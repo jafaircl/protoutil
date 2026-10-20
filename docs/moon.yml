@@ -53,6 +53,9 @@ tasks:
       - 'aipql:build'
       - 'repo:build'
       - 'angular:build'
+      - 'pubsub:build'
+      - 'cel:build'
+      - 'celql:build'
     inputs:
       - 'src/**/*'
       - 'astro.config.mjs'

@@ -42,6 +42,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "dependencies": {
+    "@bufbuild/protobuf": "^2.15.0",
     "@protoutil/aip": "workspace:*",
     "@protoutil/core": "workspace:*"
   }
